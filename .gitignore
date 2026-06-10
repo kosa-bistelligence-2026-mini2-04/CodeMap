@@ -246,3 +246,7 @@ pip-selfcheck.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,git,venv,python,jupyternotebooks,react
+
+### SSL Certificates ###
+certs/
+mkcert.exe
