@@ -1,0 +1,1 @@
+pnpm lint && pnpm format:check && pnpm typecheck && pnpm --filter @repo/api test && pnpm build

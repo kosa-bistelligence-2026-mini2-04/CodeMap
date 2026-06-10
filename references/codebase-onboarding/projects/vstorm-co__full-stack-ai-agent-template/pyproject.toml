@@ -1,0 +1,185 @@
+[project]
+name = "fastapi-fullstack"
+version = "0.2.10"
+description = "Full-stack FastAPI + Next.js template generator with PydanticAI/LangChain agents, WebSocket streaming, 20+ enterprise integrations, and Logfire/LangSmith observability. Ship AI apps fast. CLI tool to generate production-ready FastAPI + Next.js projects with AI agents, auth, and observability."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Vstorm", email = "hr@vstorm.co" }]
+keywords = [
+    "fastapi",
+    "nextjs",
+    "react",
+    "python",
+    "typescript",
+    "template",
+    "cookiecutter",
+    "full-stack",
+    "postgresql",
+    "mongodb",
+    "redis",
+    "docker",
+    "celery",
+    "ai-agents",
+    "llm",
+    "pydantic-ai",
+    "langchain",
+    "langgraph",
+    "logfire",
+    "observability",
+    "milvus",
+    "rag",
+    "retrieval-augmented-generation",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+]
+
+dependencies = [
+    "click>=8.3.0",
+    "cookiecutter>=2.7.0",
+    "rich>=15.0.0",
+    "questionary>=2.1.0",
+    "pydantic>=2.13.0",
+    "pydantic-settings>=2.13.0",
+    "email-validator>=2.3.0",
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "celery>=5.6.3",
+    "taskiq>=0.12.4",
+    "arq>=0.28.0",
+    "stripe>=15.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.0",
+    "ty>=0.0.31",
+    "pre-commit>=4.0.0",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.0",
+    "pymdown-extensions>=10.20",
+]
+
+[project.scripts]
+fastapi-fullstack = "fastapi_gen.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/vstorm-co/full-stack-ai-agent-template"
+Documentation = "https://github.com/vstorm-co/full-stack-ai-agent-template#readme"
+Repository = "https://github.com/vstorm-co/full-stack-ai-agent-template"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fastapi_gen"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"template" = "fastapi_gen/template"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "fastapi_gen/",
+    "template/",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+# Exclude Jinja2 template files and generated test projects
+exclude = [
+    "template",
+    "test",
+    "test_*",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults
+    "B905",   # zip without explicit strict
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG002"]  # Unused method arguments are common in test fixtures
+
+[tool.ruff.lint.isort]
+known-first-party = ["fastapi_gen"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.src]
+# Exclude Jinja2 template files, integration tests with dynamic imports,
+# and the generated-project snapshot (it's a standalone FastAPI app with its
+# own backend/pyproject.toml deps — type-checking it from the root env
+# produces noise from unresolved imports of fastapi/sqlalchemy/etc.).
+exclude = [
+    "template/",
+    "tests/",
+    "ai_agent_test/",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.coverage.run]
+source = ["fastapi_gen"]
+omit = [
+    "template/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+[dependency-groups]
+dev = [
+    "ty>=0.0.31",
+    "pytest-cov>=7.1.0",
+    "sqlalchemy>=2.0.49",
+]

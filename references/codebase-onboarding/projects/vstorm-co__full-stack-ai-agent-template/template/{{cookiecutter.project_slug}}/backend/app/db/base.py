@@ -1,0 +1,77 @@
+{%- if cookiecutter.use_postgresql or cookiecutter.use_sqlite %}
+{%- if cookiecutter.use_sqlmodel %}
+"""SQLModel base model."""
+
+from datetime import datetime
+
+from sqlalchemy import DateTime, MetaData, func
+from sqlmodel import Field, SQLModel
+
+# Naming convention for database constraints and indexes
+# This ensures consistent naming across all migrations
+NAMING_CONVENTION = {
+    "ix": "%(column_0_label)s_idx",
+    "uq": "%(table_name)s_%(column_0_name)s_key",
+    "ck": "%(table_name)s_%(constraint_name)s_check",
+    "fk": "%(table_name)s_%(column_0_name)s_fkey",
+    "pk": "%(table_name)s_pkey",
+}
+
+# Apply naming convention to SQLModel metadata
+SQLModel.metadata.naming_convention = NAMING_CONVENTION
+
+
+class TimestampMixin(SQLModel):
+    """Mixin for created_at and updated_at timestamps."""
+
+    created_at: datetime = Field(
+        sa_type=DateTime(timezone=True),
+        sa_column_kwargs={"server_default": func.now(), "nullable": False},
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),
+        sa_column_kwargs={"onupdate": func.now(), "nullable": True},
+    )
+{%- else %}
+"""SQLAlchemy base model."""
+
+from datetime import datetime
+
+from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+# Naming convention for database constraints and indexes
+# This ensures consistent naming across all migrations
+NAMING_CONVENTION = {
+    "ix": "%(column_0_label)s_idx",
+    "uq": "%(table_name)s_%(column_0_name)s_key",
+    "ck": "%(table_name)s_%(constraint_name)s_check",
+    "fk": "%(table_name)s_%(column_0_name)s_fkey",
+    "pk": "%(table_name)s_pkey",
+}
+
+
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models."""
+
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+class TimestampMixin:
+    """Mixin for created_at and updated_at timestamps."""
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        onupdate=func.now(),
+        nullable=True,
+    )
+{%- endif %}
+{%- else %}
+"""Database base - not using SQLAlchemy."""
+{%- endif %}

@@ -1,0 +1,702 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # Stage 1: Core CI (lint, type-check, test, security)
+  # ============================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run ruff check
+        run: uv run ruff check .
+
+      - name: Run ruff format check
+        run: uv run ruff format --check .
+
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run ty
+        run: uv run ty check
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=fastapi_gen --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v6
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Install pip-audit
+        run: uv pip install pip-audit
+
+      - name: Run pip-audit
+        run: uv run pip-audit --progress-spinner=off --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-25645 --ignore-vuln CVE-2025-71176 --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-45409
+
+  # ============================================
+  # Stage 2: Generated Project Tests
+  # ============================================
+  generate-minimal:
+    name: Template - Minimal (SQLite)
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate minimal project
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_minimal --minimal -o /tmp/projects
+
+      - name: Install generated project
+        working-directory: /tmp/projects/test_minimal/backend
+        run: uv sync --extra dev
+
+      - name: Run linting
+        working-directory: /tmp/projects/test_minimal/backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type check
+        working-directory: /tmp/projects/test_minimal/backend
+        run: uv run ty check
+
+      - name: Run tests
+        working-directory: /tmp/projects/test_minimal/backend
+        run: uv run pytest -v
+
+  generate-postgresql:
+    name: Template - PostgreSQL + Celery + RAG
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate PostgreSQL project with RAG
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_pg \
+            --database postgresql \
+            --task-queue celery \
+            --redis \
+            --rag \
+            --admin-panel \
+            --session-management \
+            --frontend nextjs \
+            -o /tmp/projects
+
+      - name: Install backend
+        working-directory: /tmp/projects/test_pg/backend
+        run: uv sync --extra dev
+
+      - name: Run backend linting
+        working-directory: /tmp/projects/test_pg/backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run backend type check
+        working-directory: /tmp/projects/test_pg/backend
+        run: uv run ty check
+
+      - name: Run backend tests
+        working-directory: /tmp/projects/test_pg/backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          SECRET_KEY: test-secret-key-for-ci-that-is-long-enough
+        run: uv run pytest -v
+
+  generate-mongodb:
+    name: Template - MongoDB
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate MongoDB project
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_mongo \
+            --database mongodb \
+            --task-queue none \
+            -o /tmp/projects
+
+      - name: Install generated project
+        working-directory: /tmp/projects/test_mongo/backend
+        run: uv sync --extra dev
+
+      - name: Run linting
+        working-directory: /tmp/projects/test_mongo/backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type check
+        working-directory: /tmp/projects/test_mongo/backend
+        run: uv run ty check
+
+      - name: Run tests
+        working-directory: /tmp/projects/test_mongo/backend
+        env:
+          MONGO_URL: mongodb://localhost:27017
+          MONGO_DB: test_db
+          SECRET_KEY: test-secret-key-for-ci-that-is-long-enough
+        run: uv run pytest -v
+
+  generate-pg-billing:
+    name: Template - PostgreSQL + Teams + Billing
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate project with billing (no credits)
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_pg_billing \
+            --database postgresql \
+            --teams \
+            --billing \
+            --redis \
+            --admin-panel \
+            -o /tmp/projects
+
+      - name: Install backend
+        working-directory: /tmp/projects/test_pg_billing/backend
+        run: uv sync --extra dev
+
+      - name: Run linting
+        working-directory: /tmp/projects/test_pg_billing/backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type check
+        working-directory: /tmp/projects/test_pg_billing/backend
+        run: uv run ty check
+
+      - name: Run tests
+        working-directory: /tmp/projects/test_pg_billing/backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          SECRET_KEY: test-secret-key-for-ci-that-is-long-enough
+        run: uv run pytest -v
+
+  generate-pg-billing-credits:
+    name: Template - PostgreSQL + Teams + Billing + Credits
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate project with billing + credits
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_pg_credits \
+            --database postgresql \
+            --teams \
+            --billing \
+            --credits \
+            --redis \
+            --admin-panel \
+            -o /tmp/projects
+
+      - name: Install backend
+        working-directory: /tmp/projects/test_pg_credits/backend
+        run: uv sync --extra dev
+
+      - name: Run linting
+        working-directory: /tmp/projects/test_pg_credits/backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type check
+        working-directory: /tmp/projects/test_pg_credits/backend
+        run: uv run ty check
+
+      - name: Run tests
+        working-directory: /tmp/projects/test_pg_credits/backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          SECRET_KEY: test-secret-key-for-ci-that-is-long-enough
+        run: uv run pytest -v
+
+  generate-pg-langchain:
+    name: Template - PostgreSQL + LangChain
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate project with LangChain
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_pg_langchain \
+            --database postgresql \
+            --ai-framework langchain \
+            -o /tmp/projects
+
+      - name: Install backend
+        working-directory: /tmp/projects/test_pg_langchain/backend
+        run: uv sync --extra dev
+
+      - name: Run linting
+        working-directory: /tmp/projects/test_pg_langchain/backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type check
+        working-directory: /tmp/projects/test_pg_langchain/backend
+        run: uv run ty check
+
+      - name: Run tests
+        working-directory: /tmp/projects/test_pg_langchain/backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+          SECRET_KEY: test-secret-key-for-ci-that-is-long-enough
+        run: uv run pytest -v
+
+  generate-mongodb-teams:
+    name: Template - MongoDB + Teams
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate MongoDB project with teams
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_mongo_teams \
+            --database mongodb \
+            --teams \
+            --task-queue none \
+            -o /tmp/projects
+
+      - name: Install generated project
+        working-directory: /tmp/projects/test_mongo_teams/backend
+        run: uv sync --extra dev
+
+      - name: Run linting
+        working-directory: /tmp/projects/test_mongo_teams/backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type check
+        working-directory: /tmp/projects/test_mongo_teams/backend
+        run: uv run ty check
+
+      - name: Run tests
+        working-directory: /tmp/projects/test_mongo_teams/backend
+        env:
+          MONGO_URL: mongodb://localhost:27017
+          MONGO_DB: test_db
+          SECRET_KEY: test-secret-key-for-ci-that-is-long-enough
+        run: uv run pytest -v
+
+  generate-sqlite-teams:
+    name: Template - SQLite + Teams + Billing
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate SQLite project with teams + billing
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_sqlite_teams \
+            --database sqlite \
+            --teams \
+            --billing \
+            --admin-panel \
+            -o /tmp/projects
+
+      - name: Install generated project
+        working-directory: /tmp/projects/test_sqlite_teams/backend
+        run: uv sync --extra dev
+
+      - name: Run linting
+        working-directory: /tmp/projects/test_sqlite_teams/backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run type check
+        working-directory: /tmp/projects/test_sqlite_teams/backend
+        run: uv run ty check
+
+      - name: Run tests
+        working-directory: /tmp/projects/test_sqlite_teams/backend
+        env:
+          SECRET_KEY: test-secret-key-for-ci-that-is-long-enough
+        run: uv run pytest -v
+
+  # ============================================
+  # Stage 3: Frontend Tests
+  # ============================================
+  generate-frontend:
+    name: Template - Frontend (Next.js)
+    needs: [lint, type-check, test, security]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install generator
+        run: uv sync
+
+      - name: Generate project with frontend
+        run: |
+          mkdir -p /tmp/projects
+          uv run fastapi-fullstack create test_frontend \
+            --frontend nextjs \
+            --rag \
+            --task-queue celery \
+            --redis \
+            -o /tmp/projects
+
+      - name: Install frontend dependencies
+        working-directory: /tmp/projects/test_frontend/frontend
+        run: bun install
+
+      - name: Run lint
+        working-directory: /tmp/projects/test_frontend/frontend
+        run: bun run lint
+
+      - name: Run type check
+        working-directory: /tmp/projects/test_frontend/frontend
+        run: bun run type-check
+
+      - name: Run unit tests
+        working-directory: /tmp/projects/test_frontend/frontend
+        run: bun run test:run

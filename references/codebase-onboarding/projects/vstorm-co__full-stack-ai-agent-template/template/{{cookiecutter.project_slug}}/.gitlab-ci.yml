@@ -1,0 +1,178 @@
+{%- if cookiecutter.use_gitlab_ci %}
+# GitLab CI/CD Pipeline for {{ cookiecutter.project_name }}
+
+stages:
+  - lint
+  - test
+  - security
+{%- if cookiecutter.enable_docker %}
+  - build
+{%- endif %}
+
+variables:
+  PYTHON_VERSION: "{{ cookiecutter.python_version }}"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+
+# Cache configuration
+.cache_config: &cache_config
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - .cache/pip
+      - .cache/uv
+      - backend/.venv
+
+# Base Python job template
+.python_base:
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - pip install uv
+    - cd backend
+    - uv sync --dev
+  <<: *cache_config
+
+# =============================================================================
+# Lint Stage
+# =============================================================================
+
+ruff-check:
+  stage: lint
+  extends: .python_base
+  script:
+    - uv run ruff check app tests cli
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+ruff-format:
+  stage: lint
+  extends: .python_base
+  script:
+    - uv run ruff format app tests cli --check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+ty:
+  stage: lint
+  extends: .python_base
+  script:
+    - uv run ty check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# =============================================================================
+# Test Stage
+# =============================================================================
+
+test:
+  stage: test
+  image: python:${PYTHON_VERSION}-slim
+{%- if cookiecutter.use_postgresql or cookiecutter.enable_redis %}
+  services:
+{%- if cookiecutter.use_postgresql %}
+    - name: postgres:16-alpine
+      alias: postgres
+      variables:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_DB: test_db
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+    - name: redis:7-alpine
+      alias: redis
+{%- endif %}
+{%- endif %}
+  variables:
+{%- if cookiecutter.use_postgresql %}
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_DB: test_db
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+{%- endif %}
+  before_script:
+    - pip install uv
+    - cd backend
+    - uv sync --dev
+  script:
+    - uv run pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: backend/coverage.xml
+    expire_in: 1 week
+  <<: *cache_config
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# =============================================================================
+# Security Stage
+# =============================================================================
+
+security-scan:
+  stage: security
+  extends: .python_base
+  script:
+    - uv pip install pip-audit
+    - uv run pip-audit --require-hashes=false --progress-spinner=off
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+{%- if cookiecutter.enable_docker %}
+
+# =============================================================================
+# Build Stage
+# =============================================================================
+
+docker-build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker info
+  script:
+    - docker build -t {{ cookiecutter.project_slug }}:$CI_COMMIT_SHORT_SHA ./backend
+    - docker tag {{ cookiecutter.project_slug }}:$CI_COMMIT_SHORT_SHA {{ cookiecutter.project_slug }}:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Optional: Push to GitLab Container Registry
+# Uncomment and configure as needed
+#
+# docker-push:
+#   stage: build
+#   image: docker:24
+#   services:
+#     - docker:24-dind
+#   variables:
+#     DOCKER_TLS_CERTDIR: "/certs"
+#   before_script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+#   script:
+#     - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA ./backend
+#     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+#     - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
+#     - docker push $CI_REGISTRY_IMAGE:latest
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#   needs:
+#     - docker-build
+{%- endif %}
+{%- else %}
+# GitLab CI is disabled for this project
+{%- endif %}

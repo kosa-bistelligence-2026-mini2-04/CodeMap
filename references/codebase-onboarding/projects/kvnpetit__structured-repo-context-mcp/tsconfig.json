@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    // Language & Environment
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+
+    // Module Resolution
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+
+    // Strict Type-Checking (strict: true enables all below)
+    "strict": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Code Quality
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    // Types (node + test globals)
+    "types": ["node", "vitest/globals"],
+
+    // Path Aliases
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@core": ["src/core"],
+      "@core/*": ["src/core/*"],
+      "@features": ["src/features"],
+      "@features/*": ["src/features/*"],
+      "@tools": ["src/tools"],
+      "@tools/*": ["src/tools/*"],
+      "@resources": ["src/resources"],
+      "@resources/*": ["src/resources/*"],
+      "@prompts": ["src/prompts"],
+      "@prompts/*": ["src/prompts/*"],
+      "@cli": ["src/cli"],
+      "@cli/*": ["src/cli/*"],
+      "@config": ["src/config"],
+      "@types": ["src/types"],
+      "@types/*": ["src/types/*"],
+      "@utils": ["src/utils"],
+      "@utils/*": ["src/utils/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "*.config.ts", "*.config.mjs"]
+}

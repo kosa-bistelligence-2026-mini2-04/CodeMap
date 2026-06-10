@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Chat for GitHub</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff; --surface: #f6f8fa; --border: #d0d7de;
+    --text: #1f2328; --text-muted: #656d76; --accent: #0969da;
+    --accent-hover: #0550ae; --green: #1a7f37; --red: #cf222e;
+    --user-msg: #0969da; --code-bg: rgba(175,184,193,0.2);
+    --tool-call-bg: rgba(9,105,218,0.06); --tool-call-border: rgba(9,105,218,0.2);
+    --tool-result-bg: rgba(26,127,55,0.06); --tool-result-border: rgba(26,127,55,0.2);
+    --radius: 8px; --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --text: #e6edf3; --text-muted: #8b949e; --accent: #58a6ff;
+      --accent-hover: #79c0ff; --green: #3fb950; --red: #f85149;
+      --user-msg: #1f6feb; --code-bg: rgba(110,118,129,0.2);
+      --tool-call-bg: rgba(88,166,255,0.08); --tool-call-border: rgba(88,166,255,0.2);
+      --tool-result-bg: rgba(63,185,80,0.08); --tool-result-border: rgba(63,185,80,0.2);
+    }
+  }
+
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Sidebar ────────────────────────────────────────────────────── */
+  .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); height: 100vh; display: flex; flex-direction: column; flex-shrink: 0; position: fixed; left: 0; top: 0; z-index: 50; }
+  .sidebar-header { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; }
+  .sidebar-header h2 { font-size: 0.85rem; flex: 1; }
+  .sidebar-list { flex: 1; overflow-y: auto; padding: 0.5rem; }
+  .sidebar-footer { padding: 0.5rem; border-top: 1px solid var(--border); }
+  .sidebar-item { padding: 0.6rem 0.75rem; border-radius: var(--radius); cursor: pointer; margin-bottom: 2px; display: flex; flex-direction: column; gap: 0.15rem; position: relative; }
+  .sidebar-item:hover { background: var(--bg); }
+  .sidebar-item.active { background: var(--bg); border: 1px solid var(--border); }
+  .sidebar-item .conv-title { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-item .conv-date { font-size: 0.7rem; color: var(--text-muted); }
+  .sidebar-item .conv-delete { display: none; position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; padding: 0.15rem 0.35rem; line-height: 1; }
+  .sidebar-item:hover .conv-delete { display: block; }
+  .sidebar-item .conv-delete:hover { color: var(--red); border-color: var(--red); }
+  .sidebar-empty { padding: 1rem; color: var(--text-muted); font-size: 0.8rem; text-align: center; }
+
+  .app-layout { display: flex; margin-left: 260px; min-height: 100vh; flex: 1; }
+  .app-main { flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── Setup screen ─────────────────────────────────────────────────── */
+  #setup { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  #setup h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+  #setup p.sub { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; width: 100%; max-width: 480px; }
+  .card label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+  .card input, .card select { width: 100%; padding: 0.6rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.95rem; margin-bottom: 1rem; outline: none; }
+  .card input:focus, .card select:focus { border-color: var(--accent); }
+  .separator { text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; }
+
+  .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.25rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 0.9rem; cursor: pointer; transition: all 0.15s; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+  .btn-row { display: flex; gap: 0.75rem; margin-top: 0.5rem; }
+
+  .auth-status { margin-bottom: 1.5rem; font-size: 0.85rem; }
+  .auth-status.ok { color: var(--green); }
+  .auth-status.no { color: var(--text-muted); }
+  #error { color: var(--red); font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.2em; }
+
+  /* ── Chat screen ──────────────────────────────────────────────────── */
+  #chat { display: none; flex-direction: column; height: 100vh; }
+
+  .topbar { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .topbar .repo-name { font-weight: 600; font-size: 0.95rem; }
+  .topbar .spacer { flex: 1; }
+
+  .messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  .msg { max-width: 85%; padding: 0.75rem 1rem; border-radius: var(--radius); line-height: 1.55; font-size: 0.9rem; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: var(--user-msg); color: #fff; border-bottom-right-radius: 2px; white-space: pre-wrap; }
+  .msg.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
+  .msg.assistant pre { background: var(--bg); padding: 0.75rem; border-radius: 4px; overflow-x: auto; margin: 0.5rem 0; font-family: var(--mono); font-size: 0.8rem; }
+  .msg.assistant code { font-family: var(--mono); font-size: 0.85em; background: var(--code-bg); padding: 0.15em 0.35em; border-radius: 3px; }
+  .msg.assistant pre code { background: none; padding: 0; }
+  .msg.assistant h1, .msg.assistant h2, .msg.assistant h3, .msg.assistant h4, .msg.assistant h5, .msg.assistant h6 { margin: 0.75rem 0 0.25rem; line-height: 1.3; }
+  .msg.assistant h1 { font-size: 1.3em; } .msg.assistant h2 { font-size: 1.15em; } .msg.assistant h3 { font-size: 1.05em; }
+  .msg.assistant ul, .msg.assistant ol { margin: 0.25rem 0; padding-left: 1.5rem; }
+  .msg.assistant li { margin: 0.15rem 0; }
+  .msg.assistant blockquote { border-left: 3px solid var(--border); padding-left: 0.75rem; margin: 0.5rem 0; color: var(--text-muted); }
+  .msg.assistant table { border-collapse: collapse; margin: 0.5rem 0; width: 100%; }
+  .msg.assistant th, .msg.assistant td { border: 1px solid var(--border); padding: 0.35rem 0.6rem; text-align: left; font-size: 0.85rem; }
+  .msg.assistant th { background: var(--bg); }
+  .msg.assistant hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
+  .msg.assistant a { color: var(--accent); text-decoration: none; }
+  .msg.assistant a:hover { text-decoration: underline; }
+  .msg.assistant img { max-width: 100%; border-radius: 4px; }
+  .msg.assistant p { margin: 0.25rem 0; }
+
+  .tool-call { align-self: flex-start; max-width: 85%; padding: 0.5rem 0.75rem; border-radius: var(--radius); background: var(--tool-call-bg); border: 1px solid var(--tool-call-border); font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+  .tool-call .label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tool-call .tool-tokens { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem; }
+  .tool-call .tool-tokens.error { color: var(--red); }
+
+  .token-bar { display: none; padding: 0.35rem 1rem; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; font-size: 0.75rem; font-family: var(--mono); color: var(--text-muted); gap: 1.5rem; }
+  .token-bar.visible { display: flex; }
+  .token-bar span { white-space: nowrap; }
+  .token-bar .total { color: var(--accent); font-weight: 600; }
+
+  .input-area { display: flex; gap: 0.5rem; padding: 0.75rem 1rem; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+  .input-area textarea { flex: 1; padding: 0.6rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font); font-size: 0.9rem; resize: none; outline: none; min-height: 42px; max-height: 120px; }
+  .input-area textarea:focus { border-color: var(--accent); }
+
+  .typing { align-self: flex-start; color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0; }
+
+  /* ── Modal ─────────────────────────────────────────────────────────── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; padding: 2rem; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; max-width: 800px; max-height: 80vh; display: flex; flex-direction: column; }
+  .modal-header { display: flex; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border); }
+  .modal-header h2 { flex: 1; font-size: 1rem; }
+  .modal-body { flex: 1; overflow-y: auto; padding: 1rem; }
+  .modal-body pre { font-family: var(--mono); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+
+  /* ── Config modal form ──────────────────────────────────────────────── */
+  .config-form label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; font-weight: 500; }
+  .config-form select, .config-form input { width: 100%; padding: 0.6rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.9rem; margin-bottom: 0.25rem; outline: none; font-family: var(--font); }
+  .config-form select:focus, .config-form input:focus { border-color: var(--accent); }
+  .config-form .field { margin-bottom: 1rem; }
+  .config-form .hint { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+  .config-form .hint a { color: var(--accent); text-decoration: none; }
+  .config-form .hint a:hover { text-decoration: underline; }
+  .config-saved { display: none; color: var(--green); font-size: 0.85rem; margin-left: 0.75rem; }
+  .config-saved.show { display: inline; }
+
+  .model-badge { font-size: 0.75rem; color: var(--text-muted); font-family: var(--mono); padding: 0.2rem 0.5rem; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+  .model-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .model-badge.unconfigured { color: var(--red); border-color: var(--red); }
+
+  .repo-tag { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; font-family: var(--mono); }
+  .repo-tag button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; padding: 0; line-height: 1; }
+  .repo-tag button:hover { color: var(--red); }
+
+  .gh-icon { color: var(--text-muted); transition: color 0.15s; line-height: 1; }
+  .gh-icon:hover { color: var(--text); }
+
+  .strategy-picker { display: inline-flex; align-items: center; gap: 0.15rem; font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius); }
+  .strategy-picker label { display: flex; align-items: center; gap: 0.25rem; padding: 0.3rem 0.6rem; cursor: pointer; color: var(--text-muted); transition: all 0.15s; white-space: nowrap; position: relative; }
+  .strategy-picker label:not(:last-child) { border-right: 1px solid var(--border); }
+  .strategy-picker input { display: none; }
+  .strategy-picker input:checked + span { color: var(--accent); font-weight: 600; }
+  .strategy-picker label:has(input:checked) { background: var(--tool-call-bg); color: var(--accent); }
+  .strategy-picker .tip { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center; font-size: 0.65rem; border-radius: 50%; background: var(--border); color: var(--text-muted); cursor: help; font-weight: 700; flex-shrink: 0; position: relative; }
+  .strategy-picker .tip::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); font-size: 0.75rem; font-weight: 400; padding: 0.5rem 0.65rem; border-radius: 6px; white-space: normal; width: 220px; line-height: 1.4; pointer-events: none; display: none; z-index: 200; }
+  .strategy-picker .tip:hover::after { display: block; }
+
+  .loading { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Hamburger button (hidden on desktop) ───────────────────────── */
+  .hamburger { display: none; background: none; border: none; color: var(--text); font-size: 1.4rem; cursor: pointer; padding: 0.25rem; line-height: 1; flex-shrink: 0; }
+
+  /* ── Sidebar backdrop (mobile only) ─────────────────────────────── */
+  .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
+  .sidebar-backdrop.open { display: block; }
+
+  /* ── Mobile ─────────────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); transition: transform 0.2s ease; }
+    .sidebar.open { transform: translateX(0); }
+    .app-layout { margin-left: 0; }
+    .hamburger { display: block; }
+
+    #setup { padding: 1rem; min-height: calc(100vh - 0px); }
+    #setup h1 { font-size: 1.35rem; }
+    .card { padding: 1.25rem; }
+
+    .topbar { gap: 0.5rem; padding: 0.6rem 0.75rem; flex-wrap: wrap; }
+    .topbar .repo-name { font-size: 0.85rem; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+
+    .messages { padding: 0.75rem; }
+    .msg { max-width: 95%; }
+    .tool-call, .tool-result { max-width: 95%; }
+    .tool-result { min-height: 150px; }
+
+    .token-bar { gap: 0.5rem; padding: 0.3rem 0.75rem; font-size: 0.65rem; flex-wrap: wrap; }
+
+    .input-area { padding: 0.5rem 0.75rem; }
+
+    .modal-overlay { padding: 0.75rem; }
+    .modal { max-height: 90vh; }
+
+    /* Show delete button always on mobile (no hover) */
+    .sidebar-item .conv-delete { display: block; }
+  }
+
+  /* ── Small phones ──────────────────────────────────────────────── */
+  @media (max-width: 400px) {
+    .btn-row { flex-direction: column; }
+    .btn-row .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ───────────────────────────────────────────────────────── -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h2>Conversations</h2>
+    <button class="btn btn-sm" onclick="newConversation()">+ New</button>
+  </div>
+  <div class="sidebar-list" id="sidebarList"></div>
+  <div class="sidebar-footer">
+    <div id="sidebarModelLabel" style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.4rem;text-align:center;font-family:var(--mono);"></div>
+    <button class="btn btn-sm" style="width:100%" onclick="showConfigModal()">Settings</button>
+  </div>
+</div>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<div class="app-layout">
+<div class="app-main">
+
+<!-- ── Setup Screen ──────────────────────────────────────────────────── -->
+<div id="setup">
+  <div style="width:100%;max-width:480px;display:flex;align-items:center;margin-bottom:0.5rem;">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">&#9776;</button>
+    <span style="flex:1"></span>
+    <a href="https://github.com/janwilmake/chat-for-github" target="_blank" rel="noopener" class="gh-icon" title="View on GitHub"><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  </div>
+  <h1>Chat for GitHub</h1>
+  <p class="sub">Chat with any GitHub repository using AI</p>
+
+  <div class="card">
+    <div id="authStatus" class="auth-status no">Checking authentication...</div>
+
+    <div style="margin-bottom:1.25rem;">
+      <span class="model-badge unconfigured" id="setupModelBadge" onclick="showConfigModal()">No API key configured</span>
+    </div>
+
+    <label for="repoInput">Repositories</label>
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+      <input type="text" id="repoInput" placeholder="owner/repo (e.g. vercel/next.js)" style="margin-bottom:0">
+      <button class="btn btn-sm" onclick="addRepoFromInput()">Add</button>
+    </div>
+    <div id="repoTags" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem;min-height:1.5em;"></div>
+
+    <label style="margin-bottom:0.25rem">Strategy</label>
+    <div class="strategy-picker" id="setupStrategyPicker" style="margin-bottom:1rem;">
+      <label><input type="radio" name="setupStrategy" value="tree-readmes" checked><span>Tree &amp; READMEs</span><span class="tip" data-tip="Loads the file tree and README/agent instruction files. Fast, low token usage. Uses bash tool for deeper exploration.">?</span></label>
+      <label><input type="radio" name="setupStrategy" value="full-context"><span>Full Context</span><span class="tip" data-tip="Loads ALL file contents into the system prompt. Only for repos under 1M tokens. Higher token usage but no tools needed.">?</span></label>
+    </div>
+
+    <div id="error"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="startBtn" onclick="startChat()">Start Chat</button>
+      <button class="btn" id="loginBtn" onclick="loginWithRepos()">Sign in with uithub</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Chat Screen ───────────────────────────────────────────────────── -->
+<div id="chat">
+  <div class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">&#9776;</button>
+    <span class="repo-name" id="repoLabel"></span>
+    <div class="strategy-picker" id="topbarStrategyPicker">
+      <label><input type="radio" name="topbarStrategy" value="tree-readmes" checked><span>Tree &amp; READMEs</span><span class="tip" data-tip="Loads the file tree and README/agent instruction files. Fast, low token usage. Uses bash tool for deeper exploration.">?</span></label>
+      <label><input type="radio" name="topbarStrategy" value="full-context"><span>Full Context</span><span class="tip" data-tip="Loads ALL file contents into the system prompt. Only for repos under 1M tokens. Higher token usage but no tools needed.">?</span></label>
+    </div>
+    <button class="btn btn-sm" id="systemPromptBtn" onclick="showPromptModal()">System Prompt</button>
+    <span class="spacer"></span>
+    <a href="https://github.com/janwilmake/chat-for-github" target="_blank" rel="noopener" class="gh-icon" title="View on GitHub"><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  </div>
+
+  <div class="messages" id="messages"></div>
+
+  <div class="token-bar" id="tokenBar">
+    <span>system: <b id="tokSystem">0</b></span>
+    <span>input: <b id="tokInput">0</b></span>
+    <span>output: <b id="tokOutput">0</b></span>
+    <span>tool in: <b id="tokToolIn">0</b></span>
+    <span>tool out: <b id="tokToolOut">0</b></span>
+    <span class="total">total: <b id="tokTotal">0</b></span>
+  </div>
+
+  <div class="input-area">
+    <textarea id="userInput" rows="1" placeholder="Ask about the repository..." onkeydown="handleKey(event)"></textarea>
+    <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+</div><!-- .app-main -->
+</div><!-- .app-layout -->
+
+<!-- ── System Prompt Modal ───────────────────────────────────────────── -->
+<div class="modal-overlay" id="promptModal" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>System Prompt</h2>
+      <button class="btn btn-sm" onclick="copyPrompt()">Copy</button>
+      &nbsp;
+      <button class="btn btn-sm" onclick="document.getElementById('promptModal').classList.remove('open')">Close</button>
+    </div>
+    <div class="modal-body">
+      <pre id="promptContent"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ── Settings Modal ────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="configModal" onclick="closeModal(event)">
+  <div class="modal" style="max-width:480px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Settings</h2>
+      <span class="config-saved" id="configSaved">Saved</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-sm" onclick="document.getElementById('configModal').classList.remove('open')">Close</button>
+    </div>
+    <div class="modal-body config-form">
+      <div class="field">
+        <label for="cfgProvider">Provider</label>
+        <select id="cfgProvider" onchange="onProviderChange()"></select>
+      </div>
+      <div class="field">
+        <label for="cfgModel">Model</label>
+        <select id="cfgModel"></select>
+      </div>
+      <div class="field">
+        <label for="cfgApiKey">API Key</label>
+        <input type="password" id="cfgApiKey" placeholder="Paste your API key" autocomplete="off">
+        <div class="hint" id="cfgKeyHint"></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveConfig()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+<script>
+// ── State ────────────────────────────────────────────────────────────
+let currentRepos = [];
+let systemPrompt = "";
+let chatMessages = [];
+let isStreaming = false;
+let systemPromptTokens = 0;
+let currentConversationId = null;
+let pendingRepos = [];
+let currentStrategy = "tree-readmes";
+
+// Provider/model config from server
+let providerCatalog = {};
+
+// Rough token estimate
+function estimateTokens(text) { return Math.ceil(text.length / 4); }
+
+// ── Config persistence (localStorage) ────────────────────────────────
+const CONFIG_KEY = "chat-for-github-config";
+
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem(CONFIG_KEY)) || {}; } catch { return {}; }
+}
+
+function getConfig() {
+  const cfg = loadConfig();
+  return {
+    provider: cfg.provider || "anthropic",
+    model: cfg.model || "claude-sonnet-4-6",
+    apiKey: cfg.apiKey || "",
+  };
+}
+
+function getModelLabel() {
+  const cfg = getConfig();
+  const provider = providerCatalog[cfg.provider];
+  if (!provider) return cfg.model;
+  const model = provider.models.find(m => m.id === cfg.model);
+  return model ? `${provider.name} / ${model.label}` : `${provider.name} / ${cfg.model}`;
+}
+
+function updateModelBadges() {
+  const cfg = getConfig();
+  const label = cfg.apiKey ? getModelLabel() : "No API key configured";
+  const unconfigured = !cfg.apiKey;
+
+  const setupBadge = document.getElementById("setupModelBadge");
+  setupBadge.textContent = label;
+  setupBadge.className = "model-badge" + (unconfigured ? " unconfigured" : "");
+
+  const sidebarLabel = document.getElementById("sidebarModelLabel");
+  sidebarLabel.textContent = label;
+  sidebarLabel.style.color = unconfigured ? "var(--red)" : "var(--text-muted)";
+}
+
+// ── Config modal ─────────────────────────────────────────────────────
+function showConfigModal() {
+  const cfg = getConfig();
+  populateProviderSelect(cfg.provider);
+  populateModelSelect(cfg.provider, cfg.model);
+  document.getElementById("cfgApiKey").value = cfg.apiKey;
+  updateKeyHint(cfg.provider);
+  document.getElementById("configSaved").classList.remove("show");
+  document.getElementById("configModal").classList.add("open");
+}
+
+function populateProviderSelect(selected) {
+  const sel = document.getElementById("cfgProvider");
+  sel.innerHTML = Object.entries(providerCatalog).map(([id, p]) =>
+    `<option value="${id}"${id === selected ? " selected" : ""}>${escapeHtml(p.name)}</option>`
+  ).join("");
+}
+
+function populateModelSelect(providerId, selectedModel) {
+  const sel = document.getElementById("cfgModel");
+  const provider = providerCatalog[providerId];
+  if (!provider) { sel.innerHTML = ""; return; }
+  sel.innerHTML = provider.models.map(m =>
+    `<option value="${m.id}"${m.id === selectedModel ? " selected" : ""}>${escapeHtml(m.label)}</option>`
+  ).join("");
+}
+
+function updateKeyHint(providerId) {
+  const provider = providerCatalog[providerId];
+  const hint = document.getElementById("cfgKeyHint");
+  if (provider && provider.keyUrl) {
+    hint.innerHTML = `<a href="${escapeHtml(provider.keyUrl)}" target="_blank" rel="noopener">Get a ${escapeHtml(provider.name)} API key &rarr;</a>`;
+  } else {
+    hint.textContent = "";
+  }
+}
+
+function onProviderChange() {
+  const providerId = document.getElementById("cfgProvider").value;
+  const provider = providerCatalog[providerId];
+  const firstModel = provider?.models?.[0]?.id || "";
+  populateModelSelect(providerId, firstModel);
+  updateKeyHint(providerId);
+}
+
+function saveConfig() {
+  const cfg = {
+    provider: document.getElementById("cfgProvider").value,
+    model: document.getElementById("cfgModel").value,
+    apiKey: document.getElementById("cfgApiKey").value.trim(),
+  };
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+  updateModelBadges();
+  const saved = document.getElementById("configSaved");
+  saved.classList.add("show");
+  setTimeout(() => saved.classList.remove("show"), 2000);
+}
+
+// ── Repo tag UI in setup form ────────────────────────────────────────
+function addRepoFromInput() {
+  const input = document.getElementById("repoInput");
+  const val = input.value.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+  if (val && val.includes("/") && !pendingRepos.includes(val)) {
+    pendingRepos.push(val);
+    renderRepoTags();
+  }
+  input.value = "";
+  input.focus();
+}
+
+function removeRepoPending(repo) {
+  pendingRepos = pendingRepos.filter(r => r !== repo);
+  renderRepoTags();
+}
+
+function renderRepoTags() {
+  const container = document.getElementById("repoTags");
+  container.innerHTML = pendingRepos.map(r =>
+    `<span class="repo-tag">${escapeHtml(r)}<button onclick="removeRepoPending('${escapeHtml(r)}')">&times;</button></span>`
+  ).join("");
+}
+
+// Handle Enter in repo input to add tag
+document.getElementById("repoInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); addRepoFromInput(); }
+});
+
+// ── Conversation persistence ─────────────────────────────────────────
+const STORAGE_KEY = "repo-prompt-conversations";
+
+function loadConversations() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
+}
+
+function saveConversations(convos) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(convos));
+}
+
+function saveCurrentConversation() {
+  if (!currentConversationId || currentRepos.length === 0) return;
+  const convos = loadConversations();
+  const idx = convos.findIndex(c => c.id === currentConversationId);
+  const data = {
+    id: currentConversationId,
+    repos: currentRepos,
+    strategy: currentStrategy,
+    date: convos[idx]?.date || new Date().toISOString(),
+    messages: chatMessages,
+  };
+  if (idx >= 0) convos[idx] = data; else convos.unshift(data);
+  try {
+    saveConversations(convos);
+  } catch (e) {
+    // Storage full — drop oldest conversations until it fits
+    while (convos.length > 1) {
+      convos.pop();
+      try { saveConversations(convos); break; } catch {}
+    }
+  }
+  renderSidebar();
+}
+
+function deleteConversation(id, e) {
+  e.stopPropagation();
+  const convos = loadConversations().filter(c => c.id !== id);
+  saveConversations(convos);
+  if (currentConversationId === id) newConversation();
+  renderSidebar();
+}
+
+async function switchConversation(id) {
+  if (isStreaming) return;
+  const convos = loadConversations();
+  const conv = convos.find(c => c.id === id);
+  if (!conv) return;
+
+  currentConversationId = conv.id;
+  currentRepos = conv.repos || (conv.owner ? [`${conv.owner}/${conv.repo}`] : []);
+  chatMessages = conv.messages || [];
+  const strategy = conv.strategy || "tree-readmes";
+  syncStrategyPickers(strategy);
+
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("chat").style.display = "flex";
+  renderRepoLinks();
+
+  // Re-render messages from stored data
+  const messagesEl = document.getElementById("messages");
+  messagesEl.innerHTML = "";
+  for (const msg of chatMessages) {
+    appendMessage(msg.role, msg.content);
+  }
+
+  updateUrlFromRepos(currentRepos);
+  closeSidebar();
+  renderSidebar();
+
+  // Re-fetch system prompt in background
+  systemPrompt = conv.systemPrompt || "";
+  systemPromptTokens = estimateTokens(systemPrompt);
+  updateStrategyTokenCount();
+  document.getElementById("promptContent").textContent = systemPrompt || "Loading...";
+  document.getElementById("userInput").focus();
+
+  if (!systemPrompt) {
+    try {
+      const res = await fetch("/api/prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repos: currentRepos, strategy }),
+      });
+      const data = await res.json();
+      if (!data.error) {
+        systemPrompt = data.prompt;
+        systemPromptTokens = estimateTokens(systemPrompt);
+        updateStrategyTokenCount();
+        document.getElementById("promptContent").textContent = systemPrompt;
+      }
+    } catch {}
+  }
+}
+
+function newConversation() {
+  currentConversationId = null;
+  currentRepos = [];
+  systemPrompt = "";
+  chatMessages = [];
+  systemPromptTokens = 0;
+  pendingRepos = [];
+  syncStrategyPickers("tree-readmes");
+
+  document.getElementById("setup").style.display = "flex";
+  document.getElementById("chat").style.display = "none";
+  document.getElementById("messages").innerHTML = "";
+  document.getElementById("tokenBar").classList.remove("visible");
+  renderRepoTags();
+  history.pushState(null, "", "/");
+  closeSidebar();
+  renderSidebar();
+}
+
+function updateUrlFromRepos(repos) {
+  const url = new URL(location.origin);
+  repos.forEach(r => url.searchParams.append("repo", r));
+  history.pushState(null, "", url.pathname + url.search);
+}
+
+function renderSidebar() {
+  const list = document.getElementById("sidebarList");
+  const convos = loadConversations();
+  if (convos.length === 0) {
+    list.innerHTML = '<div class="sidebar-empty">No conversations yet</div>';
+    return;
+  }
+  list.innerHTML = convos.map(c => {
+    const d = new Date(c.date);
+    const dateStr = d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    const active = c.id === currentConversationId ? " active" : "";
+    const repos = c.repos || (c.owner ? [`${c.owner}/${c.repo}`] : []);
+    const title = repos.join(", ");
+    return `<div class="sidebar-item${active}" onclick="switchConversation('${c.id}')">
+      <span class="conv-title">${escapeHtml(title)}</span>
+      <span class="conv-date">${dateStr}</span>
+      <button class="conv-delete" onclick="deleteConversation('${c.id}', event)" title="Delete">&times;</button>
+    </div>`;
+  }).join("");
+}
+
+// ── Init ─────────────────────────────────────────────────────────────
+(async function init() {
+  renderSidebar();
+
+  // Fetch provider catalog and auth status in parallel
+  const [configRes, authRes] = await Promise.all([
+    fetch("/api/config").catch(() => null),
+    fetch("/auth/status").catch(() => null),
+  ]);
+
+  // Load provider catalog
+  try {
+    if (configRes && configRes.ok) {
+      const cfg = await configRes.json();
+      providerCatalog = cfg.providers || {};
+    }
+  } catch {}
+
+  updateModelBadges();
+
+  // If no API key configured, auto-open settings
+  if (!getConfig().apiKey) {
+    setTimeout(() => showConfigModal(), 300);
+  }
+
+  // Check auth
+  try {
+    if (authRes && authRes.ok) {
+      const data = await authRes.json();
+      const el = document.getElementById("authStatus");
+      if (data.authenticated) {
+        el.textContent = "Signed in with uithub";
+        el.className = "auth-status ok";
+        document.getElementById("loginBtn").textContent = "Sign out";
+        document.getElementById("loginBtn").onclick = () => location.href = "/auth/logout";
+      } else {
+        el.textContent = "Not signed in (public repos only)";
+        el.className = "auth-status no";
+      }
+    }
+  } catch {}
+
+  // Parse ?repo= query params and auto-start
+  const params = new URLSearchParams(location.search);
+  const repos = params.getAll("repo").filter(r => r.includes("/"));
+  if (repos.length > 0) {
+    pendingRepos = repos;
+    renderRepoTags();
+    startChat();
+  }
+})();
+
+// ── Start chat ──────────────────────────────────────────────────────
+async function startChat() {
+  const inputVal = document.getElementById("repoInput").value.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+  if (inputVal && inputVal.includes("/") && !pendingRepos.includes(inputVal)) {
+    pendingRepos.push(inputVal);
+    renderRepoTags();
+  }
+  document.getElementById("repoInput").value = "";
+
+  const errorEl = document.getElementById("error");
+  if (pendingRepos.length === 0) { errorEl.textContent = "Add at least one repository."; return; }
+  if (!getConfig().apiKey) { errorEl.textContent = "Add an API key in Settings first."; showConfigModal(); return; }
+  errorEl.textContent = "";
+
+  const btn = document.getElementById("startBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading"></span> Loading...';
+
+  try {
+    currentStrategy = getSelectedStrategy();
+    const res = await fetch("/api/prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repos: pendingRepos, strategy: currentStrategy }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    currentRepos = [...pendingRepos];
+    systemPrompt = data.prompt;
+    systemPromptTokens = estimateTokens(systemPrompt);
+    chatMessages = [];
+    currentConversationId = "conv-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+
+    updateUrlFromRepos(currentRepos);
+    syncStrategyPickers(currentStrategy);
+
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("chat").style.display = "flex";
+    renderRepoLinks();
+    document.getElementById("promptContent").textContent = systemPrompt;
+    document.getElementById("messages").innerHTML = "";
+
+    const repoList = currentRepos.map(r => `**${r}**`).join(", ");
+    const strategyLabel = currentStrategy === "full-context" ? "Full Context" : "Tree & READMEs";
+    const strategyHint = currentStrategy === "full-context"
+      ? "All file contents are loaded in context."
+      : "I have access to a bash tool to explore and work with the repository files.";
+    appendMessage("assistant",
+      `${currentRepos.length === 1 ? "Repository" : "Repositories"} ${repoList} loaded (~${systemPromptTokens.toLocaleString()} system prompt tokens, ${strategyLabel}).\n\n${strategyHint} What would you like to know?`
+    );
+
+    saveCurrentConversation();
+    document.getElementById("userInput").focus();
+  } catch (e) {
+    errorEl.textContent = e.message || "Failed to load repositories";
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "Start Chat";
+  }
+}
+
+// ── Send message ────────────────────────────────────────────────────
+async function sendMessage() {
+  if (isStreaming) return;
+  const input = document.getElementById("userInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const cfg = getConfig();
+  if (!cfg.apiKey) {
+    appendMessage("assistant", "No API key configured. Click the model badge or open Settings to add one.");
+    showConfigModal();
+    return;
+  }
+
+  input.value = "";
+  input.style.height = "auto";
+  userAtBottom = true;
+  chatMessages.push({ role: "user", content: text });
+  appendMessage("user", text);
+
+  isStreaming = true;
+  document.getElementById("sendBtn").disabled = true;
+
+  const inputTokens = estimateTokens(chatMessages.map(m => m.content).join(""));
+  updateTokenBar(systemPromptTokens, inputTokens, 0, 0, 0);
+  document.getElementById("tokenBar").classList.add("visible");
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: chatMessages,
+        repos: currentRepos,
+        strategy: currentStrategy,
+        systemPrompt,
+        provider: cfg.provider,
+        model: cfg.model,
+        apiKey: cfg.apiKey,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      appendMessage("assistant", `Error: ${errText}`);
+      return;
+    }
+
+    await processUIStream(res.body);
+  } catch (e) {
+    appendMessage("assistant", `Error: ${e.message}`);
+  } finally {
+    isStreaming = false;
+    document.getElementById("sendBtn").disabled = false;
+    document.getElementById("userInput").focus();
+    saveCurrentConversation();
+  }
+}
+
+// ── Process the AI SDK UI message stream (SSE with JSON chunks) ─────
+async function processUIStream(body) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let currentAssistantText = "";
+  let currentAssistantEl = null;
+  const toolCallElements = new Map();
+  const toolCallInputs = new Map();
+  const toolCallNames = new Map();
+  let totalOutputChars = 0;
+  let totalToolInChars = 0;
+  let totalToolOutChars = 0;
+  const inputTokens = estimateTokens(chatMessages.map(m => m.content).join(""));
+  const tokUp = () => updateTokenBar(systemPromptTokens, inputTokens, Math.ceil(totalOutputChars / 4), Math.ceil(totalToolInChars / 4), Math.ceil(totalToolOutChars / 4));
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6);
+      if (data === "[DONE]") continue;
+
+      let chunk;
+      try { chunk = JSON.parse(data); } catch { continue; }
+
+      switch (chunk.type) {
+        case "text-delta": {
+          if (!currentAssistantEl) {
+            currentAssistantEl = createMessageEl("assistant");
+            currentAssistantText = "";
+          }
+          currentAssistantText += chunk.delta;
+          totalOutputChars += chunk.delta.length;
+          currentAssistantEl.innerHTML = renderMarkdown(currentAssistantText);
+          tokUp();
+          scrollToBottom();
+          break;
+        }
+
+        case "tool-input-start": {
+          // Finalize any in-progress assistant text so it doesn't continue into the next step
+          if (currentAssistantEl) {
+            currentAssistantEl = null;
+          }
+          const toolCallId = chunk.toolCallId || ("tc-" + Date.now());
+          const toolName = chunk.toolName || "tool";
+          const el = document.createElement("div");
+          el.className = "tool-call";
+          el.innerHTML = `<div class="label">${escapeHtml(toolName)}</div>`;
+          toolCallElements.set(toolCallId, el);
+          toolCallInputs.set(toolCallId, "");
+          toolCallNames.set(toolCallId, toolName);
+          document.getElementById("messages").appendChild(el);
+          scrollToBottom();
+          break;
+        }
+
+        case "tool-input-delta": {
+          const tcId = chunk.toolCallId;
+          const tcEl = toolCallElements.get(tcId);
+          if (tcEl) {
+            const input = (toolCallInputs.get(tcId) || "") + (chunk.inputTextDelta || "");
+            toolCallInputs.set(tcId, input);
+            totalToolInChars += (chunk.inputTextDelta || "").length;
+            tokUp();
+            try {
+              const parsed = JSON.parse(input);
+              const display = parsed.command || parsed.path || JSON.stringify(parsed);
+              tcEl.innerHTML = `<div class="label">${escapeHtml(toolCallNames.get(tcId) || "tool")}</div>${escapeHtml(display)}`;
+            } catch {}
+            scrollToBottom();
+          }
+          break;
+        }
+
+        case "tool-input-available": {
+          const tcId = chunk.toolCallId;
+          const tcEl = toolCallElements.get(tcId);
+          if (tcEl && chunk.input) {
+            const display = chunk.input.command || chunk.input.path || JSON.stringify(chunk.input);
+            tcEl.innerHTML = `<div class="label">${escapeHtml(toolCallNames.get(tcId) || chunk.toolName || "tool")}</div>${escapeHtml(display)}`;
+            scrollToBottom();
+          }
+          break;
+        }
+
+        case "tool-output-available": {
+          const output = typeof chunk.output === "string"
+            ? chunk.output
+            : JSON.stringify(chunk.output, null, 2);
+          totalToolOutChars += output.length;
+          tokUp();
+          const outTokens = Math.ceil(output.length / 4);
+          const tcId = chunk.toolCallId;
+          const tcEl = toolCallElements.get(tcId);
+          if (tcEl) {
+            const tokLine = document.createElement("div");
+            tokLine.className = "tool-tokens";
+            tokLine.textContent = `↳ ${outTokens.toLocaleString()} tokens`;
+            tcEl.appendChild(tokLine);
+            toolCallElements.delete(tcId);
+            toolCallInputs.delete(tcId);
+            toolCallNames.delete(tcId);
+          }
+          scrollToBottom();
+          break;
+        }
+
+        case "tool-output-error": {
+          totalToolOutChars += (chunk.errorText || "").length;
+          tokUp();
+          const tcId = chunk.toolCallId;
+          const tcEl = toolCallElements.get(tcId);
+          if (tcEl) {
+            const tokLine = document.createElement("div");
+            tokLine.className = "tool-tokens error";
+            tokLine.textContent = `↳ error`;
+            tcEl.appendChild(tokLine);
+            toolCallElements.delete(tcId);
+            toolCallInputs.delete(tcId);
+            toolCallNames.delete(tcId);
+          }
+          scrollToBottom();
+          break;
+        }
+
+        case "error": {
+          appendMessage("assistant", `Error: ${chunk.errorText || "Unknown error"}`);
+          break;
+        }
+
+        case "finish": {
+          if (currentAssistantEl && currentAssistantText) {
+            chatMessages.push({ role: "assistant", content: currentAssistantText });
+            currentAssistantEl = null;
+            currentAssistantText = "";
+          }
+          break;
+        }
+
+        case "finish-step": {
+          if (currentAssistantEl && currentAssistantText) {
+            currentAssistantEl = null;
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  if (currentAssistantEl && currentAssistantText) {
+    chatMessages.push({ role: "assistant", content: currentAssistantText });
+  }
+}
+
+// ── DOM helpers ─────────────────────────────────────────────────────
+function appendMessage(role, text) {
+  const el = createMessageEl(role);
+  if (role === "assistant") {
+    el.innerHTML = renderMarkdown(text);
+  } else {
+    el.textContent = text;
+  }
+  scrollToBottom();
+  return el;
+}
+
+function createMessageEl(role) {
+  const el = document.createElement("div");
+  el.className = `msg ${role}`;
+  document.getElementById("messages").appendChild(el);
+  return el;
+}
+
+function isNearBottom() {
+  const m = document.getElementById("messages");
+  return m.scrollHeight - m.scrollTop - m.clientHeight < 80;
+}
+
+let userAtBottom = true;
+
+document.getElementById("messages").addEventListener("scroll", () => {
+  userAtBottom = isNearBottom();
+});
+
+function scrollToBottom() {
+  if (!userAtBottom) return;
+  const m = document.getElementById("messages");
+  m.scrollTop = m.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function updateTokenBar(system, input, output, toolIn, toolOut) {
+  const fmt = n => n.toLocaleString();
+  document.getElementById("tokSystem").textContent = fmt(system);
+  document.getElementById("tokInput").textContent = fmt(input);
+  document.getElementById("tokOutput").textContent = fmt(output);
+  document.getElementById("tokToolIn").textContent = fmt(toolIn);
+  document.getElementById("tokToolOut").textContent = fmt(toolOut);
+  document.getElementById("tokTotal").textContent = fmt(system + input + output + toolIn + toolOut);
+}
+
+const markedInstance = new marked.Marked({ breaks: true, gfm: true });
+function renderMarkdown(text) {
+  return markedInstance.parse(text);
+}
+
+// ── UI interactions ─────────────────────────────────────────────────
+function handleKey(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  const ta = e.target;
+  setTimeout(() => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; }, 0);
+}
+
+function showPromptModal() {
+  document.getElementById("promptModal").classList.add("open");
+}
+
+function closeModal(e) {
+  if (e.target === e.currentTarget) {
+    e.target.classList.remove("open");
+  }
+}
+
+function copyPrompt() {
+  navigator.clipboard.writeText(systemPrompt);
+  const btn = event.target;
+  btn.textContent = "Copied!";
+  setTimeout(() => btn.textContent = "Copy", 1500);
+}
+
+// ── Render repo links in topbar ──────────────────────────────────
+function renderRepoLinks() {
+  const el = document.getElementById("repoLabel");
+  el.innerHTML = currentRepos.map(r =>
+    `<a href="https://github.com/${escapeHtml(r)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${escapeHtml(r)}</a>`
+  ).join(", ");
+}
+
+// ── Strategy picker sync ─────────────────────────────────────────
+function getSelectedStrategy() {
+  const el = document.querySelector('input[name="setupStrategy"]:checked') || document.querySelector('input[name="topbarStrategy"]:checked');
+  return el ? el.value : "tree-readmes";
+}
+
+function syncStrategyPickers(value) {
+  currentStrategy = value;
+  document.querySelectorAll('input[name="setupStrategy"], input[name="topbarStrategy"]').forEach(el => {
+    el.checked = el.value === value;
+  });
+  updateStrategyTokenCount();
+}
+
+function updateStrategyTokenCount() {
+  const btn = document.getElementById("systemPromptBtn");
+  if (systemPromptTokens > 0) {
+    btn.textContent = `System Prompt (${systemPromptTokens.toLocaleString()})`;
+  } else {
+    btn.textContent = "System Prompt";
+  }
+}
+
+document.querySelectorAll('input[name="setupStrategy"]').forEach(el => {
+  el.addEventListener("change", () => syncStrategyPickers(el.value));
+});
+document.querySelectorAll('input[name="topbarStrategy"]').forEach(el => {
+  el.addEventListener("change", async () => {
+    syncStrategyPickers(el.value);
+    if (currentRepos.length > 0 && !isStreaming) reloadWithStrategy(el.value);
+  });
+});
+
+async function reloadWithStrategy(strategy) {
+  const btn = document.getElementById("sendBtn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repos: currentRepos, strategy }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    systemPrompt = data.prompt;
+    systemPromptTokens = estimateTokens(systemPrompt);
+    updateStrategyTokenCount();
+    document.getElementById("promptContent").textContent = systemPrompt;
+    appendMessage("assistant", `Switched to **${strategy === "full-context" ? "Full Context" : "Tree & READMEs"}** strategy (~${systemPromptTokens.toLocaleString()} system prompt tokens).`);
+    saveCurrentConversation();
+  } catch (e) {
+    appendMessage("assistant", `Error switching strategy: ${e.message}`);
+    // revert picker
+    syncStrategyPickers(strategy === "full-context" ? "tree-readmes" : "full-context");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Login with repos ─────────────────────────────────────────────
+function loginWithRepos() {
+  const loginUrl = new URL("/auth/login", location.origin);
+  const inputVal = document.getElementById("repoInput").value.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+  const repos = [...pendingRepos];
+  if (inputVal && inputVal.includes("/") && !repos.includes(inputVal)) repos.push(inputVal);
+  for (const r of repos) loginUrl.searchParams.append("repo", r);
+  location.href = loginUrl.toString();
+}
+
+// ── Sidebar toggle (mobile) ──────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+  document.getElementById("sidebarBackdrop").classList.toggle("open");
+}
+
+function closeSidebar() {
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebarBackdrop").classList.remove("open");
+}
+
+// Close modals on Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    document.getElementById("promptModal").classList.remove("open");
+    document.getElementById("configModal").classList.remove("open");
+    closeSidebar();
+  }
+});
+</script>
+</body>
+</html>

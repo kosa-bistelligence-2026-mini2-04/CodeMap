@@ -1,0 +1,116 @@
+name: Reusable MCP Release Workflow
+
+on:
+  workflow_call:
+    inputs:
+      package-name:
+        description: 'NPM package name'
+        required: true
+        type: string
+      package-description:
+        description: 'Package description'
+        required: false
+        type: string
+        default: 'MCP Server'
+      entry-point:
+        description: 'Main entry file'
+        required: false
+        type: string
+        default: 'src/index.js'
+      include-folders:
+        description: 'Folders to include (comma-separated)'
+        required: false
+        type: string
+        default: 'src,data,bin'
+      include-files:
+        description: 'File patterns to include (comma-separated)'
+        required: false
+        type: string
+        default: '*.json,*.md,LICENSE'
+      dependencies:
+        description: 'Additional dependencies as JSON'
+        required: false
+        type: string
+        default: '{}'
+      build-command:
+        description: 'Build command to run'
+        required: false
+        type: string
+        default: ''
+      node-version:
+        description: 'Node.js version'
+        required: false
+        type: string
+        default: '18'
+    secrets:
+      NPM_TOKEN:
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Extract Version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create Package JSON
+        run: |
+          # Convert comma-separated to JSON array
+          FOLDERS='${{ inputs.include-folders }}'
+          FILES='${{ inputs.include-files }}'
+
+          FILES_ARRAY='['
+          for folder in ${FOLDERS//,/ }; do
+            FILES_ARRAY="$FILES_ARRAY\"${folder}/**/*\","
+          done
+          for file in ${FILES//,/ }; do
+            FILES_ARRAY="$FILES_ARRAY\"${file}\","
+          done
+          FILES_ARRAY="${FILES_ARRAY%,}]"
+
+          # Default MCP dependencies
+          BASE_DEPS='{
+            "@modelcontextprotocol/sdk": "^1.6.0",
+            "@probelabs/probe": "^0.6.0-rc128",
+            "axios": "^1.7.2",
+            "fs-extra": "^11.1.1"
+          }'
+
+          # Merge with custom dependencies
+          MERGED_DEPS=$(echo "$BASE_DEPS" | jq -s '.[0] * .[1]' - <(echo '${{ inputs.dependencies }}'))
+
+          cat > package.json << EOF
+          {
+            "name": "${{ inputs.package-name }}",
+            "version": "$VERSION",
+            "description": "${{ inputs.package-description }}",
+            "type": "module",
+            "main": "${{ inputs.entry-point }}",
+            "files": $FILES_ARRAY,
+            "dependencies": $MERGED_DEPS,
+            "keywords": ["mcp", "llm", "ai"],
+            "license": "MIT"
+          }
+          EOF
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build
+        if: inputs.build-command != ''
+        run: ${{ inputs.build-command }}
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

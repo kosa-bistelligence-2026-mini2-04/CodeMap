@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@source "../../../packages/ui/src";
+/* biome-ignore lint/correctness/noInvalidPositionAtImportRule: <explanation> */
+@import "@repo/ui/styles";

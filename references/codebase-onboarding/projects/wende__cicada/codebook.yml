@@ -1,0 +1,13 @@
+main_dir: codebook
+tasks_dir: codebook/tasks
+exec: true
+recursive: true
+timeout: 10.0
+cache_ttl: 60.0
+backend:
+  url: http://localhost:9998
+  start: true
+cicada:
+  enabled: true
+  url: http://localhost:9999
+  start: true

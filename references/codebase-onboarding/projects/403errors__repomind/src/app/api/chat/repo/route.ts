@@ -1,0 +1,239 @@
+import { NextRequest, NextResponse } from "next/server";
+import { generateAnswerStream } from "@/app/actions";
+import { trackAuthenticatedQueryEvent, trackEvent } from "@/lib/analytics";
+import { auth } from "@/lib/auth";
+import { consumeToolBudgetUsage, getToolBudgetUsage, type CacheAudience } from "@/lib/cache";
+import {
+    ANON_COOKIE_NAME,
+    getAnonymousActorId,
+    getAnonymousCookieIdFromActorId,
+    isValidAnonymousCookieId,
+} from "@/lib/actor-id";
+import { getInvalidSessionApiError, getSessionAuthState, getSessionUserId } from "@/lib/session-guard";
+import type { StreamUpdate } from "@/lib/streaming-types";
+import { prisma } from "@/lib/db";
+import type { ModelPreference } from "@/lib/ai-client";
+import { normalizeModelPreference, resolveVisualModelPreference } from "@/lib/visual-intent";
+
+function getErrorMessage(error: unknown, fallback: string): string {
+    return error instanceof Error ? error.message : fallback;
+}
+
+function getErrorCode(error: unknown): string | undefined {
+    if (!error || typeof error !== "object") return undefined;
+    const maybeCode = (error as { code?: unknown }).code;
+    return typeof maybeCode === "string" ? maybeCode : undefined;
+}
+
+export async function POST(req: NextRequest) {
+    const encoder = new TextEncoder();
+    try {
+        const session = await auth();
+        const authState = getSessionAuthState(session);
+        if (authState === "invalid") {
+            return NextResponse.json(getInvalidSessionApiError(), { status: 401 });
+        }
+
+        const userId = getSessionUserId(session);
+        const audience: CacheAudience = userId ? "authenticated" : "anonymous";
+        const anonCookieValue = req.cookies.get(ANON_COOKIE_NAME)?.value ?? null;
+        const validAnonCookie = isValidAnonymousCookieId(anonCookieValue) ? anonCookieValue : null;
+        const actorId = userId ?? getAnonymousActorId(req.headers, validAnonCookie);
+        const shouldSetAnonCookie = !userId && !validAnonCookie;
+        const anonCookieIdToSet = shouldSetAnonCookie ? getAnonymousCookieIdFromActorId(actorId) : null;
+
+        const body = await req.json();
+        const { query, repoDetails, filePaths, fileShas, history, profileData, modelPreference, runId } = body;
+        const normalizedQuery = typeof query === "string" ? query : "";
+        const requestedModelPreference = normalizeModelPreference(modelPreference) as ModelPreference;
+        const visualRouting = resolveVisualModelPreference(requestedModelPreference, normalizedQuery, Boolean(userId));
+        const effectiveModelPreference = visualRouting.effectiveModelPreference;
+
+        if (requestedModelPreference === "thinking" && !userId) {
+            return NextResponse.json(
+                {
+                    error: "Login required for Thinking mode.",
+                    code: "LOGIN_REQUIRED_THINKING_MODE",
+                },
+                { status: 401 }
+            );
+        }
+
+        const usage = await getToolBudgetUsage("repo", audience, actorId);
+        const disableToolCalls = usage.remaining <= 0;
+
+        const userAgent = req.headers.get("user-agent") ?? "";
+        const country = req.headers.get("x-vercel-ip-country") ?? "Unknown";
+        const device = /mobile/i.test(userAgent) ? "mobile" : "desktop";
+        if (userId) {
+            await trackAuthenticatedQueryEvent(userId, {
+                anonId: validAnonCookie ? `anon_${validAnonCookie}` : undefined,
+                country,
+                device,
+                userAgent,
+            });
+        } else {
+            // actorId is an anon_-prefixed hash for unauthenticated visitors
+            await trackEvent(actorId, "query", { country, device, userAgent });
+        }
+
+        let normalizedFileShas: Record<string, string> | undefined;
+        if (fileShas && typeof fileShas === "object") {
+            const normalizedEntries: Array<[string, string]> = Object.entries(fileShas as Record<string, unknown>)
+                .flatMap(([path, sha]) => (typeof sha === "string" && sha.length > 0 ? [[path, sha]] : []));
+            normalizedFileShas = Object.fromEntries(normalizedEntries);
+        }
+        const owner = typeof repoDetails?.owner === "string" ? repoDetails.owner : undefined;
+        const repo = typeof repoDetails?.repo === "string" ? repoDetails.repo : undefined;
+        const queryPreview = normalizedQuery ? normalizedQuery.slice(0, 160) : undefined;
+
+        const safeRunId = typeof runId === "string" && runId.trim() ? runId.trim() : null;
+        if (safeRunId) {
+            const canWrite = await prisma.chatRun.findFirst({
+                where: { id: safeRunId, actorId },
+                select: { id: true },
+            });
+            if (!canWrite) {
+                return NextResponse.json({ error: "Invalid runId" }, { status: 403 });
+            }
+        }
+
+        const stream = new ReadableStream({
+            async start(controller) {
+                const safeEnqueue = (payload: string) => {
+                    try {
+                        controller.enqueue(encoder.encode(payload));
+                    } catch {
+                        // If client disconnects, enqueue can throw. We still keep generating and persisting.
+                    }
+                };
+
+                try {
+                    let toolUnitsConsumed = 0;
+                    let contentText = "";
+                    let lastPersistAt = 0;
+                    const persistEveryMs = 400;
+
+                    if (visualRouting.autoPromotedToThinking) {
+                        const status: StreamUpdate = {
+                            type: "status",
+                            message: "Detected visual request. Using high-detail diagram mode.",
+                            progress: 18,
+                        };
+                        safeEnqueue(JSON.stringify(status) + "\n");
+                    } else if (visualRouting.fellBackToFlashForAnonymous) {
+                        const status: StreamUpdate = {
+                            type: "status",
+                            message: "Sign in to unlock higher-detail diagram mode. Continuing in Flash mode.",
+                            progress: 18,
+                        };
+                        safeEnqueue(JSON.stringify(status) + "\n");
+                    }
+
+                    const generator = generateAnswerStream(
+                        normalizedQuery,
+                        repoDetails,
+                        filePaths,
+                        normalizedFileShas,
+                        audience,
+                        actorId,
+                        history,
+                        profileData,
+                        effectiveModelPreference,
+                        disableToolCalls
+                    );
+
+                    for await (const chunk of generator) {
+                        if (chunk.type === "tool" && chunk.billable !== false && chunk.name !== "googleSearch") {
+                            toolUnitsConsumed += Math.max(1, chunk.usageUnits ?? 1);
+                        }
+                        if (chunk.type === "content") {
+                            if (!contentText && chunk.text) {
+                                contentText = chunk.text.trimStart();
+                            } else {
+                                contentText += chunk.text;
+                            }
+                            if (safeRunId) {
+                                const now = Date.now();
+                                if (now - lastPersistAt >= persistEveryMs) {
+                                    lastPersistAt = now;
+                                    await prisma.chatRun.update({
+                                        where: { id: safeRunId },
+                                        data: { partialText: contentText, status: "RUNNING" },
+                                    });
+                                }
+                            }
+                        } else if (chunk.type === "complete") {
+                            if (safeRunId) {
+                                await prisma.chatRun.update({
+                                    where: { id: safeRunId },
+                                    data: { partialText: contentText, finalText: contentText, status: "COMPLETED" },
+                                });
+                            }
+                        }
+                        // Serialize chunk to JSON and add newline for framing
+                        const data = JSON.stringify(chunk) + "\n";
+                        safeEnqueue(data);
+                    }
+                    if (!disableToolCalls && toolUnitsConsumed > 0) {
+                        await consumeToolBudgetUsage("repo", audience, actorId, toolUnitsConsumed);
+                    }
+                    controller.close();
+                } catch (error: unknown) {
+                    console.error("Repo chat stream generation error:", {
+                        owner,
+                        repo,
+                        queryPreview,
+                        error,
+                    });
+                    if (safeRunId) {
+                        await prisma.chatRun.update({
+                            where: { id: safeRunId },
+                            data: {
+                                status: "FAILED",
+                                errorMessage: getErrorMessage(error, "An error occurred during streaming."),
+                            },
+                        });
+                    }
+                    const errorObj: StreamUpdate = {
+                        type: "error",
+                        message: getErrorMessage(error, "An error occurred during streaming."),
+                        code: getErrorCode(error),
+                    };
+                    safeEnqueue(JSON.stringify(errorObj) + "\n");
+                    controller.close();
+                }
+            }
+        });
+
+        const response = new NextResponse(stream, {
+            headers: {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no", // Prevent buffering by Vercel/Nginx
+            },
+        });
+        if (anonCookieIdToSet) {
+            response.cookies.set({
+                name: ANON_COOKIE_NAME,
+                value: anonCookieIdToSet,
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+                secure: process.env.NODE_ENV === "production",
+                maxAge: 60 * 60 * 24 * 365,
+            });
+        }
+        return response;
+    } catch (error: unknown) {
+        console.error("Repo chat API route error:", {
+            path: req.nextUrl.pathname,
+            error,
+        });
+        return new Response(
+            JSON.stringify({ error: getErrorMessage(error, "An unexpected error occurred.") }),
+            { status: 500 }
+        );
+    }
+}

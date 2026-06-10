@@ -1,0 +1,36 @@
+{%- if cookiecutter.enable_docker and cookiecutter.use_frontend %}
+# Frontend development configuration
+# Usage: docker-compose -f docker-compose.frontend.yml up -d
+#
+# Note: Backend must be running first (docker-compose up -d)
+# Frontend connects to backend via host network
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_RAG_ENABLED={% if cookiecutter.enable_rag %}true{% else %}false{% endif %}
+    container_name: {{ cookiecutter.project_slug }}_frontend
+    ports:
+      - "{{ cookiecutter.frontend_port }}:{{ cookiecutter.frontend_port }}"
+    environment:
+      - NODE_ENV=development
+      - BACKEND_URL=http://host.docker.internal:{{ cookiecutter.backend_port }}
+      - BACKEND_WS_URL=ws://host.docker.internal:{{ cookiecutter.backend_port }}
+{%- if cookiecutter.enable_rag %}
+      - NEXT_PUBLIC_RAG_ENABLED=true
+{%- endif %}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:{{ cookiecutter.frontend_port }}/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+{%- else %}
+# Frontend is disabled for this project
+{%- endif %}

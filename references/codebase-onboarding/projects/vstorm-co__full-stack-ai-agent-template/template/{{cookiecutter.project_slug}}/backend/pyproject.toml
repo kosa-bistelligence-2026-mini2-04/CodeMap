@@ -1,0 +1,415 @@
+[project]
+name = "{{ cookiecutter.project_slug }}"
+version = "0.1.0"
+description = "{{ cookiecutter.project_description }}"
+requires-python = ">={{ cookiecutter.python_version }}"
+license = { text = "MIT" }
+authors = [
+    { name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}" },
+]
+
+dependencies = [
+    "fastapi>=0.135.3",
+    "uvicorn[standard]>=0.43.0",
+{%- if cookiecutter.use_crewai %}
+    # crewai 1.13.x pins pydantic<2.12 and pydantic-settings<2.11 transitively
+    "pydantic[email]>=2.11.0,<2.12",
+    "pydantic-settings>=2.10.1,<2.11",
+{%- else %}
+    "pydantic[email]>=2.12.0",
+    "pydantic-settings>=2.13.0",
+{%- endif %}
+    "python-multipart>=0.0.20",
+{%- if cookiecutter.enable_logfire %}
+{%- set logfire_extras = ['fastapi'] %}
+{%- if cookiecutter.use_postgresql and cookiecutter.logfire_database %}
+{%- set _ = logfire_extras.append('asyncpg') %}
+{%- endif %}
+{%- if cookiecutter.enable_redis and cookiecutter.logfire_redis %}
+{%- set _ = logfire_extras.append('redis') %}
+{%- endif %}
+{%- if cookiecutter.use_celery and cookiecutter.logfire_celery %}
+{%- set _ = logfire_extras.append('celery') %}
+{%- endif %}
+{%- if cookiecutter.logfire_httpx %}
+{%- set _ = logfire_extras.append('httpx') %}
+{%- endif %}
+    "logfire[{{ logfire_extras | join(',') }}]>=4.30.0",
+{%- endif %}
+{%- if cookiecutter.use_postgresql %}
+{%- if cookiecutter.use_sqlmodel %}
+    "sqlmodel>=0.0.38",
+{%- else %}
+    "sqlalchemy[asyncio]>=2.0.40",
+{%- endif %}
+    "asyncpg>=0.31.0",
+    "psycopg2-binary>=2.9.0",
+    "alembic>=1.18.0",
+    "greenlet>=3.2.0",
+{%- endif %}
+{%- if cookiecutter.use_mongodb %}
+    "motor>=3.7.0",
+    "beanie>=1.29.0",
+{%- endif %}
+{%- if cookiecutter.use_sqlite %}
+{%- if cookiecutter.use_sqlmodel %}
+    "sqlmodel>=0.0.38",
+{%- else %}
+    "sqlalchemy>=2.0.40",
+{%- endif %}
+    "alembic>=1.18.0",
+{%- endif %}
+{%- if cookiecutter.use_jwt %}
+{%- if cookiecutter.use_jwks_idp %}
+    # PyJWT[crypto] pulls in `cryptography` for RSA/ECDSA verification — needed
+    # to validate IdP-issued tokens against a published JWKS.
+    "pyjwt[crypto]>=2.9.0",
+{%- else %}
+    # HMAC HS256 only — no asymmetric keys, no `cryptography` extra.
+    "pyjwt>=2.9.0",
+{%- endif %}
+    "bcrypt>=4.0.0",
+    "python-multipart>=0.0.12",
+{%- endif %}
+{%- if cookiecutter.enable_oauth %}
+    "authlib>=1.3.0",
+    "httpx>=0.28.0",
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+    "redis>=5.2.0",
+{%- endif %}
+{%- if cookiecutter.enable_caching %}
+    "fastapi-cache2>=0.2.2",
+    # fastapi_cache imports starlette.templating which requires Jinja2 even
+    # when no templates are rendered.
+    "jinja2>=3.1.0",
+{%- endif %}
+{%- if cookiecutter.enable_rate_limiting %}
+    "slowapi>=0.1.9",
+{%- endif %}
+{%- if cookiecutter.enable_email and cookiecutter.email_provider == "resend" %}
+    "resend>=2.0.0",
+{%- endif %}
+{%- if cookiecutter.enable_email and cookiecutter.email_provider == "smtp" %}
+    "aiosmtplib>=3.0.0",
+{%- endif %}
+{%- if cookiecutter.enable_pagination %}
+    "fastapi-pagination>=0.12.31",
+{%- endif %}
+{%- if cookiecutter.enable_sentry %}
+    "sentry-sdk[fastapi]>=2.53.0",
+{%- endif %}
+{%- if cookiecutter.enable_prometheus %}
+    "prometheus-fastapi-instrumentator>=7.0.0",
+{%- endif %}
+{%- if cookiecutter.enable_admin_panel %}
+    "sqladmin>=0.24.0",
+{%- endif %}
+{%- if (cookiecutter.enable_admin_panel and cookiecutter.admin_require_auth) or cookiecutter.enable_oauth %}
+    "itsdangerous>=2.2.0",
+{%- endif %}
+{%- if cookiecutter.use_celery %}
+    "celery[redis]>=5.6.0",
+    "flower>=2.0.0",
+{%- endif %}
+{%- if cookiecutter.use_taskiq %}
+    "taskiq>=0.11.0",
+    "taskiq-redis>=1.0.0",
+    "taskiq-dependencies>=0.1.0",
+{%- endif %}
+{%- if cookiecutter.use_arq %}
+    "arq>=0.26.0",
+{%- endif %}
+{%- if cookiecutter.enable_file_storage %}
+    "boto3>=1.42.0",
+{%- endif %}
+{%- if cookiecutter.use_pydantic_ai %}
+{%- if cookiecutter.use_all_providers %}
+    # Multi-provider: install every SDK so the runtime model picker can route
+    # to whichever backend the user (or env default) selects.
+    "pydantic-ai-slim[openai,anthropic,google,openrouter,duckduckgo,web-fetch]>=1.80.0",
+{%- elif cookiecutter.use_openai %}
+    "pydantic-ai-slim[openai,duckduckgo,web-fetch]>=1.80.0",
+{%- elif cookiecutter.use_anthropic %}
+    "pydantic-ai-slim[anthropic,duckduckgo,web-fetch]>=1.80.0",
+{%- elif cookiecutter.use_google %}
+    "pydantic-ai-slim[google,duckduckgo,web-fetch]>=1.80.0",
+{%- elif cookiecutter.use_openrouter %}
+    "pydantic-ai-slim[openrouter,duckduckgo,web-fetch]>=1.80.0",
+{%- endif %}
+{%- endif %}
+{%- if cookiecutter.use_langchain %}
+    "langchain>=1.2.0",
+{%- if cookiecutter.use_openai %}
+    "langchain-openai>=1.1.0",
+{%- endif %}
+{%- if cookiecutter.use_anthropic %}
+    "langchain-anthropic>=0.4.0",
+{%- endif %}
+{%- if cookiecutter.use_google %}
+    "langchain-google-genai>=2.1.0",
+{%- endif %}
+    "langgraph>=0.4.0",
+{%- endif %}
+{%- if cookiecutter.use_langgraph %}
+    "langchain-core>=0.4.0",
+{%- if cookiecutter.use_openai %}
+    "langchain-openai>=1.1.0",
+{%- endif %}
+{%- if cookiecutter.use_anthropic %}
+    "langchain-anthropic>=0.4.0",
+{%- endif %}
+{%- if cookiecutter.use_google %}
+    "langchain-google-genai>=2.1.0",
+{%- endif %}
+    "langgraph>=0.4.0",
+    "langgraph-checkpoint>=4.0.0",
+{%- endif %}
+{%- if cookiecutter.use_crewai %}
+    "crewai>=1.13.0",
+{%- if cookiecutter.use_openai %}
+    "langchain-openai>=1.1.0",
+{%- endif %}
+{%- if cookiecutter.use_anthropic %}
+    "langchain-anthropic>=0.4.0",
+{%- endif %}
+{%- if cookiecutter.use_google %}
+    "langchain-google-genai>=2.1.0",
+{%- endif %}
+{%- endif %}
+{%- if cookiecutter.use_deepagents %}
+    "deepagents>=0.1.0",
+{%- if cookiecutter.use_openai %}
+    "langchain-openai>=1.1.0",
+{%- endif %}
+{%- if cookiecutter.use_anthropic %}
+    "langchain-anthropic>=0.4.0",
+{%- endif %}
+{%- if cookiecutter.use_google %}
+    "langchain-google-genai>=2.1.0",
+{%- endif %}
+{%- endif %}
+{%- if cookiecutter.use_pydantic_deep %}
+    # pydantic-deep: deep agentic coding assistant built on pydantic-ai
+    "pydantic-deep>=0.1.0",
+    # pydantic-ai backend with console toolset (StateBackend, LocalBackend)
+    "pydantic-ai-backend[console]>=0.2.4",
+    # pydantic-ai with web search and fetch support (WebSearch, WebFetch capabilities)
+    "pydantic-ai-slim[duckduckgo,web-fetch]>=1.80.0",
+{%- endif %}
+{%- if cookiecutter.enable_rag %}
+    # Vector store
+{%- if cookiecutter.use_milvus %}
+    "pymilvus>=2.6.0",
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+    "qdrant-client>=1.14.0",
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+    "chromadb>=1.5.0",
+{%- endif %}
+{%- if cookiecutter.use_pgvector %}
+    # pgvector uses existing asyncpg + sqlalchemy (no extra dep needed)
+{%- endif %}
+    # Text splitting
+    "langchain-text-splitters>=0.4.0",
+    # BM25 for hybrid search
+    "rank-bm25>=0.2.2",
+{%- if cookiecutter.use_openai_embeddings %}
+    # Uses existing openai dependency
+{%- endif %}
+{%- if cookiecutter.use_voyage_embeddings %}
+    "voyageai>=0.3.0",
+{%- endif %}
+{%- if cookiecutter.use_gemini_embeddings %}
+    "google-genai>=1.0.0",
+{%- endif %}
+{%- if cookiecutter.use_sentence_transformers %}
+    "sentence-transformers>=3.0.0",
+{%- endif %}
+{%- if cookiecutter.use_cohere_reranker %}
+    "cohere>=5.0.0",
+{%- endif %}
+{%- if cookiecutter.use_cross_encoder_reranker %}
+    "sentence-transformers>=3.0.0",
+{%- endif %}
+{%- if cookiecutter.use_all_pdf_parsers %}
+    "pymupdf>=1.25.0",
+    "pillow>=10.0.0",
+    "python-docx>=1.1.0",
+    "llama-cloud>=1.0.0",
+    "liteparse>=0.1.0",
+{%- elif cookiecutter.use_llamaparse %}
+    "llama-cloud>=1.0.0",
+{%- elif cookiecutter.use_liteparse %}
+    "liteparse>=0.1.0",
+    "python-docx>=1.1.0",
+{%- else %}
+    "pymupdf>=1.25.0",
+    "pillow>=10.0.0",
+    "python-docx>=1.1.0",
+{%- endif %}
+{%- if cookiecutter.enable_google_drive_ingestion %}
+    "google-api-python-client>=2.0.0",
+    "google-auth>=2.0.0",
+{%- endif %}
+{%- if cookiecutter.enable_s3_ingestion %}
+    "boto3>=1.42.0",
+{%- endif %}
+{%- endif %}
+{%- if cookiecutter.enable_langsmith %}
+    "langsmith>=0.4.0",
+{%- endif %}
+{%- if cookiecutter.logfire_httpx or cookiecutter.enable_file_storage %}
+    "httpx>=0.28.0",
+{%- endif %}
+    "click>=8.1.0",
+    "tabulate>=0.9.0",
+    "tqdm>=4.66.0",
+{%- if cookiecutter.enable_web_search %}
+    "tavily-python>=0.5.0",
+{%- endif %}
+{%- if cookiecutter.web_fetch_tool %}
+    "beautifulsoup4>=4.12.0",
+{%- endif %}
+{%- if cookiecutter.charts_channel_png %}
+    "matplotlib>=3.9.0",
+{%- endif %}
+{%- if cookiecutter.use_telegram or cookiecutter.use_slack %}
+    "cryptography>=44.0.0",
+{%- endif %}
+{%- if cookiecutter.use_telegram %}
+    "aiogram>=3.17,<4.0",
+{%- endif %}
+{%- if cookiecutter.use_slack %}
+    "slack-sdk>=3.35.0",
+{%- endif %}
+{%- if cookiecutter.enable_billing %}
+    "stripe>=11.0.0",
+{%- endif %}
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.0",
+    "anyio[trio]>=4.9.0",
+    "pytest-cov>=6.1.0",
+    "httpx>=0.28.0",
+    "ruff>=0.15.0",
+    "ty>=0.0.29",
+{%- if cookiecutter.enable_precommit %}
+    "pre-commit>=4.0.0",
+{%- endif %}
+]
+
+[project.scripts]
+{{ cookiecutter.project_slug }} = "cli.commands:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "cli"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+    "E402", # module level import not at top (needed for conditional Jinja2 imports)
+    "B008", # function call in default argument (needed for FastAPI Depends)
+    "B905", # zip() without strict= (Python 3.10+ style, not needed)
+    "RUF012", # mutable class attribute without ClassVar (used in parser base class)
+    "RUF059", # unpacked variable never used (CLI destructuring pattern)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "cli"]
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.src]
+exclude = [
+    "alembic/",
+    "tests/",
+    "cli/",
+    "app/commands/",
+]
+
+[tool.ty.rules]
+# FastAPI Depends() injects at runtime — default=None on typed params is intentional
+invalid-parameter-default = "warn"
+# Starlette/FastAPI handler signatures use Union types that ty flags
+invalid-argument-type = "warn"
+# ORM models with Optional fields trigger on attribute assignment
+invalid-assignment = "warn"
+# Callable[..., Any] doesn't expose __name__ but function objects do
+unresolved-attribute = "warn"
+# datetime.utcnow deprecation warnings
+deprecated = "warn"
+# Optional deps imported inside try/except (pymupdf, docx, faker)
+unresolved-import = "warn"
+# dict() overload matching on dynamic types from validators
+no-matching-overload = "warn"
+# Template uses mypy-style `# type: ignore` comments which ty doesn't recognize
+unused-type-ignore-comment = "warn"
+# Operations on Unknown types from untyped libraries (pymupdf, etc.)
+unsupported-operator = "warn"
+# Third-party libs (langchain, redis-py) ship without complete type stubs;
+# kwargs that work at runtime are flagged as unknown.
+unknown-argument = "warn"
+# redis-py / asyncio overloads return Awaitable[T] | T which ty rejects as awaitable
+invalid-await = "warn"
+# sessionmaker(class_=AsyncSession) returns sync sessionmaker per overloads
+# but the resulting callable still produces an async context manager.
+invalid-context-manager = "warn"
+# Helpers like get_agent accept **kwargs but their stubs only list specific params
+missing-argument = "warn"
+# LangChain BaseMessage subclasses (AIMessage etc.) carry tool_calls only on
+# specific subclasses; ty cannot narrow via hasattr().
+not-iterable = "warn"
+# Return-type widening for langgraph .compile() (StateGraph vs CompiledStateGraph)
+invalid-return-type = "warn"
+# CrewAI/langgraph runtime classes use kwargs that ty stubs don't enumerate
+invalid-type-form = "warn"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/main.py",
+    "app/core/logfire_setup.py",
+]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ ==",
+    "@overload",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[tool.{{ cookiecutter.generator_name }}]
+generator_version = "{{ cookiecutter.generator_version }}"
+generated_at = "{{ cookiecutter.generated_at }}"

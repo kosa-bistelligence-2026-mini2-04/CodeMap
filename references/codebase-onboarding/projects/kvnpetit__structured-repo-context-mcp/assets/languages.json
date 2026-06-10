@@ -1,0 +1,219 @@
+{
+  "treesitter": {
+    "javascript": {
+      "wasm": "tree-sitter-javascript.wasm",
+      "queries": "javascript",
+      "extensions": [".js", ".jsx", ".mjs", ".cjs"]
+    },
+    "typescript": {
+      "wasm": "tree-sitter-typescript.wasm",
+      "queries": "typescript",
+      "extensions": [".ts", ".mts", ".cts"]
+    },
+    "tsx": {
+      "wasm": "tree-sitter-tsx.wasm",
+      "queries": "tsx",
+      "extensions": [".tsx"]
+    },
+    "html": {
+      "wasm": "tree-sitter-html.wasm",
+      "queries": "html",
+      "extensions": [".html", ".htm", ".xhtml"]
+    },
+    "svelte": {
+      "wasm": "tree-sitter-svelte.wasm",
+      "queries": "svelte",
+      "extensions": [".svelte"]
+    },
+    "c": {
+      "wasm": "tree-sitter-c.wasm",
+      "queries": "c",
+      "extensions": [".c", ".h"]
+    },
+    "cpp": {
+      "wasm": "tree-sitter-cpp.wasm",
+      "queries": "cpp",
+      "extensions": [".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx", ".c++", ".h++"]
+    },
+    "rust": {
+      "wasm": "tree-sitter-rust.wasm",
+      "queries": "rust",
+      "extensions": [".rs"]
+    },
+    "go": {
+      "wasm": "tree-sitter-go.wasm",
+      "queries": "go",
+      "extensions": [".go"]
+    },
+    "java": {
+      "wasm": "tree-sitter-java.wasm",
+      "queries": "java",
+      "extensions": [".java"]
+    },
+    "kotlin": {
+      "wasm": "tree-sitter-kotlin.wasm",
+      "queries": "kotlin",
+      "extensions": [".kt", ".kts"]
+    },
+    "scala": {
+      "wasm": "tree-sitter-scala.wasm",
+      "queries": "scala",
+      "extensions": [".scala", ".sc"]
+    },
+    "python": {
+      "wasm": "tree-sitter-python.wasm",
+      "queries": "python",
+      "extensions": [".py", ".pyi", ".pyw"]
+    },
+    "ruby": {
+      "wasm": "tree-sitter-ruby.wasm",
+      "queries": "ruby",
+      "extensions": [".rb", ".rake", ".gemspec"]
+    },
+    "php": {
+      "wasm": "tree-sitter-php.wasm",
+      "queries": "php",
+      "extensions": [".php", ".phtml", ".php3", ".php4", ".php5", ".phps"]
+    },
+    "ocaml": {
+      "wasm": "tree-sitter-ocaml.wasm",
+      "queries": "ocaml",
+      "extensions": [".ml", ".mli"]
+    },
+    "swift": {
+      "wasm": "tree-sitter-swift.wasm",
+      "queries": "swift",
+      "extensions": [".swift"]
+    },
+    "c_sharp": {
+      "wasm": "tree-sitter-c_sharp.wasm",
+      "queries": "c_sharp",
+      "extensions": [".cs", ".csx"],
+      "aliases": ["csharp"]
+    }
+  },
+  "langchain": {
+    "mapping": {
+      "javascript": "js",
+      "typescript": "js",
+      "tsx": "js",
+      "jsx": "js",
+      "python": "python",
+      "go": "go",
+      "rust": "rust",
+      "java": "java",
+      "cpp": "cpp",
+      "c": "cpp",
+      "html": "html",
+      "markdown": "markdown",
+      "md": "markdown",
+      "ruby": "ruby",
+      "php": "php",
+      "scala": "scala",
+      "swift": "swift",
+      "solidity": "sol",
+      "proto": "proto",
+      "protobuf": "proto",
+      "rst": "rst",
+      "latex": "latex",
+      "tex": "latex"
+    },
+    "supported": [
+      "cpp", "go", "java", "js", "php", "proto", "python", "rst",
+      "ruby", "rust", "scala", "swift", "markdown", "latex", "html", "sol"
+    ],
+    "generic": [
+      "json", "yaml", "yml", "toml", "ini", "env", "xml", "csv",
+      "bash", "sh", "zsh", "fish", "powershell", "batch",
+      "css", "scss", "sass", "less",
+      "sql", "graphql", "gql",
+      "dockerfile", "makefile", "cmake", "gradle", "hcl", "terraform",
+      "gitignore", "vue"
+    ]
+  },
+  "fallbackExtensions": {
+    ".json": "json",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".toml": "toml",
+    ".ini": "ini",
+    ".cfg": "ini",
+    ".conf": "ini",
+    ".env": "env",
+    ".md": "markdown",
+    ".markdown": "markdown",
+    ".rst": "rst",
+    ".tex": "latex",
+    ".ltx": "latex",
+    ".xml": "xml",
+    ".csv": "csv",
+    ".sh": "bash",
+    ".bash": "bash",
+    ".zsh": "bash",
+    ".fish": "fish",
+    ".ps1": "powershell",
+    ".bat": "batch",
+    ".cmd": "batch",
+    ".css": "css",
+    ".scss": "scss",
+    ".sass": "sass",
+    ".less": "less",
+    ".sql": "sql",
+    ".graphql": "graphql",
+    ".gql": "graphql",
+    ".proto": "proto",
+    ".sol": "solidity",
+    ".zig": "zig",
+    ".nim": "nim",
+    ".lua": "lua",
+    ".r": "r",
+    ".R": "r",
+    ".dart": "dart",
+    ".ex": "elixir",
+    ".exs": "elixir",
+    ".erl": "erlang",
+    ".hrl": "erlang",
+    ".hs": "haskell",
+    ".lhs": "haskell",
+    ".clj": "clojure",
+    ".cljs": "clojure",
+    ".cljc": "clojure",
+    ".lisp": "lisp",
+    ".el": "lisp",
+    ".vim": "vim",
+    ".tf": "terraform",
+    ".hcl": "hcl",
+    ".vue": "vue",
+    ".txt": "text",
+    ".log": "text"
+  },
+  "specialFilenames": {
+    "dockerfile": "dockerfile",
+    "makefile": "makefile",
+    "gnumakefile": "makefile",
+    "cmakelists.txt": "cmake",
+    ".gitignore": "gitignore",
+    ".dockerignore": "gitignore",
+    ".env": "env",
+    ".editorconfig": "ini",
+    ".prettierrc": "json",
+    ".eslintrc": "json",
+    "tsconfig.json": "json",
+    "package.json": "json",
+    "composer.json": "json",
+    "cargo.toml": "toml",
+    "pyproject.toml": "toml",
+    "gemfile": "ruby",
+    "rakefile": "ruby",
+    "podfile": "ruby"
+  },
+  "binaryExtensions": [
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg", ".tiff",
+    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv", ".flac", ".ogg",
+    ".zip", ".tar", ".gz", ".rar", ".7z", ".bz2",
+    ".exe", ".dll", ".so", ".dylib", ".bin", ".wasm",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".ttf", ".otf", ".woff", ".woff2", ".eot",
+    ".class", ".pyc", ".o", ".a", ".lib", ".node"
+  ]
+}

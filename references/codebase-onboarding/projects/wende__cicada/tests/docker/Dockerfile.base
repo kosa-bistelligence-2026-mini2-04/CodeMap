@@ -1,0 +1,31 @@
+# Base Dockerfile for Cicada testing
+# Minimal Python environment with Cicada pre-installed
+
+FROM python:3.11-slim
+
+# Install system dependencies (git is required by Cicada)
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+# Copy Cicada source and install dependencies
+WORKDIR /cicada
+COPY . .
+
+# Install Cicada dependencies (this runs during image build)
+# --no-dev: Skip dev dependencies (pytest, ruff, black, etc.)
+# --extra scip: Include SCIP-based language support (Go, Java, Ruby, etc.)
+# Note: This also skips [ml] extras (keybert, gensim), which is fine for keyword-based indexing
+RUN uv sync --no-dev --extra scip
+
+# Add cicada to PATH
+ENV PATH="/cicada/.venv/bin:$PATH"
+
+WORKDIR /workspace
+
+CMD ["/bin/bash"]

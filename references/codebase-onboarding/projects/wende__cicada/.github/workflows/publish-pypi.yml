@@ -1,0 +1,293 @@
+name: Publish to PyPI
+
+# Required GitHub Secrets:
+# - PYPI_API_TOKEN: API token for publishing to PyPI (https://pypi.org/manage/account/token/)
+# - TEST_PYPI_API_TOKEN: API token for TestPyPI (https://test.pypi.org/manage/account/token/)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      test_only:
+        description: 'Only publish to TestPyPI (skip real PyPI)'
+        required: false
+        type: boolean
+        default: false
+      skip_test_pypi:
+        description: 'Skip TestPyPI and publish directly to PyPI (manual override)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  test-publish:
+    name: Test on TestPyPI
+    if: github.event_name == 'push' || github.event.inputs.skip_test_pypi != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Generate SCIP protobuf files
+        run: |
+          cd cicada/languages/scip
+          protoc --python_out=. --pyi_out=. scip.proto
+          ls -la scip_pb2.py scip_pb2.pyi
+
+      - name: Install dependencies
+        run: |
+          uv sync --dev
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Clone test fixture
+        run: |
+          git clone https://github.com/wende/ab tests/fixtures/elixir_project
+
+      - name: Setup test fixtures
+        run: bash tests/setup_fixtures.sh
+
+      - name: Generate SCIP indexes for tests
+        run: |
+          # Install scip-python and scip-typescript
+          npm install -g @sourcegraph/scip-python @sourcegraph/scip-typescript
+
+          # Generate Python SCIP index
+          cd tests/fixtures/sample_python
+          scip-python index . --project-name sample_python --output index.scip
+          cd ../../..
+
+          # Generate TypeScript SCIP index
+          cd tests/fixtures/sample_typescript
+          scip-typescript index --output index.scip .
+          cd ../../..
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Generate version hash file
+        run: |
+          python -c "
+          import subprocess
+          tag = subprocess.check_output(['git', 'describe', '--tags']).decode().strip()
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+          with open('cicada/_version_hash.py', 'w') as f:
+              f.write(f'GIT_TAG = \"{tag}\"\nGIT_COMMIT_HASH = \"{commit}\"\n')
+          "
+          cat cicada/_version_hash.py
+
+      # Build and publish cicada-mcp
+      - name: Build cicada-mcp
+        run: uv build
+
+      - name: Publish cicada-mcp to TestPyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          uv publish \
+            --publish-url https://test.pypi.org/legacy/ \
+            --token $UV_PUBLISH_TOKEN
+
+      - name: Verify TestPyPI installation
+        run: |
+          sleep 30
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ cicada-mcp || echo "TestPyPI verification skipped (may fail due to dependencies)"
+
+  publish:
+    name: Publish to PyPI
+    needs: test-publish
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_only != true && github.event.inputs.skip_test_pypi != 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for branch checking
+
+      - name: Verify tag branch requirements
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "Tag: $TAG_NAME"
+
+          # Pre-releases can be from dev or main branch.
+          # Accept both SemVer-style "-rcN" and PEP 440-style "rcN" tags.
+          if [[ "$TAG_NAME" =~ rc[0-9]+$ ]]; then
+            git fetch origin dev main
+            if git merge-base --is-ancestor HEAD origin/dev || git merge-base --is-ancestor HEAD origin/main; then
+              echo "✓ Pre-release tag allowed from dev or main branch"
+            else
+              echo "Error: Tag must be on dev or main branch"
+              exit 1
+            fi
+          else
+            # Stable releases must be on main branch only
+            git fetch origin main
+            if ! git merge-base --is-ancestor HEAD origin/main; then
+              echo "Error: Stable release tag must be on main branch (use rcN or -rcN suffix for pre-releases)"
+              exit 1
+            fi
+            echo "✓ Stable release on main branch"
+          fi
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Generate SCIP protobuf files
+        run: |
+          cd cicada/languages/scip
+          protoc --python_out=. --pyi_out=. scip.proto
+          ls -la scip_pb2.py scip_pb2.pyi
+
+      - name: Generate version hash file
+        run: |
+          python -c "
+          import subprocess
+          tag = subprocess.check_output(['git', 'describe', '--tags']).decode().strip()
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+          with open('cicada/_version_hash.py', 'w') as f:
+              f.write(f'GIT_TAG = \"{tag}\"\nGIT_COMMIT_HASH = \"{commit}\"\n')
+          "
+          cat cicada/_version_hash.py
+
+      # Build and publish cicada-mcp
+      - name: Build cicada-mcp
+        run: uv build
+
+      - name: Publish cicada-mcp to PyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          uv publish --token $UV_PUBLISH_TOKEN
+
+      - name: Verify PyPI installation
+        run: |
+          sleep 60
+          pip install cicada-mcp
+          python -c "import cicada; print(f'Cicada version: {cicada.__version__}')"
+
+  publish-direct:
+    name: Publish to PyPI (direct)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.skip_test_pypi == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for branch checking
+
+      - name: Verify tag branch requirements
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "Tag: $TAG_NAME"
+
+          # Pre-releases can be from dev or main branch.
+          # Accept both SemVer-style "-rcN" and PEP 440-style "rcN" tags.
+          if [[ "$TAG_NAME" =~ rc[0-9]+$ ]]; then
+            git fetch origin dev main
+            if git merge-base --is-ancestor HEAD origin/dev || git merge-base --is-ancestor HEAD origin/main; then
+              echo "✓ Pre-release tag allowed from dev or main branch"
+            else
+              echo "Error: Tag must be on dev or main branch"
+              exit 1
+            fi
+          else
+            # Stable releases must be on main branch only
+            git fetch origin main
+            if ! git merge-base --is-ancestor HEAD origin/main; then
+              echo "Error: Stable release tag must be on main branch (use rcN or -rcN suffix for pre-releases)"
+              exit 1
+            fi
+            echo "✓ Stable release on main branch"
+          fi
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Generate SCIP protobuf files
+        run: |
+          cd cicada/languages/scip
+          protoc --python_out=. --pyi_out=. scip.proto
+          ls -la scip_pb2.py scip_pb2.pyi
+
+      - name: Generate version hash file
+        run: |
+          python -c "
+          import subprocess
+          tag = subprocess.check_output(['git', 'describe', '--tags']).decode().strip()
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+          with open('cicada/_version_hash.py', 'w') as f:
+              f.write(f'GIT_TAG = \"{tag}\"\nGIT_COMMIT_HASH = \"{commit}\"\n')
+          "
+          cat cicada/_version_hash.py
+
+      # Build and publish cicada-mcp
+      - name: Build cicada-mcp
+        run: uv build
+
+      - name: Publish cicada-mcp to PyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          uv publish --token $UV_PUBLISH_TOKEN
+
+      - name: Verify PyPI installation
+        run: |
+          sleep 60
+          pip install cicada-mcp
+          python -c "import cicada; print(f'Cicada version: {cicada.__version__}')"

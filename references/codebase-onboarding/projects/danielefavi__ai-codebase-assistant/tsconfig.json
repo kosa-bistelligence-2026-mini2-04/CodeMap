@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",                     // Specify ECMAScript target version. ES2022 is well-supported by Node 22.
+    "module": "NodeNext",                   // Specify module code generation strategy for Node.js ESM.
+    "moduleResolution": "NodeNext",         // Specify module resolution strategy, aligns with 'module: NodeNext'.
+    "outDir": "./dist",                     // Redirect output structure to the directory. Matches your package.json 'main'.
+    "rootDir": "./src",                     // Specify the root directory of input files.
+    "sourceMap": true,                      // Generates corresponding '.map' file for debugging.
+    "esModuleInterop": true,                // Enables emit interoperability between CommonJS and ES Modules. Good for compatibility.
+    "forceConsistentCasingInFileNames": true, // Disallow inconsistently-cased references to the same file.
+
+    /* --- Strict Type-Checking Options --- */
+    "strict": true,                         // Enable all strict type-checking options. Highly recommended.
+    // "noImplicitAny": true,               // (Included in `strict`) Raise error on expressions and declarations with an implied 'any' type.
+    // "strictNullChecks": true,            // (Included in `strict`) Enable strict null checks.
+    // "strictFunctionTypes": true,         // (Included in `strict`) Enable strict checking of function types.
+    // "strictBindCallApply": true,         // (Included in `strict`) Enable strict 'bind', 'call', and 'apply' methods on functions.
+    // "strictPropertyInitialization": true, // (Included in `strict`) Ensure class properties are initialized in the constructor.
+    // "noImplicitThis": true,              // (Included in `strict`) Raise error on 'this' expressions with an implied 'any' type.
+    // "alwaysStrict": true,                // (Included in `strict`) Parse in strict mode and emit "use strict" for each source file.
+
+    /* --- Module Resolution Options --- */
+    "baseUrl": "./",                        // Base directory to resolve non-absolute module names. Required for 'paths'.
+    "paths": {                              // Define path mappings. Must match 'imports' in package.json but point to SOURCE folders.
+      "#app/*": ["./src/app/*"],
+      "#core/*": ["./src/core/*"]
+    },
+
+    /* --- Advanced Options --- */
+    "skipLibCheck": true,                   // Skip type checking of all declaration files (*.d.ts). Speeds up compilation.
+    // "resolveJsonModule": true,           // Allows importing .json files as modules (uncomment if you need this).
+    "declaration": false,                   // Do not generate corresponding '.d.ts' file. Typically false for applications, true for libraries.
+    "declarationMap": false                 // Do not generate a sourcemap for each corresponding '.d.ts' file.
+  },
+  "include": ["src/**/*"],                  // Specifies which files TypeScript should compile. Includes everything in 'src'.
+  "exclude": ["node_modules", "dist"]       // Specifies files/folders TypeScript should ignore.
+}

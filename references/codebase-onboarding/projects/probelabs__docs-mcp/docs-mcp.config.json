@@ -1,0 +1,13 @@
+{
+  "includeDir": "./site",
+  "toolName": "search_docs",
+  "toolDescription": "Search documentation using the probe search engine.",
+  "ignorePatterns": [
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "coverage",
+    ".vitepress/cache"
+  ]
+}

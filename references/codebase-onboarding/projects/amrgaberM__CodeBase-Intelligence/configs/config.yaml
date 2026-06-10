@@ -1,0 +1,74 @@
+# CodeBase RAG Configuration
+
+# LLM Settings
+llm:
+  provider: "groq"
+  model: "llama-3.3-70b-versatile"
+  temperature: 0.1
+  max_tokens: 4096
+
+# Embedding Settings
+embeddings:
+  model: "BAAI/bge-base-en-v1.5"  # Good balance of speed/quality
+  # Alternative: "microsoft/codebert-base" for code-specific
+  dimension: 768
+
+# Chunking Settings
+chunking:
+  strategy: "ast"  # Options: ast, semantic, fixed
+  max_chunk_size: 1500
+  chunk_overlap: 200
+  
+# Retrieval Settings
+retrieval:
+  top_k: 10
+  rerank_top_k: 5
+  use_hybrid: true
+  bm25_weight: 0.3
+  dense_weight: 0.7
+
+# Vector Store
+vector_store:
+  provider: "chromadb"
+  persist_directory: "./data/vectors"
+  collection_name: "codebase"
+
+# Supported File Extensions
+supported_extensions:
+  - ".py"
+  - ".js"
+  - ".ts"
+  - ".jsx"
+  - ".tsx"
+  - ".java"
+  - ".go"
+  - ".rs"
+  - ".cpp"
+  - ".c"
+  - ".h"
+  - ".md"
+  - ".txt"
+  - ".yaml"
+  - ".yml"
+  - ".json"
+  - ".toml"
+
+# Files/Directories to Ignore
+ignore_patterns:
+  - "node_modules"
+  - "__pycache__"
+  - ".git"
+  - ".venv"
+  - "venv"
+  - ".env"
+  - "*.pyc"
+  - "*.pyo"
+  - ".DS_Store"
+  - "dist"
+  - "build"
+  - "*.egg-info"
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

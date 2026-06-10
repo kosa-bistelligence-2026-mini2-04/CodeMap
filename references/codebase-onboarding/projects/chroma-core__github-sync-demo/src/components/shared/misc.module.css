@@ -1,0 +1,16 @@
+@keyframes ellipsis {
+  0% {
+    content: ".";
+  }
+  25% {
+    content: "..";
+  }
+  50% {
+    content: "...";
+  }
+}
+
+.animated-ellipsis::after {
+  content: "";
+  animation: ellipsis 1s infinite;
+}

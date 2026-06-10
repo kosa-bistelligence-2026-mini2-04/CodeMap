@@ -1,0 +1,8 @@
+# Dart tool
+.dart_tool/
+
+# Build output
+build/
+
+# Generated files
+*.g.dart

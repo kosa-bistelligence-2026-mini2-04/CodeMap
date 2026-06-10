@@ -1,0 +1,9 @@
+# Build artifacts
+target/
+project/target/
+project/project/target/
+
+# sbt specific
+.bsp/
+.metals/
+.bloop/

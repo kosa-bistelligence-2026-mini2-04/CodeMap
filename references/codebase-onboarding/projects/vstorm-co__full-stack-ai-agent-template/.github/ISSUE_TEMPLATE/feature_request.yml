@@ -1,0 +1,47 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for full-stack-ai-agent-template
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement!
+        Please describe your request **in English** so maintainers and the community can evaluate it effectively.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem or limitation are you trying to solve? Why does it matter?
+      placeholder: "I find it difficult to X because the generated project does Y, which means I have to Z."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature or change you would like to see.
+      placeholder: |
+        Add a `--foo` option to `fastapi-fullstack create` that allows...
+        ```bash
+        fastapi-fullstack create my_app --foo bar
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any workarounds or alternative solutions?
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, links, or references that might help evaluate this request.
+    validations:
+      required: false

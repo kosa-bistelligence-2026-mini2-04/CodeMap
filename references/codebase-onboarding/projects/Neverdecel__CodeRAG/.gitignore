@@ -1,0 +1,42 @@
+# Ignore Python bytecode and cache
+__pycache__/
+*.py[cod]
+
+# Build artifacts
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+
+# Ignore virtual environment directories
+.venv/
+env/
+venv/
+
+# Ignore environment variables file
+.env
+
+# Ignore node_modules
+node_modules/
+
+# Ignore FAISS index file
+*.faiss
+*.faiss.kind
+
+# Ignore the CodeRAG store (SQLite db + index live here by default)
+.coderag/
+
+# Ignore Git directory
+.git/
+
+# Ignore Streamlit temporary files
+.streamlit/
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+plan.md
+metadata.npy
+test_env/
+*.npy

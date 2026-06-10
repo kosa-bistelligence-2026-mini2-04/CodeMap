@@ -1,0 +1,23 @@
+{%- if cookiecutter.enable_kubernetes %}
+# Service for {{ cookiecutter.project_name }} Backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ cookiecutter.project_slug }}-backend
+  namespace: {{ cookiecutter.project_slug }}
+  labels:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ cookiecutter.backend_port }}
+      targetPort: {{ cookiecutter.backend_port }}
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/component: backend
+{%- else %}
+# Kubernetes is disabled for this project
+{%- endif %}

@@ -1,0 +1,178 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release & Publish
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: write
+      id-token: write
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/src-mcp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if release commit
+        id: check
+        run: |
+          MESSAGE=$(git log -1 --pretty=%B)
+          echo "Commit message: $MESSAGE"
+          if [[ "$MESSAGE" == *"[release]"* ]] || [[ "$MESSAGE" == *"chore(release)"* ]]; then
+            echo "should-release=true" >> $GITHUB_OUTPUT
+            echo "✅ Release commit detected" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "should-release=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipped - not a release commit" >> $GITHUB_STEP_SUMMARY
+            echo "Commit message was: $MESSAGE"
+          fi
+
+      - name: Get version
+        if: steps.check.outputs.should-release == 'true'
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check if already released
+        if: steps.check.outputs.should-release == 'true'
+        id: tag
+        run: |
+          if git tag -l "v${{ steps.version.outputs.version }}" | grep -q .; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipped - v${{ steps.version.outputs.version }} already released" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Bun
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update npm
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        run: npm install -g npm@latest
+
+      - name: Cache dependencies
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        run: bun run build
+
+      - name: Generate changelog
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        run: bun run changelog
+
+      - name: Commit and push changelog
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        id: changelog-commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+
+          if git diff --staged --quiet; then
+            echo "pushed=false" >> $GITHUB_OUTPUT
+            echo "📝 No changelog changes to commit" >> $GITHUB_STEP_SUMMARY
+          else
+            git commit -m "docs: update changelog for v${{ steps.version.outputs.version }}"
+
+            # Try to push to main (non-blocking if it fails)
+            if git push origin HEAD:main 2>&1; then
+              echo "pushed=true" >> $GITHUB_OUTPUT
+              echo "📝 Changelog committed and pushed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "pushed=false" >> $GITHUB_OUTPUT
+              echo "⚠️ Could not push changelog (main may have moved). Release will continue." >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      - name: Extract release notes
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        id: notes
+        run: |
+          # Extract content between first and second version headers
+          # Handles both "## [1.0.0]" and "## 1.0.0" formats
+          NOTES=$(awk '
+            /^## \[?[0-9]+\.[0-9]+\.[0-9]+\]?/ {
+              if (found) exit
+              found = 1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md)
+
+          # Remove empty lines at start and end
+          NOTES=$(echo "$NOTES" | sed '/^[[:space:]]*$/d')
+
+          # Fallback if empty
+          if [ -z "$NOTES" ]; then
+            NOTES="Version bump release."
+          fi
+
+          # Output using heredoc for multiline
+          {
+            echo "content<<RELEASE_NOTES_EOF"
+            echo "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          body: ${{ steps.notes.outputs.content }}
+          target_commitish: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Publish to npm
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        run: npm publish --provenance --access public
+
+      - name: Release summary
+        if: steps.check.outputs.should-release == 'true' && steps.tag.outputs.exists == 'false'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Released v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource | Link |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| GitHub Release | [v${{ steps.version.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm Package | [src-mcp](https://www.npmjs.com/package/src-mcp) |" >> $GITHUB_STEP_SUMMARY

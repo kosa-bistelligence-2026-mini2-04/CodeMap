@@ -1,0 +1,1 @@
+ALTER TABLE "analysis" ADD COLUMN "previous_analysis_id" text;

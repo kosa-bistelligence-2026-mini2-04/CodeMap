@@ -1,0 +1,24 @@
+# .NET + scip-dotnet complete environment
+# Includes .NET SDK and scip-dotnet indexer (shared for C# and VB)
+
+FROM cicada-base
+
+# Install .NET SDK with ICU library
+RUN apt-get update && apt-get install -y \
+    wget \
+    libicu-dev \
+    && wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh \
+    && chmod +x ./dotnet-install.sh \
+    && ./dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet \
+    && ln -s /usr/share/dotnet/dotnet /usr/local/bin/dotnet \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install scip-dotnet
+RUN dotnet tool install --global scip-dotnet
+ENV PATH="/root/.dotnet/tools:$PATH"
+
+# Verify installations
+RUN dotnet --version > /dev/null 2>&1 && echo "✓ .NET SDK installed"
+RUN scip-dotnet --help > /dev/null 2>&1 && echo "✓ scip-dotnet installed"
+
+WORKDIR /workspace

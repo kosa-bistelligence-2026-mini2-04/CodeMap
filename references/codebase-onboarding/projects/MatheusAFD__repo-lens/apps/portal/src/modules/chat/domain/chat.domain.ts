@@ -1,0 +1,15 @@
+export type {
+  Chat,
+  ChatMessage,
+  ChatMessageRole,
+  ChatMessageStatus,
+  ChatSseEvent,
+  CodeArea,
+  CreateChatRequest,
+  PromptSuggestion,
+  PromptSuggestionsResponse,
+  RenameChatRequest,
+  SendMessageRequest,
+  SuggestionAxis,
+  SuggestionLens,
+} from '@repo/shared'

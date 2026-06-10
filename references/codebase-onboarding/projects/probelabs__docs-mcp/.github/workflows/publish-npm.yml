@@ -1,0 +1,49 @@
+name: Publish Docs MCP to npm
+
+on:
+  push:
+    tags:
+      - "v*" # Trigger on tags like v1.0.0, v1.1.0, etc.
+
+permissions:
+  contents: read # Needed to check out the repository
+
+jobs:
+  publish-npm:
+    name: Publish @probelabs/docs-mcp to npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          # Remove 'v' prefix from tag (e.g., v1.0.0 -> 1.0.0)
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Extracted version: $VERSION"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          registry-url: "https://registry.npmjs.org/"
+          scope: "@probelabs"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update package version
+        run: |
+          # Update version in package.json without creating a git tag
+          npm version ${{ env.VERSION }} --no-git-tag-version
+          echo "Updated package.json to version ${{ env.VERSION }}"
+
+      - name: Build package
+        run: npm run build # Ensure the data directory is prepared
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

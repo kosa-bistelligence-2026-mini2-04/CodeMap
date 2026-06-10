@@ -1,0 +1,26 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.repomind.in"
+        }
+      ],
+      "destination": "https://repomind.in/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "repomind-ai.vercel.app"
+        }
+      ],
+      "destination": "https://repomind.in/:path*",
+      "permanent": true
+    }
+  ]
+}

@@ -1,0 +1,765 @@
+{%- if cookiecutter.enable_docker %}
+# Production configuration
+{%- if cookiecutter.include_traefik_service %}
+# with Traefik reverse proxy
+{%- elif cookiecutter.include_traefik_labels %}
+# with external Traefik (connect to traefik-public network)
+{%- elif cookiecutter.include_nginx_service %}
+# with Nginx reverse proxy
+{%- elif cookiecutter.include_nginx_config %}
+# with external Nginx (config template provided)
+{%- else %}
+# without reverse proxy (ports exposed directly)
+{%- endif %}
+#
+# Usage:
+#   1. Fill backend/.env with real production secrets (cp backend/.env.example
+#      backend/.env if it doesn't exist yet). The same file is used for dev and
+#      prod — there is no separate .env.prod.
+#   2. Run: make prod   (or: docker compose --env-file backend/.env -f docker-compose.prod.yml up -d)
+{%- if cookiecutter.include_traefik_service %}
+#
+# Prerequisites:
+#   1. Configure backend/.env with DOMAIN and ACME_EMAIL
+#   2. Ensure ports 80 and 443 are available
+#   3. Generate passwords: openssl rand -base64 32
+{%- elif cookiecutter.include_traefik_labels %}
+#
+# Prerequisites:
+#   1. Create external traefik-public network: docker network create traefik-public
+#   2. Run your Traefik instance connected to traefik-public network
+#   3. Configure backend/.env with DOMAIN
+{%- elif cookiecutter.include_nginx_service %}
+#
+# Prerequisites:
+#   1. Place SSL certificates in nginx/ssl/ directory:
+#      - nginx/ssl/cert.pem (certificate)
+#      - nginx/ssl/key.pem (private key)
+#   2. Configure backend/.env with DOMAIN
+#   3. Ensure ports 80 and 443 are available
+{%- elif cookiecutter.include_nginx_config %}
+#
+# Prerequisites:
+#   1. Configure your external Nginx using nginx/nginx.conf as reference
+#   2. Configure backend/.env with DOMAIN
+{%- endif %}
+
+services:
+{%- if cookiecutter.include_traefik_service %}
+  traefik:
+    image: traefik:v3.2
+    container_name: {{ cookiecutter.project_slug }}_traefik
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik-public"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Redirect HTTP to HTTPS
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # Let's Encrypt
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      # Access logs
+      - "--accesslog=true"
+      - "--accesslog.bufferingsize=100"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - traefik-public
+    labels:
+      # Dashboard
+      - "traefik.enable=true"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-traefik.rule=Host(`traefik.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-traefik.entrypoints=websecure"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-traefik.service=api@internal"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-traefik.middlewares={{ cookiecutter.project_slug }}-auth"
+      - "traefik.http.middlewares.{{ cookiecutter.project_slug }}-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:-admin:$$apr1$$xyz$$hash}"
+      # Security headers middleware
+      - "traefik.http.middlewares.{{ cookiecutter.project_slug }}-security-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.{{ cookiecutter.project_slug }}-security-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.{{ cookiecutter.project_slug }}-security-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.{{ cookiecutter.project_slug }}-security-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.{{ cookiecutter.project_slug }}-security-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.{{ cookiecutter.project_slug }}-security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.{{ cookiecutter.project_slug }}-security-headers.headers.frameDeny=true"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+{%- endif %}
+
+{%- if cookiecutter.include_nginx_service %}
+  nginx:
+    image: nginx:alpine
+    container_name: {{ cookiecutter.project_slug }}_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - backend-internal
+    depends_on:
+      - app
+{%- if cookiecutter.use_frontend %}
+      - frontend
+{%- endif %}
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+{%- endif %}
+
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: {{ cookiecutter.project_slug }}_backend
+    volumes:
+      - media_data:/app/media
+{%- if cookiecutter.use_sqlite %}
+      - sqlite_data:/app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+      - chroma_data:/app/chroma_data
+{%- endif %}
+{%- if cookiecutter.enable_email %}
+      # email/templates.py reads pre-compiled HTML/text from /app/emails/compiled.
+      # Build context is ./backend so the dir isn't in the image — mount it.
+      - ./emails:/app/emails:ro
+{%- endif %}
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=false
+      - ENVIRONMENT=production
+{%- if cookiecutter.use_postgresql %}
+      - POSTGRES_HOST=db
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+{%- endif %}
+{%- if cookiecutter.use_celery %}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+{%- endif %}
+{%- if cookiecutter.use_taskiq %}
+      - TASKIQ_BROKER_URL=redis://redis:6379/1
+      - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
+{%- endif %}
+    command: uvicorn app.main:app --host 0.0.0.0 --port {{ cookiecutter.backend_port }} --workers 4
+{%- if cookiecutter.include_traefik_labels %}
+    networks:
+      - traefik-public
+      - backend-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-api.rule=Host(`api.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-api.entrypoints=websecure"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-api.middlewares={{ cookiecutter.project_slug }}-security-headers@docker"
+      - "traefik.http.services.{{ cookiecutter.project_slug }}-api.loadbalancer.server.port={{ cookiecutter.backend_port }}"
+      - "traefik.docker.network=traefik-public"
+{%- elif cookiecutter.include_nginx_service %}
+    networks:
+      - backend-internal
+    # No ports exposed - nginx handles external traffic
+{%- else %}
+    networks:
+      - backend-internal
+    ports:
+      - "{{ cookiecutter.backend_port }}:{{ cookiecutter.backend_port }}"
+{%- endif %}
+{%- if cookiecutter.use_postgresql or cookiecutter.enable_redis or cookiecutter.use_milvus or cookiecutter.use_qdrant %}
+    depends_on:
+{%- if cookiecutter.use_postgresql %}
+      db:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      redis:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      milvus:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      qdrant:
+        condition: service_healthy
+{%- endif %}
+{%- endif %}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+{%- if cookiecutter.use_postgresql %}
+
+  db:
+    image: postgres:16-alpine
+    container_name: {{ cookiecutter.project_slug }}_db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-{{ cookiecutter.project_slug }}}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # NO external ports - only accessible within backend-internal network
+    networks:
+      - backend-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+{%- endif %}
+
+{%- if cookiecutter.enable_redis %}
+
+  redis:
+    image: redis:7-alpine
+    container_name: {{ cookiecutter.project_slug }}_redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    # NO external ports - only accessible within backend-internal network
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+{%- endif %}
+
+{%- if cookiecutter.use_milvus %}
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.6.11
+    container_name: {{ cookiecutter.project_slug }}_etcd
+    volumes:
+      - etcd_data:/var/lib/etcd
+    networks:
+      - backend-internal
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-22T00-33-43Z
+    container_name: {{ cookiecutter.project_slug }}_minio
+    command: server /data --console-address ":9001"
+    # NO external ports - only accessible within backend-internal network
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-changeme}
+    networks:
+      - backend-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  milvus:
+    image: milvusdb/milvus:v2.6.17
+    container_name: {{ cookiecutter.project_slug }}_milvus
+    command: ["milvus", "run", "standalone"]
+    # NO external ports - only accessible within backend-internal network
+    volumes:
+      - milvus_data:/var/lib/milvus
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - backend-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      # Milvus standalone needs querycoord/datacoord/proxy to converge before
+      # /healthz returns 200 — first boot can take 60-180s on Apple Silicon.
+      start_period: 90s
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+{%- endif %}
+
+{%- if cookiecutter.use_qdrant %}
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.1
+    container_name: {{ cookiecutter.project_slug }}_qdrant
+    # NO external ports in production - only accessible within backend-internal network
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - backend-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+{%- endif %}
+
+{%- if cookiecutter.use_celery %}
+
+  celery_worker:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    container_name: {{ cookiecutter.project_slug }}_celery_worker
+    volumes:
+      - media_data:/app/media
+{%- if cookiecutter.use_sqlite %}
+      - sqlite_data:/app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+      - chroma_data:/app/chroma_data
+{%- endif %}
+{%- if cookiecutter.enable_email %}
+      - ./emails:/app/emails:ro
+{%- endif %}
+    command: celery -A app.worker.celery_app worker --loglevel=warning --concurrency=4
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=false
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+{%- endif %}
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
+    networks:
+      - backend-internal
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+{%- if cookiecutter.use_postgresql %}
+      db:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      milvus:
+        condition: service_healthy
+{%- endif %}
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  celery_beat:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    container_name: {{ cookiecutter.project_slug }}_celery_beat
+    command: celery -A app.worker.celery_app beat --loglevel=warning
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=false
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+{%- endif %}
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
+    networks:
+      - backend-internal
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  flower:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    container_name: {{ cookiecutter.project_slug }}_flower
+    command: celery -A app.worker.celery_app flower --port=5555
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=false
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:?FLOWER_PASSWORD is required}
+{%- if cookiecutter.include_traefik_labels %}
+    networks:
+      - traefik-public
+      - backend-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-flower.rule=Host(`flower.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-flower.entrypoints=websecure"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-flower.tls.certresolver=letsencrypt"
+      - "traefik.http.services.{{ cookiecutter.project_slug }}-flower.loadbalancer.server.port=5555"
+      - "traefik.docker.network=traefik-public"
+{%- elif cookiecutter.include_nginx_service %}
+    networks:
+      - backend-internal
+    # No ports exposed - nginx handles external traffic
+{%- else %}
+    networks:
+      - backend-internal
+    ports:
+      - "5555:5555"
+{%- endif %}
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+{%- endif %}
+
+{%- if cookiecutter.use_taskiq %}
+
+  taskiq_worker:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    container_name: {{ cookiecutter.project_slug }}_taskiq_worker
+    volumes:
+      - media_data:/app/media
+{%- if cookiecutter.use_sqlite %}
+      - sqlite_data:/app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+      - chroma_data:/app/chroma_data
+{%- endif %}
+{%- if cookiecutter.enable_email %}
+      - ./emails:/app/emails:ro
+{%- endif %}
+    command: taskiq worker app.worker.taskiq_app:broker --workers 4
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=false
+{%- if cookiecutter.use_postgresql %}
+      - POSTGRES_HOST=db
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+{%- endif %}
+      - TASKIQ_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      - TASKIQ_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
+    networks:
+      - backend-internal
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+{%- if cookiecutter.use_postgresql %}
+      db:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      milvus:
+        condition: service_healthy
+{%- endif %}
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  taskiq_scheduler:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    container_name: {{ cookiecutter.project_slug }}_taskiq_scheduler
+    command: taskiq scheduler app.worker.taskiq_app:scheduler
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=false
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+{%- endif %}
+      - TASKIQ_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      - TASKIQ_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
+    networks:
+      - backend-internal
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+{%- endif %}
+
+{%- if cookiecutter.use_arq %}
+
+  arq_worker:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    container_name: {{ cookiecutter.project_slug }}_arq_worker
+    volumes:
+      - media_data:/app/media
+{%- if cookiecutter.use_sqlite %}
+      - sqlite_data:/app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+      - chroma_data:/app/chroma_data
+{%- endif %}
+    command: arq app.worker.arq_app.WorkerSettings
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=false
+{%- if cookiecutter.use_postgresql %}
+      - POSTGRES_HOST=db
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+{%- endif %}
+      - ARQ_REDIS_HOST=redis
+      - ARQ_REDIS_PORT=6379
+      - ARQ_REDIS_DB=2
+    networks:
+      - backend-internal
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+{%- if cookiecutter.use_postgresql %}
+      db:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      milvus:
+        condition: service_healthy
+{%- endif %}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+{%- endif %}
+
+{%- if cookiecutter.use_frontend %}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: {{ cookiecutter.project_slug }}_frontend
+    environment:
+      - NODE_ENV=production
+      - BACKEND_URL=http://app:{{ cookiecutter.backend_port }}
+      - BACKEND_WS_URL=ws://app:{{ cookiecutter.backend_port }}
+{%- if cookiecutter.include_traefik_labels %}
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-frontend.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-frontend.entrypoints=websecure"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.{{ cookiecutter.project_slug }}-frontend.middlewares={{ cookiecutter.project_slug }}-security-headers@docker"
+      - "traefik.http.services.{{ cookiecutter.project_slug }}-frontend.loadbalancer.server.port={{ cookiecutter.frontend_port }}"
+      - "traefik.docker.network=traefik-public"
+{%- elif cookiecutter.include_nginx_service %}
+    networks:
+      - backend-internal
+    # No ports exposed - nginx handles external traffic
+{%- else %}
+    networks:
+      - backend-internal
+    ports:
+      - "{{ cookiecutter.frontend_port }}:{{ cookiecutter.frontend_port }}"
+{%- endif %}
+    depends_on:
+      - app
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+{%- endif %}
+
+networks:
+{%- if cookiecutter.include_traefik_service %}
+  traefik-public:
+    driver: bridge
+{%- elif cookiecutter.include_traefik_labels %}
+  traefik-public:
+    external: true
+{%- endif %}
+  backend-internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  media_data:
+{%- if cookiecutter.use_sqlite %}
+  sqlite_data:
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+  chroma_data:
+{%- endif %}
+{%- if cookiecutter.include_traefik_service %}
+  traefik_letsencrypt:
+{%- endif %}
+{%- if cookiecutter.use_postgresql or cookiecutter.enable_redis or cookiecutter.use_milvus or cookiecutter.use_qdrant %}
+{%- if cookiecutter.use_postgresql %}
+  postgres_data:
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+  redis_data:
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+  etcd_data:
+  minio_data:
+  milvus_data:
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+  qdrant_data:
+{%- endif %}
+{%- endif %}
+{%- else %}
+# Docker is disabled for this project
+{%- endif %}

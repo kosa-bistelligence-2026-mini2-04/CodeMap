@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --background: 240 100% 99%;
+  --foreground: 240 10% 3.9%;
+  --card: 240 100% 99%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 240 100% 99%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 246 80% 60%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 252 100% 97%;
+  --secondary-foreground: 240 10% 3.9%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 270 76% 90%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 246 80% 60%;
+  --radius: 0.5rem;
+  
+  /* Gradient colors */
+  --gradient-start: 246 80% 60%;
+  --gradient-end: 270 76% 55%;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 240 5% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 240 5% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 240 5% 98%;
+  --primary: 246 70% 60%;
+  --primary-foreground: 240 5% 98%;
+  --secondary: 240 10% 14.9%;
+  --secondary-foreground: 240 5% 98%;
+  --muted: 240 10% 14.9%;
+  --muted-foreground: 240 5% 63.9%;
+  --accent: 270 66% 40%;
+  --accent-foreground: 240 5% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 240 5% 98%;
+  --border: 240 10% 14.9%;
+  --input: 240 10% 14.9%;
+  --ring: 246 70% 60%;
+  
+  /* Gradient colors for dark mode */
+  --gradient-start: 246 70% 50%;
+  --gradient-end: 270 76% 40%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+/* Gradient backgrounds */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}

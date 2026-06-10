@@ -1,0 +1,264 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --scrollbar-track: #f4f4f5;
+  --scrollbar-thumb: #a1a1aa;
+  --scrollbar-thumb-hover: #71717a;
+  --diagram-color-primary: #4f46e5;
+  --diagram-color-secondary: #1f2937;
+  --diagram-color-accent-1: #1d4ed8;
+  --diagram-color-accent-2: #0e7490;
+  --diagram-color-accent-3: #047857;
+  --diagram-color-accent-4: #6d28d9;
+  --diagram-color-accent-5: #b45309;
+  --diagram-color-accent-6: #be185d;
+  --diagram-color-line: #6366f1;
+  --diagram-color-surface: #111827;
+  --diagram-color-border: #475569;
+  --diagram-color-text-on-color: #f8fafc;
+  --mindmap-branch-1-fill: var(--diagram-color-accent-1);
+  --mindmap-branch-1-stroke: var(--diagram-color-accent-1);
+  --mindmap-branch-2-fill: var(--diagram-color-accent-2);
+  --mindmap-branch-2-stroke: var(--diagram-color-accent-2);
+  --mindmap-branch-3-fill: var(--diagram-color-accent-3);
+  --mindmap-branch-3-stroke: var(--diagram-color-accent-3);
+  --mindmap-branch-4-fill: var(--diagram-color-accent-4);
+  --mindmap-branch-4-stroke: var(--diagram-color-accent-4);
+  --mindmap-branch-5-fill: var(--diagram-color-accent-5);
+  --mindmap-branch-5-stroke: var(--diagram-color-accent-5);
+  --mindmap-branch-6-fill: var(--diagram-color-accent-6);
+  --mindmap-branch-6-stroke: var(--diagram-color-accent-6);
+  --mindmap-branch-text: var(--diagram-color-text-on-color);
+  --mindmap-branch-text-dark: #0f172a;
+  --mindmap-branch-text-light: var(--diagram-color-text-on-color);
+  --mindmap-center-fill: var(--diagram-color-primary);
+  --mindmap-center-stroke: #4338ca;
+  --mindmap-center-text: var(--diagram-color-text-on-color);
+  --mindmap-category-fill: var(--diagram-color-secondary);
+  --mindmap-category-stroke: var(--diagram-color-border);
+  --mindmap-category-text: var(--diagram-color-text-on-color);
+  --xychart-text: var(--diagram-color-text-on-color);
+  --xychart-axis: #94a3b8;
+  --xychart-bar: var(--diagram-color-primary);
+  --xychart-line: var(--diagram-color-accent-3);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-montserrat);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --scrollbar-track: #18181b;
+    --scrollbar-thumb: #52525b;
+    --scrollbar-thumb-hover: #71717a;
+    --diagram-color-primary: #4f46e5;
+    --diagram-color-secondary: #1f2937;
+    --diagram-color-accent-1: #1d4ed8;
+    --diagram-color-accent-2: #0e7490;
+    --diagram-color-accent-3: #047857;
+    --diagram-color-accent-4: #6d28d9;
+    --diagram-color-accent-5: #b45309;
+    --diagram-color-accent-6: #be185d;
+    --diagram-color-line: #6366f1;
+    --diagram-color-surface: #111827;
+    --diagram-color-border: #64748b;
+    --diagram-color-text-on-color: #f8fafc;
+    --mindmap-branch-text: var(--diagram-color-text-on-color);
+    --mindmap-branch-text-light: var(--diagram-color-text-on-color);
+    --mindmap-center-fill: var(--diagram-color-primary);
+    --mindmap-center-stroke: #4338ca;
+    --mindmap-center-text: var(--diagram-color-text-on-color);
+    --mindmap-category-fill: var(--diagram-color-secondary);
+    --mindmap-category-stroke: var(--diagram-color-border);
+    --mindmap-category-text: var(--diagram-color-text-on-color);
+    --xychart-text: var(--diagram-color-text-on-color);
+    --xychart-axis: #94a3b8;
+    --xychart-bar: var(--diagram-color-primary);
+    --xychart-line: var(--diagram-color-accent-3);
+  }
+}
+
+html.dark,
+html[data-theme="dark"],
+html[data-color-mode="dark"] {
+  --scrollbar-track: #18181b;
+  --scrollbar-thumb: #52525b;
+  --scrollbar-thumb-hover: #71717a;
+  --diagram-color-primary: #4f46e5;
+  --diagram-color-secondary: #1f2937;
+  --diagram-color-accent-1: #1d4ed8;
+  --diagram-color-accent-2: #0e7490;
+  --diagram-color-accent-3: #047857;
+  --diagram-color-accent-4: #6d28d9;
+  --diagram-color-accent-5: #b45309;
+  --diagram-color-accent-6: #be185d;
+  --diagram-color-line: #6366f1;
+  --diagram-color-surface: #111827;
+  --diagram-color-border: #64748b;
+  --diagram-color-text-on-color: #f8fafc;
+  --mindmap-branch-text: var(--diagram-color-text-on-color);
+  --mindmap-branch-text-light: var(--diagram-color-text-on-color);
+  --mindmap-center-fill: var(--diagram-color-primary);
+  --mindmap-center-stroke: #4338ca;
+  --mindmap-center-text: var(--diagram-color-text-on-color);
+  --mindmap-category-fill: var(--diagram-color-secondary);
+  --mindmap-category-stroke: var(--diagram-color-border);
+  --mindmap-category-text: var(--diagram-color-text-on-color);
+  --xychart-text: var(--diagram-color-text-on-color);
+  --xychart-axis: #94a3b8;
+  --xychart-bar: var(--diagram-color-primary);
+  --xychart-line: var(--diagram-color-accent-3);
+}
+
+html.light,
+html[data-theme="light"],
+html[data-color-mode="light"] {
+  --scrollbar-track: #f4f4f5;
+  --scrollbar-thumb: #a1a1aa;
+  --scrollbar-thumb-hover: #71717a;
+  --diagram-color-primary: #4f46e5;
+  --diagram-color-secondary: #1f2937;
+  --diagram-color-accent-1: #1d4ed8;
+  --diagram-color-accent-2: #0e7490;
+  --diagram-color-accent-3: #047857;
+  --diagram-color-accent-4: #6d28d9;
+  --diagram-color-accent-5: #b45309;
+  --diagram-color-accent-6: #be185d;
+  --diagram-color-line: #6366f1;
+  --diagram-color-surface: #111827;
+  --diagram-color-border: #475569;
+  --diagram-color-text-on-color: #f8fafc;
+  --mindmap-branch-text: var(--diagram-color-text-on-color);
+  --mindmap-branch-text-light: var(--diagram-color-text-on-color);
+  --mindmap-center-fill: var(--diagram-color-primary);
+  --mindmap-center-stroke: #4338ca;
+  --mindmap-center-text: var(--diagram-color-text-on-color);
+  --mindmap-category-fill: var(--diagram-color-secondary);
+  --mindmap-category-stroke: var(--diagram-color-border);
+  --mindmap-category-text: var(--diagram-color-text-on-color);
+  --xychart-text: var(--diagram-color-text-on-color);
+  --xychart-axis: #94a3b8;
+  --xychart-bar: var(--diagram-color-primary);
+  --xychart-line: var(--diagram-color-accent-3);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+@property --angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0turn;
+}
+
+@keyframes spin-gradient {
+  to {
+    --angle: 1turn;
+  }
+}
+
+.conic-border-container {
+  position: relative;
+
+  border: 2px solid transparent;
+  /* uniform width */
+  isolation: isolate;
+}
+
+.conic-border-container::before {
+  content: " ";
+  position: absolute;
+  inset: -2px;
+  /* negative border width */
+  z-index: -1;
+  border: inherit;
+  border-radius: inherit;
+  background-image: conic-gradient(from var(--angle), #9333ea 0%, #3b82f6 50%, #9333ea 100%);
+  background-origin: border-box;
+  -webkit-mask:
+    linear-gradient(black, black) content-box,
+    linear-gradient(black, black);
+  mask: linear-gradient(black, black),
+    linear-gradient(black, black);
+  -webkit-mask-clip: content-box, border-box;
+  mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spin-gradient 8s linear infinite;
+}
+
+.neon-spin-ring::before {
+  background-image: conic-gradient(
+    from var(--angle),
+    #22d3ee 0%,
+    #3b82f6 35%,
+    #a855f7 65%,
+    #22d3ee 100%
+  );
+  animation: spin-gradient 6s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.45))
+    drop-shadow(0 0 20px rgba(168, 85, 247, 0.3));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conic-border-container::before,
+  .neon-spin-ring::before {
+    animation: none;
+  }
+}
+
+@keyframes soft-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px -2px rgba(59, 130, 246, 0.2);
+  }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  /* Medium weight for better visibility */
+}

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: codebase-rag
+    ports:
+      - "8501:8501"  # Streamlit
+      - "8000:8000"  # FastAPI
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+    restart: unless-stopped
+    command: streamlit run streamlit_app.py --server.port=8501 --server.address=0.0.0.0
+
+  # Optional: FastAPI service (if you want both)
+  # api:
+  #   build: .
+  #   container_name: codebase-rag-api
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - GROQ_API_KEY=${GROQ_API_KEY}
+  #   volumes:
+  #     - ./data:/app/data
+  #   restart: unless-stopped
+  #   command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000

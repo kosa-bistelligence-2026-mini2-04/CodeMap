@@ -1,0 +1,76 @@
+{%- if cookiecutter.enable_kubernetes %}
+# ConfigMap for {{ cookiecutter.project_name }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ cookiecutter.project_slug }}-config
+  namespace: {{ cookiecutter.project_slug }}
+  labels:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/component: backend
+data:
+  # Application settings
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  PROJECT_NAME: "{{ cookiecutter.project_name }}"
+  API_V1_STR: "/api/v1"
+  TIMEZONE: "{{ cookiecutter.timezone }}"
+
+{%- if cookiecutter.use_postgresql %}
+  # PostgreSQL settings
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "{{ cookiecutter.project_slug }}"
+{%- endif %}
+
+{%- if cookiecutter.enable_redis %}
+  # Redis settings
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+{%- endif %}
+
+{%- if cookiecutter.use_celery %}
+  # Celery settings
+  CELERY_BROKER_URL: "redis://redis-service:6379/0"
+  CELERY_RESULT_BACKEND: "redis://redis-service:6379/0"
+{%- endif %}
+
+{%- if cookiecutter.use_taskiq %}
+  # Taskiq settings
+  TASKIQ_BROKER_URL: "redis://redis-service:6379/1"
+  TASKIQ_RESULT_BACKEND: "redis://redis-service:6379/1"
+{%- endif %}
+
+{%- if cookiecutter.use_arq %}
+  # ARQ settings
+  ARQ_REDIS_HOST: "redis-service"
+  ARQ_REDIS_PORT: "6379"
+  ARQ_REDIS_DB: "2"
+{%- endif %}
+
+{%- if cookiecutter.enable_logfire %}
+  # Logfire settings
+  LOGFIRE_SERVICE_NAME: "{{ cookiecutter.project_slug }}"
+  LOGFIRE_ENVIRONMENT: "production"
+{%- endif %}
+
+{%- if cookiecutter.use_milvus %}
+  # Milvus settings
+  MILVUS_HOST: "milvus-service"
+  MILVUS_PORT: "19530"
+{%- endif %}
+
+{%- if cookiecutter.use_qdrant %}
+  # Qdrant settings
+  QDRANT_HOST: "qdrant-service"
+  QDRANT_PORT: "6333"
+{%- endif %}
+
+{%- if cookiecutter.enable_cors %}
+  # CORS settings (adjust for your domain)
+  CORS_ORIGINS: '["https://{{ cookiecutter.project_slug }}.example.com"]'
+{%- endif %}
+{%- else %}
+# Kubernetes is disabled for this project
+{%- endif %}

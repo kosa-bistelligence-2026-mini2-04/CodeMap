@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+      'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer components {
+  .report-prose h1 {
+    @apply mb-4 mt-6 text-2xl font-semibold;
+  }
+  .report-prose h2 {
+    @apply mb-3 mt-5 text-xl font-semibold;
+  }
+  .report-prose h3 {
+    @apply mb-2 mt-4 text-lg font-semibold;
+  }
+  .report-prose p {
+    @apply mb-3 leading-relaxed;
+  }
+  .report-prose code {
+    @apply rounded bg-muted px-1 py-0.5 text-sm;
+  }
+  .report-prose pre {
+    @apply mb-4 overflow-x-auto rounded-md bg-muted p-4 text-sm;
+  }
+  .report-prose ul {
+    @apply mb-3 list-inside list-disc space-y-1;
+  }
+  .report-prose ol {
+    @apply mb-3 list-inside list-decimal space-y-1;
+  }
+  .report-prose table {
+    @apply mb-4 w-full border-collapse text-sm;
+  }
+  .report-prose th,
+  .report-prose td {
+    @apply border border-border px-3 py-2 text-left;
+  }
+}

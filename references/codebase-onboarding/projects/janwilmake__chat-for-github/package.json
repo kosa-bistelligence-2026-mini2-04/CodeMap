@@ -1,0 +1,25 @@
+{
+  "name": "repo-prompt",
+  "version": "1.0.0",
+  "description": "Chat with any GitHub repository using AI - powered by uithub and Claude",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/openai": "^3.0.41",
+    "@ai-sdk/xai": "^3.0.67",
+    "ai": "^6.0.0",
+    "just-bash": "^2.13.1",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^4.0.0"
+  }
+}

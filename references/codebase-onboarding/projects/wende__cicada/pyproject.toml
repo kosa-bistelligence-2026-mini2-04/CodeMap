@@ -1,0 +1,236 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+cicada-vector = { git = "https://github.com/wende/cicada-vector" }
+
+[project]
+name = "cicada-mcp"
+version = "0.6.5"
+description = "Code Intelligence MCP for 15 languages"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "wende", email = "wende@hey.com"}
+]
+maintainers = [
+    {name = "wende", email = "wende@hey.com"}
+]
+keywords = [
+    "elixir",
+    "python",
+    "phoenix",
+    "mcp",
+    "model-context-protocol",
+    "code-search",
+    "developer-tools",
+    "git-history",
+    "code-intelligence",
+    "ai-assistant"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Text Processing :: Indexing",
+    "Framework :: Pytest",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=0.1.0",
+    "pyyaml>=6.0",
+    "tree-sitter>=0.20.0",
+    "tree-sitter-elixir>=0.1.0",
+    "tiktoken>=0.5.0",
+    "gitpython>=3.1.0",
+    "jq>=1.6.0",
+    "lemminflect>=0.2.3",
+    "simple-term-menu>=1.6.0",
+    "tomli>=2.0.0; python_version < '3.11'",
+    "watchdog>=3.0.0",
+    "tree-sitter-language-pack>=0.13.0",  # Multi-language tree-sitter bindings (Erlang, etc.)
+    "pathspec>=0.12.0",  # Gitignore-style path matching for generic file indexing
+    "cicada-vector>=0.1.5",  # Semantic search with embeddings
+    "fastapi>=0.115.0",  # REST API server for MCP tools
+    "uvicorn>=0.32.0",  # ASGI server for FastAPI
+    "protobuf>=5.26.0",  # SCIP protocol buffer support (runtime_version requires 5.26+)
+    "httpx<0.28",  # httpx 0.28 removed TransportError, breaking httpx-sse/mcp
+]
+
+[project.optional-dependencies]
+ml = [
+    "keybert>=0.8.0",  # Required for BERT keyword extraction (--max tier)
+    "gensim>=4.4.0",   # Required for GloVe/FastText keyword expansion (--regular and --max tiers)
+]
+all = [
+    "keybert>=0.8.0",
+    "gensim>=4.4.0",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/wende/cicada"
+Repository = "https://github.com/wende/cicada"
+Issues = "https://github.com/wende/cicada/issues"
+Changelog = "https://github.com/wende/cicada/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/wende/cicada#readme"
+
+[project.scripts]
+cicada-mcp = "cicada.mcp.entry:main"
+cicada-server = "cicada.mcp.entry:main"  # Backwards compatibility
+cicada = "cicada.cli:main"
+
+
+[tool.hatch.build]
+# Include files that are gitignored but needed at runtime
+artifacts = [
+    "cicada/_version_hash.py",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cicada"]
+
+[tool.hatch.build.targets.sdist]
+include = ["cicada"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+timeout = 5
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:Importing 'parser.split_arg_string' is deprecated.*:DeprecationWarning",
+    "ignore:coroutine 'async_main' was never awaited:RuntimeWarning",
+]
+
+[tool.coverage.run]
+source = ["cicada"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/site-packages/*",
+    # Entry points - thin wrappers with low ROI for testing
+    "*/cli.py",
+    "*/mcp/entry.py",
+    "*/install.py",
+    # Keyword extraction test/example file
+    "cicada/keyword_test.py",
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "cicada/languages/scip/scip_pb2.py",
+    "cicada/languages/scip/scip_pb2.pyi",
+]
+
+[tool.ruff.lint]
+select = [
+    "F",     # Pyflakes
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "A",     # flake8-builtins
+    "C4",    # flake8-comprehensions
+    "ISC",   # flake8-implicit-str-concat
+    "PIE",   # flake8-pie
+    "T20",   # flake8-print (only for debugging, can be disabled)
+    "Q",     # flake8-quotes
+    "SIM",   # flake8-simplify
+]
+ignore = [
+    "E501",   # Line too long (handled by black)
+    "T201",   # print() found (we use print for CLI output)
+    "T203",   # pprint() found
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["T201", "T203"]  # Allow print in tests
+"cicada/languages/__init__.py" = ["E402"]  # Conditional import after language registration
+"cicada/languages/scip/*.py" = ["I001"]  # Import order in SCIP modules
+
+[tool.pyright]
+exclude = [
+    "cicada/languages/scip/scip_pb2.py",
+    "cicada/languages/scip/scip_pb2.pyi",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.8.0",
+    "black>=24.0.0",
+    "pyrefly>=0.39.1",
+    "vulture>=2.14",
+    "ruff>=0.14.2",
+    "pytest-timeout>=2.4.0",
+]

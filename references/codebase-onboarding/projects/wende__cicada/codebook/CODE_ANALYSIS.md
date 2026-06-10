@@ -1,0 +1,371 @@
+# Code Analysis
+
+Cicada provides powerful code analysis capabilities for exploring modules and functions across your codebase. This document describes the Module Analysis and Function Analysis features that enable deep code exploration, dependency tracking, and usage analysis.
+
+## Overview
+
+Code Analysis is a core feature of Cicada that allows you to:
+
+- View complete module APIs with functions, signatures, and documentation
+- Track dependencies between modules (what calls what)
+- Find all call sites for any function
+- Analyze bidirectional relationships (callers and callees)
+- Filter by visibility, file patterns, and recency
+
+These features are exposed through the `search_module` and `search_function` MCP tools.
+
+---
+
+## Module Analysis
+
+Module Analysis provides a complete view of any module in your codebase, including its functions, dependencies, and usage patterns.
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `module_name` | string | required | Module name or pattern (supports wildcards) |
+| `file_path` | string | optional | Path to file (alternative to module_name) |
+| `type` | string | `"public"` | Visibility filter: `"public"`, `"private"`, `"all"` |
+| `what_calls_it` | boolean | `false` | Show modules/functions that use this module |
+| `usage_type` | string | `"source"` | Filter usage: `"source"`, `"tests"`, `"all"` |
+| `what_it_calls` | boolean | `false` | Show modules this module depends on |
+| `dependency_depth` | integer | `1` | Depth for transitive dependencies |
+| `show_function_usage` | boolean | `false` | Show which functions use which dependencies |
+| `include_docs` | boolean | `false` | Include function documentation |
+| `include_specs` | boolean | `false` | Include type specifications |
+| `include_moduledoc` | boolean | `false` | Include module documentation |
+| `verbose` | boolean | `false` | Enable all optional content |
+| `glob` | string | optional | Glob pattern to filter by file path |
+| `head_limit` | integer | `20` | Maximum results for wildcard searches |
+| `offset` | integer | `0` | Skip first N results (pagination) |
+| `format` | string | `"markdown"` | Output format: `"markdown"` or `"json"` |
+
+### Features
+
+#### 1. Complete API View
+
+View all functions in a module with their:
+- Name and arity
+- Signatures and type specifications
+- Documentation (moduledoc and function docs)
+- Visibility (public/private)
+- Line numbers
+
+```
+search_module('MyApp.User')
+```
+
+**Output includes:**
+- Module path and line number
+- Module documentation
+- Function list with signatures
+- Type specifications
+
+#### 2. What Calls It (Reverse Dependencies)
+
+See all modules and functions that depend on a specific module:
+
+```
+search_module('MyApp.User', what_calls_it=True)
+```
+
+**Tracks:**
+- Aliases: Modules that `alias MyApp.User`
+- Imports: Modules that `import MyApp.User`
+- Requires: Modules that `require MyApp.User`
+- Uses: Modules that `use MyApp.User`
+- Function calls: Direct calls to module functions with call sites
+
+#### 3. What It Calls (Forward Dependencies)
+
+See all dependencies a module imports, aliases, or uses:
+
+```
+search_module('MyApp.User', what_it_calls=True)
+```
+
+**Shows:**
+- Direct dependencies (modules directly referenced)
+- Categorized by: aliases, imports, requires, uses
+
+#### 4. Transitive Dependencies
+
+Explore dependencies at configurable depth levels:
+
+```
+search_module('MyApp.User', what_it_calls=True, dependency_depth=2)
+```
+
+- `dependency_depth=1`: Direct dependencies only (default)
+- `dependency_depth=2+`: Include dependencies of dependencies
+
+#### 5. Wildcard Module Search
+
+Search modules using patterns like `MyApp.*`:
+
+```
+search_module('MyApp.User*')        # Modules starting with MyApp.User
+search_module('*Controller*')        # Modules containing Controller
+search_module('MyApp.*|OtherApp.*')  # OR patterns
+```
+
+**Pattern features:**
+- `*` matches any characters
+- `|` for OR patterns (match either)
+- Supports file path patterns: `lib/my_app/*.ex`
+
+#### 6. Python Class Display
+
+For Python projects, view classes with method counts and signatures:
+
+```
+search_module('calculator.Calculator')
+```
+
+**Python-specific features:**
+- Class hierarchy
+- Method signatures with types
+- Docstrings
+- Attribute detection
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     search_module Tool                           │
+│                   (cicada/mcp/router.py)                        │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   ModuleSearchHandler                            │
+│            (cicada/mcp/handlers/module_handlers.py)             │
+│                                                                  │
+│  • Pattern matching with wildcards and OR                        │
+│  • Module lookup and resolution                                  │
+│  • Dependency analysis (what_calls_it, what_it_calls)           │
+│  • Transitive dependency collection                              │
+│  • Usage data aggregation                                        │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     ModuleFormatter                              │
+│                  (cicada/format.py)                              │
+│                                                                  │
+│  • Markdown and JSON output formatting                           │
+│  • Compact mode for large result sets                            │
+│  • Usage visualization                                           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Function Analysis
+
+Function Analysis provides detailed information about function definitions, their call sites, and relationships.
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `function_name` | string | required | Function name or pattern (supports wildcards) |
+| `module_path` | string | optional | Module path to prepend to function name |
+| `what_calls_it` | boolean | `true` | Show call sites |
+| `what_it_calls` | boolean | `false` | Show function dependencies |
+| `include_usage_examples` | boolean | `false` | Include code snippets |
+| `max_examples` | integer | `5` | Maximum code examples |
+| `include_code_context` | boolean | `false` | Include context for dependencies |
+| `usage_type` | string | `"source"` | Filter: `"source"`, `"tests"`, `"all"` |
+| `changed_since` | string | optional | Filter by modification date |
+| `include_docs` | boolean | `false` | Include documentation |
+| `include_specs` | boolean | `false` | Include type specifications |
+| `verbose` | boolean | `false` | Enable all optional content |
+| `glob` | string | optional | Glob pattern to filter by file path |
+| `head_limit` | integer | optional | Maximum results to return |
+| `offset` | integer | `0` | Skip first N results (pagination) |
+| `format` | string | `"markdown"` | Output format: `"markdown"` or `"json"` |
+
+### Features
+
+#### 1. Function Definition Search
+
+Find function definitions by name or pattern:
+
+```
+search_function('create_user')
+search_function('MyApp.User.create_user/2')
+```
+
+**Shows:**
+- Module and file location
+- Function signature
+- Documentation
+- Type specifications
+- Visibility
+
+#### 2. Call Site Tracking
+
+See all locations where a function is called:
+
+```
+search_function('create_user', what_calls_it=True)
+```
+
+**Tracks:**
+- Calling module and function
+- File and line number
+- Call type (local, qualified, aliased)
+- Alias resolution
+
+#### 3. Usage Examples
+
+Get actual code snippets showing how functions are used:
+
+```
+search_function('create_user', include_usage_examples=True, max_examples=5)
+```
+
+**Features:**
+- Consolidates by calling module (one example per module)
+- Shows code context around the call
+- Dedents code for readability
+
+#### 4. Bidirectional Analysis
+
+See both callers and callees for any function:
+
+```
+search_function('create_user', what_calls_it=True, what_it_calls=True)
+```
+
+**Shows:**
+- `what_calls_it`: Functions that call this function
+- `what_it_calls`: Functions this function calls (dependencies)
+
+Dependencies are grouped into:
+- Internal: Calls to functions in the same module
+- External: Calls to functions in other modules
+
+#### 5. Arity Filtering
+
+Filter functions by specific arity:
+
+```
+search_function('create_user/2')  # Only 2-arity version
+search_function('create*/1')       # Pattern with arity
+```
+
+#### 6. Changed Since Filter
+
+Filter functions changed after a specific date:
+
+```
+search_function('create*', changed_since='2024-01-15')
+search_function('create*', changed_since='7d')   # Last 7 days
+search_function('create*', changed_since='2w')   # Last 2 weeks
+```
+
+**Supports:**
+- ISO dates: `2024-01-15`
+- Relative: `7d`, `2w`, `3m`, `1y`
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    search_function Tool                          │
+│                   (cicada/mcp/router.py)                        │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                  FunctionSearchHandler                           │
+│          (cicada/mcp/handlers/function_handlers.py)             │
+│                                                                  │
+│  • Pattern parsing (wildcards, OR, arity, file scope)           │
+│  • Call site discovery across all modules                        │
+│  • Code example extraction                                       │
+│  • Dependency analysis (what_it_calls)                           │
+│  • Changed-since filtering                                       │
+│  • Fallback search strategies                                    │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     ModuleFormatter                              │
+│                  (cicada/format.py)                              │
+│                                                                  │
+│  • Function result formatting                                    │
+│  • Call site visualization                                       │
+│  • Dependency display                                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Pattern Matching Syntax
+
+Both module and function searches support flexible pattern matching:
+
+### Wildcards
+
+| Pattern | Matches |
+|---------|---------|
+| `create*` | `create`, `create_user`, `create_admin` |
+| `*user*` | `user`, `get_user`, `create_user_profile` |
+| `MyApp.*` | `MyApp.User`, `MyApp.Admin`, `MyApp.User.Auth` |
+
+### OR Patterns
+
+| Pattern | Matches |
+|---------|---------|
+| `create\|update` | `create` OR `update` |
+| `MyApp.User\|MyApp.Admin` | Either module |
+| `*Service*\|*Controller*` | Containing Service OR Controller |
+
+### Arity Specification
+
+| Pattern | Matches |
+|---------|---------|
+| `create_user/2` | Only 2-arity version |
+| `create*/1` | All `create*` with arity 1 |
+
+### File Path Scoping
+
+| Pattern | Matches |
+|---------|---------|
+| `lib/auth/*.ex:login*` | `login*` functions in auth directory |
+| `tests/**:test_*` | Test functions in test files |
+
+---
+
+## File Reference
+
+### Core Handlers
+
+| File | Description |
+|------|-------------|
+| `cicada/mcp/router.py` | Tool routing and argument validation |
+| `cicada/mcp/handlers/module_handlers.py` | Module search and usage analysis |
+| `cicada/mcp/handlers/function_handlers.py` | Function search and call site tracking |
+| `cicada/mcp/handlers/analysis_handlers.py` | Query orchestration and jq support |
+
+### Supporting Infrastructure
+
+| File | Description |
+|------|-------------|
+| `cicada/mcp/pattern_utils.py` | Pattern parsing and matching utilities |
+| `cicada/mcp/filter_utils.py` | File type filtering (source/tests) |
+| `cicada/mcp/fallbacks.py` | Fallback search strategies |
+| `cicada/format.py` | Output formatting (markdown/JSON) |
+| `cicada/query/orchestrator.py` | Smart query routing and analysis |
+
+### Related Indexes
+
+| File | Description |
+|------|-------------|
+| `cicada/indexer.py` | Elixir indexer with call tracking |
+| `cicada/languages/python/indexer.py` | Python SCIP indexer |
+| `cicada/languages/erlang/indexer.py` | Erlang indexer |

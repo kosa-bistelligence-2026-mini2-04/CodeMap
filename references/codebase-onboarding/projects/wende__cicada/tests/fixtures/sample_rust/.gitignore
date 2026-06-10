@@ -1,0 +1,5 @@
+# Build artifacts
+target/
+
+# Cargo lock file (optional, uncomment if needed)
+# Cargo.lock

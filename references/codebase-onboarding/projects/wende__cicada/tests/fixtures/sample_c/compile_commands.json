@@ -1,0 +1,7 @@
+[
+  {
+    "directory": ".",
+    "file": "calculator.c",
+    "command": "cc -c calculator.c -o calculator.o"
+  }
+]

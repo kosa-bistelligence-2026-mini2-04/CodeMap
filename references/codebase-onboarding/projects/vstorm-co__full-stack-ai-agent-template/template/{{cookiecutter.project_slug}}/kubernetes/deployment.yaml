@@ -1,0 +1,266 @@
+{%- if cookiecutter.enable_kubernetes %}
+# Deployment for {{ cookiecutter.project_name }} Backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ cookiecutter.project_slug }}-backend
+  namespace: {{ cookiecutter.project_slug }}
+  labels:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+        app.kubernetes.io/component: backend
+{%- if cookiecutter.enable_prometheus %}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ cookiecutter.backend_port }}"
+        prometheus.io/path: "/metrics"
+{%- endif %}
+    spec:
+      containers:
+        - name: backend
+          image: {{ cookiecutter.project_slug }}:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: {{ cookiecutter.backend_port }}
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ cookiecutter.project_slug }}-config
+            - secretRef:
+                name: {{ cookiecutter.project_slug }}-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: {{ cookiecutter.backend_port }}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/ready
+              port: {{ cookiecutter.backend_port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: media-data
+              mountPath: /app/media
+{%- if cookiecutter.use_sqlite %}
+            - name: sqlite-data
+              mountPath: /app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+            - name: chroma-data
+              mountPath: /app/chroma_data
+{%- endif %}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+      volumes:
+        - name: media-data
+          persistentVolumeClaim:
+            claimName: {{ cookiecutter.project_slug }}-media
+{%- if cookiecutter.use_sqlite %}
+        - name: sqlite-data
+          persistentVolumeClaim:
+            claimName: {{ cookiecutter.project_slug }}-sqlite
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+        - name: chroma-data
+          persistentVolumeClaim:
+            claimName: {{ cookiecutter.project_slug }}-chroma
+{%- endif %}
+      restartPolicy: Always
+
+---
+{%- if cookiecutter.use_celery %}
+# Celery Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ cookiecutter.project_slug }}-celery-worker
+  namespace: {{ cookiecutter.project_slug }}
+  labels:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/component: celery-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+      app.kubernetes.io/component: celery-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+        app.kubernetes.io/component: celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: {{ cookiecutter.project_slug }}:latest
+          imagePullPolicy: Always
+          command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: {{ cookiecutter.project_slug }}-config
+            - secretRef:
+                name: {{ cookiecutter.project_slug }}-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      restartPolicy: Always
+
+---
+# Celery Beat Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ cookiecutter.project_slug }}-celery-beat
+  namespace: {{ cookiecutter.project_slug }}
+  labels:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/component: celery-beat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+      app.kubernetes.io/component: celery-beat
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+        app.kubernetes.io/component: celery-beat
+    spec:
+      containers:
+        - name: celery-beat
+          image: {{ cookiecutter.project_slug }}:latest
+          imagePullPolicy: Always
+          command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: {{ cookiecutter.project_slug }}-config
+            - secretRef:
+                name: {{ cookiecutter.project_slug }}-secrets
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      restartPolicy: Always
+{%- endif %}
+
+{%- if cookiecutter.use_taskiq %}
+---
+# Taskiq Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ cookiecutter.project_slug }}-taskiq-worker
+  namespace: {{ cookiecutter.project_slug }}
+  labels:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/component: taskiq-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+      app.kubernetes.io/component: taskiq-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+        app.kubernetes.io/component: taskiq-worker
+    spec:
+      containers:
+        - name: taskiq-worker
+          image: {{ cookiecutter.project_slug }}:latest
+          imagePullPolicy: Always
+          command: ["taskiq", "worker", "app.worker.taskiq_app:broker", "--workers", "2"]
+          envFrom:
+            - configMapRef:
+                name: {{ cookiecutter.project_slug }}-config
+            - secretRef:
+                name: {{ cookiecutter.project_slug }}-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      restartPolicy: Always
+{%- endif %}
+
+{%- if cookiecutter.use_arq %}
+---
+# ARQ Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ cookiecutter.project_slug }}-arq-worker
+  namespace: {{ cookiecutter.project_slug }}
+  labels:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/component: arq-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+      app.kubernetes.io/component: arq-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+        app.kubernetes.io/component: arq-worker
+    spec:
+      containers:
+        - name: arq-worker
+          image: {{ cookiecutter.project_slug }}:latest
+          imagePullPolicy: Always
+          command: ["arq", "app.worker.arq_app.WorkerSettings"]
+          envFrom:
+            - configMapRef:
+                name: {{ cookiecutter.project_slug }}-config
+            - secretRef:
+                name: {{ cookiecutter.project_slug }}-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      restartPolicy: Always
+{%- endif %}
+{%- else %}
+# Kubernetes is disabled for this project
+{%- endif %}

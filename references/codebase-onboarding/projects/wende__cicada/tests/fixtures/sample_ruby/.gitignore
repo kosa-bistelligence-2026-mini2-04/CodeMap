@@ -1,0 +1,10 @@
+# Bundler
+.bundle/
+vendor/bundle/
+
+# Gem build
+*.gem
+
+# Ruby version manager
+.ruby-version
+.ruby-gemset

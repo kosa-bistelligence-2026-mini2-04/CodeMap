@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|jsx|json|css|md)$' | tr '\n' ' ')
+
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+pnpm exec biome check --write --no-errors-on-unmatched $staged
+
+git add -- $staged

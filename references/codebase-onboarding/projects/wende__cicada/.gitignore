@@ -1,0 +1,93 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# pytest
+.pytest_cache/
+
+# ruff
+.ruff_cache/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+coverage.json
+coverage_acceptance.json
+cov_annotate/
+
+# mypy
+.mypy_cache/
+
+# macOS
+.DS_Store
+
+# Cicada data and generated files
+data/
+.claude
+.mcp.json
+config.yaml
+test_config.yaml
+scip_doc/
+cicada/_version_hash.py
+
+# Test fixtures - local-only test projects
+tests/fixtures/elixir_project
+tests/fixtures/test_project
+.env
+
+# Generated test fixture files
+tests/fixtures/**/index.scip
+tests/fixtures/**/cicada_index.json
+tests/fixtures/**/*lock.json
+tests/fixtures/**/uv.lock
+tests/fixtures/**/node_modules/
+tests/fixtures/.cicada/
+
+# Auto-generated protobuf files (previously gitignored, now tracked since SCIP is inlined)
+# cicada/languages/scip/*_pb2.py
+# cicada/languages/scip/*_pb2.pyi
+
+# Link directory
+link/
+
+# AI editor configs
+.codex/
+.gemini/
+tests/fixtures/sample_rust/target/

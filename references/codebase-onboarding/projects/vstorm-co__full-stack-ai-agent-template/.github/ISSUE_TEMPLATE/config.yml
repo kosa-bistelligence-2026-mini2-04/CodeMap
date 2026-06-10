@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/vstorm-co/full-stack-ai-agent-template/blob/main/SECURITY.md
+    about: >
+      Do NOT open a public issue for security vulnerabilities.
+      Please email security@vstorm.co instead (see SECURITY.md for details).
+  - name: Documentation
+    url: https://github.com/vstorm-co/full-stack-ai-agent-template#-quick-start
+    about: Check the README first — your question may already be answered there.

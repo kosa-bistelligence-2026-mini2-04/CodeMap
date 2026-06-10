@@ -1,0 +1,479 @@
+{%- if cookiecutter.enable_docker %}
+# Backend development configuration
+# Usage: docker-compose up -d
+
+services:
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    container_name: {{ cookiecutter.project_slug }}_backend
+    ports:
+      - "{{ cookiecutter.backend_port }}:{{ cookiecutter.backend_port }}"
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/cli:/app/cli:ro
+      - media_data:/app/media
+{%- if cookiecutter.use_sqlite %}
+      - sqlite_data:/app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+      - chroma_data:/app/chroma_data
+{%- endif %}
+{%- if cookiecutter.enable_email %}
+      # email/templates.py reads pre-compiled HTML/text from /app/emails/compiled.
+      # Build context is ./backend so the dir isn't in the image — mount it.
+      - ./emails:/app/emails:ro
+{%- endif %}
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=true
+      - ENVIRONMENT=local
+{%- if cookiecutter.use_postgresql %}
+      - POSTGRES_HOST=db
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+{%- endif %}
+{%- if cookiecutter.use_celery %}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+{%- endif %}
+{%- if cookiecutter.use_taskiq %}
+      - TASKIQ_BROKER_URL=redis://redis:6379/1
+      - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
+{%- endif %}
+    command: uvicorn app.main:app --host 0.0.0.0 --port {{ cookiecutter.backend_port }} --reload
+    networks:
+      - backend
+{%- if cookiecutter.use_postgresql or cookiecutter.enable_redis or cookiecutter.use_milvus or cookiecutter.use_qdrant %}
+    depends_on:
+{%- if cookiecutter.use_postgresql %}
+      db:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      redis:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      milvus:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+      qdrant:
+        condition: service_healthy
+{%- endif %}
+{%- endif %}
+    restart: unless-stopped
+{%- if cookiecutter.enable_prometheus %}
+    labels:
+      - "prometheus.scrape=true"
+      - "prometheus.port={{ cookiecutter.backend_port }}"
+      - "prometheus.path=/metrics"
+{%- endif %}
+
+{%- if cookiecutter.use_postgresql %}
+
+  db:
+    image: postgres:16-alpine
+    container_name: {{ cookiecutter.project_slug }}_db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-{{ cookiecutter.project_slug }}}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Port exposed only for local development - remove in production
+    ports:
+      - "5432:5432"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+{%- endif %}
+
+{%- if cookiecutter.enable_redis %}
+
+  redis:
+    image: redis:7-alpine
+    container_name: {{ cookiecutter.project_slug }}_redis
+    # Port exposed only for local development - remove in production
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+{%- endif %}
+
+{%- if cookiecutter.use_milvus %}
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.6.11
+    container_name: {{ cookiecutter.project_slug }}_etcd
+    command: >
+      etcd --advertise-client-urls http://etcd:2379
+      --listen-client-urls http://0.0.0.0:2379
+      --data-dir /var/lib/etcd
+    volumes:
+      - etcd_data:/var/lib/etcd
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-22T00-33-43Z
+    container_name: {{ cookiecutter.project_slug }}_minio
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  milvus:
+    image: milvusdb/milvus:v2.6.17
+    container_name: {{ cookiecutter.project_slug }}_milvus
+    command: ["milvus", "run", "standalone"]
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    volumes:
+      - milvus_data:/var/lib/milvus
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      # Milvus standalone needs querycoord/datacoord/proxy to converge before
+      # /healthz returns 200. On Apple Silicon Macs first boot can take 60-180s.
+      # start_period suppresses failures during warm-up; 10 retries × 30s gives
+      # 5 more minutes after that before compose gives up.
+      start_period: 90s
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+{%- endif %}
+
+{%- if cookiecutter.use_qdrant %}
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.1
+    container_name: {{ cookiecutter.project_slug }}_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+{%- endif %}
+
+{%- if cookiecutter.use_celery %}
+
+  celery_worker:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    pull_policy: never
+    container_name: {{ cookiecutter.project_slug }}_celery_worker
+    volumes:
+      - ./backend/app:/app/app:ro
+      - media_data:/app/media
+{%- if cookiecutter.use_sqlite %}
+      - sqlite_data:/app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+      - chroma_data:/app/chroma_data
+{%- endif %}
+{%- if cookiecutter.enable_email %}
+      - ./emails:/app/emails:ro
+{%- endif %}
+    command: celery -A app.worker.celery_app worker --loglevel=debug
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=true
+{%- if cookiecutter.use_postgresql %}
+      - POSTGRES_HOST=db
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+{%- if cookiecutter.use_postgresql %}
+      db:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      milvus:
+        condition: service_healthy
+{%- endif %}
+    restart: unless-stopped
+
+  celery_beat:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    pull_policy: never
+    container_name: {{ cookiecutter.project_slug }}_celery_beat
+    volumes:
+      - ./backend/app:/app/app:ro
+    command: celery -A app.worker.celery_app beat --loglevel=debug
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=true
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  flower:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    pull_policy: never
+    container_name: {{ cookiecutter.project_slug }}_flower
+    command: celery -A app.worker.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=true
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+{%- endif %}
+
+{%- if cookiecutter.use_taskiq %}
+
+  taskiq_worker:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    pull_policy: never
+    container_name: {{ cookiecutter.project_slug }}_taskiq_worker
+    volumes:
+      - ./backend/app:/app/app:ro
+      - media_data:/app/media
+{%- if cookiecutter.use_sqlite %}
+      - sqlite_data:/app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+      - chroma_data:/app/chroma_data
+{%- endif %}
+{%- if cookiecutter.enable_email %}
+      - ./emails:/app/emails:ro
+{%- endif %}
+    command: taskiq worker app.worker.taskiq_app:broker --workers 1 --reload
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=true
+{%- if cookiecutter.use_postgresql %}
+      - POSTGRES_HOST=db
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+      - TASKIQ_BROKER_URL=redis://redis:6379/1
+      - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+{%- if cookiecutter.use_postgresql %}
+      db:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      milvus:
+        condition: service_healthy
+{%- endif %}
+    restart: unless-stopped
+
+  taskiq_scheduler:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    pull_policy: never
+    container_name: {{ cookiecutter.project_slug }}_taskiq_scheduler
+    volumes:
+      - ./backend/app:/app/app:ro
+    command: taskiq scheduler app.worker.taskiq_app:scheduler
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=true
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+      - TASKIQ_BROKER_URL=redis://redis:6379/1
+      - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+{%- endif %}
+
+{%- if cookiecutter.use_arq %}
+
+  arq_worker:
+    image: {{ cookiecutter.project_slug }}_backend:dev
+    pull_policy: never
+    container_name: {{ cookiecutter.project_slug }}_arq_worker
+    volumes:
+      - ./backend/app:/app/app:ro
+      - media_data:/app/media
+{%- if cookiecutter.use_sqlite %}
+      - sqlite_data:/app/data
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+      - chroma_data:/app/chroma_data
+{%- endif %}
+    command: arq app.worker.arq_app.WorkerSettings
+    env_file:
+      - ./backend/.env
+    environment:
+      - DEBUG=true
+{%- if cookiecutter.use_postgresql %}
+      - POSTGRES_HOST=db
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+      - REDIS_HOST=redis
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+{%- endif %}
+      - ARQ_REDIS_HOST=redis
+      - ARQ_REDIS_PORT=6379
+      - ARQ_REDIS_DB=2
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+{%- if cookiecutter.use_postgresql %}
+      db:
+        condition: service_healthy
+{%- endif %}
+    restart: unless-stopped
+{%- endif %}
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  media_data:
+{%- if cookiecutter.use_sqlite %}
+  sqlite_data:
+{%- endif %}
+{%- if cookiecutter.use_chromadb %}
+  chroma_data:
+{%- endif %}
+{%- if cookiecutter.use_postgresql %}
+  postgres_data:
+{%- endif %}
+{%- if cookiecutter.enable_redis %}
+  redis_data:
+{%- endif %}
+{%- if cookiecutter.use_milvus %}
+  etcd_data:
+  minio_data:
+  milvus_data:
+{%- endif %}
+{%- if cookiecutter.use_qdrant %}
+  qdrant_data:
+{%- endif %}
+{%- else %}
+# Docker is disabled for this project
+{%- endif %}

@@ -1,0 +1,33 @@
+[project]
+name = "ttg-backend"
+version = "0.1.0"
+description = "TTG Backend"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.11.16",
+    "fastapi[standard]>=0.115.12",
+    "gitingest>=0.1.4",
+    "google-genai>=1.9.0",
+    "websockets>=15.0.1",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "nanoid>=2.0.0",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "python-dotenv>=1.1.0",
+    "ruff>=0.11.2",
+    "types-nanoid>=2.0.0.20240601",
+]
+
+
+[tool.pytest.ini_options]
+pythonpath = [
+    ".",
+]
+asyncio_mode = "strict"
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"

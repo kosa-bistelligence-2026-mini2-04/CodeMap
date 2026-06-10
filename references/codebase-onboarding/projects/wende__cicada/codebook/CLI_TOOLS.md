@@ -1,0 +1,368 @@
+# CLI Tools
+
+Cicada provides a comprehensive command-line interface for managing code indexes, configuring editor integrations, and executing MCP tools directly from the terminal. This document describes all available CLI commands and their usage.
+
+## Overview
+
+The Cicada CLI (`cicada`) is the primary interface for setting up and managing code intelligence features. It supports interactive setup, manual indexing, file watching for automatic reindexing, and direct execution of MCP tools from the command line.
+
+All commands support the `--verbose` flag for detailed output and `--help` for usage information.
+
+```bash
+cicada --help           # Show all available commands
+cicada <command> --help # Show help for specific command
+cicada --version        # Show version information
+```
+
+## Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `cicada install` | Interactive setup with editor and indexing mode selection |
+| `cicada index` | Index a project repository to extract code symbols |
+| `cicada watch` | Watch for file changes and automatically reindex |
+| `cicada status` | Display diagnostic information about indexes and configuration |
+| `cicada stats` | View MCP tool usage statistics and token metrics |
+| `cicada link` | Share indexes across repositories or worktrees |
+| `cicada unlink` | Remove link from repository |
+| `cicada clean` | Remove Cicada configuration and indexes |
+| `cicada run` | Execute MCP tools directly from command line |
+| `cicada serve` | Start REST API server for HTTP access to tools |
+| `cicada dir` | Show the path to Cicada storage directory |
+| `cicada index-pr` | Index GitHub pull requests for offline lookup |
+| `cicada server` | Start MCP server (for editor integrations) |
+| `cicada agents install` | Install Claude Code agents |
+
+---
+
+## Commands
+
+### install
+
+Interactive setup for Cicada with editor selection and indexing mode configuration.
+
+```bash
+cicada install              # Full interactive setup
+cicada install /path/to/repo # Setup for specific repository
+```
+
+**Options:**
+- `--claude`, `--cursor`, `--vs`, `--gemini`, `--codex`, `--zed` - Skip editor selection, use specified editor
+- `--keywords` - Use keyword-based indexing (default)
+- `--embeddings` - Use embeddings-based indexing with semantic search
+- `--default` - Initialize with default values (equivalent to `--keywords`)
+- `-y`, `--yes` - Accept all defaults (non-interactive mode), enables PR indexing by default
+- `--index-prs` - Force enable PR indexing
+- `--no-index-prs` - Force disable PR indexing
+- `--skip-optional` - Skip all optional features (PR indexing, etc.)
+
+**Examples:**
+```bash
+cicada install                    # Full interactive setup
+cicada install --claude           # Setup for Claude Code only
+cicada install --keywords --yes   # Non-interactive with keywords mode
+cicada install --embeddings       # Use semantic search indexing
+```
+
+---
+
+### index
+
+Index a project repository to extract code symbols for searching.
+
+```bash
+cicada index                # Index current directory
+cicada index /path/to/repo  # Index specific repository
+```
+
+**Options:**
+- `-f`, `--force` - Override configured indexing mode (requires `--keywords` or `--embeddings`)
+- `--keywords` - Keyword-based indexing (default)
+- `--embeddings` - Embeddings-based indexing with semantic search
+- `--default` - Initialize with default values (equivalent to `--force --keywords`)
+- `--watch` - Watch for file changes and automatically reindex after initial index
+- `--debounce SECONDS` - Debounce interval when using `--watch` (default: 2.0)
+- `--no-cochange` - Disable co-change analysis (enabled by default)
+- `--test` - Start interactive keyword extraction test mode
+- `--test-expansion` - Start interactive keyword expansion test mode
+- `--extraction-threshold SCORE` - Minimum score for keyword extraction (0.0-1.0, default: 0.3)
+- `--min-score SCORE` - Minimum score threshold for keywords (default: 0.5)
+- `--expansion-threshold SCORE` - Minimum similarity score for keyword expansion (default: 0.2)
+
+**Examples:**
+```bash
+cicada index                      # Incremental index (uses existing config)
+cicada index --force --keywords   # Force reindex with keywords mode
+cicada index --watch              # Index and then watch for changes
+cicada index --test               # Interactive keyword testing
+```
+
+---
+
+### watch
+
+Watch for file changes and automatically trigger incremental reindexing.
+
+```bash
+cicada watch                # Watch current directory
+cicada watch /path/to/repo  # Watch specific repository
+```
+
+**Options:**
+- `--debounce SECONDS` - Debounce interval to wait after file changes before reindexing (default: 2.0)
+- `--keywords` - Use keyword-based indexing
+- `--embeddings` - Use embeddings-based indexing
+- `--quiet` - Suppress progress output (used internally for background processes)
+
+**Examples:**
+```bash
+cicada watch                  # Watch with default settings
+cicada watch --debounce 5.0   # Wait 5 seconds after changes before reindexing
+```
+
+---
+
+### status
+
+Display diagnostic information about Cicada configuration and index health.
+
+```bash
+cicada status               # Check current repository
+cicada status /path/to/repo # Check specific repository
+```
+
+Shows:
+- Index status (exists, last updated, module/function counts)
+- PR index status
+- Link configuration (if repository is linked)
+- Editor configurations
+- Storage directory location
+
+---
+
+### stats
+
+View MCP tool usage statistics for the current project.
+
+```bash
+cicada stats                # Summary (all time)
+cicada stats --detailed     # Detailed per-tool breakdown
+```
+
+**Options:**
+- `--detailed` - Show detailed per-tool breakdown
+- `--time-series` - Show time-based aggregation
+- `--weekly` - Use weekly aggregation (requires `--time-series`)
+- `--tool NAME` - Filter by tool name
+- `--last-7-days` - Show last 7 days only
+- `--last-30-days` - Show last 30 days only
+- `--format {text,json}` - Output format (default: text)
+- `--reset` - Delete log files
+- `--older-than DAYS` - With `--reset`: only delete logs older than DAYS
+- `-f`, `--force` - With `--reset`: skip confirmation
+
+**Examples:**
+```bash
+cicada stats                          # Summary view
+cicada stats --detailed               # Per-tool breakdown
+cicada stats --last-7-days            # Last 7 days only
+cicada stats --time-series            # Daily view
+cicada stats --time-series --weekly   # Weekly view
+cicada stats --tool query             # Filter by tool
+cicada stats --format json            # JSON output
+cicada stats --reset --older-than 30  # Delete logs >30 days old
+```
+
+---
+
+### link
+
+Link a repository to use another repository's index. Useful for monorepos, worktrees, or sharing indexes across related projects.
+
+```bash
+cicada link /path/to/source/repo           # Link current repo to source repo's index
+cicada link --to /target /path/to/source   # Link target repo to source repo's index
+```
+
+**Options:**
+- `--to PATH` - Path to the target repository (default: current directory)
+
+**Use cases:**
+- **Monorepo**: Link child projects to parent project's index
+- **Testing**: Link test repository to main repository
+- **Development**: Share index across multiple working directories
+
+---
+
+### unlink
+
+Remove the link from a repository, allowing it to have its own index again.
+
+```bash
+cicada unlink              # Remove link from current repo
+cicada unlink /target/repo # Remove link from target repo
+```
+
+---
+
+### clean
+
+Remove Cicada configuration and indexes.
+
+```bash
+cicada clean                   # Remove everything (interactive with confirmation)
+cicada clean -f                # Remove everything (skip confirmation)
+cicada clean --index           # Remove main index (index.json, hashes.json)
+cicada clean --pr-index        # Remove PR index (pr_index.json)
+cicada clean --all             # Remove ALL project storage
+cicada clean --all -f          # Remove ALL project storage (skip confirmation)
+```
+
+**Options:**
+- `-f`, `--force` - Skip confirmation prompt
+- `--index` - Remove only main index files (index.json, hashes.json)
+- `--pr-index` - Remove only PR index file (pr_index.json)
+- `--all` - Remove ALL Cicada storage for all projects (~/.cicada/projects/)
+
+---
+
+### run
+
+Execute any MCP tool directly from the command line.
+
+```bash
+cicada run <tool> [options]
+```
+
+**Available tools:**
+- `query` - Smart code discovery with keyword/pattern auto-detection
+- `search-module` - View complete module API with dependency analysis
+- `search-function` - Find function definitions and call sites
+- `git-history` - Unified tool for all git history queries
+- `expand-result` - Drill down into query results
+- `refresh-index` - Force refresh the index
+- `query-jq` - Execute custom jq queries against the index
+
+**Examples:**
+```bash
+cicada run query "authentication"                    # Search for auth code
+cicada run search-module --module-name "MyApp.User"  # Search for a module
+cicada run search-function create_user               # Find function definitions
+cicada run git-history --file-path lib/auth.ex       # View file history
+```
+
+---
+
+### serve
+
+Start a REST API server that exposes all Cicada MCP tools as HTTP endpoints.
+
+```bash
+cicada serve                        # Start server on default port 8000
+cicada serve --port 3000            # Start server on custom port
+cicada serve --host 127.0.0.1       # Bind to localhost only
+cicada serve /path/to/repo          # Serve specific repository
+```
+
+**Options:**
+- `--host HOST` - Host to bind to (default: 0.0.0.0)
+- `--port PORT` - Port to listen on (default: 8000)
+
+**Endpoints:**
+- API endpoints: `http://localhost:8000/api/`
+- Documentation: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
+
+---
+
+### dir
+
+Show the absolute path to the Cicada storage directory for a repository.
+
+```bash
+cicada dir               # Show storage directory for current repo
+cicada dir /path/to/repo # Show storage directory for specific repo
+```
+
+If the repository is linked, also shows the link target and resolved storage location.
+
+---
+
+### index-pr
+
+Index GitHub pull requests for fast offline lookup.
+
+```bash
+cicada index-pr                # Index PRs for current repository
+cicada index-pr /path/to/repo  # Index PRs for specific repository
+cicada index-pr --clean        # Clean and rebuild from scratch
+```
+
+**Options:**
+- `--clean` - Clean and rebuild the entire PR index from scratch (default: incremental update)
+
+---
+
+### server
+
+Start the MCP server for editor integrations. This is typically called automatically by editors.
+
+```bash
+cicada server                  # Start MCP server for current directory
+cicada server /path/to/repo    # Start MCP server for specific repository
+cicada server --watch          # Start with file watcher for auto-reindexing
+```
+
+**Options:**
+- `--claude`, `--cursor`, `--vs`, `--gemini`, `--codex`, `--zed` - Configure specific editor
+- `--keywords`, `--embeddings` - Select indexing mode
+- `--watch` - Start file watcher in a linked process for automatic reindexing
+
+---
+
+### agents install
+
+Install Cicada agents for Claude Code.
+
+```bash
+cicada agents install   # Install agents to ./.claude/
+```
+
+Installs the `cicada-code-explorer` agent for enhanced code exploration capabilities.
+
+---
+
+## Editor Setup Commands
+
+Cicada provides dedicated commands for setting up specific editors:
+
+```bash
+cicada claude   # Setup for Claude Code
+cicada cursor   # Setup for Cursor
+cicada vs       # Setup for VS Code
+cicada gemini   # Setup for Gemini CLI
+cicada codex    # Setup for Codex
+cicada zed      # Setup for Zed
+```
+
+All editor commands support `--keywords` and `--embeddings` flags for selecting the indexing mode.
+
+---
+
+## File Reference
+
+| File | Description |
+|------|-------------|
+| `cicada/cli.py` | Main CLI entry point |
+| `cicada/entry_utils.py` | Shared entry-point utilities for CLI routing |
+| `cicada/commands.py` | All CLI command handlers and argument parser |
+| `cicada/cli_mapper.py` | Maps MCP tool definitions to argparse subparsers |
+| `cicada/interactive_setup.py` | Interactive setup menu system |
+| `cicada/interactive_setup_helpers.py` | Helper functions for interactive setup |
+| `cicada/setup.py` | Setup utilities for creating configs and indexing |
+| `cicada/watcher.py` | File watcher for automatic reindexing |
+| `cicada/watch_manager.py` | Watch process management |
+| `cicada/rest_server.py` | REST API server implementation |
+| `cicada/stats.py` | Statistics analyzer for usage tracking |
+| `cicada/status.py` | Status command implementation |
+| `cicada/clean.py` | Clean command implementation |

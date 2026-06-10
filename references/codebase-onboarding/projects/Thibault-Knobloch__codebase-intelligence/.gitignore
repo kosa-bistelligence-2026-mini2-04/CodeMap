@@ -1,0 +1,11 @@
+__pycache__
+.tibo/
+tibo.egg-info/
+*.pyc
+*.pyo
+*.pyd
+.env
+**/.env
+build/
+dist/
+testenv/

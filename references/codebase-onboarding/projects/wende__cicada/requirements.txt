@@ -1,0 +1,7 @@
+# Cicada v0 - Elixir Module Search MCP Server
+# Core dependencies for parsing Elixir and serving via MCP
+
+mcp>=1.0.0
+tree-sitter>=0.20.0
+tree-sitter-elixir>=0.1.0
+pyyaml>=6.0.0

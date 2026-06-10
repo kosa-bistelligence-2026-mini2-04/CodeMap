@@ -1,0 +1,52 @@
+# Secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+.vite/
+.turbo/
+dist/
+build/
+*.log
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Runtime
+*.db
+*.sqlite
+*.sqlite3
+logs/
+tmp/
+tmp_repos/
+cache/
+reports/*.html
+!reports/.gitkeep
+
+# OS
+Thumbs.db
+desktop.ini

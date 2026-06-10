@@ -1,0 +1,12 @@
+{%- if cookiecutter.enable_kubernetes %}
+# Kubernetes Namespace for {{ cookiecutter.project_name }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ cookiecutter.project_slug }}
+  labels:
+    app.kubernetes.io/name: {{ cookiecutter.project_slug }}
+    app.kubernetes.io/managed-by: kubectl
+{%- else %}
+# Kubernetes is disabled for this project
+{%- endif %}

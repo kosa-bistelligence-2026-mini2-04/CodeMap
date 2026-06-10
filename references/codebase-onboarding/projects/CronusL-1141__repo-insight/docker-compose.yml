@@ -1,0 +1,113 @@
+# RepoInsight — single-host Docker Compose stack
+#
+# Quick start:
+#   1. cp .env.example .env   # edit LLM provider config
+#   2. docker compose up -d --build
+#   3. open http://localhost:5173
+#
+# Logs:     docker compose logs -f
+# Stop:     docker compose down
+# Reset:    docker compose down -v   (also drops SQLite state)
+#
+# To analyze LOCAL Python repos, mount a host directory as /workspace
+# in the backend service — see the optional volume entry below.
+
+name: repo-insight
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+      args:
+        # Override with a PyPI mirror if your link to files.pythonhosted.org
+        # is slow. Example Chinese mirror:
+        #   PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    image: repo-insight/backend:latest
+    container_name: repo-insight-backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    # env_file is optional — all vars have safe defaults for the OpenAI path
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8770
+      # LLM provider config — reviewers override OPENAI_API_KEY / OPENAI_BASE_URL
+      # / OPENAI_MODEL in .env. Default falls back to OpenAI official endpoint.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}
+      # Default guardrail backend uses TF-IDF (sklearn), no heavy ML deps.
+      # Override to "sentence_transformers" after `uv sync --extra semantic`.
+      SEMANTIC_VALIDATOR_BACKEND: ${SEMANTIC_VALIDATOR_BACKEND:-stub}
+      DATABASE_URL: sqlite+aiosqlite:////app/data/repo_insight.db
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - backend_data:/app/data
+      - backend_cache:/app/.cache
+      # Mount host directory so backend can analyze local repos.
+      # Default maps ./samples (relative to docker-compose.yml) to /workspace inside the container.
+      # To analyze a repo from elsewhere, set HOST_REPOS_DIR in .env to that directory,
+      # then submit `/workspace/<repo-name>` as the path in the frontend.
+      # If you only use the GitHub URL mode, this mount is harmless and you can ignore it.
+      - ${HOST_REPOS_DIR:-./samples}:/workspace:ro
+    networks:
+      - repo_insight_net
+    ports:
+      - "8770:8770"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8770/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    image: repo-insight/frontend:latest
+    container_name: repo-insight-frontend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - repo_insight_net
+    ports:
+      - "5173:80"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  repo_insight_net:
+    driver: bridge
+
+volumes:
+  backend_data:
+    driver: local
+  backend_cache:
+    driver: local

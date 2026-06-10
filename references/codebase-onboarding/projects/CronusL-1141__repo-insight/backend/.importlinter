@@ -1,0 +1,18 @@
+[importlinter]
+root_package = app
+
+[importlinter:contract:layered]
+name = Strict layered architecture
+type = layers
+layers =
+    app.api
+    app.orchestrator
+    app.agents
+    app.llm | app.guardrail | app.services
+    app.models
+
+[importlinter:contract:guardrail-gate]
+name = BehaviorInferer must route through Planner for Guardrail
+type = forbidden
+source_modules = app.agents.behavior_inferer
+forbidden_modules = app.guardrail

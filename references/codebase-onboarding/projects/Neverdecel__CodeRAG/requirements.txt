@@ -1,0 +1,1 @@
+-e .[dev,server,ui,openai]

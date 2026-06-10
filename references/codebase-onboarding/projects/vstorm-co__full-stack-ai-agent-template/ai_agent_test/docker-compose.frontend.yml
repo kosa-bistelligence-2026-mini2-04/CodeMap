@@ -1,0 +1,31 @@
+
+# Frontend development configuration
+# Usage: docker-compose -f docker-compose.frontend.yml up -d
+#
+# Note: Backend must be running first (docker-compose up -d)
+# Frontend connects to backend via host network
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_RAG_ENABLED=true
+    container_name: ai_agent_test_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - BACKEND_URL=http://host.docker.internal:8000
+      - BACKEND_WS_URL=ws://host.docker.internal:8000
+      - NEXT_PUBLIC_RAG_ENABLED=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3

@@ -1,0 +1,111 @@
+{
+  "name": "src-mcp",
+  "version": "1.0.3",
+  "description": "MCP server for semantic code search and codebase analysis — Treesitter parsing, AST extraction, and embedding-based indexing for any LLM that supports MCP",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    }
+  },
+  "bin": {
+    "src-mcp": "dist/bin.mjs"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "cli": "tsx src/bin.ts",
+    "serve": "tsx src/bin.ts serve",
+    "build": "tsdown",
+    "prepublishOnly": "run-s check build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
+    "check": "run-s typecheck lint format:check",
+    "changelog": "conventional-changelog -p conventionalcommits -i CHANGELOG.md -s"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "^0.23.0",
+    "@langchain/textsplitters": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "apache-arrow": "^21.1.0",
+    "chokidar": "^5.0.0",
+    "citty": "^0.2.0",
+    "fast-glob": "^3.3.3",
+    "ignore": "^7.0.4",
+    "ollama": "^0.6.3",
+    "ora": "^9.0.0",
+    "picocolors": "^1.1.1",
+    "web-tree-sitter": "^0.26.3",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.9",
+    "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/ui": "^4.0.17",
+    "conventional-changelog-cli": "^5.0.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "npm-run-all2": "^8.0.4",
+    "prettier": "^3.8.0",
+    "tsdown": "^0.20.0-beta.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.0",
+    "vitest": "^4.0.17"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "semantic-search",
+    "code-search",
+    "code-intelligence",
+    "llm",
+    "ai-assistant",
+    "ai-tools",
+    "rag",
+    "codebase-analysis",
+    "code-indexing",
+    "repository-analysis",
+    "treesitter",
+    "ast",
+    "embeddings",
+    "vector-search",
+    "context-retrieval",
+    "developer-tools",
+    "typescript",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kvnpetit/structured-repo-context-mcp.git"
+  },
+  "homepage": "https://github.com/kvnpetit/structured-repo-context-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/kvnpetit/structured-repo-context-mcp/issues"
+  },
+  "author": "kvnpetit",
+  "license": "MIT"
+}

@@ -1,0 +1,63 @@
+{%- if cookiecutter.enable_teams and cookiecutter.enable_rag and cookiecutter.use_jwt %}
+"""Knowledge Base schemas."""
+
+from typing import Literal
+
+{%- if cookiecutter.use_postgresql %}
+from uuid import UUID
+{%- endif %}
+
+from pydantic import Field
+
+from app.schemas.base import BaseSchema, TimestampSchema
+
+
+KBScopeLiteral = Literal["personal", "org", "app"]
+
+
+class KnowledgeBaseCreate(BaseSchema):
+    """Schema for creating a Knowledge Base."""
+
+    name: str = Field(..., min_length=1, max_length=128, description="KB display name")
+    description: str | None = Field(default=None, max_length=500)
+    scope: KBScopeLiteral = Field(default="personal", description="Visibility scope")
+    # Optional — auto-derived from name + a short random suffix when missing.
+    collection_name: str | None = Field(
+        default=None, min_length=1, max_length=255, description="Vector store collection"
+    )
+
+
+class KnowledgeBaseUpdate(BaseSchema):
+    """Schema for updating a Knowledge Base."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    description: str | None = Field(default=None, max_length=500)
+
+
+class KnowledgeBaseRead(BaseSchema, TimestampSchema):
+    """Schema for reading a Knowledge Base (API response)."""
+
+{%- if cookiecutter.use_postgresql %}
+    id: UUID
+    owner_user_id: UUID | None = None
+    organization_id: UUID | None = None
+{%- else %}
+    id: str
+    owner_user_id: str | None = None
+    organization_id: str | None = None
+{%- endif %}
+    name: str
+    description: str | None = None
+    scope: KBScopeLiteral
+    collection_name: str
+    is_default: bool = False
+
+
+class KnowledgeBaseList(BaseSchema):
+    """Paginated list of Knowledge Bases."""
+
+    items: list[KnowledgeBaseRead]
+    total: int
+{%- else %}
+"""Knowledge Base schemas — not configured."""
+{%- endif %}
