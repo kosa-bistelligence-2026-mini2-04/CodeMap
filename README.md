@@ -1,4 +1,4 @@
-# 🧭 CodeMap
+# 🗺️ CodeMap
 
 > **GitHub Repository Analysis Chatbot**  
 > GitHub 레포지토리의 구조와 코드를 분석하고, 사용자와 대화하며 인사이트를 제공하는 AI 챗봇 서비스입니다.
