@@ -5,7 +5,7 @@ from fastapi import FastAPI
 # from app.common.exception import ...
 
 app = FastAPI(
-    title="CodeCompass API",
+    title="CodeMap API",
     description="Domain-Driven FastAPI Application",
     version="1.0.0"
 )

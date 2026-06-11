@@ -1,6 +1,6 @@
 # Codebase Onboarding Reference Projects
 
-CodeCompass 2차 프로젝트 주제인 "AI 코드베이스 온보딩 도우미"를 설계할 때 참고하기 위한 오픈소스 레퍼런스 모음입니다.
+CodeMap 2차 프로젝트 주제인 "AI 코드베이스 온보딩 도우미"를 설계할 때 참고하기 위한 오픈소스 레퍼런스 모음입니다.
 
 ## 폴더 구성
 

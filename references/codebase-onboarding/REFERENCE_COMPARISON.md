@@ -1,6 +1,6 @@
 # Codebase Onboarding Reference Comparison
 
-이 문서는 CodeCompass 팀 프로젝트에서 참고할 20개 레퍼런스의 특징을 프론트엔드, 백엔드/RAG, 운영 구조 관점으로 비교한 자료입니다.
+이 문서는 CodeMap 팀 프로젝트에서 참고할 20개 레퍼런스의 특징을 프론트엔드, 백엔드/RAG, 운영 구조 관점으로 비교한 자료입니다.
 
 ## 전체 비교표
 
@@ -49,7 +49,7 @@
 | 5 | `wende__cicada` | AST indexing, call-site/dependency tracking, token-efficient code context |
 | 6 | `kvnpetit__structured-repo-context-mcp` | MCP tool interface, tree-sitter + LanceDB, local embedding |
 
-## CodeCompass에 적용할 만한 설계 조합
+## CodeMap에 적용할 만한 설계 조합
 
 가장 현실적인 MVP 조합:
 

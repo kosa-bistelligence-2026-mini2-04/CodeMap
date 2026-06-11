@@ -1,4 +1,4 @@
-# CodeCompass 팀 협업 가이드 (Contributing Guidelines)
+# CodeMap 팀 협업 가이드 (Contributing Guidelines)
 
 본 문서는 원활하고 충돌 없는 팀 협업을 위해 약속된 **Git Branch 및 Commit 규칙**을 정의합니다. 모든 팀원은 작업 전 이 규칙을 숙지해 주시기 바랍니다.
 

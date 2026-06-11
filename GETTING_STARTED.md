@@ -26,7 +26,7 @@ sudo apt install libnss3-tools mkcert
 # 2. 로컬 인증기관(CA) 설치
 mkcert -install
 
-# 3. 프로젝트 최상단(CodeCompass)에 인증서 폴더 생성 및 발급
+# 3. 프로젝트 최상단(CodeMap)에 인증서 폴더 생성 및 발급
 mkdir certs
 cd certs
 mkcert localhost 127.0.0.1
