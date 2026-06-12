@@ -26,12 +26,12 @@ sudo apt install libnss3-tools mkcert
 # 2. 로컬 인증기관(CA) 설치
 mkcert -install
 
-# 3. 프로젝트 최상단(CodeMap)에 인증서 폴더 생성 및 발급
-mkdir certs
-cd certs
+# 3. 백엔드 폴더 내에 인증서 폴더 생성 및 발급
+mkdir -p apps/backend/certs
+cd apps/backend/certs
 mkcert localhost 127.0.0.1
 ```
-> 위 명령어를 실행하면 `certs/` 폴더 내부에 `localhost.pem` (인증서)과 `localhost-key.pem` (개인키) 파일이 생성됩니다.
+> 위 명령어를 실행하면 `apps/backend/certs/` 폴더 내부에 `localhost.pem` (인증서)과 `localhost-key.pem` (개인키) 파일이 생성됩니다.
 
 ---
 
@@ -40,7 +40,7 @@ mkcert localhost 127.0.0.1
 
 ```bash
 # 1. 백엔드 폴더로 이동
-cd backend
+cd apps/backend
 
 # 2. 파이썬 가상환경 생성 (최초 1회만 실행)
 python -m venv venv
@@ -55,7 +55,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # 5. FastAPI 서버 실행 (HTTPS 적용)
-uvicorn app.main:app --reload --ssl-keyfile ../certs/localhost-key.pem --ssl-certfile ../certs/localhost.pem
+uvicorn app.main:app --reload --ssl-keyfile certs/localhost-key.pem --ssl-certfile certs/localhost.pem
 ```
 > 정상 실행 시 `https://localhost:8000` 으로 서버가 열립니다.
 
@@ -66,16 +66,16 @@ uvicorn app.main:app --reload --ssl-keyfile ../certs/localhost-key.pem --ssl-cer
 
 ```bash
 # 1. 프론트엔드 폴더로 이동
-cd frontend
+cd apps/frontend
 
 # 2. 필수 라이브러리(node_modules) 설치
 npm install
 ```
 
-프론트엔드 서버도 발급받은 인증서를 사용하도록 `frontend/vite.config.js`를 다음과 같이 세팅합니다.
+프론트엔드 서버도 발급받은 인증서를 사용하도록 `apps/frontend/vite.config.js`를 다음과 같이 세팅합니다.
 
 ```javascript
-// frontend/vite.config.js 예시
+// apps/frontend/vite.config.js 예시
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
@@ -84,8 +84,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     https: {
-      key: fs.readFileSync('../certs/localhost-key.pem'),
-      cert: fs.readFileSync('../certs/localhost.pem'),
+      key: fs.readFileSync('../backend/certs/localhost-key.pem'),
+      cert: fs.readFileSync('../backend/certs/localhost.pem'),
     }
   }
 })
@@ -120,6 +120,6 @@ app.add_middleware(
 
 ### 🌐 프론트엔드: Axios 환경 변수 세팅
 ```text
-# frontend/.env
+# apps/frontend/.env
 VITE_API_BASE_URL=https://localhost:8000
 ```

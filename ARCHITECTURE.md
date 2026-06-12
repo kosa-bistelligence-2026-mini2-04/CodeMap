@@ -8,7 +8,7 @@
 프론트엔드는 응집도를 높이고 결합도를 낮추기 위해 글로벌 스탠다드인 **Feature-Sliced Design**과 **Bulletproof React**의 철학을 차용하였습니다. `pages/` 폴더에는 껍데기만 남기고, 모든 핵심 로직은 `features/` 하위에 격리합니다.
 
 ```text
-frontend/
+apps/frontend/
 ├── src/
 │   ├── common/           # 🌐 [공통 영역] 버튼, 모달, 유틸, 훅 등 순수 재사용 요소
 │   ├── features/         # 🧠 [도메인 영역] (예: user, analysis) 도메인 특화 컴포넌트, 훅, API 통신 로직
@@ -19,7 +19,7 @@ frontend/
 백엔드는 기술 계층(models, routers)이 아닌 비즈니스 도메인 단위로 폴더를 구성하며, 객체지향 설계의 모범인 **Java Spring Boot의 3-Tier 아키텍처**를 완벽하게 파이썬(Pythonic) 생태계로 치환하여 적용하였습니다.
 
 ```text
-backend/app/
+apps/backend/app/
 ├── {domain}/             # (예: user, analysis) 기능별 독립 도메인 모듈
 │   ├── router.py         # 📡 API 진입점 (Controller)
 │   ├── service.py        # 🧠 비즈니스 로직 (Service)
