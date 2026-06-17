@@ -36,7 +36,7 @@ mkcert localhost 127.0.0.1
 ---
 
 ## 1. Backend (FastAPI) 구동 세팅
-백엔드는 파이썬 가상환경(Virtual Environment) 위에서 구동합니다.
+백엔드는 파이썬 3.12 가상환경(Virtual Environment) 위에서 구동합니다.
 
 ```bash
 # 1. 백엔드 폴더로 이동
@@ -62,7 +62,7 @@ uvicorn app.main:app --reload --ssl-keyfile certs/localhost-key.pem --ssl-certfi
 ---
 
 ## 2. Frontend (React/Vite) 구동 세팅
-프론트엔드는 Node.js(버전 18 이상 권장)가 설치되어 있어야 합니다.
+프론트엔드는 Node.js(버전 18 이상 권장) 및 React 19가 사용됩니다.
 
 ```bash
 # 1. 프론트엔드 폴더로 이동

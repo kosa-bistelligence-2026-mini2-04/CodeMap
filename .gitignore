@@ -250,3 +250,6 @@ pip-selfcheck.json
 ### SSL Certificates ###
 certs/
 mkcert.exe
+
+# Exclude root-level scripts directory from being ignored by python venv [Ss]cripts rule
+!/scripts/
