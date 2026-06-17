@@ -2,5 +2,27 @@ fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
 sqlalchemy>=2.0.0
 pydantic[email]>=2.0.0
+pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 alembic>=1.11.0
+asyncpg>=0.28.0
+websockets>=11.0.0
+
+# [Sec09 - LangGraph] StateGraph 기반 파이프라인 워크플로우
+# kosa-langchain-practice/langchain/api/sec09_multi_agent/ 참고
+langgraph>=0.2.0
+
+# [Sec05 - create_react_agent] LangChain 코어 및 Agent 생성
+# kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
+langchain>=0.2.0
+langchain-core>=0.2.0
+
+# [Sec05 - ChatOpenAI] OpenAI 모델 연동
+# kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
+langchain-openai>=0.1.0
+
+# [Sec08 - RAG Agent] pgvector 저장소 연동 및 PDF 처리
+# kosa-langchain-practice/langchain/api/sec08_rag/ 참고
+langchain-community>=0.2.0
+pypdf>=4.0.0
+pgvector>=0.2.0
