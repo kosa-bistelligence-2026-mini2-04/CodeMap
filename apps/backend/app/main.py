@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-
+from app.repo.router import router as repo_router
 # TODO: 추후 공통(common) 설정(CORS, 예외처리 등)을 불러와서 적용합니다.
 # from app.common.config import ...
 # from app.common.exception import ...
@@ -17,3 +17,4 @@ def read_root():
 # TODO: 추후 도메인별(user, analysis 등) 라우터를 아래에 연결(include)합니다.
 # app.include_router(user_controller.router, prefix="/api/v1/users")
 # app.include_router(analysis_controller.router, prefix="/api/v1/analysis")
+app.include_router(repo_router)
