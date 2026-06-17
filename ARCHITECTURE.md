@@ -4,16 +4,16 @@
 
 ---
 
-## 1. Frontend Architecture (React / Vite)
+## 1. Frontend Architecture (React / Next.js)
 
-프론트엔드는 응집도를 높이고 결합도를 낮추기 위해 글로벌 스탠다드인 **Feature-Sliced Design**과 **Bulletproof React**의 철학을 차용하였습니다. `pages/` 폴더에는 껍데기만 남기고, 모든 핵심 로직은 `features/` 하위에 격리합니다.
+프론트엔드는 응집도를 높이고 결합도를 낮추기 위해 글로벌 스탠다드인 Feature-Sliced Design의 철학을 차용하였습니다. app/ 폴더에는 페이지 정의 및 레이아웃만 남기고, 모든 핵심 비즈니스 로직과 화면 구성 요소들은 features/ 및 common/ 하위에 격리합니다.
 
 ```text
 apps/frontend/
 ├── src/
 │   ├── common/           # 🌐 [공통 영역] 버튼, 모달, 유틸, 훅 등 순수 재사용 요소
-│   ├── features/         # 🧠 [도메인 영역] (예: user, analysis) 도메인 특화 컴포넌트, 훅, API 통신 로직
-│   └── pages/            # 📄 [라우팅 영역] 로직 없이 조각들을 화면에 배치만 하는 레고 조립판
+│   ├── features/         # 🧠 [도메인 영역] (예: analysis, chat) 도메인 특화 컴포넌트, 훅, API 통신 로직
+│   └── app/              # 📄 [라우팅 영역] Next.js App Router 기반의 페이지 및 레이아웃 정의
 ```
 
 ## 2. Backend Architecture (FastAPI)
