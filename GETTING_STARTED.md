@@ -71,21 +71,29 @@ cd apps/frontend
 # 2. 필수 라이브러리(node_modules) 설치
 npm install
 ```
+프론트엔드 서버도 발급받은 인증서를 사용하도록 `apps/frontend/vite.config.ts`를 다음과 같이 세팅합니다.
 
-프론트엔드 서버도 발급받은 인증서를 사용하도록 `apps/frontend/vite.config.js`를 다음과 같이 세팅합니다.
-
-```javascript
-// apps/frontend/vite.config.js 예시
+```typescript
+// apps/frontend/vite.config.ts 예시
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import tsconfigPaths from 'vite-tsconfig-paths'
 import fs from 'fs'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss(), tsconfigPaths()],
   server: {
     https: {
       key: fs.readFileSync('../backend/certs/localhost-key.pem'),
       cert: fs.readFileSync('../backend/certs/localhost.pem'),
+    },
+    proxy: {
+      '/api': {
+        target: 'https://localhost:8000',
+        changeOrigin: true,
+        secure: false
+      }
     }
   }
 })
@@ -103,6 +111,8 @@ npm run dev
 로컬 환경에서 프론트엔드(`https://localhost:5173`)와 백엔드(`https://localhost:8000`)가 통신하기 위한 필수 설정입니다.
 
 ### 🛡️ 백엔드: CORS 설정 (main.py)
+백엔드 FastAPI의 CORS Origin 설정에는 프론트엔드가 구동되는 HTTPS 주소(`https://localhost:5173`)를 허용해주어야 브라우저 쿠키 및 크레덴셜 통신이 정상화됩니다.
+
 ```python
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -119,7 +129,9 @@ app.add_middleware(
 ```
 
 ### 🌐 프론트엔드: Axios 환경 변수 세팅
+로컬 개발 환경에서는 백엔드 주소로 직접 요청할 경우 브라우저 CORS 정책으로 인해 차단될 수 있습니다. 반드시 **Vite Dev Proxy** 경로인 `/api`를 기준 주소로 설정해야 합니다.
+
 ```text
 # apps/frontend/.env
-VITE_API_BASE_URL=https://localhost:8000
+VITE_API_BASE_URL=/api
 ```
