@@ -4,30 +4,62 @@
 
 ---
 
-## 1. Frontend Architecture (React / Vite)
+## 1. Frontend Architecture (Next.js)
 
-프론트엔드는 응집도를 높이고 결합도를 낮추기 위해 글로벌 스탠다드인 **Feature-Sliced Design**과 **Bulletproof React**의 철학을 차용하였습니다. `pages/` 폴더에는 껍데기만 남기고, 모든 핵심 로직은 `features/` 하위에 격리합니다.
+프론트엔드는 응집도를 높이고 결합도를 낮추기 위해 글로벌 스탠다드인 **Feature-Sliced Design**과 **Bulletproof React**의 철학을 차용하였습니다. Next.js의 App Router 구조인 `app/` 폴더에는 껍데기만 남기고, 모든 핵심 로직은 `features/` 하위에 격리합니다.
 
 ```text
-apps/frontend/
+frontend/
 ├── src/
-│   ├── common/           # 🌐 [공통 영역] 버튼, 모달, 유틸, 훅 등 순수 재사용 요소
-│   ├── features/         # 🧠 [도메인 영역] (예: user, analysis) 도메인 특화 컴포넌트, 훅, API 통신 로직
-│   └── pages/            # 📄 [라우팅 영역] 로직 없이 조각들을 화면에 배치만 하는 레고 조립판
+│   ├── app/              # 📄 [라우팅 영역] Next.js App Router
+│   │   ├── analyze/      # 코드 분석 페이지 라우트
+│   │   ├── chat/         # AI 채팅 페이지 라우트
+│   │   ├── docs/         # 문서 확인 페이지 라우트
+│   │   ├── globals.css   # 전역 스타일시트
+│   │   └── layout.tsx / page.tsx # 최상위 레이아웃 및 진입 페이지
+│   │
+│   ├── common/           # 🌐 [공통 영역] 도메인에 종속되지 않는 재사용 요소
+│   │   ├── components/   # 범용 UI 컴포넌트 (버튼, 모달, 입력창 등)
+│   │   ├── contexts/     # 전역 상태 컨텍스트 (테마, 사용자 설정 등)
+│   │   ├── hooks/        # 공통 커스텀 훅 (useClickOutside 등)
+│   │   ├── i18n/         # 다국어 지원 리소스 및 설정
+│   │   ├── types/        # 공통 TypeScript 타입 정의
+│   │   └── utils/        # 공용 유틸리티 함수 (포맷팅, 계산 등)
+│   │
+│   └── features/         # 🧠 [도메인 영역] 도메인 특화 비즈니스 로직
+│       ├── analysis/     # 코드 분석 및 결과 화면 컴포넌트/로직
+│       ├── chat/         # 대화형 AI 채팅 인터페이스 및 로직
+│       ├── docs/         # 문서 생성 및 조회 컴포넌트
+│       ├── graph/        # 코드베이스 아키텍처 시각화(그래프) 도메인
+│       ├── history/      # 분석 및 작업 내역 도메인
+│       ├── landing/      # 랜딩 페이지 특화 컴포넌트
+│       └── repository/   # 레포지토리 연동 및 관리 도메인
 ```
 
 ## 2. Backend Architecture (FastAPI)
 
-백엔드는 기술 계층(models, routers)이 아닌 비즈니스 도메인 단위로 폴더를 구성하며, 객체지향 설계의 모범인 **Java Spring Boot의 3-Tier 아키텍처**를 완벽하게 파이썬(Pythonic) 생태계로 치환하여 적용하였습니다.
+백엔드는 기술 계층(models, routers)이 아닌 비즈니스 도메인 단위로 폴더를 구성하며, 객체지향 설계의 모범인 **Java Spring Boot의 3-Tier 아키텍처**를 완벽하게 파이썬(Pythonic) 생태계로 치환하여 적용하였습니다. 실제 구현되어 있는 주요 도메인은 다음과 같습니다.
 
 ```text
-apps/backend/app/
-├── {domain}/             # (예: user, analysis) 기능별 독립 도메인 모듈
-│   ├── router.py         # 📡 API 진입점 (Controller)
-│   ├── service.py        # 🧠 비즈니스 로직 (Service)
-│   ├── repository.py     # 🗄️ DB 접근 로직 (DAO / Repository)
-│   ├── schemas.py        # 🚚 데이터 유효성 검증 및 전송 모델 (DTO / Pydantic)
-│   └── models.py         # 🏗️ 데이터베이스 테이블 매핑 (Entity / SQLAlchemy)
+backend/app/
+├── core/                 # ⚙️ 코어 설정 및 애플리케이션 초기화 (Config, Security 등)
+├── util/                 # 🛠️ 공통 유틸리티 함수
+├── chat/                 # 💬 챗봇 대화 도메인
+├── embed/                # 🧠 임베딩 처리 도메인
+├── gen/                  # ✨ 생성형 AI 관련 도메인
+├── graph/                # 📊 그래프 구조 도메인
+├── guard/                # 🛡️ 가드레일 (안전성) 도메인
+├── list/                 # 📋 리스트 데이터 처리 도메인
+├── parse/                # 📄 파싱 도메인
+├── pipeline/             # 🔀 파이프라인 처리 도메인
+├── repo/                 # 🗄️ 리포지토리/코드 저장소 접근 도메인
+└── search/               # 🔍 검색 도메인
+    # 각 도메인(기능) 내부는 다음과 같은 3-Tier 패턴을 따릅니다:
+    # ├── router.py       # 📡 API 진입점 (Controller)
+    # ├── service.py      # 🧠 비즈니스 로직 (Service)
+    # ├── repository.py   # 🗄️ DB 접근 로직 (DAO / Repository)
+    # ├── schemas.py      # 🚚 데이터 유효성 검증 및 전송 모델 (DTO / Pydantic)
+    # └── models.py       # 🏗️ 데이터베이스 테이블 매핑 (Entity / SQLAlchemy)
 ```
 
 ---
