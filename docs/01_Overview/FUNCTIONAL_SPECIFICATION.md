@@ -83,8 +83,8 @@ CodeMap/
 
 * 로컬 개발 환경에서 Frontend(포트 5173)와 Backend(포트 8000)는 `mkcert`를 통한 **HTTPS 기반 CORS 통신**을 수행합니다.
 * Backend API는 기능별 도메인 모듈 내 `router.py`에 정의되며, FastAPI 라우터 객체를 통해 `main.py`에 통합됩니다.
-* `POST /api/analysis` (예시) : GitHub URL 입력 시 처리 시작 및 클론 작업 큐 추가.
-* `GET /api/analysis/{repo_id}` : 레포 메타데이터, 상태, 요약 결과 반환.
+* `POST /api/repo/analysis` (예시) : GitHub URL 입력 시 처리 시작 및 클론 작업 큐 추가.
+* `GET /api/repo/analysis/{repo_id}` : 레포 메타데이터, 상태, 요약 결과 반환.
 * `POST /api/chat/{repo_id}` : RAG 기반의 질문 처리 및 소스 파일명 반환.
 
 ## 🛠️ 인프라 및 환경 구성 명세 (Infrastructure & Configuration)
@@ -163,11 +163,11 @@ MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 
 
 | 기능 ID | 카테고리 | 도메인(모듈) | 구분 | 기능명 | 상세 설명 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `PROJECT-LIST-B-101` | PROJECT | LIST | Backend | 레포 목록 조회 API | `GET /api/analysis` 전체 분석 이력 목록 반환 |
+| `PROJECT-LIST-B-101` | PROJECT | LIST | Backend | 레포 목록 조회 API | `GET /api/list/history` 전체 분석 이력 목록 반환 |
 | `PROJECT-LIST-B-201` | PROJECT | LIST | Backend | 레포 파일 수 및 용량 사전 계산 서비스 | 클론 실행 전에 메타데이터 API 등을 통해 전체 파일 수와 용량을 사전 조회하고 계산하는 로직 |
 | `PROJECT-LIST-B-203` | PROJECT | LIST | Backend | 제한 용량 초과 예외 응답 및 경고 서비스 | 사전 검증 또는 클론 후 제한 파일 수(100개) 혹은 용량(100KB) 초과 시 예외 처리 및 에러 스펙 규격 응답 생성 |
 | `PROJECT-LIST-F-101` | PROJECT | LIST | Frontend | 분석 이력 목록 화면 | 이미 분석한 레포 목록과 각 분석상태(완료,처리중,실패)를 조회하는 홈화면 |
-| `PROJECT-REPO-B-101` | PROJECT | REPO | Backend | 프로젝트 등록 API | `POST /api/analysis` 요청 처리 |
+| `PROJECT-REPO-B-101` | PROJECT | REPO | Backend | 프로젝트 등록 API | `POST /api/repo/analysis` 요청 처리 |
 | `PROJECT-REPO-B-201` | PROJECT | REPO | Backend | Git Clone 처리 | 서버 내부 임시 디렉토리에 저장소 복제 |
 | `PROJECT-REPO-B-202` | PROJECT | REPO | Backend | 파일 필터링 | `node_modules`, `.git`, `build`, `dist`, 'venv', '.next', '.env', 'key' 바이너리 파일 제외 |
 | `PROJECT-REPO-B-203` | PROJECT | REPO | Backend | clone timeout 처리 | timeout seconds 설정, subprocess error capture, 실패 시 cleanup |
@@ -183,7 +183,7 @@ MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 
 | `PROJECT-REPO-F-204` | PROJECT | REPO | Frontend | AI 코드 분석 진행 상태 UI | 클론 이후 RAG 적재 및 리포트 생성이 비동기로 수행될 때의 단계별 상태 로딩 컴포넌트 |
 | `RAG-EMBED-B-201` | RAG | EMBED | Backend | 임베딩 생성 | 코드 및 문서를 벡터화 |
 | `RAG-EMBED-B-301` | RAG | EMBED | Backend | pgvector 저장 | 임베딩 및 메타데이터 저장 |
-| `RAG-PARSE-B-101` | RAG | PARSE | Backend | 분석 결과 조회 API | `GET /api/analysis/{repo_id}` 반환 |
+| `RAG-PARSE-B-101` | RAG | PARSE | Backend | 분석 결과 조회 API | `GET /api/repo/analysis/{repo_id}` 반환 |
 | `RAG-PARSE-B-201` | RAG | PARSE | Backend | README 분석 | README를 기반으로 프로젝트 목적 및 핵심 기능 추출 |
 | `RAG-PARSE-B-202` | RAG | PARSE | Backend | 디렉토리 구조 분석 | 프로젝트 폴더 트리 구조 생성 |
 | `RAG-PARSE-B-203` | RAG | PARSE | Backend | 핵심 파일 탐색 | entry point(`main.py`, `App.tsx` 등) 자동 탐색 |
