@@ -53,5 +53,10 @@ CREATE INDEX IF NOT EXISTS code_chunks_vector_idx ON code_chunks USING hnsw (emb
 -- 분석 작업 상태 조회 성능 향상을 위한 인덱스
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_status ON analysis_jobs (status);
 
--- 동일 저장소 중복 분석 확인을 위한 복합 인덱스
+-- 동일 저장소 중복 분석 확인을 위한 일반 인덱스 (기존 유지, 단순 검색용)
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_repo_branch ON analysis_jobs (repo_url, branch, status);
+
+-- 동일 저장소 중복 분석 생성 방지를 위한 부분 유니크 인덱스 (Constraint)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_analysis_jobs_in_progress
+ON analysis_jobs (repo_url, branch)
+WHERE status = 'IN_PROGRESS';

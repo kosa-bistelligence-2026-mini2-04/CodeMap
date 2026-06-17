@@ -153,6 +153,11 @@ class AnalysisService:
         if not job:
             raise JobNotFoundError()
 
+        import os
+        clone_path = os.path.join(
+            settings.CLONE_BASE_DIR, str(job.id), "repo"
+        )
+
         return JobStatusResponse(
             code=200,
             message="success",
@@ -161,6 +166,7 @@ class AnalysisService:
                 repoName=job.repo_name,
                 owner=job.owner,
                 branch=job.branch,
+                clonePath=clone_path,
                 status=JobStatus(job.status),
                 createdAt=job.created_at,
                 updatedAt=job.updated_at,
@@ -278,38 +284,61 @@ class AnalysisService:
         from app.repo.pipeline.graph import AnalysisPipelineSupervisor
         from app.repo.pipeline.state import PipelineState
 
-        # DB에서 job 메타데이터 조회 (repo_url, branch 등 필요)
-        async with async_session_factory() as session:
-            repo = AnalysisJobRepository(session)
-            job = await repo.get_job_by_id(UUID(job_id))
-            if not job:
-                logger.error(
-                    f"파이프라인 실행 실패: job을 찾을 수 없음 (job_id={job_id})"
+        try:
+            # DB에서 job 메타데이터 조회 (repo_url, branch 등 필요)
+            async with async_session_factory() as session:
+                repo = AnalysisJobRepository(session)
+                job = await repo.get_job_by_id(UUID(job_id))
+                if not job:
+                    logger.error(
+                        f"파이프라인 실행 실패: job을 찾을 수 없음 (job_id={job_id})"
+                    )
+                    return
+
+            # [Sec09 - initial_state] 워크플로우 초기 상태 구성
+            # CustomerSupportSupervisor.run()에서 initial_state를 구성하는 패턴 참고
+            initial_state: PipelineState = {
+                "messages": [],
+                "job_id": job_id,
+                "repo_url": job.repo_url,
+                "branch": job.branch,
+                "owner": job.owner,
+                "repo_name": job.repo_name,
+                # clone_path는 None으로 시작한다.
+                # clone_node가 os.path.exists()로 실제 파일 존재를 확인하여
+                # 이미 Clone된 경우 단계를 건너끰다.
+                "clone_path": None,
+                "current_stage": PipelineStage.CLONE.value,
+                "progress": 0,
+                "status": JobStatus.IN_PROGRESS.value,
+                "error": None,
+            }
+
+            # [Sec09 - work_flow.ainvoke()] LangGraph 워크플로우 실행
+            supervisor = AnalysisPipelineSupervisor()
+            await supervisor.run(initial_state)
+
+        except Exception as exc:
+            logger.exception("파이프라인 실행 실패 (job_id=%s)", job_id)
+            
+            # DB 상태 FAILED로 갱신
+            async with async_session_factory() as session:
+                repo = AnalysisJobRepository(session)
+                await repo.update_job_status(
+                    job_id=UUID(job_id),
+                    status=JobStatus.FAILED.value,
+                    message=f"파이프라인 실행 실패: {exc}",
                 )
-                return
-
-        # [Sec09 - initial_state] 워크플로우 초기 상태 구성
-        # CustomerSupportSupervisor.run()에서 initial_state를 구성하는 패턴 참고
-        initial_state: PipelineState = {
-            "messages": [],
-            "job_id": job_id,
-            "repo_url": job.repo_url,
-            "branch": job.branch,
-            "owner": job.owner,
-            "repo_name": job.repo_name,
-            # clone_path는 None으로 시작한다.
-            # clone_node가 os.path.exists()로 실제 파일 존재를 확인하여
-            # 이미 Clone된 경우 단계를 건너끰다.
-            "clone_path": None,
-            "current_stage": PipelineStage.CLONE.value,
-            "progress": 0,
-            "status": JobStatus.IN_PROGRESS.value,
-            "error": None,
-        }
-
-        # [Sec09 - work_flow.ainvoke()] LangGraph 워크플로우 실행
-        supervisor = AnalysisPipelineSupervisor()
-        await supervisor.run(initial_state)
+                await session.commit()
+            
+            # SSE/WebSocket 에러 이벤트 발행
+            await self._publish_event(
+                job_id=job_id,
+                stage=PipelineStage.CLONE,
+                status=JobStatus.FAILED,
+                progress=0,
+                message=f"파이프라인 실행 실패: {exc}",
+            )
 
     # ──────────────────────────────────────────
     # 이벤트 발행 헬퍼

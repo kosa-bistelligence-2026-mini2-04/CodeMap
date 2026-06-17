@@ -67,9 +67,11 @@ class AnalysisJobRepository:
         self.db.add(job) # DB에 INSERT 준비
         try:
             await self.db.flush() # SQL 실행 (아직 commit은 아님)
-        except IntegrityError:
+        except IntegrityError as exc:
             await self.db.rollback()
-            raise AlreadyInProgressError()
+            if exc.orig and "uq_analysis_jobs_in_progress" in str(exc.orig):
+                raise AlreadyInProgressError()
+            raise
         await self.db.refresh(job) # 자동생성된 id, created_at 등 다시 읽어오기
         return job
 

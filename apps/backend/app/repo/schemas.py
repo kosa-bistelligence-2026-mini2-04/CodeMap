@@ -119,8 +119,7 @@ class JobStatusData(BaseModel):
     branch: str = Field(
         description="분석 대상 브랜치"
     )
-    clonePath: str | None = Field(
-        default=None,
+    clonePath: str = Field(
         description="서버 내 임시 clone 경로"
     )
     status: JobStatus = Field(
