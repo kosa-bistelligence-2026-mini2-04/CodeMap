@@ -51,7 +51,7 @@ export function BentoFeatures() {
           </div>
 
           {/* Decorative Background */}
-          <div className="absolute bottom-0 right-0 w-2/3 h-1/2 bg-gradient-to-t from-blue-900/20 to-transparent border-t border-l border-blue-500/20 rounded-tl-2xl shadow-[-20px_-20px_30px_rgba(59,130,246,0.05)] text-[10px] text-blue-300/30 font-mono p-4 overflow-hidden pointer-events-none">
+          <div className={`absolute bottom-0 right-0 w-2/3 h-1/2 bg-gradient-to-t from-blue-900/20 to-transparent border-t border-l border-blue-500/20 rounded-tl-2xl shadow-[-20px_-20px_30px_rgba(59,130,246,0.05)] text-[10px] font-mono p-4 overflow-hidden pointer-events-none ${isDark ? "text-blue-300/30" : "text-blue-700/30"}`}>
             {'// Static analysis complete'}<br />
             {'const map = await CodeMap.analyze();'}<br />
             {'map.modules.forEach(m => {'}<br />

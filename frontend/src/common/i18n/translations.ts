@@ -153,6 +153,40 @@ export const translations = {
     demo: {
       title: "See it in Action",
       subtitle: "Whether analyzing, mapping, or auditing — CodeMap AI handles it all.",
+      scenarios: [
+        {
+          title: "Analyzing fastapi/fastapi",
+          query: "Explain the dependency injection system and how routes register.",
+          loadingText: "Reading repository index...",
+          analyzingText: "Tracing injection patterns...",
+          chatPart1: "In",
+          chatPart1Bold: "FastAPI",
+          chatPart1End: ", dependency injection is handled via the",
+          chatPart1Code: "Depends()",
+          chatPart1Tail: "mechanism.",
+          chatPart2: "Each route declares its dependencies in the function signature. FastAPI resolves the dependency graph on request.",
+          badgeTitle: "Key Pattern Found",
+        },
+        {
+          title: "Architecture Map for numpy/numpy",
+          query: "Generate a module dependency graph for the core numeric engine.",
+          loadingText: "Parsing import graph...",
+          analyzingText: "Generating architecture diagram...",
+          archText: "NumPy's architecture separates the C extension layer from the Python interface layer.",
+          archEntry: "numpy/__init__.py (Entry)",
+          archCore: "numpy/core (C Extensions)",
+          archModules: "numpy/linalg, fft, random",
+        },
+        {
+          title: "Security Scan for requests/requests",
+          query: "Are there any hardcoded credentials or unsafe deserialization patterns?",
+          loadingText: "Scanning for secret patterns...",
+          analyzingText: "Cross-referencing CVE database...",
+          secText: "I analyzed the codebase for credentials, secrets, and unsafe patterns.",
+          secBadge: "No Critical Issues Found",
+          secDesc: "The requests library follows secure practices — no hardcoded credentials or unsafe deserialization patterns detected.",
+        }
+      ]
     },
 
     // ── SecurityBanner ────────────────────────────────────────────────────────
@@ -432,6 +466,40 @@ export const translations = {
     demo: {
       title: "실제 동작 확인",
       subtitle: "분석, 매핑, 감사 등 — CodeMap AI가 모두 처리합니다.",
+      scenarios: [
+        {
+          title: "fastapi/fastapi 분석 중",
+          query: "의존성 주입 시스템과 라우트 등록 방식을 설명해줘.",
+          loadingText: "저장소 인덱스 읽는 중...",
+          analyzingText: "주입 패턴 추적 중...",
+          chatPart1: "",
+          chatPart1Bold: "FastAPI",
+          chatPart1End: "에서 의존성 주입은",
+          chatPart1Code: "Depends()",
+          chatPart1Tail: "메커니즘을 통해 처리됩니다.",
+          chatPart2: "각 라우트는 함수 시그니처에 의존성을 선언합니다. FastAPI는 요청 시 의존성 그래프를 해결합니다.",
+          badgeTitle: "핵심 패턴 발견",
+        },
+        {
+          title: "numpy/numpy 아키텍처 맵",
+          query: "핵심 숫자 엔진의 모듈 의존성 그래프를 생성해.",
+          loadingText: "임포트 그래프 파싱 중...",
+          analyzingText: "아키텍처 다이어그램 생성 중...",
+          archText: "NumPy의 아키텍처는 C 확장 계층과 Python 인터페이스 계층을 분리합니다.",
+          archEntry: "numpy/__init__.py (진입점)",
+          archCore: "numpy/core (C 확장)",
+          archModules: "numpy/linalg, fft, random",
+        },
+        {
+          title: "requests/requests 보안 스캔",
+          query: "하드코딩된 자격 증명이나 안전하지 않은 역직렬화 패턴이 있어?",
+          loadingText: "비밀 패턴 스캔 중...",
+          analyzingText: "CVE 데이터베이스 교차 참조 중...",
+          secText: "자격 증명, 비밀 및 안전하지 않은 패턴에 대해 코드베이스를 분석했습니다.",
+          secBadge: "치명적인 문제 없음",
+          secDesc: "requests 라이브러리는 안전한 관행을 따릅니다 — 하드코딩된 자격 증명이나 안전하지 않은 역직렬화 패턴이 감지되지 않았습니다.",
+        }
+      ]
     },
 
     // ── SecurityBanner ────────────────────────────────────────────────────────

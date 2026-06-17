@@ -33,8 +33,8 @@
   --accent-red: #ef4444;
   --accent-amber: #f59e0b;
 
-  --hero-glow-1: rgba(37, 99, 235, 0.2);
-  --hero-glow-2: rgba(8, 145, 178, 0.2);
+  --hero-glow-1: rgba(168, 85, 247, 0.3);
+  --hero-glow-2: rgba(236, 72, 153, 0.3);
 
   --scrollbar-track: #18181b;
   --scrollbar-thumb: #52525b;
@@ -83,8 +83,8 @@
   --accent-red: #dc2626;
   --accent-amber: #d97706;
 
-  --hero-glow-1: rgba(37, 99, 235, 0.08);
-  --hero-glow-2: rgba(8, 145, 178, 0.08);
+  --hero-glow-1: rgba(168, 85, 247, 0.15);
+  --hero-glow-2: rgba(236, 72, 153, 0.15);
 
   --scrollbar-track: #f4f4f5;
   --scrollbar-thumb: #d4d4d8;
@@ -276,7 +276,7 @@ body {
 ══════════════════════════════════════════════════════════════════════════ */
 
 [data-theme="light"] .ascii-scene-overlay {
-  opacity: 0.15;
+  opacity: 1;
 }
 
 [data-theme="dark"] .ascii-scene-overlay {

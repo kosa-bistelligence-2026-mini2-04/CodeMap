@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { EffectComposer, EffectPass, RenderPass } from "postprocessing";
@@ -44,10 +43,10 @@ export function AsciiScene({ isDark = true }: { isDark?: boolean }) {
         new ASCIIEffect({
           characters: " .:░▒▓█",
           cellSize: 12,
-          color: isDark ? "#000000" : "#ffffff",
+          color: "#ef4444",
           background: isDark ? "#000000" : "#ffffff",
           invert: !isDark,
-          colorize: true,
+          colorize: false,
         }),
       ),
     );
@@ -60,18 +59,18 @@ export function AsciiScene({ isDark = true }: { isDark?: boolean }) {
 
     container.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+    const ambientLight = new THREE.AmbientLight(isDark ? 0xffffff : 0x331111, isDark ? 0.4 : 0.3);
     scene.add(ambientLight);
 
-    const light1 = new THREE.DirectionalLight(0xff9045, 3.5);
+    const light1 = new THREE.DirectionalLight(isDark ? 0xff9045 : 0xef4444, 3.5);
     light1.position.set(300, 400, 500);
     scene.add(light1);
 
-    const light2 = new THREE.DirectionalLight(0x4590ff, 3.5);
+    const light2 = new THREE.DirectionalLight(isDark ? 0x4590ff : 0xb91c1c, isDark ? 3.5 : 2.5);
     light2.position.set(-200, -200, -400);
     scene.add(light2);
 
-    const mouseLight = new THREE.PointLight(0xffffff, 2, 600);
+    const mouseLight = new THREE.PointLight(isDark ? 0xffffff : 0xfca5a5, 2, 600);
     mouseLight.position.set(0, 0, 200);
     scene.add(mouseLight);
 
@@ -88,7 +87,7 @@ export function AsciiScene({ isDark = true }: { isDark?: boolean }) {
     const shapes: FloatingShape[] = [];
 
     const sharedMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
+      color: isDark ? 0xffffff : 0xef4444,
       flatShading: true,
       metalness: 0.2,
       roughness: 0.1,

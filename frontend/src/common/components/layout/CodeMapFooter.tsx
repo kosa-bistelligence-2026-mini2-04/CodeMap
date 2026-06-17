@@ -28,7 +28,6 @@ export function CodeMapFooter() {
           {/* Brand Section */}
           <div className="lg:col-span-5 space-y-6">
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-400 flex items-center justify-center text-xs font-bold text-white">CM</div>
               <div>
                 <h2 className={`text-xl font-bold tracking-tight transition-colors ${
                   isDark ? "text-white group-hover:text-cyan-400" : "text-zinc-900 group-hover:text-cyan-600"

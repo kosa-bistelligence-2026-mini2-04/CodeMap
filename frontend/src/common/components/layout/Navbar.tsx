@@ -84,9 +84,7 @@ export function Navbar() {
         {/* Left: Logo + Nav links */}
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-600 to-cyan-400 flex items-center justify-center text-[9px] font-bold text-white">
-              CM
-            </div>
+
             <span className={`font-bold tracking-tight text-sm ${textBase}`}>
               CodeMap{" "}
               <span className={subText + " font-normal"}>AI</span>

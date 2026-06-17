@@ -93,14 +93,9 @@ export default function Home() {
           transition={{ duration: 0.8 }}
           className="z-10 flex flex-col items-center text-center max-w-3xl w-full px-4 gap-3 md:gap-4"
         >
-          {/* Logo */}
+          {/* Badge */}
           <div className="w-full flex flex-col items-center gap-3">
-            <div className="conic-border-container neon-spin-ring rounded-2xl w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-black">
-              <div className="w-full h-full rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 flex items-center justify-center text-sm font-bold text-white">
-                CM
-              </div>
-            </div>
-            <p className="whitespace-nowrap text-[10px] md:text-xs font-semibold tracking-[0.35em] uppercase leading-none" style={{ color: "var(--text-muted)" }}>
+            <p className="whitespace-nowrap text-xs md:text-sm font-semibold tracking-[0.35em] uppercase leading-none" style={{ color: "var(--text-muted)" }}>
               {t.hero.badge}
             </p>
           </div>

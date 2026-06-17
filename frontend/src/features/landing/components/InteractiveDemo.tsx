@@ -86,6 +86,48 @@ export function InteractiveDemo() {
   const { theme, t } = useApp();
   const isDark = theme === "dark";
 
+  // Derive scenarios array with translated text
+  const scenarios = [
+    {
+      id: "analyze",
+      title: t.demo.scenarios[0].title,
+      query: t.demo.scenarios[0].query,
+      loadingText: t.demo.scenarios[0].loadingText,
+      analyzingText: t.demo.scenarios[0].analyzingText,
+      tags: [
+        { icon: Code2, text: "fastapi/dependencies/utils.py", color: "text-green-400" },
+        { icon: Code2, text: "fastapi/routing.py", color: "text-green-400" },
+      ],
+      type: "chat",
+      translationData: t.demo.scenarios[0]
+    },
+    {
+      id: "architecture",
+      title: t.demo.scenarios[1].title,
+      query: t.demo.scenarios[1].query,
+      loadingText: t.demo.scenarios[1].loadingText,
+      analyzingText: t.demo.scenarios[1].analyzingText,
+      tags: [
+        { icon: GitMerge, text: "numpy/core/_multiarray_umath.py", color: "text-blue-400" },
+        { icon: Network, text: "numpy/linalg/__init__.py", color: "text-blue-400" },
+      ],
+      type: "architecture",
+      translationData: t.demo.scenarios[1]
+    },
+    {
+      id: "security",
+      title: t.demo.scenarios[2].title,
+      query: t.demo.scenarios[2].query,
+      loadingText: t.demo.scenarios[2].loadingText,
+      analyzingText: t.demo.scenarios[2].analyzingText,
+      tags: [
+        { icon: ShieldAlert, text: "requests/utils.py", color: "text-red-400" },
+      ],
+      type: "security",
+      translationData: t.demo.scenarios[2]
+    }
+  ];
+
   const handleManualSwitch = (dir: 'next' | 'prev') => {
     if (dir === 'next') {
       setScenarioIndex((prev) => (prev + 1) % scenarios.length);
@@ -127,17 +169,18 @@ export function InteractiveDemo() {
 
   const renderResponse = () => {
     if (currentScenario.type === "chat") {
+      const tData = currentScenario.translationData;
       return (
         <div className="space-y-3 font-sans text-sm leading-relaxed">
           <p>
-            In <span className="text-white font-medium">FastAPI</span>, dependency injection is handled via the <span className="text-blue-400 font-mono text-xs bg-blue-900/20 px-1 rounded">Depends()</span> mechanism.
+            {tData.chatPart1} <span className="text-white font-medium">{tData.chatPart1Bold}</span>{tData.chatPart1End} <span className="text-blue-400 font-mono text-xs bg-blue-900/20 px-1 rounded">{tData.chatPart1Code}</span> {tData.chatPart1Tail}
           </p>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8 }}
           >
-            Each route declares its dependencies in the function signature. FastAPI resolves the dependency graph on request.
+            {tData.chatPart2}
           </motion.p>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -147,7 +190,7 @@ export function InteractiveDemo() {
           >
             <div className="flex items-center gap-2 text-purple-400 text-xs font-semibold mb-2">
               <CheckCircle2 className="w-3 h-3" />
-              <span>Key Pattern Found</span>
+              <span>{tData.badgeTitle}</span>
             </div>
             <code className="text-xs text-zinc-400 block overflow-hidden break-words whitespace-pre-wrap bg-black/50 p-2 rounded mt-2">
               <span className="text-pink-400">async def</span> <span className="text-blue-300">get_db</span>():{'\n'}
@@ -160,10 +203,11 @@ export function InteractiveDemo() {
     }
 
     if (currentScenario.type === "architecture") {
+      const tData = currentScenario.translationData;
       return (
         <div className="space-y-3 font-sans text-sm leading-relaxed">
           <p>
-            NumPy&apos;s architecture separates the C extension layer from the Python interface layer.
+            {tData.archText}
           </p>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -172,11 +216,11 @@ export function InteractiveDemo() {
             className="mt-4 bg-zinc-900 overflow-hidden rounded-lg border border-zinc-700"
           >
             <div className="p-4 flex flex-col items-center gap-2 text-xs font-mono text-blue-300">
-              <div className="border border-blue-500/50 bg-blue-900/20 px-4 py-2 rounded">numpy/__init__.py (Entry)</div>
+              <div className="border border-blue-500/50 bg-blue-900/20 px-4 py-2 rounded">{tData.archEntry}</div>
               <div className="h-4 border-l border-blue-500/50"></div>
-              <div className="border border-purple-500/50 bg-purple-900/20 px-4 py-2 rounded text-purple-300">numpy/core (C Extensions)</div>
+              <div className="border border-purple-500/50 bg-purple-900/20 px-4 py-2 rounded text-purple-300">{tData.archCore}</div>
               <div className="h-4 border-l border-purple-500/50"></div>
-              <div className="border border-green-500/50 bg-green-900/20 px-4 py-2 rounded text-green-300">numpy/linalg, fft, random</div>
+              <div className="border border-green-500/50 bg-green-900/20 px-4 py-2 rounded text-green-300">{tData.archModules}</div>
             </div>
           </motion.div>
         </div>
@@ -184,10 +228,11 @@ export function InteractiveDemo() {
     }
 
     if (currentScenario.type === "security") {
+      const tData = currentScenario.translationData;
       return (
         <div className="space-y-3 font-sans text-sm leading-relaxed">
           <p>
-            I analyzed the codebase for credentials, secrets, and unsafe patterns.
+            {tData.secText}
           </p>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -197,9 +242,9 @@ export function InteractiveDemo() {
           >
             <div className="flex items-center gap-2 text-green-500 text-xs font-semibold mb-2">
               <CheckCircle2 className="w-3 h-3" />
-              <span>No Critical Issues Found</span>
+              <span>{tData.secBadge}</span>
             </div>
-            <p className="text-zinc-300 text-xs">The requests library follows secure practices — no hardcoded credentials or unsafe deserialization patterns detected.</p>
+            <p className="text-zinc-300 text-xs">{tData.secDesc}</p>
           </motion.div>
         </div>
       )
@@ -311,7 +356,7 @@ export function InteractiveDemo() {
                 className="flex gap-4 items-start w-full"
               >
                 <div className="p-1 bg-zinc-900 rounded-lg shrink-0 border border-zinc-700 shadow-[0_0_15px_rgba(255,255,255,0.05)] overflow-hidden flex items-center justify-center w-10 h-10">
-                  <div className="w-8 h-8 rounded-md bg-gradient-to-br from-blue-600 to-cyan-400 flex items-center justify-center text-[10px] font-bold text-white">CM</div>
+                  <BrainCircuit className="w-5 h-5 text-blue-400" />
                 </div>
 
                 <div className="flex-1 space-y-4">
