@@ -1,0 +1,312 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSS Variables — Dark Mode (default)
+══════════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="dark"] {
+  --bg-primary: #000000;
+  --bg-secondary: #09090b;
+  --bg-card: rgba(24, 24, 27, 0.6);
+  --bg-card-hover: rgba(24, 24, 27, 0.8);
+  --bg-input: #09090b;
+  --bg-button: #ffffff;
+  --bg-button-text: #000000;
+  --bg-tab-active: #ffffff;
+  --bg-tab-active-text: #000000;
+
+  --border-primary: rgba(63, 63, 70, 0.8);
+  --border-muted: rgba(39, 39, 42, 0.6);
+  --border-input: #3f3f46;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-faint: #52525b;
+
+  --accent-blue: #3b82f6;
+  --accent-cyan: #22d3ee;
+  --accent-purple: #a855f7;
+  --accent-green: #22c55e;
+  --accent-red: #ef4444;
+  --accent-amber: #f59e0b;
+
+  --hero-glow-1: rgba(37, 99, 235, 0.2);
+  --hero-glow-2: rgba(8, 145, 178, 0.2);
+
+  --scrollbar-track: #18181b;
+  --scrollbar-thumb: #52525b;
+  --scrollbar-thumb-hover: #71717a;
+
+  /* Status colors */
+  --status-running-bg: rgba(59, 130, 246, 0.1);
+  --status-running-border: rgba(59, 130, 246, 0.3);
+  --status-running-text: #93c5fd;
+  --status-done-bg: rgba(34, 197, 94, 0.1);
+  --status-done-border: rgba(34, 197, 94, 0.3);
+  --status-done-text: #86efac;
+  --status-failed-bg: rgba(239, 68, 68, 0.1);
+  --status-failed-border: rgba(239, 68, 68, 0.3);
+  --status-failed-text: #fca5a5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSS Variables — Light Mode
+══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --bg-card-hover: rgba(255, 255, 255, 0.95);
+  --bg-input: #ffffff;
+  --bg-button: #000000;
+  --bg-button-text: #ffffff;
+  --bg-tab-active: #000000;
+  --bg-tab-active-text: #ffffff;
+
+  --border-primary: rgba(212, 212, 216, 0.8);
+  --border-muted: rgba(228, 228, 231, 0.8);
+  --border-input: #d4d4d8;
+
+  --text-primary: #09090b;
+  --text-secondary: #3f3f46;
+  --text-muted: #71717a;
+  --text-faint: #a1a1aa;
+
+  --accent-blue: #2563eb;
+  --accent-cyan: #0891b2;
+  --accent-purple: #9333ea;
+  --accent-green: #16a34a;
+  --accent-red: #dc2626;
+  --accent-amber: #d97706;
+
+  --hero-glow-1: rgba(37, 99, 235, 0.08);
+  --hero-glow-2: rgba(8, 145, 178, 0.08);
+
+  --scrollbar-track: #f4f4f5;
+  --scrollbar-thumb: #d4d4d8;
+  --scrollbar-thumb-hover: #a1a1aa;
+
+  /* Status colors */
+  --status-running-bg: rgba(59, 130, 246, 0.08);
+  --status-running-border: rgba(59, 130, 246, 0.25);
+  --status-running-text: #1d4ed8;
+  --status-done-bg: rgba(34, 197, 94, 0.08);
+  --status-done-border: rgba(34, 197, 94, 0.25);
+  --status-done-text: #15803d;
+  --status-failed-bg: rgba(239, 68, 68, 0.08);
+  --status-failed-border: rgba(239, 68, 68, 0.25);
+  --status-failed-text: #b91c1c;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tailwind theme tokens
+══════════════════════════════════════════════════════════════════════════ */
+
+@theme inline {
+  --font-sans: var(--font-montserrat);
+  --color-bg-primary: var(--bg-primary);
+  --color-text-primary: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Base styles
+══════════════════════════════════════════════════════════════════════════ */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Semantic utility classes (theme-aware)
+══════════════════════════════════════════════════════════════════════════ */
+
+.cm-bg-primary      { background-color: var(--bg-primary); }
+.cm-bg-secondary    { background-color: var(--bg-secondary); }
+.cm-bg-card         { background-color: var(--bg-card); }
+.cm-border          { border-color: var(--border-primary); }
+.cm-border-muted    { border-color: var(--border-muted); }
+.cm-text-primary    { color: var(--text-primary); }
+.cm-text-secondary  { color: var(--text-secondary); }
+.cm-text-muted      { color: var(--text-muted); }
+.cm-text-faint      { color: var(--text-faint); }
+
+.cm-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  backdrop-filter: blur(8px);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.cm-card:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.cm-input {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-input);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.cm-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 1px var(--accent-blue);
+}
+
+.cm-input::placeholder {
+  color: var(--text-faint);
+}
+
+.cm-btn-primary {
+  background-color: var(--bg-button);
+  color: var(--bg-button-text);
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.cm-btn-primary:hover {
+  opacity: 0.85;
+}
+
+.cm-btn-primary:disabled {
+  background-color: var(--border-primary);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Conic border (repomind logo ring)
+══════════════════════════════════════════════════════════════════════════ */
+
+@property --angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0turn;
+}
+
+@keyframes spin-gradient {
+  to { --angle: 1turn; }
+}
+
+.conic-border-container {
+  position: relative;
+  border: 2px solid transparent;
+  isolation: isolate;
+}
+
+.conic-border-container::before {
+  content: " ";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border: inherit;
+  border-radius: inherit;
+  background-image: conic-gradient(from var(--angle), #9333ea 0%, #3b82f6 50%, #9333ea 100%);
+  background-origin: border-box;
+  -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black);
+  mask: linear-gradient(black, black), linear-gradient(black, black);
+  -webkit-mask-clip: content-box, border-box;
+  mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spin-gradient 8s linear infinite;
+}
+
+.neon-spin-ring::before {
+  background-image: conic-gradient(
+    from var(--angle),
+    #22d3ee 0%, #3b82f6 35%, #a855f7 65%, #22d3ee 100%
+  );
+  animation: spin-gradient 6s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.45))
+    drop-shadow(0 0 20px rgba(168, 85, 247, 0.3));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conic-border-container::before,
+  .neon-spin-ring::before {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Light mode — invert AsciiScene background
+══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] .ascii-scene-overlay {
+  opacity: 0.15;
+}
+
+[data-theme="dark"] .ascii-scene-overlay {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Glow helpers
+══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes soft-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  50% { transform: scale(1.02); box-shadow: 0 0 15px -2px rgba(59, 130, 246, 0.2); }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Theme transition for all cards/panels
+══════════════════════════════════════════════════════════════════════════ */
+
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: ease;
+  transition-duration: 200ms;
+}
+
+/* Disable transitions on motion elements to avoid jank */
+.motion-safe-override {
+  transition: none !important;
+}
