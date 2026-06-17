@@ -1,0 +1,202 @@
+"""
+분석 작업 REST API 라우터 (Controller/진입점)
+
+API 명세서에 정의된 HTTP 엔드포인트를 FastAPI 라우터로 구현한다.
+각 엔드포인트는 Service 계층에 비즈니스 로직을 위임한다.
+
+담당 API:
+  - API-001: POST /api/repo/analysis (프로젝트 등록)
+  - API-003: GET  /api/repo/analysis/{job_id} (상태 조회)
+  - API-005: GET  /api/repo/analysis/{job_id}/events (SSE 스트림)
+  - API-007: POST /api/repo/analysis/{job_id}/start (파이프라인 시작)
+"""
+
+import json
+import logging
+from uuid import UUID
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import async_session_factory, get_db
+from app.core.exceptions import JobAlreadyDoneError, JobNotFoundError
+from app.repo.event_manager import event_manager
+from app.repo.schemas import (
+    AnalysisRequest,
+    AnalysisResponse,
+    ErrorResponse,
+    JobStatus,
+    JobStatusResponse,
+    PipelineStartResponse,
+)
+from app.repo.service import AnalysisService
+
+logger = logging.getLogger(__name__)
+
+# ──────────────────────────────────────────────
+# APIRouter 인스턴스 생성
+# ──────────────────────────────────────────────
+router = APIRouter(tags=["Project Repository Analysis"])
+
+
+# ──────────────────────────────────────────────
+# API-001: 프로젝트 등록 (분석 요청)
+# POST /api/repo/analysis
+# ──────────────────────────────────────────────
+@router.post(
+    "/api/repo/analysis",
+    response_model=AnalysisResponse,
+    status_code=201,
+    summary="프로젝트 등록 (분석 요청)",
+    description="GitHub 저장소 URL을 받아 분석 작업을 등록하고 job_id를 발급한다.",
+    responses={
+        400: {"model": ErrorResponse, "description": "GitHub URL 형식 오류"},
+        404: {"model": ErrorResponse, "description": "저장소 없음 또는 접근 불가"},
+        408: {"model": ErrorResponse, "description": "Clone 제한 시간 초과"},
+        409: {"model": ErrorResponse, "description": "동일 저장소 분석 진행 중"},
+        413: {"model": ErrorResponse, "description": "파일 수/용량 제한 초과"},
+        422: {"model": ErrorResponse, "description": "저장소 용량 초과 (GitHub API 기준)"},
+    },
+)
+async def register_analysis(
+    request: AnalysisRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> AnalysisResponse:
+    """
+    GitHub 저장소 URL을 받아 분석 작업을 등록한다.
+
+    내부적으로 URL 검증 → Clone → Code Map → Doc Generation →
+    Onboarding Guide → Report 저장 순서로 비동기 처리되며,
+    각 단계의 진행 상태는 WebSocket으로 실시간 push된다.
+    """
+    service = AnalysisService(db)
+    return await service.register_analysis(request, background_tasks)
+
+
+# ──────────────────────────────────────────────
+# API-003: 분석 작업 상태 및 메타데이터 조회
+# GET /api/repo/analysis/{job_id}
+# ──────────────────────────────────────────────
+@router.get(
+    "/api/repo/analysis/{job_id}",
+    response_model=JobStatusResponse,
+    summary="분석 작업 상태 및 메타데이터 조회",
+    description="job_id에 해당하는 분석 작업의 현재 상태와 저장소 메타데이터를 반환한다.",
+    responses={
+        404: {"model": ErrorResponse, "description": "존재하지 않는 job_id"},
+        500: {"model": ErrorResponse, "description": "서버 내부 오류"},
+    },
+)
+async def get_job_status(
+    job_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> JobStatusResponse:
+    """
+    폴링 방식으로 진행 상태를 확인할 때 사용한다.
+    실시간 수신은 WebSocket(API-006)을 권장한다.
+    """
+    service = AnalysisService(db)
+    return await service.get_job_status(job_id)
+
+
+# ──────────────────────────────────────────────
+# API-005: SSE 분석 진행 상태 이벤트 스트림
+# GET /api/repo/analysis/{job_id}/events
+# ──────────────────────────────────────────────
+@router.get(
+    "/api/repo/analysis/{job_id}/events",
+    summary="분석 진행 상태 이벤트 스트림 수신 (SSE)",
+    description="Server-Sent Events 방식으로 분석 파이프라인의 진행 상태를 실시간 스트리밍한다.",
+    responses={
+        404: {"model": ErrorResponse, "description": "존재하지 않는 job_id"},
+        409: {"model": ErrorResponse, "description": "이미 완료/실패한 작업"},
+        500: {"model": ErrorResponse, "description": "이벤트 큐 오류"},
+    },
+)
+async def stream_analysis_events(
+    job_id: UUID,
+    request: Request,
+) -> StreamingResponse:
+    """
+    SSE(Server-Sent Events) 방식으로 분석 진행 상태를 실시간 스트리밍한다.
+
+    클라이언트는 EventSource API로 연결하며,
+    각 파이프라인 단계 전환 시마다 이벤트를 수신한다.
+    status가 COMPLETED 또는 FAILED인 이벤트 수신 후 스트림이 종료된다.
+    """
+    # job 존재 여부 확인 (별도 세션 사용)
+    async with async_session_factory() as session:
+        service = AnalysisService(session)
+        job_status_response = await service.get_job_status(job_id)
+
+    # 이미 완료/실패한 작업인지 확인
+    if job_status_response.data.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+        raise JobAlreadyDoneError()
+
+    async def event_generator():
+        """SSE 이벤트 스트림 제너레이터"""
+        try:
+            async for event in event_manager.subscribe(str(job_id)):
+                # 클라이언트 연결이 끊겼는지 확인
+                if await request.is_disconnected():
+                    break
+
+                # SSE 형식으로 데이터 전송
+                event_data = event.model_dump_json()
+                yield f"data: {event_data}\n\n"
+
+                # 최종 상태 수신 시 스트림 종료
+                if event.status in (JobStatus.COMPLETED, JobStatus.FAILED):
+                    break
+        except Exception as e:
+            logger.error(f"SSE 스트림 오류 (job_id={job_id}): {e}")
+            error_data = json.dumps({
+                "error": "STREAM_ERROR",
+                "message": str(e)
+            })
+            yield f"data: {error_data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Nginx 프록시 버퍼링 비활성화
+        },
+    )
+
+
+# ──────────────────────────────────────────────
+# API-007: 전체 분석 파이프라인 시작
+# POST /api/repo/analysis/{job_id}/start
+# ──────────────────────────────────────────────
+@router.post(
+    "/api/repo/analysis/{job_id}/start",
+    response_model=PipelineStartResponse,
+    status_code=202,
+    summary="전체 분석 파이프라인 시작",
+    description="clone이 완료된 job에 대해 전체 분석 파이프라인을 비동기 시작한다.",
+    responses={
+        404: {"model": ErrorResponse, "description": "존재하지 않는 job_id"},
+        409: {"model": ErrorResponse, "description": "이미 파이프라인 실행 중"},
+        422: {"model": ErrorResponse, "description": "clone 미완료 상태"},
+        500: {"model": ErrorResponse, "description": "파이프라인 시작 오류"},
+    },
+)
+async def start_pipeline(
+    job_id: UUID,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> PipelineStartResponse:
+    """
+    Clone 완료 후 Code Map → Doc Generation → Onboarding Guide → Report 저장
+    순서로 전체 분석 파이프라인을 비동기 시작한다.
+
+    이 API는 POST /api/analysis 내부에서 자동 호출된다.
+    clone 실패 후 수동 재시작 시에만 직접 호출한다.
+    """
+    service = AnalysisService(db)
+    return await service.start_pipeline(job_id, background_tasks)
