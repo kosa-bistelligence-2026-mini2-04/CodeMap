@@ -167,6 +167,9 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: Exception
     ) -> JSONResponse:
         """예상치 못한 예외를 처리하는 폴백 핸들러"""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("Unhandled exception", exc_info=exc)
         return JSONResponse(
             status_code=500,
             content={

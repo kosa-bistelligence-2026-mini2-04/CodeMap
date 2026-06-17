@@ -15,11 +15,11 @@ import json
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import async_session_factory, get_db
 from app.core.exceptions import JobAlreadyDoneError, JobNotFoundError
 from app.repo.event_manager import event_manager
 from app.repo.schemas import (
@@ -61,6 +61,7 @@ router = APIRouter(tags=["Project Repository Analysis"])
 )
 async def register_analysis(
     request: AnalysisRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> AnalysisResponse:
     """
@@ -71,7 +72,7 @@ async def register_analysis(
     각 단계의 진행 상태는 WebSocket으로 실시간 push된다.
     """
     service = AnalysisService(db)
-    return await service.register_analysis(request)
+    return await service.register_analysis(request, background_tasks)
 
 
 # ──────────────────────────────────────────────
@@ -117,7 +118,6 @@ async def get_job_status(
 async def stream_analysis_events(
     job_id: UUID,
     request: Request,
-    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     """
     SSE(Server-Sent Events) 방식으로 분석 진행 상태를 실시간 스트리밍한다.
@@ -126,9 +126,10 @@ async def stream_analysis_events(
     각 파이프라인 단계 전환 시마다 이벤트를 수신한다.
     status가 COMPLETED 또는 FAILED인 이벤트 수신 후 스트림이 종료된다.
     """
-    # job 존재 여부 확인
-    service = AnalysisService(db)
-    job_status_response = await service.get_job_status(job_id)
+    # job 존재 여부 확인 (별도 세션 사용)
+    async with async_session_factory() as session:
+        service = AnalysisService(session)
+        job_status_response = await service.get_job_status(job_id)
 
     # 이미 완료/실패한 작업인지 확인
     if job_status_response.data.status in (JobStatus.COMPLETED, JobStatus.FAILED):
@@ -187,6 +188,7 @@ async def stream_analysis_events(
 )
 async def start_pipeline(
     job_id: UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> PipelineStartResponse:
     """
@@ -197,4 +199,4 @@ async def start_pipeline(
     clone 실패 후 수동 재시작 시에만 직접 호출한다.
     """
     service = AnalysisService(db)
-    return await service.start_pipeline(job_id)
+    return await service.start_pipeline(job_id, background_tasks)

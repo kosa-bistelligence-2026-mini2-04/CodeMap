@@ -17,6 +17,7 @@ import re
 from datetime import datetime, timezone
 from uuid import UUID
 
+from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -80,7 +81,7 @@ class AnalysisService:
     # ──────────────────────────────────────────
     # API-001: 프로젝트 등록 (분석 요청)
     # ──────────────────────────────────────────
-    async def register_analysis(self, request: AnalysisRequest) -> AnalysisResponse:
+    async def register_analysis(self, request: AnalysisRequest, background_tasks: BackgroundTasks) -> AnalysisResponse:
         """
         GitHub 저장소 분석 작업을 등록하고 job_id를 발급한다.
 
@@ -115,8 +116,8 @@ class AnalysisService:
         )
 
         # 5. [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 실행
-        #    응답은 먼저 내보내고, 파이프라인은 비동기로 뒤에서 실행된다.
-        asyncio.create_task(self._run_pipeline_with_langgraph(str(job.id)))
+        #    응답이 전송되고 DB 커밋이 완료된 후 파이프라인이 실행되도록 BackgroundTasks에 등록한다.
+        background_tasks.add_task(self._run_pipeline_with_langgraph, str(job.id))
 
         # 6. 201 Created 응답 DTO 구성
         return AnalysisResponse(
@@ -169,7 +170,7 @@ class AnalysisService:
     # ──────────────────────────────────────────
     # API-007: 전체 분석 파이프라인 시작
     # ──────────────────────────────────────────
-    async def start_pipeline(self, job_id: UUID) -> PipelineStartResponse:
+    async def start_pipeline(self, job_id: UUID, background_tasks: BackgroundTasks) -> PipelineStartResponse:
         """
         Clone이 완료된 job에 대해 전체 분석 파이프라인을 비동기 시작한다.
 
@@ -216,10 +217,8 @@ class AnalysisService:
         )
 
         # [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 재시작
-        #    clone_node가 os.path.exists()로 Clone 완료 여부를 스스로 판단하는다.
-        asyncio.create_task(
-            self._run_pipeline_with_langgraph(str(job_id))
-        )
+        #    응답이 전송되고 DB 커밋이 완료된 후 실행되도록 BackgroundTasks에 등록한다.
+        background_tasks.add_task(self._run_pipeline_with_langgraph, str(job_id))
 
         return PipelineStartResponse(
             code=202,

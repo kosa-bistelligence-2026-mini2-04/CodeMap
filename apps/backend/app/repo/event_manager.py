@@ -77,12 +77,12 @@ class EventManager:
         queue: asyncio.Queue = asyncio.Queue()
         self._subscribers[job_id].append(queue) # 구독 등록
 
-        # 마지막 이벤트가 있으면 현재 상태를 즉시 전달 (늦게 접속하더라도 현재 상태를 알 수 있음)
-        last_event = self._last_events.get(job_id)
-        if last_event:
-            yield last_event
-
         try:
+            # 마지막 이벤트가 있으면 현재 상태를 즉시 전달 (늦게 접속하더라도 현재 상태를 알 수 있음)
+            last_event = self._last_events.get(job_id)
+            if last_event:
+                yield last_event
+
             while True:
                 event = await queue.get() # 이벤트가 올때까지 대기
                 yield event
@@ -100,11 +100,21 @@ class EventManager:
         return self._last_events.get(job_id)
 
     async def _cleanup_job(self, job_id: str) -> None:
-        """완료/실패한 job의 구독 정보를 정리한다"""
-        # 모든 구독자에게 이벤트 전달이 완료된 후 약간의 딜레이를 두고 정리
+        """완료/실패한 job의 구독 정보 및 캐시를 정리한다"""
+        # 1. 큐 구독자 즉시 정리 (이벤트는 이미 전달 완료됨)
         await asyncio.sleep(1)
         self._subscribers.pop(job_id, None)
-        logger.info(f"이벤트 구독 정리 완료 (job_id={job_id})")
+        
+        # 2. 10분 후 마지막 이벤트 캐시 제거 (메모리 누수 방지)
+        # 클라이언트가 늦게 상태를 조회할 수 있도록 여유 시간을 둠
+        asyncio.create_task(self._delayed_cache_cleanup(job_id, delay=600))
+        logger.info(f"이벤트 구독 정리 완료 및 캐시 삭제 예약 (job_id={job_id})")
+
+    async def _delayed_cache_cleanup(self, job_id: str, delay: int) -> None:
+        """지연 후 캐시를 삭제하는 백그라운드 태스크"""
+        await asyncio.sleep(delay)
+        self._last_events.pop(job_id, None)
+        logger.info(f"이벤트 캐시 정리 완료 (job_id={job_id})")
 
 
 # ──────────────────────────────────────────────

@@ -8,7 +8,7 @@ PostgreSQL 테이블에 매핑하는 SQLAlchemy ORM 모델을 정의한다.
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Integer, Text, DateTime, Enum as SAEnum
+from sqlalchemy import String, Integer, Text, DateTime, Enum as SAEnum, Index, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -28,6 +28,16 @@ class AnalysisJob(Base):
     """
 
     __tablename__ = "analysis_jobs"
+
+    __table_args__ = (
+        Index(
+            "uq_analysis_jobs_in_progress",
+            "repo_url",
+            "branch",
+            unique=True,
+            postgresql_where=text("status = 'IN_PROGRESS'"),
+        ),
+    )
 
     # 분석 작업 고유 ID (UUID) - 자동생성
     id: Mapped[uuid.UUID] = mapped_column(

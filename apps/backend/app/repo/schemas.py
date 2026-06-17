@@ -66,16 +66,6 @@ class AnalysisRequest(BaseModel):
         examples=["main"],
     )
 
-    @field_validator("repoUrl")
-    @classmethod
-    def validate_repo_url(cls, v: str) -> str:
-        """GitHub URL 형식 검증 (https://github.com/owner/repo)"""
-        if not v.startswith("https://github.com/"):
-            raise ValueError("GitHub URL은 https://github.com/ 으로 시작해야 합니다.")
-        parts = v.replace("https://github.com/", "").strip("/").split("/")
-        if len(parts) < 2 or not parts[0] or not parts[1]:
-            raise ValueError("GitHub URL에 owner와 repo 이름이 포함되어야 합니다.")
-        return v
 
 
 # ──────────────────────────────────────────────
@@ -129,7 +119,8 @@ class JobStatusData(BaseModel):
     branch: str = Field(
         description="분석 대상 브랜치"
     )
-    clonePath: Optional[str] = Field(
+    clonePath: str | None = Field(
+        default=None,
         description="서버 내 임시 clone 경로"
     )
     status: JobStatus = Field(

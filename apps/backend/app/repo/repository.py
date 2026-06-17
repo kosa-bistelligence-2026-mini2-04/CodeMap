@@ -10,7 +10,10 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import AlreadyInProgressError
 
 from app.repo.models import AnalysisJob
 from app.repo.schemas import JobStatus
@@ -62,7 +65,11 @@ class AnalysisJobRepository:
             message="분석 작업이 등록되었습니다.",
         )
         self.db.add(job) # DB에 INSERT 준비
-        await self.db.flush() # SQL 실행 (아직 commit은 아님)
+        try:
+            await self.db.flush() # SQL 실행 (아직 commit은 아님)
+        except IntegrityError:
+            await self.db.rollback()
+            raise AlreadyInProgressError()
         await self.db.refresh(job) # 자동생성된 id, created_at 등 다시 읽어오기
         return job
 
