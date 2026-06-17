@@ -1,0 +1,21 @@
+# 인프라 컨테이너 구성 (PostgreSQL, pgvector 등)
+version: '3.8'
+
+services:
+  db:
+    container_name: postgresql-17
+    image: pgvector/pgvector:pg17
+    restart: always
+    environment:
+      POSTGRES_USER: codemap
+      POSTGRES_PASSWORD: codemap
+      POSTGRES_DB: codemap
+      TZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql-17-volume:/var/lib/postgresql-17/data
+    command: postgres -c max_connections=500
+
+volumes:
+  postgresql-17-volume:
