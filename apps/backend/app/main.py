@@ -1,19 +1,64 @@
+"""
+CodeMap API 애플리케이션 진입점
+
+FastAPI 앱 인스턴스를 생성하고, 도메인별 라우터와 미들웨어,
+예외 핸들러를 등록하는 메인 모듈이다.
+"""
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# TODO: 추후 공통(common) 설정(CORS, 예외처리 등)을 불러와서 적용합니다.
-# from app.common.config import ...
-# from app.common.exception import ...
+from app.core.exceptions import register_exception_handlers
+from app.repo.router import router as repo_router
+from app.repo.websocket import ws_router
 
+# ──────────────────────────────────────────────
+# FastAPI 앱 인스턴스 생성
+# ──────────────────────────────────────────────
 app = FastAPI(
     title="CodeMap API",
-    description="Domain-Driven FastAPI Application",
-    version="1.0.0"
+    description="GitHub 저장소 코드 분석 및 문서 자동 생성 서비스 API",
+    version="1.0.0",
 )
 
+
+# ──────────────────────────────────────────────
+# CORS 미들웨어 설정 (프론트엔드 개발 서버 허용)
+# ──────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # TODO: 운영 환경에서 특정 도메인만 허용하도록 수정
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ──────────────────────────────────────────────
+# 전역 예외 핸들러 등록
+# ──────────────────────────────────────────────
+register_exception_handlers(app)
+
+
+# ──────────────────────────────────────────────
+# 루트 헬스체크 엔드포인트
+# ──────────────────────────────────────────────
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the API!"}
+    """서버 상태 확인용 헬스체크 엔드포인트"""
+    return {"message": "Welcome to the CodeMap API!"}
 
-# TODO: 추후 도메인별(user, analysis 등) 라우터를 아래에 연결(include)합니다.
-# app.include_router(user_controller.router, prefix="/api/v1/users")
-# app.include_router(analysis_controller.router, prefix="/api/v1/analysis")
+
+# ──────────────────────────────────────────────
+# 도메인별 라우터 등록
+# ──────────────────────────────────────────────
+
+# Project Repository 분석 관련 REST API (API-001, 003, 005, 007)
+app.include_router(repo_router)
+
+# Project Repository 분석 WebSocket 엔드포인트 (API-006)
+app.include_router(ws_router)
+
+# TODO: 추후 도메인별 라우터 추가 등록
+# app.include_router(chat_router, prefix="/api")
+# app.include_router(list_router, prefix="/api")
