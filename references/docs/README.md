@@ -9,7 +9,6 @@ Notion에서 export한 HTML 문서를 팀 공유용 Markdown으로 변환한 문
 - [프로젝트 tree 구조](./project-tree-structure.md)
 - [프로젝트 기초 문서](./project-basics.md)
 - [프로젝트 핵심기능 (기능 명세서 + API 명세서)](./project-core-features-api-spec.md)
-- [CodeMap AI 프로젝트 핵심 기능 명세서](./core_features.md)
 
 ## Source HTML
 
