@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     repo_name VARCHAR(255) NOT NULL,
     owner VARCHAR(255) NOT NULL,
     branch VARCHAR(255) NOT NULL DEFAULT 'main',
-    clone_path TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS',
     stage VARCHAR(20),
     progress INTEGER NOT NULL DEFAULT 0,

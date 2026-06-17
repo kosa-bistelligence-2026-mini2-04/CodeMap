@@ -160,7 +160,6 @@ class AnalysisService:
                 repoName=job.repo_name,
                 owner=job.owner,
                 branch=job.branch,
-                clonePath=job.clone_path,
                 status=JobStatus(job.status),
                 createdAt=job.created_at,
                 updatedAt=job.updated_at,
@@ -196,8 +195,13 @@ class AnalysisService:
         if job.status == JobStatus.IN_PROGRESS.value and job.stage is not None:
             raise PipelineAlreadyRunningError()
 
-        # Clone이 완료되었는지 확인 (clone_path가 설정되어 있어야 함)
-        if not job.clone_path:
+        # Clone 완료 여부 확인 (DB clone_path 대신 실제 파일 존재로 판단)
+        # clone_path는 job_id + CLONE_BASE_DIR로 항상 결정 가능하므로 DB 저장 불필요
+        import os
+        clone_path = os.path.join(
+            settings.CLONE_BASE_DIR, str(job_id), "repo"
+        )
+        if not os.path.exists(clone_path):
             raise CloneNotCompletedError()
 
         now = datetime.now(timezone.utc)
@@ -212,9 +216,9 @@ class AnalysisService:
         )
 
         # [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 재시작
-        #    clone_path를 미리 state에 넣어 clone_node가 Clone을 건너뛰도록 한다.
+        #    clone_node가 os.path.exists()로 Clone 완료 여부를 스스로 판단하는다.
         asyncio.create_task(
-            self._run_pipeline_with_langgraph(str(job_id), clone_path=job.clone_path)
+            self._run_pipeline_with_langgraph(str(job_id))
         )
 
         return PipelineStartResponse(
@@ -256,7 +260,7 @@ class AnalysisService:
     # kosa-langchain-practice/langchain/api/sec09_multi_agent/langgraph/supervisor.py 참고
     # ──────────────────────────────────────────────────────────────
     async def _run_pipeline_with_langgraph(
-        self, job_id: str, clone_path: str | None = None
+        self, job_id: str
     ) -> None:
         """
         LangGraph AnalysisPipelineSupervisor를 사용하여 분석 파이프라인을 실행한다.
@@ -265,9 +269,11 @@ class AnalysisService:
         # kosa-langchain-practice/langchain/api/sec09_multi_agent/langgraph/supervisor.py 참고
         # CustomerSupportSupervisor.run()이 초기 상태를 받아 워크플로우를 실행하는 패턴을 그대로 적용했다.
 
+        clone_path는 job_id + CLONE_BASE_DIR로 항상 결정되므로
+        DB에서 가져오지 않고 clone_node가 직접 계산한다.
+
         Args:
             job_id: 분석 작업 고유 ID
-            clone_path: 재시작 시 이미 완료된 Clone 경로 (None이면 신규 Clone 실행)
         """
         from app.core.database import async_session_factory
         from app.repo.pipeline.graph import AnalysisPipelineSupervisor
@@ -292,9 +298,10 @@ class AnalysisService:
             "branch": job.branch,
             "owner": job.owner,
             "repo_name": job.repo_name,
-            # clone_path가 미리 설정된 경우 (start_pipeline 재시작)
-            # clone_node가 이를 감지하여 Clone을 건너뜀
-            "clone_path": clone_path,
+            # clone_path는 None으로 시작한다.
+            # clone_node가 os.path.exists()로 실제 파일 존재를 확인하여
+            # 이미 Clone된 경우 단계를 건너끰다.
+            "clone_path": None,
             "current_stage": PipelineStage.CLONE.value,
             "progress": 0,
             "status": JobStatus.IN_PROGRESS.value,

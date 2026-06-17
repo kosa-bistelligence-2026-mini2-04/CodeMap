@@ -121,12 +121,12 @@ class AnalysisJobRepository:
         stage: Optional[str] = None,
         progress: Optional[int] = None,
         message: Optional[str] = None,
-        clone_path: Optional[str] = None,
     ) -> Optional[AnalysisJob]:
         """
         분석 작업의 상태를 업데이트한다.
 
         파이프라인 진행에 따라 status, stage, progress, message 등을 갱신한다.
+        clone_path는 job_id + CLONE_BASE_DIR config로 항상 계산 가능하므로 저장하지 않는다.
 
         Args:
             job_id: 분석 작업 고유 ID
@@ -134,7 +134,6 @@ class AnalysisJobRepository:
             stage: 현재 파이프라인 단계
             progress: 전체 진행률 (0~100)
             message: 진행 상태 메시지
-            clone_path: 서버 내 clone 경로
 
         Returns:
             업데이트된 AnalysisJob 엔티티 또는 None
@@ -152,8 +151,6 @@ class AnalysisJobRepository:
             job.progress = progress
         if message is not None:
             job.message = message
-        if clone_path is not None:
-            job.clone_path = clone_path
 
         await self.db.flush()
         await self.db.refresh(job)

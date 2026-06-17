@@ -2,6 +2,8 @@
 분석 파이프라인 단계별 LangGraph 노드 구현
 
 각 노드는 PipelineState를 입력받아 처리 후 갱신할 dict를 반환한다.
+clone_path는 job_id + CLONE_BASE_DIR로 항상 결정되므로 DB에 저장하지 않는다.
+os.path.exists()로 이미 Clone된 경우를 감지한다.
 
 참고한 실습 섹션:
   [Sec09 - 노드 패턴]
@@ -63,6 +65,7 @@ async def _update_db(job_id: str, **kwargs) -> None:
     분석 작업 상태를 DB에 업데이트한다.
 
     백그라운드 Task이므로 별도 세션을 직접 생성한다.
+    clone_path는 DB에 저장하지 않으므로 kwargs에 포함하지 않는다.
     """
     async with async_session_factory() as session:
         repo = AnalysisJobRepository(session)
@@ -73,9 +76,6 @@ async def _update_db(job_id: str, **kwargs) -> None:
 # ──────────────────────────────────────────────────────────────
 # [Sec05 - create_react_agent] LangChain ReAct Agent 생성 헬퍼
 # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
-#
-# 실습에서는 create_agent()를 사용했으나,
-# 표준 LangGraph 패키지 기준으로 create_react_agent()로 구현했다.
 # ──────────────────────────────────────────────────────────────
 
 def _build_agent(system_prompt: str, tools: list | None = None):
@@ -114,7 +114,10 @@ def _build_agent(system_prompt: str, tools: list | None = None):
 #
 # [Sec09 - 노드 패턴]
 # kosa-langchain-practice/langchain/api/sec09_multi_agent/langgraph/nodes/account_node.py
-# PipelineState를 입력받아 Clone 완료 후 clone_path를 갱신하여 반환한다.
+# PipelineState를 입력받아 Clone 완료 후 clone_path를 상태에 반환한다.
+#
+# clone_path는 job_id + CLONE_BASE_DIR로 항상 결정되므로 DB에 저장하지 않는다.
+# os.path.exists()로 이미 Clone된 경우를 감지하여 단계를 건너뛴다.
 # ──────────────────────────────────────────────────────────────
 
 async def clone_node(state: PipelineState) -> dict:
@@ -125,19 +128,23 @@ async def clone_node(state: PipelineState) -> dict:
     # kosa-langchain-practice/langchain/api/sec09_multi_agent/langgraph/nodes/ 참고
     # PipelineState → 처리 → dict 반환으로 상태를 갱신하는 노드 함수 구조 적용
 
-    clone_path가 이미 설정된 경우 (start_pipeline API 재시작 호출)
-    실제 Clone 없이 진행 상태만 반환하고 다음 노드로 넘어간다.
+    clone_path는 job_id + CLONE_BASE_DIR로 항상 결정된다.
+    DB에 저장하지 않고 os.path.exists()로 이미 Clone된 경우를 감지하여 건너뛴다.
     """
     job_id = state["job_id"]
     logger.info(f"[clone_node] 시작 (job_id={job_id})")
 
-    # start_pipeline API로 재시작된 경우: clone 이미 완료됨 → 건너뜀
-    if state.get("clone_path"):
+    # clone_path는 항상 이 위치로 결정된다 (DB 저장 불필요)
+    clone_path = os.path.join(settings.CLONE_BASE_DIR, job_id, "repo")
+
+    # 이미 Clone된 경우 (수동 재시작 등): 디렉토리가 존재하면 건너뜀
+    if os.path.exists(clone_path):
         logger.info(
-            f"[clone_node] clone_path 존재 — Clone 단계 건너뜀 "
-            f"(path={state['clone_path']})"
+            f"[clone_node] Clone 디렉토리 존재 — Clone 단계 건너뜀 "
+            f"(path={clone_path})"
         )
         return {
+            "clone_path": clone_path,
             "current_stage": PipelineStage.CLONE.value,
             "progress": 20,
             "status": JobStatus.IN_PROGRESS.value,
@@ -149,7 +156,6 @@ async def clone_node(state: PipelineState) -> dict:
     )
 
     try:
-        clone_path = os.path.join(settings.CLONE_BASE_DIR, job_id, "repo")
         os.makedirs(clone_path, exist_ok=True)
 
         await _publish(
@@ -179,7 +185,6 @@ async def clone_node(state: PipelineState) -> dict:
             stage=PipelineStage.CLONE.value,
             progress=20,
             message="저장소 복제 완료",
-            clone_path=clone_path,
         )
 
         return {

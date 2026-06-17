@@ -46,9 +46,6 @@ class AnalysisJob(Base):
     # 분석 대상 브랜치 - main
     branch: Mapped[str] = mapped_column(String(255), nullable=False, default="main")
 
-    # 서버 내 임시 clone 경로 - /tmp/codemap/jobs/uuid/repo
-    clone_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-
     # 현재 작업 상태 - (IN_PROGRESS / COMPLETED / FAILED)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default=JobStatus.IN_PROGRESS.value
