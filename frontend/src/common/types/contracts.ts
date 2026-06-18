@@ -83,17 +83,23 @@ export interface ProviderCatalog {
 }
 
 export interface AnalyzeRequest {
-  source: 'local' | 'github';
-  path: string;
-  force_refresh?: boolean;
-  model?: LlmModel;
+  repoUrl: string;
+  branch?: string;
+}
+
+export interface AnalysisData {
+  jobId: string;
+  repoName: string;
+  owner: string;
+  branch: string;
+  status: string;
+  createdAt: string;
 }
 
 export interface AnalyzeResponse {
-  job_id: string;
-  status: 'queued';
-  created_at: string;
-  ws_url: string;
+  code: number;
+  message: string;
+  data: AnalysisData;
 }
 
 export interface GuardrailRegexBlock {
@@ -223,3 +229,13 @@ export type WsEvent =
   | WsCompletedEvent
   | WsFailedEvent
   | WsErrorEvent;
+
+// ── Chat types ──────────────────────────────────────────────────────────────
+
+export type ChatMode = 'lite' | 'deep';
+
+export type StreamPhase =
+  | 'searching'
+  | 'building_context'
+  | 'generating'
+  | 'complete';

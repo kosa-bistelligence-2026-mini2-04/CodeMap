@@ -53,12 +53,20 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(apiPath("/analyses?limit=30"));
+      // TODO: Backend list endpoint not yet implemented
+      // Will be available at GET /api/repo/analyses or similar
+      const resp = await fetch(apiPath("/repo/analyses?limit=30"));
+      if (resp.status === 404) {
+        // Endpoint not available yet — silently show empty
+        setItems([]);
+        return;
+      }
       if (!resp.ok) throw new Error(`${resp.status}`);
       const data = await resp.json();
-      setItems(data.items || []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "load failed");
+      setItems(data.items || data.data || []);
+    } catch {
+      // Silently fail — history is optional
+      setItems([]);
     } finally {
       setLoading(false);
     }

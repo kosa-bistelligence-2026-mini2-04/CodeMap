@@ -97,6 +97,9 @@ export function Navbar() {
             <Link href="/analyze" className={`${linkHover} transition-colors`}>
               {t.nav.analyze}
             </Link>
+            <Link href="/chat" className={`${linkHover} transition-colors`}>
+              {t.nav.chat}
+            </Link>
           </nav>
         </div>
 

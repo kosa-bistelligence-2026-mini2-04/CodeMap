@@ -1,8 +1,6 @@
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
-  JobProgressResponse,
-  ReportJsonResponse,
 } from "@/common/types/contracts";
 
 const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(/\/$/, "");
@@ -13,10 +11,14 @@ export function apiPath(path: string): string {
   return `${BASE_URL}${normalizedPath}`;
 }
 
+/**
+ * POST /api/repo/analysis — 분석 작업 등록
+ * Backend returns: { code: 201, message: "created", data: { jobId, ... } }
+ */
 export async function startAnalysis(
   payload: AnalyzeRequest,
 ): Promise<AnalyzeResponse> {
-  const resp = await fetch(apiPath("/analyze"), {
+  const resp = await fetch(apiPath("/repo/analysis"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -29,30 +31,38 @@ export async function startAnalysis(
 
   if (!resp.ok) {
     const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.error?.message || `Failed to start analysis: ${resp.status}`);
+    throw new Error(errData?.message || errData?.error || `Failed to start analysis: ${resp.status}`);
   }
 
   return await resp.json();
 }
 
-export async function fetchReportJson(
+/**
+ * GET /api/repo/analysis/{jobId} — 작업 상태 조회
+ * Backend returns: { code: 200, message: "success", data: { jobId, status, ... } }
+ */
+export async function fetchJobStatus(
   jobId: string,
-): Promise<ReportJsonResponse | JobProgressResponse> {
-  const resp = await fetch(apiPath(`/report/${jobId}?format=json`));
+): Promise<{ code: number; message: string; data: Record<string, unknown> }> {
+  const resp = await fetch(apiPath(`/repo/analysis/${jobId}`));
   if (!resp.ok) {
-    throw new Error(`Failed to fetch report JSON: ${resp.status}`);
+    throw new Error(`Failed to fetch job status: ${resp.status}`);
   }
   return await resp.json();
 }
 
-export async function fetchReportHtml(jobId: string): Promise<string> {
-  const resp = await fetch(apiPath(`/report/${jobId}?format=html`));
-  if (!resp.ok) {
-    throw new Error(`Failed to fetch report HTML: ${resp.status}`);
-  }
-  return await resp.text();
+/**
+ * GET /api/repo/analysis/{jobId}/events — SSE 이벤트 스트림
+ * Returns EventSource URL for SSE streaming
+ */
+export function buildSseUrl(jobId: string): string {
+  return apiPath(`/repo/analysis/${jobId}/events`);
 }
 
+/**
+ * Build WebSocket URL for real-time progress
+ * WS /ws/progress/{jobId}
+ */
 export function buildWsUrl(wsPath: string): string {
   if (/^wss?:\/\//i.test(wsPath)) return wsPath;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";

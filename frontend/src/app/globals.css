@@ -50,6 +50,10 @@
   --status-failed-bg: rgba(239, 68, 68, 0.1);
   --status-failed-border: rgba(239, 68, 68, 0.3);
   --status-failed-text: #fca5a5;
+
+  /* Chat colors */
+  --chat-user-bg: rgba(59, 130, 246, 0.15);
+  --chat-assistant-bg: var(--bg-card);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -100,6 +104,10 @@
   --status-failed-bg: rgba(239, 68, 68, 0.08);
   --status-failed-border: rgba(239, 68, 68, 0.25);
   --status-failed-text: #b91c1c;
+
+  /* Chat colors */
+  --chat-user-bg: rgba(59, 130, 246, 0.10);
+  --chat-assistant-bg: var(--bg-card);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -309,4 +317,36 @@ body {
 /* Disable transitions on motion elements to avoid jank */
 .motion-safe-override {
   transition: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Chat animations
+══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes ping {
+  0% { transform: scale(1); opacity: 0.4; }
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Chat markdown prose overrides */
+.prose-invert h1, .prose-invert h2, .prose-invert h3 {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.prose-invert p, .prose-invert li {
+  color: var(--text-secondary);
+}
+
+.prose-invert strong {
+  color: var(--text-primary);
+}
+
+.prose-invert a {
+  color: var(--accent-blue);
 }

@@ -10,6 +10,7 @@ export const translations = {
     nav: {
       home: "Home",
       analyze: "Analyze",
+      chat: "Chat",
       launchApp: "Launch App",
       github: "GitHub",
     },
@@ -316,6 +317,41 @@ export const translations = {
       fallbackInactive: "Inactive",
       fullReport: "Full Detailed Report",
     },
+
+    // ── Chat ──────────────────────────────────────────────────────────────────
+    chat: {
+      title: "AI Code Chat",
+      subtitle: "Ask questions about the analyzed repository",
+      placeholder: "Ask anything about this codebase...",
+      send: "Send",
+      clear: "Clear conversation",
+      copy: "Copy",
+      copied: "Copied!",
+      disclaimer: "AI can make mistakes. Verify important information.",
+      mode: {
+        lite: "Lite",
+        deep: "Deep",
+        liteDesc: "Fast responses using gpt-4o-mini — great for simple questions",
+        deepDesc: "Deep analysis using gpt-4o — best for complex architecture questions",
+      },
+      status: {
+        searching: "Searching relevant files...",
+        buildingContext: "Building code context...",
+        generating: "Generating answer...",
+      },
+      suggestions: [
+        "Explain the overall architecture of this project",
+        "What are the key files and recommended reading order?",
+        "How do I run this project locally?",
+        "Where is the entry point of this application?",
+        "Are there any risky or complex files to watch out for?",
+        "Analyze the tech stack used in this project",
+      ],
+      empty: {
+        title: "Start a conversation",
+        subtitle: "Choose a suggestion below or type your own question",
+      },
+    },
   },
 
   ko: {
@@ -323,6 +359,7 @@ export const translations = {
     nav: {
       home: "홈",
       analyze: "분석",
+      chat: "채팅",
       launchApp: "앱 실행",
       github: "GitHub",
     },
@@ -627,6 +664,41 @@ export const translations = {
       fallbackTriggered: "작동됨",
       fallbackInactive: "비활성",
       fullReport: "전체 상세 리포트",
+    },
+
+    // ── Chat ──────────────────────────────────────────────────────────────────
+    chat: {
+      title: "AI 코드 채팅",
+      subtitle: "분석된 저장소에 대해 질문하세요",
+      placeholder: "이 코드베이스에 대해 무엇이든 물어보세요...",
+      send: "전송",
+      clear: "대화 초기화",
+      copy: "복사",
+      copied: "복사됨!",
+      disclaimer: "AI는 실수할 수 있습니다. 중요한 정보는 직접 확인하세요.",
+      mode: {
+        lite: "Lite",
+        deep: "Deep",
+        liteDesc: "gpt-4o-mini로 빠른 응답 — 간단한 질문에 적합",
+        deepDesc: "gpt-4o로 심층 분석 — 복잡한 아키텍처 질문에 최적",
+      },
+      status: {
+        searching: "관련 파일 검색 중...",
+        buildingContext: "코드 컨텍스트 구성 중...",
+        generating: "답변 생성 중...",
+      },
+      suggestions: [
+        "이 프로젝트의 전체 아키텍처를 설명해줘",
+        "핵심 파일과 추천 읽기 순서를 알려줘",
+        "이 프로젝트를 로컬에서 실행하는 방법은?",
+        "이 애플리케이션의 진입점(entry point)은 어디야?",
+        "주의해야 할 위험하거나 복잡한 파일이 있어?",
+        "이 프로젝트에서 사용된 기술 스택을 분석해줘",
+      ],
+      empty: {
+        title: "대화를 시작하세요",
+        subtitle: "아래 추천 질문을 선택하거나 직접 질문을 입력하세요",
+      },
     },
   },
 } as const;

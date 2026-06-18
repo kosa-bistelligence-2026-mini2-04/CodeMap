@@ -29,6 +29,9 @@ export interface RepoInputProps {
   }) => void;
   disabled?: boolean;
   defaultMode?: RepoSource;
+  /** Pre-fill from URL query params (e.g. ?path=...&source=github) */
+  initialPath?: string;
+  initialMode?: RepoSource;
 }
 
 const WINDOWS_PATH = /^[a-zA-Z]:[\\/](?:[^<>:"|?*\r\n]+[\\/]?)*$/;
@@ -54,9 +57,11 @@ export function RepoInput({
   onSubmit,
   disabled = false,
   defaultMode = "local",
+  initialPath,
+  initialMode,
 }: RepoInputProps) {
-  const [mode, setMode] = useState<RepoSource>(defaultMode);
-  const [value, setValue] = useState("");
+  const [mode, setMode] = useState<RepoSource>(initialMode || defaultMode);
+  const [value, setValue] = useState(initialPath || "");
   const [touched, setTouched] = useState(false);
   const [forceRefresh, setForceRefresh] = useState(false);
   const [catalog, setCatalog] = useState<ProviderCatalog | null>(null);
@@ -73,20 +78,27 @@ export function RepoInput({
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch(apiPath("/models"));
-        if (!resp.ok) return;
+        // TODO: Backend model catalog endpoint not yet implemented
+        const resp = await fetch(apiPath("/repo/models"));
+        if (!resp.ok) return; // Silently skip if not available
         const data = (await resp.json()) as ProviderCatalog;
         if (cancelled) return;
         setCatalog(data);
         setSelectedModel(data.default_model || data.models[0]?.id || "");
       } catch {
-        // Fallback or ignore
+        // Model catalog is optional — silently ignore
       }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Sync external initial values (from URL params)
+  useEffect(() => {
+    if (initialPath) setValue(initialPath);
+    if (initialMode) setMode(initialMode);
+  }, [initialPath, initialMode]);
 
   const error = useMemo(
     () => (touched ? validate(mode, value, t) : null),
