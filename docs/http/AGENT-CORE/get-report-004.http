@@ -1,0 +1,27 @@
+### ============================================================================
+### AGENT-CORE-API-004 | ReportJsonResponse 조회
+### Contract status: 기능 명세 기반 설계 계약 (구현 전)
+### Endpoint: GET /api/chat/{repo_id}/report
+### 관련 기능 ID: AGENT-CORE-F-201
+### 고정 필드: summary, stack, fileMap, recommendations, heatmap, durations, guide
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+GET {{baseUrl}}/api/chat/{{repoId}}/report
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {
+###   "code": 200, "message": "success",
+###   "data": {
+###     "summary": "프로젝트 요약",
+###     "stack": [], "fileMap": [], "recommendations": [], "heatmap": [],
+###     "durations": {"totalMs": 0, "agents": []},
+###     "guide": "# 온보딩 가이드"
+###   }
+### }
+### nullable/빈 배열 정책: 결과가 준비됐으나 항목이 없으면 [], 미완료면 404 REPORT_NOT_READY.
+### 오류: 401 UNAUTHORIZED, 404 REPO_NOT_FOUND, 404 REPORT_NOT_READY, 500 REPORT_READ_FAILED

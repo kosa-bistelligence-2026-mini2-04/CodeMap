@@ -1,0 +1,50 @@
+### ============================================================================
+### Notion 원문 보관본: PROJECT-REPO-API-005
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-005 417192fe428f4be68f0c64495fc9238c.html
+### 원본 SHA-256: 6a4b83b4b9c3137e1981aceae2d2a3aad93c93ad2035119ed922cace7c1488d9
+### 원문 토큰 수: 264
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### PROJECT-REPO-API-005
+### | Endpoint | | /api/repo/analysis/{job_id}/events |
+### | Method | | GET |
+### | 관련 기능 ID | | PROJECT-REPO-B-205, PROJECT-REPO-F-101, PROJECT-REPO-F-203, PROJECT-REPO-F-204 |
+### | 담당 | | oosuhada |
+### | 담당 슬라이스 | | 등록/API/상태 |
+### | 목적 | | 분석 진행 상태 이벤트 스트림 수신 |
+### | 상태 | |
+### 완료 |
+### PROJECT-REPO-API-005
+### GET /api/project/repo/analysis/{job_id}/events 분석 진행 상태 이벤트 스트림 수신
+### 기능 ID: PROJECT-REPO-B-205, PROJECT-REPO-F-101, PROJECT-REPO-F-203
+### Server-Sent Events(SSE) 방식으로 분석 파이프라인의 진행 상태를 실시간 스트리밍한다. 클라이언트는 EventSource API로 연결하며, 각 파이프라인 단계(CLONE → CODE_MAP → DOC_GEN → ONBOARDING → REPORT) 전환 시마다 이벤트를 수신한다. status가 COMPLETED 또는 FAILED인 이벤트 수신 후 스트림이 종료된다.
+### 요청 (Request)
+### ■ Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### | Accept | | text/event-stream | | Y | | SSE 응답 수신 |
+### ■ Path Parameters
+### | 파라미터명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | String (UUID) | | Y | | 분석 작업 고유 ID |
+### 응답 (Response)
+### ■ SSE 이벤트 구조 (text/event-stream)
+### | 필드명 | | 타입 | | 설명 |
+### | stage | | String | | 현재 단계 (CLONE / CODE_MAP / DOC_GEN / ONBOARDING / REPORT) |
+### | status | | String | | 단계 상태 (IN_PROGRESS / COMPLETED / FAILED) |
+### | progress | | Integer | | 전체 진행률 (0 ~ 100) |
+### | message | | String | | 진행 상태 메시지 |
+### | timestamp | | String (ISO 8601) | | 이벤트 발생 시각 |
+### ■ 이벤트 예시
+### data: {"stage":"CLONE","status":"IN_PROGRESS","progress":10,"message":"저장소 복제 중...","timestamp":"2025-06-17T09:01:00Z"}
+### data: {"stage":"CODE_MAP","status":"IN_PROGRESS","progress":35,"message":"코드 구조 분석 중...","timestamp":"2025-06-17T09:02:00Z"}
+### data: {"stage":"REPORT","status":"COMPLETED","progress":100,"message":"분석 완료!","timestamp":"2025-06-17T09:05:00Z"}
+### ■ 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 404 | | JOB_NOT_FOUND | | 연결 시 | | 존재하지 않는 job_id |
+### | 409 | | JOB_ALREADY_DONE | | 연결 시 | | 이미 COMPLETED/FAILED 상태인 job |
+### | 500 | | STREAM_ERROR | | 스트리밍 중 | | 이벤트 큐 오류 |
+### 비고
+### 📌 WebSocket(API-006)과 동일한 이벤트를 제공하나 SSE는 단방향(서버→클라이언트)만 지원한다.
+### 📌 stage별 progress 범위: CLONE 0~20%, CODE_MAP 21~50%, DOC_GEN 51~70%, ONBOARDING 71~90%, REPORT 91~100%

@@ -1,0 +1,116 @@
+### ============================================================
+### PROJECT-REPO-API-005
+### Endpoint   : GET /api/repo/analysis/{job_id}/events
+### Method     : GET (Server-Sent Events / SSE)
+### 관련 기능 ID : PROJECT-REPO-B-205, PROJECT-REPO-F-101, PROJECT-REPO-F-203, PROJECT-REPO-F-204
+### 담당        : oosuhada
+### 담당 슬라이스 : 등록/API/상태
+### 목적        : 분석 진행 상태 이벤트 스트림 수신 (SSE)
+### 상태        : 완료
+###
+### 설명:
+###   Server-Sent Events(SSE) 방식으로 분석 파이프라인의 진행 상태를 실시간 스트리밍한다.
+###   클라이언트는 EventSource API로 연결하며,
+###   각 파이프라인 단계(CLONE → CODE_MAP → DOC_GEN → ONBOARDING → REPORT)
+###   전환 시마다 이벤트를 수신한다.
+###   status가 COMPLETED 또는 FAILED인 이벤트 수신 후 스트림이 종료된다.
+###
+###   ※ HTTP 파일에서 SSE는 직접 실행이 제한적입니다.
+###     실제 SSE 수신은 브라우저 EventSource API 또는 curl 사용을 권장합니다:
+###     curl -N -H "Authorization: Bearer <token>" \
+###          -H "Accept: text/event-stream" \
+###          http://localhost:8000/api/repo/analysis/{job_id}/events
+### ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = 550e8400-e29b-41d4-a716-446655440000
+
+### ============================================================
+### [정상] 분석 진행 상태 이벤트 스트림 수신 (SSE)
+### ============================================================
+GET {{baseUrl}}/api/repo/analysis/{{jobId}}/events
+Authorization: Bearer {{accessToken}}
+Accept: text/event-stream
+
+###
+### SSE 응답 스트림 — text/event-stream
+### 커넥션이 열린 채로 이벤트가 순차적으로 push됨
+###
+### SSE 이벤트 필드:
+###   stage     | String          | 현재 단계 (CLONE / CODE_MAP / DOC_GEN / ONBOARDING / REPORT)
+###   status    | String          | 단계 상태 (IN_PROGRESS / COMPLETED / FAILED)
+###   progress  | Integer         | 전체 진행률 (0 ~ 100)
+###   message   | String          | 진행 상태 메시지
+###   timestamp | String(ISO 8601)| 이벤트 발생 시각
+###
+### 이벤트 예시 (스트림으로 순차 수신):
+###
+### data: {"stage":"CLONE","status":"IN_PROGRESS","progress":10,"message":"저장소 복제 중...","timestamp":"2025-06-17T09:01:00Z"}
+###
+### data: {"stage":"CODE_MAP","status":"IN_PROGRESS","progress":35,"message":"코드 구조 분석 중...","timestamp":"2025-06-17T09:02:00Z"}
+###
+### data: {"stage":"DOC_GEN","status":"IN_PROGRESS","progress":60,"message":"문서 생성 중...","timestamp":"2025-06-17T09:03:00Z"}
+###
+### data: {"stage":"ONBOARDING","status":"IN_PROGRESS","progress":80,"message":"온보딩 가이드 생성 중...","timestamp":"2025-06-17T09:04:00Z"}
+###
+### data: {"stage":"REPORT","status":"COMPLETED","progress":100,"message":"분석 완료!","timestamp":"2025-06-17T09:05:00Z"}
+###
+### (status: COMPLETED 또는 FAILED 수신 후 스트림 자동 종료)
+###
+
+### ============================================================
+### [에러 테스트] 404 — JOB_NOT_FOUND: 존재하지 않는 job_id
+### 발생 시점: 연결 시
+### ============================================================
+GET {{baseUrl}}/api/repo/analysis/00000000-0000-0000-0000-000000000000/events
+Authorization: Bearer {{accessToken}}
+Accept: text/event-stream
+
+### 예상 응답:
+### HTTP/1.1 404 Not Found
+### { "code": 404, "error": "JOB_NOT_FOUND", "message": "존재하지 않는 job_id" }
+
+### ============================================================
+### [에러 테스트] 409 — JOB_ALREADY_DONE: 이미 완료/실패된 job
+### 발생 시점: 연결 시
+### ============================================================
+GET {{baseUrl}}/api/repo/analysis/{{jobId}}/events
+Authorization: Bearer {{accessToken}}
+Accept: text/event-stream
+
+### 예상 응답:
+### HTTP/1.1 409 Conflict
+### { "code": 409, "error": "JOB_ALREADY_DONE", "message": "이미 COMPLETED/FAILED 상태인 job" }
+
+### ============================================================
+### [에러 테스트] 401 — 인증 토큰 없음
+### ============================================================
+GET {{baseUrl}}/api/repo/analysis/{{jobId}}/events
+Accept: text/event-stream
+
+### 예상 응답:
+### HTTP/1.1 401 Unauthorized
+
+###
+### 에러 응답 전체 목록:
+### | HTTP Status | Error Code      | 발생 시점     | 설명                            |
+### |-------------|-----------------|-------------|----------------------------------|
+### | 404         | JOB_NOT_FOUND   | 연결 시       | 존재하지 않는 job_id             |
+### | 409         | JOB_ALREADY_DONE| 연결 시       | 이미 COMPLETED/FAILED 상태인 job |
+### | 500         | STREAM_ERROR    | 스트리밍 중    | 이벤트 큐 오류                    |
+###
+### stage별 progress 범위:
+### | stage      | progress 범위 |
+### |------------|-------------|
+### | CLONE      | 0 ~ 20 %    |
+### | CODE_MAP   | 21 ~ 50 %   |
+### | DOC_GEN    | 51 ~ 70 %   |
+### | ONBOARDING | 71 ~ 90 %   |
+### | REPORT     | 91 ~ 100 %  |
+###
+### 비고:
+### 📌 WebSocket(PROJECT-REPO-API-006)과 동일한 이벤트를 제공하나
+###    SSE는 단방향(서버→클라이언트)만 지원한다.
+### 📌 stage별 progress 범위: CLONE 0~20%, CODE_MAP 21~50%, DOC_GEN 51~70%,
+###    ONBOARDING 71~90%, REPORT 91~100%

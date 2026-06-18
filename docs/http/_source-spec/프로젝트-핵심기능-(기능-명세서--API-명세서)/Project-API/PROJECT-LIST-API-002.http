@@ -1,0 +1,73 @@
+### ============================================================================
+### Notion 원문 보관본: PROJECT-LIST-API-002
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-LIST-API-002 382cc46ed95480d48161ded101aa67d2.html
+### 원본 SHA-256: 2d724b126d1111067f31204f71233d8916c05886e235560f9fbe540eedbdf25a
+### 원문 토큰 수: 287
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### PROJECT-LIST-API-002
+### | Endpoint | | /api/list/validate |
+### | Method | | POST |
+### | 관련 기능 ID | | PROJECT-LIST-B-201 , PROJECT-LIST-F-101 |
+### | 담당 | | 성성민 신 |
+### | 목적 | | 클론 전 저장소 파일 수 및 용량 사전 검증 |
+### | 상태 | |
+### 시작 전 |
+### POST /api/list/validate 레포 크기 및 파일 수 사전 검증
+### 기능 ID: PROJECT-LIST-B-201
+### 🏗️본격적인 Git Clone 및 분석 파이프라인 시작 전에, 대상 저장소의 파일 개수 및 용량이 제한 조건(100개 파일 이하, 파일당 100KB 이하 등)을 준수하는지 검증합니다.
+### 요청 (Request)
+### ■ Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### ■ Request Body (application/json)
+### | 필드명 | | 타입 | | 필수 | | 기본값 | | 설명 |
+### | repoUrl | | String | | Y | | - | | 검증할 GitHub 저장소 URL (https://github.com/owner/repo 형식) |
+### | branch | | String | | N | | 기본 브랜치 | | 검증 대상 브랜치. 미입력 시 기본 브랜치 검증 |
+### ■ 요청 예시
+### Content-Type: application/json
+### Authorization: Bearer eyJhbGci...
+### {
+### "repoUrl": "https://github.com/example/target-repo",
+### "branch": "main"
+### }
+### 응답 (Response)
+### ■ 성공 응답 — 200 OK
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 (200) |
+### | message | | String | | "success" |
+### | data.isValid | | Boolean | | 분석 가능 여부 (제한 조건 이내인 경우 true) |
+### | data.fileCount | | Integer | | 저장소 내의 대상 파일 수 |
+### | data.totalSizeKb | | Integer | | 저장소 총 용량 (KB) |
+### | data.warningMessage | | String | | 제한 조건 초과 시 사용자 안내를 위한 경고 메시지 (초과하지 않으면 null) |
+### ■ 응답 예시 (제한 조건 이내 - 정상)
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "isValid": true,
+### "fileCount": 42,
+### "totalSizeKb": 1250,
+### "warningMessage": null
+### }
+### }
+### ■ 응답 예시 (제한 조건 초과 - 지능형 필터링 안내)
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "isValid": false,
+### "fileCount": 250,
+### "totalSizeKb": 15400,
+### "warningMessage": "저장소 파일 수가 100개를 초과합니다. 분석 시 가장 핵심이 되는 100개의 파일만 지능적으로 자동 선택되어 분석이 진행됩니다."
+### }
+### }
+### ■ 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 400 | | INVALID_REPO_URL | | URL 형식 검증 | | GitHub URL 형식이 올바르지 않음 |
+### | 401 | | UNAUTHORIZED | | 인증 검증 | | 토큰이 누락되었거나 만료됨 |
+### | 404 | | REPOSITORY_NOT_FOUND | | 저장소 확인 | | 저장소가 존재하지 않거나 비공개(Private) 저장소여서 접근 불가 |
+### | 500 | | VALIDATION_FAILED | | 외부 API 통신 | | GitHub API 호출 중 서브프로세스 에러 발생 |

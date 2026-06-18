@@ -1,0 +1,57 @@
+### ============================================================================
+### Notion 원문 보관본: PROJECT-REPO-API-008
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-008 7223479d2863409c911f18634f213cf8.html
+### 원본 SHA-256: 88b820ac649c873c41fb1237954e85cd1bb6a072ff393a0f8d4b8a8a21a1309c
+### 원문 토큰 수: 235
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### PROJECT-REPO-API-008
+### | Endpoint | | /api/repo/analysis/{job_id}/workspace |
+### | Method | | DELETE |
+### | 관련 기능 ID | | PROJECT-REPO-B-203 |
+### | 담당 | | 김효 |
+### | 담당 슬라이스 | | URL/Clone/필터링 |
+### | 목적 | | 실패/취소 시 임시 clone 디렉토리 cleanup |
+### | 상태 | |
+### 완료 |
+### DELETE /api/project/repo/analysis/{job_id}/workspace 임시 clone 디렉토리 cleanup
+### 기능 ID: PROJECT-REPO-B-203 담당자: @김효, @oosuhada
+### 분석 실패 또는 취소 시 서버 내부에 생성된 임시 clone 디렉토리를 삭제한다. CLONE_TIMEOUT, CLONE_FAILED 등의 오류 발생 시 내부적으로 자동 호출되며, 수동으로 디스크 공간을 회수해야 할 때 직접 호출할 수 있다.
+### 요청 (Request)
+### ■ Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### ■ Path Parameters
+### | 파라미터명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | String (UUID) | | Y | | cleanup 대상 분석 작업 고유 ID |
+### 응답 (Response)
+### ■ 성공 응답 — 200 OK
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 (200) |
+### | message | | String | | "success" |
+### | data.jobId | | String (UUID) | | cleanup된 분석 작업 고유 ID |
+### | data.cleanedPath | | String | | 삭제된 임시 디렉토리 경로 |
+### | data.cleanedAt | | String (ISO 8601) | | cleanup 완료 시각 |
+### ■ 응답 예시
+### json
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "jobId": "550e8400-e29b-41d4-a716-446655440000",
+### "cleanedPath": "/tmp/jobs/550e8400/repo",
+### "cleanedAt": "2025-06-17T09:10:00Z"
+### }
+### }
+### ■ 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 404 | | JOB_NOT_FOUND | | 요청 시 | | 존재하지 않는 job_id |
+### | 404 | | WORKSPACE_NOT_FOUND | | 삭제 시 | | 이미 삭제되었거나 존재하지 않는 임시 디렉토리 |
+### | 409 | | WORKSPACE_IN_USE | | 삭제 시 | | 분석 파이프라인이 진행 중인 상태에서 삭제 시도 |
+### | 500 | | WORKSPACE_CLEANUP_FAILED | | 삭제 실행 | | 파일 시스템 오류로 삭제 실패 |
+### 비고
+### 📌 CLONE_TIMEOUT, CLONE_FAILED 오류 발생 시 서버가 자동으로 cleanup을 수행한다. 이 API는 수동 cleanup 또는 재시도용이다.
+### 📌 status가 IN_PROGRESS인 job의 workspace는 삭제 불가 (WORKSPACE_IN_USE 반환).
+### 📌 WORKSPACE_CLEANUP_FAILED 발생 시 내부 슬랙 알람을 발송하며, 클라이언트에는 오류 코드만 반환한다.

@@ -1,0 +1,72 @@
+### ============================================================================
+### Notion 원문 보관본: PROJECT-REPO-API-006
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-006 c55fe43faab2416289168d51f333f94c.html
+### 원본 SHA-256: 6b9bca0ab2a8bc5e2cf5f9cb9bd9b54a00756673b19333087bec5c5c85a1b4e1
+### 원문 토큰 수: 309
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### PROJECT-REPO-API-006
+### | Endpoint | | /ws/progress/{job_id} |
+### | Method | | WS |
+### | 관련 기능 ID | | PROJECT-REPO-B-205, PROJECT-REPO-F-101 |
+### | 담당 | | oosuhada |
+### | 담당 슬라이스 | | 등록/API/상태 |
+### | 목적 | | WebSocket 기반 분석 진행 상태 수신 |
+### | 상태 | |
+### 완료 |
+### WS /ws/progress/{job_id} WebSocket 기반 분석 진행 상태 수신
+### 기능 ID: PROJECT-REPO-B-205, PROJECT-REPO-F-101 담당자: @김효, @oosuhada
+### 분석 작업의 진행 상태를 Frontend ProgressPanel에 WebSocket으로 실시간 push한다. 클라이언트가 연결하면 서버는 해당 job의 이벤트 큐를 구독(subscribe)하고, 각 파이프라인 단계 전환 시마다 JSON 이벤트를 push한다. status가 COMPLETED 또는 FAILED인 이벤트 수신 후 연결이 자동 종료된다.
+### 연결 (Connection)
+### ■ Path Parameters
+### | 파라미터명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | String (UUID) | | Y | | POST /api/project/repo/analysis 응답의 jobId 값 |
+### ■ 연결 Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 (핸드셰이크 시 검증) |
+### ■ 연결 예시 (JavaScript)
+### javascript
+### const ws = new WebSocket(
+### `wss://api.yourservice.com/ws/progress/${jobId}`,
+### { headers: { Authorization: `Bearer ${token}` } }
+### );
+### ws.onmessage = (e) => {
+### const event = JSON.parse(e.data);
+### // event.stage, event.status, event.progress 처리
+### };
+### // 컴포넌트 언마운트 시 반드시 호출
+### ws.close();
+### 서버 Push 이벤트 명세
+### ■ 이벤트 JSON 구조
+### json
+### {
+### "stage": "CLONE",
+### "status": "IN_PROGRESS",
+### "progress": 10,
+### "message": "저장소를 복제하고 있습니다...",
+### "timestamp": "2025-06-17T09:01:00Z"
+### }
+### ■ stage 정의
+### | stage 값 | | 단계 설명 | | progress 범위 | | 관련 API |
+### | CLONE | | 저장소 복제 | | 0 ~ 20 % | | PROJECT-REPO-API-004 |
+### | CODE_MAP | | 코드 구조 분석 | | 21 ~ 50 % | | PROJECT-REPO-API-007 |
+### | DOC_GEN | | 문서 자동 생성 | | 51 ~ 70 % | | PROJECT-REPO-API-007 |
+### | ONBOARDING | | 온보딩 가이드 생성 | | 71 ~ 90 % | | PROJECT-REPO-API-007 |
+### | REPORT | | 최종 결과 DB 저장 | | 91 ~ 100 % | | PROJECT-REPO-API-007 |
+### ■ status 정의
+### | status 값 | | 설명 | | 연결 종료 여부 |
+### | IN_PROGRESS | | 해당 단계 처리 중 | | X — 유지 |
+### | COMPLETED | | 모든 단계 정상 완료 | | O — 자동 종료 |
+### | FAILED | | 해당 단계에서 오류 발생 | | O — 자동 종료 |
+### 연결 오류
+### | WS Close Code | | Error Code | | 설명 |
+### | 1008 | | POLICY_VIOLATION | | Authorization 헤더 인증 실패 |
+### | 1011 | | SERVER_ERROR | | 서버 내부 오류로 인한 강제 종료 |
+### | 4004 | | JOB_NOT_FOUND | | 존재하지 않는 job_id |
+### | 4008 | | JOB_ALREADY_DONE | | 이미 COMPLETED/FAILED 상태인 job_id로 연결 시도 |
+### 비고
+### 📌 컴포넌트 언마운트 시 반드시 ws.close()를 호출하여 disconnect cleanup을 수행한다.
+### 📌 status: COMPLETED 또는 FAILED 수신 후에는 재연결을 시도하지 않는다.
+### 📌 네트워크 단절 등 비정상 종료 시(onclose code !== 1000), 최대 3회 재연결 로직 구현을 권장한다.

@@ -1,0 +1,50 @@
+### ============================================================================
+### Notion 원문 보관본: PROJECT-LIST-API-003
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-LIST-API-003 382cc46ed95480f087c7cebe02a772c8.html
+### 원본 SHA-256: af79408b50e510759e89feefb58a91a7282e6ab4c194fade810c41b467a8cdd5
+### 원문 토큰 수: 202
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### PROJECT-LIST-API-003
+### | Endpoint | | /ws/list/progress/{job_id} |
+### | Method | | WS |
+### | 관련 기능 ID | | PROJECT-LIST-F-202 , PROJECT-LIST-F-203 |
+### | 담당 | | 강강영우 |
+### | 목적 | | 실시간 분석 작업 상태 및 진행률 공유 |
+### | 상태 | |
+### 진행 중 |
+### WEBSOCKET /ws/list/progress/{job_id} 실시간 상태 및 진행률 공유
+### 기능 ID: PROJECT-LIST-F-202
+### 🏗️클라이언트 화면(PROJECT-LIST-F-202)에서 작업의 상태 변경 사항을 폴링(Polling) 없이 실시간으로 수신하기 위해 WebSocket 연결을 맺고 메시지를 수신합니다.
+### 연결 규격
+### ■ Path Parameters
+### | 파라미터명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | String (UUID) | | Y | | 상태를 추적할 분석 작업 고유 ID |
+### ■ 연결 예시
+### GET /ws/list/progress/0a8cc46e-d954-82c0-897c-013b0f2227b3 HTTP/1.1
+### Host:localhost:8000
+### Upgrade:websocket
+### Connection:Upgrade
+### 발행 데이터 포맷
+### ■ 실시간 메시지 명세 (JSON)
+### | 필드명 | | 타입 | | 설명 |
+### | jobId | | String (UUID) | | 상태를 추적하는 분석 작업 고유 ID |
+### | status | | String | | 현재 작업 상태 (queued, running, completed, failed) |
+### | progress | | Integer | | 작업 진행률 (0 ~ 100) |
+### | currentStep | | String | | 현재 실행 중인 분석 단계명 (예: Git Clone, Code Embedding, Report Generation) |
+### | failedAgent | | String | | 실패한 에이전트명 (실패 시에만 제공, 그 외 null) |
+### | errorMessage | | String | | 예외 발생 시 구체적인 에러 메시지 (실패 시에만 제공, 그 외 null) |
+### ■ 메시지 예시
+### {
+### "jobId": "0a8cc46e-d954-82c0-897c-013b0f2227b3",
+### "status": "running",
+### "progress": 45,
+### "currentStep": "Code Embedding Generation",
+### "failedAgent": null,
+### "errorMessage": null
+### }
+### 🏗️비고
+### 📌 클라이언트가 분석 요청 성공 후 발급받은 jobId를 사용해 연결을 시작합니다.
+### 📌 실패(failed) 또는 완료(completed) 상태가 수신되면, 클라이언트와 서버는 WebSocket 연결을 완전히 끊고 정리(Disconnect & Cleanup) 작업을 수행해야 합니다.

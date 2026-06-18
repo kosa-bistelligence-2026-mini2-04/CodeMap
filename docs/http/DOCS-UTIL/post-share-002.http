@@ -1,0 +1,28 @@
+### ============================================================================
+### UTIL-API-002 | 이메일/Slack 외부 공유
+### Contract status: 보류 기능의 설계 계약 (Phase 2, 구현 전)
+### Endpoint: POST /api/gen/docs/{repo_id}/share
+### 관련 기능 ID: DOCS-UTIL-B-201
+### 보안: 임의 URL 전송(SSRF)과 수신자 열거를 막는 allowlist/권한 검증 필수.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+POST {{baseUrl}}/api/gen/docs/{{repoId}}/share
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "channel": "email",
+  "recipients": ["developer@example.com"],
+  "message": "CodeMap 온보딩 가이드를 공유합니다.",
+  "format": "pdf"
+}
+
+### 202 Accepted
+### {"code":202,"message":"accepted","data":{"shareId":"share-uuid","channel":"email","status":"queued"}}
+### channel: email | slack (초안; 구현 전 확정)
+### 오류: 400 INVALID_RECIPIENT, 401 UNAUTHORIZED, 403 SHARE_FORBIDDEN,
+###       404 DOCS_NOT_FOUND, 500 SHARE_FAILED

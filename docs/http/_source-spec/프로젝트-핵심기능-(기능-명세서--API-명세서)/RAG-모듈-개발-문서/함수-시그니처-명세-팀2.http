@@ -1,0 +1,131 @@
+### ============================================================================
+### Notion 원문 보관본: 함수-시그니처-명세-팀2
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/함수 시그니처 명세 팀2 383cc46ed9548015becadc950735bafe.html
+### 원본 SHA-256: 05f70edfab88203692f30632a04a30fbea23e127502b2749c3b48aa3587386fd
+### 원문 토큰 수: 364
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### 함수 시그니처 명세 팀2
+### | 상태 | |
+### 시작 전 |
+### 팀 2 — backend/app/embed/service.py
+### """
+### RAG 임베딩/저장 파이프라인 서비스
+### PROJECT 모듈의 report_node에서 run_embed_pipeline()을 호출한다.
+### """
+### import logging
+### from uuid import UUID
+### from sqlalchemy.ext.asyncio import AsyncSession
+### from app.core.config import get_settings
+### from app.parse.schemas import EmbedRequest, EmbedResult, ParsedFile
+### from app.embed.repository import EmbedRepository
+### logger = logging.getLogger(__name__)
+### settings = get_settings()
+### # ──────────────────────────────────────────────
+### # B-201: 임베딩 생성
+### # ──────────────────────────────────────────────
+### async def generate_embeddings(files: list[ParsedFile]) -> list[ParsedFile]:
+### """
+### CodeChunk.content 단위로 text-embedding-3-large 호출
+### 1536차원 벡터 생성 후 ParsedFile 반환
+### 배치 처리 (한 번에 최대 100개 청크)
+### 실패 청크는 건너뛰고 logger.warning 기록
+### """
+### # ──────────────────────────────────────────────
+### # 파이프라인 진입점 — report_node에서 호출
+### # ──────────────────────────────────────────────
+### async def run_embed_pipeline(
+### db: AsyncSession,
+### request: EmbedRequest,
+### ) -> EmbedResult:
+### """
+### 1. generate_embeddings(request.files)
+### 2. EmbedRepository.save_to_pgvector(job_id, files)
+### 3. EmbedResult 반환
+### """
+### 팀 2 — backend/app/embed/repository.py
+### """
+### RAG pgvector 저장소 (Repository 계층)
+### repo/repository.py와 동일한 패턴으로 작성한다.
+### """
+### import logging
+### from uuid import UUID
+### from sqlalchemy.ext.asyncio import AsyncSession
+### from app.parse.schemas import EmbedResult, ParsedFile
+### from app.embed.models import CodeNode, Dependency
+### logger = logging.getLogger(__name__)
+### class EmbedRepository:
+### def __init__(self, db: AsyncSession):
+### self.db = db
+### # ──────────────────────────────────────────
+### # B-301: pgvector 저장
+### # ──────────────────────────────────────────
+### async def save_to_pgvector(
+### self,
+### job_id: UUID,
+### files: list[ParsedFile],
+### ) -> EmbedResult:
+### """
+### code_nodes 테이블에 파일/청크 저장
+### dependencies 테이블에 import 관계 저장
+### 동일 job_id + path 존재 시 UPDATE
+### """
+### Mock 데이터 — backend/app/parse/tests/mock_parse_result.py
+### """
+### 팀 2 선행 개발용 Mock 데이터
+### 팀 1 구현 대기 없이 임베딩/저장 로직 테스트 가능
+### """
+### from uuid import UUID
+### from app.parse.schemas import ParseResult, ParsedFile, CodeChunk
+### MOCK_PARSE_RESULT = ParseResult(
+### job_id=UUID("550e8400-e29b-41d4-a716-446655440000"),
+### repo_name="CodeMap",
+### owner="kosa-bistelligence-2026-mini2-04",
+### branch="main",
+### readme_summary="GitHub 레포지토리 분석 AI 챗봇 서비스",
+### tech_stack=["Next.js", "FastAPI", "PostgreSQL", "pgvector"],
+### run_commands=["pip install -r requirements.txt", "uvicorn app.main:app --reload"],
+### entry_points=["backend/app/main.py", "frontend/src/app/page.tsx"],
+### master_summary="CodeMap은 GitHub 저장소를 분석하는 RAG 기반 서비스입니다.",
+### files=[
+### ParsedFile(
+### path="backend/app/main.py",
+### file_type="FILE",
+### depth=2,
+### content="from fastapi import FastAPI\napp = FastAPI()",
+### summary="FastAPI 앱 진입점",
+### chunks=[
+### CodeChunk(
+### chunk_index=0,
+### content="from fastapi import FastAPI\napp = FastAPI()",
+### start_line=1,
+### end_line=2,
+### chunk_type="module",
+### ),
+### ],
+### imports=[],
+### metadata={"is_config": False},
+### ),
+### ],
+### )
+### PROJECT 팀 연동 포인트 — backend/app/repo/pipeline/nodes.py 수정 필요
+### 기존 code_map_node와 report_node의 TODO 부분을 실제 호출로 교체:
+### # code_map_node 내부 (기존 TODO 위치)
+### from app.parse.service import run_parse_pipeline
+### parse_result = await run_parse_pipeline(
+### job_id=UUID(state["job_id"]),
+### repo_name=state["repo_name"],
+### owner=state["owner"],
+### branch=state["branch"],
+### clone_path=state["clone_path"],
+### )
+### # messages에 parse_result 직렬화하여 저장 (다음 노드에서 컨텍스트로 활용)
+### # report_node 내부 (기존 TODO 위치)
+### from app.embed.service import run_embed_pipeline
+### from app.parse.schemas import EmbedRequest
+### embed_result = await run_embed_pipeline(
+### db=session,
+### request=EmbedRequest(job_id=UUID(state["job_id"]), files=parse_result.files),
+### )

@@ -1,0 +1,67 @@
+### ============================================================
+### PROJECT-LIST-API-003
+### ============================================================
+### API ID      : PROJECT-LIST-API-003
+### Endpoint    : WS /ws/list/progress/{job_id}
+### Method      : WebSocket (WS)
+### 관련 기능 ID : PROJECT-LIST-F-202, PROJECT-LIST-F-203
+### 담당         : 강영우
+### 목적         : 실시간 분석 작업 상태 및 진행률 공유
+### 상태         : 진행 중
+### ============================================================
+
+### 설명 (Description)
+### 클라이언트 화면(PROJECT-LIST-F-202)에서 작업의 상태 변경 사항을 폴링(Polling) 없이
+### 실시간으로 수신하기 위해 WebSocket 연결을 맺고 메시지를 수신합니다.
+
+# ─── Variables ────────────────────────────────────────────────
+@baseUrl = http://localhost:8000
+@wsBaseUrl = ws://localhost:8000
+
+# ─── Path Parameters ──────────────────────────────────────────
+# | 파라미터명 | 타입          | 필수 | 설명                          |
+# | job_id     | String (UUID) | Y    | 상태를 추적할 분석 작업 고유 ID |
+@job_id = 0a8cc46e-d954-82c0-897c-013b0f2227b3
+
+
+###
+### ⚠️  WebSocket 연결은 .http 파일 내에서 직접 실행할 수 없습니다.
+###     아래는 WebSocket 업그레이드 핸드셰이크 HTTP 요청입니다.
+###     실제 WS 테스트는 websocat, wscat, Postman 또는 브라우저 DevTools를 사용하세요.
+###
+### CLI 예시:
+###   websocat ws://localhost:8000/ws/list/progress/0a8cc46e-d954-82c0-897c-013b0f2227b3
+###   wscat -c ws://localhost:8000/ws/list/progress/0a8cc46e-d954-82c0-897c-013b0f2227b3
+###
+
+### [003] WebSocket Upgrade Handshake — 실시간 상태 및 진행률 공유 (기능 ID: PROJECT-LIST-F-202)
+GET {{baseUrl}}/ws/list/progress/{{job_id}} HTTP/1.1
+Host: localhost:8000
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Version: 13
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+
+# ─── 발행 데이터 포맷 (실시간 메시지 명세 - JSON) ─────────────
+# | 필드명       | 타입          | 설명                                                                              |
+# | jobId        | String (UUID) | 상태를 추적하는 분석 작업 고유 ID                                                  |
+# | status       | String        | 현재 작업 상태 (queued, running, completed, failed)                                |
+# | progress     | Integer       | 작업 진행률 (0 ~ 100)                                                              |
+# | currentStep  | String        | 현재 실행 중인 분석 단계명 (예: "Git Clone", "Code Embedding", "Report Generation") |
+# | failedAgent  | String        | 실패한 에이전트명 (실패 시에만 제공, 그 외 null)                                    |
+# | errorMessage | String        | 예외 발생 시 구체적인 에러 메시지 (실패 시에만 제공, 그 외 null)                    |
+
+# ─── 메시지 예시 ──────────────────────────────────────────────
+# {
+#   "jobId": "0a8cc46e-d954-82c0-897c-013b0f2227b3",
+#   "status": "running",
+#   "progress": 45,
+#   "currentStep": "Code Embedding Generation",
+#   "failedAgent": null,
+#   "errorMessage": null
+# }
+
+# ─── 비고 (Notes) ─────────────────────────────────────────────
+# 📌 클라이언트가 분석 요청 성공 후 발급받은 jobId를 사용해 연결을 시작합니다.
+# 📌 실패(failed) 또는 완료(completed) 상태가 수신되면, 클라이언트와 서버는
+#    WebSocket 연결을 완전히 끊고 정리(Disconnect & Cleanup) 작업을 수행해야 합니다.

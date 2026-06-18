@@ -1,0 +1,38 @@
+# ============================================================
+# API ID  : AGENT-CORE-API-001
+# 기능명  : 에이전트 세션 상태 조회
+# Method  : GET
+# Endpoint: /api/chat/{repo_id}/session/{session_id}
+# Auth    : 필요
+# 관련 기능 ID: AGENT-CORE-B-201
+# 상태    : 시작 전
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+@session_id = replace-me-session_id
+
+### 정상 요청
+GET {{baseUrl}}/api/chat/{{repo_id}}/session/{{session_id}}
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "sessionId": "a1b2c3d4-...",
+#     "status": "running",
+#     "toolCallCount": 2,
+#     "elapsedSeconds": 4.5,
+#     "currentStep": "reading_file"
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/chat/{{repo_id}}/session/{{session_id}}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }

@@ -1,0 +1,29 @@
+### ============================================================================
+### PROJECT-PIPELINE-API-003 | 파이프라인 진행률 실시간 수신
+### Source of truth: Notion HTML export (source-confirmed)
+### Endpoint: WS /ws/pipeline/progress/{job_id}
+### 관련 기능 ID: PROJECT-PIPELINE-F-301, PROJECT-PIPELINE-F-202
+### 상태: 시작 전
+### ============================================================================
+
+@wsBaseUrl = ws://localhost:8000
+@jobId = 8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e
+
+### REST Client의 WebSocket 지원 환경에서 실행
+WEBSOCKET {{wsBaseUrl}}/ws/pipeline/progress/{{jobId}}
+
+### 서버 발행 이벤트
+### {
+###   "type": "pipeline_progress",
+###   "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+###   "analysisLevel": "deep",
+###   "stage": "EMBED",
+###   "status": "running",
+###   "progress": 60,
+###   "message": "코드 임베딩을 생성하는 중입니다.",
+###   "errorMessage": null
+### }
+### type: pipeline_progress | pipeline_completed | pipeline_failed
+### 종료 조건:
+### - pipeline_completed: 정상 완료 메시지를 저장한 뒤 연결 종료
+### - pipeline_failed: errorMessage를 저장·표시한 뒤 연결 종료

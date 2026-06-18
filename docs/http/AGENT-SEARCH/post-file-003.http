@@ -1,0 +1,56 @@
+# ============================================================
+# API ID  : AGENT-SEARCH-API-003
+# 기능명  : 파일/디렉토리 내용 조회
+# Method  : POST
+# Endpoint: /api/search/{repo_id}/file
+# Auth    : 필요
+# 관련 기능 ID: AGENT-SEARCH-B-206
+# 상태    : 시작 전
+#
+# Description:
+# 특정 파일 내용 또는 디렉토리 구조 조회. 파일은 최대 200줄 반환.
+# 에이전트 내부 read_file 도구로도 사용된다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+POST {{baseUrl}}/api/search/{{repo_id}}/file
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "path": "backend/app/core/middleware.py",
+  "startLine": 1,
+  "endLine": 50
+}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "path": "backend/app/core/middleware.py",
+#     "type": "FILE",
+#     "content": "from fastapi import Request\n...",
+#     "startLine": 1,
+#     "endLine": 50,
+#     "totalLines": 120
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+POST {{baseUrl}}/api/search/{{repo_id}}/file
+Content-Type: application/json
+
+{}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 400 INVALID_PATH (경로검증): 루트 벗어난 경로
+# 404 FILE_NOT_FOUND (파일접근): 파일 없음

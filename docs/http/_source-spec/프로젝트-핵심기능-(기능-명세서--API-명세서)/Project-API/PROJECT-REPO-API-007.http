@@ -1,0 +1,58 @@
+### ============================================================================
+### Notion 원문 보관본: PROJECT-REPO-API-007
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-007 91c7a5762c6b4e2da2bbc2ace272eb31.html
+### 원본 SHA-256: 1813c0010fe7c58cb5078c9b6be49a9dc5c9cf7cbdcd972540c3050fe662e0aa
+### 원문 토큰 수: 249
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### PROJECT-REPO-API-007
+### | Endpoint | | /api/repo/analysis/{job_id}/start |
+### | Method | | POST |
+### | 관련 기능 ID | | PROJECT-REPO-B-204, PROJECT-REPO-F-204 |
+### | 담당 | | oosuhada |
+### | 담당 슬라이스 | | 등록/API/상태 |
+### | 목적 | | clone 이후 전체 분석 파이프라인 시작 |
+### | 상태 | |
+### 완료 |
+### POST /api/project/repo/analysis/{job_id}/start 전체 분석 파이프라인 시작
+### 기능 ID: PROJECT-REPO-B-204, PROJECT-REPO-F-204 담당자: @김효, @oosuhada
+### clone이 완료된 job에 대해 Code Map → Doc Generation → Onboarding Guide → Report 저장 순서로 전체 분석 파이프라인을 비동기 시작한다. 각 단계의 진행 상태는 이벤트 큐에 publish되어 WebSocket(API-006) 및 SSE(API-005)로 전달된다.
+### 요청 (Request)
+### ■ Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### ■ Path Parameters
+### | 파라미터명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | String (UUID) | | Y | | clone이 완료된 분석 작업 고유 ID |
+### 응답 (Response)
+### ■ 성공 응답 — 202 Accepted
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 (202) |
+### | message | | String | | "accepted" |
+### | data.jobId | | String (UUID) | | 분석 작업 고유 ID |
+### | data.status | | String | | 파이프라인 시작 상태: IN_PROGRESS |
+### | data.startedAt | | String (ISO 8601) | | 파이프라인 시작 시각 |
+### ■ 응답 예시
+### json
+### {
+### "code": 202,
+### "message": "accepted",
+### "data": {
+### "jobId": "550e8400-e29b-41d4-a716-446655440000",
+### "status": "IN_PROGRESS",
+### "startedAt": "2025-06-17T09:01:00Z"
+### }
+### }
+### ■ 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 404 | | JOB_NOT_FOUND | | 요청 시 | | 존재하지 않는 job_id |
+### | 409 | | PIPELINE_ALREADY_RUNNING | | 요청 시 | | 이미 파이프라인이 실행 중인 job |
+### | 422 | | CLONE_NOT_COMPLETED | | 요청 시 | | clone이 완료되지 않은 상태에서 호출 |
+### | 500 | | PIPELINE_START_FAILED | | 파이프라인 초기화 | | 파이프라인 시작 중 오류 발생 |
+### 비고
+### 📌 이 API는 POST /api/project/repo/analysis 내부에서 자동 호출된다. clone 실패 후 수동 재시작 시에만 직접 호출한다.
+### 📌 파이프라인 순서: Code Map → Doc Generation → Onboarding Guide → Report 저장. 각 단계는 이전 단계 완료 후 실행된다.
+### 📌 진행 상태는 WebSocket(API-006) 또는 SSE(API-005)로 실시간 수신 가능하다.

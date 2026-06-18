@@ -1,0 +1,45 @@
+### ============================================================================
+### PROJECT-PIPELINE-API-001 | 분석 단계 상태 조회
+### Source of truth: Notion HTML export (source-confirmed)
+### Endpoint: GET /api/pipeline/{job_id}/status
+### 관련 기능 ID: PROJECT-PIPELINE-B-201, PROJECT-PIPELINE-F-201
+### 상태: 시작 전
+### 목적: 현재 분석 단계·분석 수준·진행률과 사용자 안내 메시지를 조회한다.
+### ============================================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = 8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e
+
+### [정상] 분석 단계 상태 조회
+GET {{baseUrl}}/api/pipeline/{{jobId}}/status
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 성공 응답 — 200 OK
+### {
+###   "code": 200,
+###   "message": "success",
+###   "data": {
+###     "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+###     "status": "running",
+###     "analysisLevel": "shallow",
+###     "currentStage": "PARSE",
+###     "progress": 35,
+###     "displayMessage": "현재 기본 구조 분석을 진행 중입니다.",
+###     "updatedAt": "2026-06-18T02:05:00Z"
+###   }
+### }
+### status: queued | running | completed | failed
+### analysisLevel: shallow | deep
+
+### [에러] 인증 토큰 누락 — 401 UNAUTHORIZED
+GET {{baseUrl}}/api/pipeline/{{jobId}}/status
+Accept: application/json
+
+### 에러 계약
+### | HTTP | Error Code      | 발생 시점 | 설명 |
+### | 400  | INVALID_JOB_ID  | Path 검증 | job_id가 UUID 형식이 아님 |
+### | 401  | UNAUTHORIZED    | 인증 검증 | 토큰 누락 또는 만료 |
+### | 404  | JOB_NOT_FOUND   | DB 조회   | job_id가 존재하지 않음 |
+### | 500  | DATABASE_ERROR  | DB 조회   | 데이터베이스 조회 예외 |

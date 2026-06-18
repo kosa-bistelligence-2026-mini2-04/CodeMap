@@ -1,0 +1,21 @@
+### ============================================================================
+### UTIL-API-001 | 가이드북 PDF 변환
+### Contract status: 보류 기능의 설계 계약 (Phase 2, 구현 전)
+### Endpoint: POST /api/gen/docs/{repo_id}/export/pdf
+### 관련 기능 ID: DOCS-UTIL-B-201
+### 목적: 저장된 Markdown/HTML 가이드북을 PDF로 렌더링한다.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+POST {{baseUrl}}/api/gen/docs/{{repoId}}/export/pdf
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{"locale":"ko-KR","includeTableOfContents":true}
+
+### 202 Accepted
+### {"code":202,"message":"accepted","data":{"exportId":"export-uuid","status":"queued","format":"pdf"}}
+### 오류: 401 UNAUTHORIZED, 404 DOCS_NOT_FOUND, 409 EXPORT_IN_PROGRESS, 500 PDF_RENDER_FAILED

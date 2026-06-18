@@ -1,0 +1,52 @@
+### ============================================================================
+### PROJECT-PIPELINE-API-002 | 비동기 깊은 분석 파이프라인 시작
+### Source of truth: Notion HTML export (source-confirmed)
+### Endpoint: POST /api/pipeline/{job_id}/deep-analysis
+### 관련 기능 ID: PROJECT-PIPELINE-B-202, PROJECT-PIPELINE-F-202
+### 선행 조건: shallow 분석 완료
+### 상태: 시작 전
+### ============================================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = 8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e
+
+### [정상] 깊은 분석 시작
+POST {{baseUrl}}/api/pipeline/{{jobId}}/deep-analysis
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "force": false
+}
+
+### 성공 응답 — 202 Accepted
+### {
+###   "code": 202,
+###   "message": "accepted",
+###   "data": {
+###     "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+###     "status": "queued",
+###     "analysisLevel": "deep",
+###     "currentStage": "EMBED",
+###     "progress": 0
+###   }
+### }
+
+### [재시작] 완료/실패한 깊은 분석 강제 재시작
+POST {{baseUrl}}/api/pipeline/{{jobId}}/deep-analysis
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "force": true
+}
+
+### 에러 계약
+### | HTTP | Error Code                     | 발생 시점 | 설명 |
+### | 401  | UNAUTHORIZED                   | 인증 검증 | 토큰 누락 또는 만료 |
+### | 404  | JOB_NOT_FOUND                  | DB 조회   | job_id가 존재하지 않음 |
+### | 409  | PIPELINE_ALREADY_RUNNING       | 상태 검증 | 깊은 분석이 이미 실행 중 |
+### | 422  | SHALLOW_ANALYSIS_NOT_COMPLETED | 상태 검증 | 선행 shallow 분석 미완료 |
+### | 500  | PIPELINE_START_FAILED          | 실행 시작 | 비동기 작업 시작 예외 |

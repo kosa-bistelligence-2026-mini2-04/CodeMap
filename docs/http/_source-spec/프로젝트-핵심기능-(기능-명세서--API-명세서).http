@@ -1,0 +1,792 @@
+### ============================================================================
+### Notion 원문 보관본: 프로젝트-핵심기능-(기능-명세서--API-명세서)
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서) 468cc46ed95483cca2d48117d284795c.html
+### 원본 SHA-256: ab8b1bdec86a633a3b030ee8f5f29a8ad7c2945bf4bb65989f8bbbebb3d4cd31
+### 원문 토큰 수: 4746
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### 1️⃣
+### 프로젝트 핵심기능 (기능 명세서 + API 명세서)
+### 할 일
+### 기능 통합 : 각자 적어놓은 정보 많아서 가시성 확보x
+### 기능 명세서 확보 후, 하단에 API 명세서 작성
+### 6/17(수) 파트 분배 ( 방식 2가지 → 4파트를 1명씩 맡기 | 1파트 4명씩 총 4번 )
+### 프로젝트 핵심 기능(v1) - 기능 명세서 + API 명세서
+### MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 점진적으로 도입할 **Phase 2(고도화 추가 기능)**으로 분할하여 관리합니다. 기능 명세서는 사용자에게 직접적인 비즈니스 가치를 제공하는 기능에만 집중하므로, 인프라 구축이나 내부 DB 설계(ERD) 등의 기술적 선행 작업은 명세서에서 제외합니다.
+### 🏗️
+### 기능 id 규칙보기
+### [기능 ID 명명 규칙 (Domain-Driven Naming Convention)]
+### 작업 할당과 역할 분담의 명확성을 위해 철저한 도메인 주도 설계(DDD)를 기반으로 기능 ID를 부여합니다. 모든 기능의 최종 코드는 {대분류ID}-{모듈명}-{F/B}-{3자리_번호} 형식을 따릅니다.
+### 대분류 ID: 비즈니스 도메인 카테고리 (예: PROJECT, RAG, AGENT, DOCS, COMMON)
+### 모듈명: 도메인 내 세부 서브모듈/폴더명 (예: REPO, PARSE, EMBED, CHAT, SEARCH, GEN 등)
+### F/B: 개발 계층 (F: Frontend, B: Backend)
+### 3자리 번호: 아키텍처 폴더/계층을 매핑하는 3자리 숫자 대역
+### 프론트엔드 (F - FSD 아키텍처 기준):
+### 1xx: Pages / Views (화면 진입점 페이지)
+### 2xx: UI Components (재사용 및 개별 컴포넌트)
+### 3xx: API Hooks / Queries (서버 통신 훅)
+### 4xx: Model / Store (Zustand 등 상태 관리 및 클라이언트 비즈니스 로직)
+### 5xx: Types / Utils (공통 타입 정의 및 유틸리티)
+### 백엔드 (B - 3-Tier 아키텍처 기준):
+### 1xx: Router (API 엔드포인트 진입점)
+### 2xx: Service (핵심 비즈니스 로직)
+### 3xx: Repository (DB CRUD 및 데이터베이스 접근 DAO)
+### 4xx: Schemas (Pydantic Request/Response DTO)
+### 5xx: Models (SQLAlchemy 테이블 Entity)
+### 예시
+### 백엔드: 프로젝트 등록(PROJECT)의 저장소 연동(REPO) 백엔드(B) Router API 👉 PROJECT-REPO-B-101
+### 프론트엔드: 프로젝트 등록(PROJECT)의 저장소 연동(REPO) 프론트엔드(F) UI 입력 폼 👉 PROJECT-REPO-F-201
+### 우선순위 기준
+### | 우선순위 | | 의미 |
+### | P0 | | MVP 동작에 반드시 필요한 작업 |
+### | P1 | | 데모 완성도와 안정성을 높이는 작업 |
+### | P2 | | 후속 고도화 또는 정리 작업 |
+### 구조 파악( 엔드포인트 - 기능/모듈 순)
+### | Domain | | Module | | 주요 작업 |
+### | PROJECT | | LIST | | 분석 목록, 분석 상세, 파일 수/크기 사전 검증 |
+### | PROJECT | | REPO | | URL 검증, clone, 필터링, cleanup |
+### | PROJECT | | PIPELINE | | job 생성, 진행상태, WebSocket/SSE, 분석 단계 orchestration |
+### | RAG | | PARSE | | 파일 트리, entrypoint, config 탐지, AST/문서 청킹 |
+### | RAG | | EMBED | | embedding 생성, vector 저장, top-k 검색 |
+### | RAG | | STORE | | chunk metadata, repository_id 기준 조회, source mapping |
+### | RAG | | GRAPH | | 파일/모듈 의존성 그래프 생성, import 관계 시각화, 코드 흐름 관계 표현 |
+### | AGENT | | SEARCH | | 코드 분석, 다단계 탐색, 근거 수집 |
+### | AGENT | | CHAT | | 사용자 질문, follow-up 질문, 답변 생성 |
+### | AGENT | | CORE | | 에러 처리, retry, timeout, fallback, guardrail 연결 |
+### | DOCS | | GEN | | 온보딩 문서, 실행 가이드, 핵심 파일 요약, 보고서 생성 |
+### | DOCS | | GUARD | | 민감정보 검사, 제외 규칙, 안전한 source 표시 |
+### | DOCS | | UTIL | | 번역, PDF/메일 export, Markdown 변환, 공유용 출력 |
+### | COMMON / QA | | SCHEMA | | API contract, Pydantic/TS 타입 동기화 |
+### | COMMON / QA | | CONFIG | | env, API base URL, storage path |
+### | COMMON / QA | | TEST | | backend/frontend 테스트, sample repo, deployment checklist |
+### Project
+### List - 목록조회, 파일수
+### Repo* - Clone, 필터링
+### Pipeline - 진행 상태
+### Rag
+### Embed - 임베딩모델 제작 + 벡터화
+### Parse* - RAG 연결점
+### Graph
+### Agent
+### Search - 분석
+### Chat* - 유저 상호작용
+### Core - 에러 처리
+### Docs
+### Gen* - 문서 생성
+### Guard - 민감 정보 검사
+### Util - 번역 / 메일 전송
+### 1️⃣
+### 프로젝트 등록 (Git 클론 및 필터링)
+### 기능 개요: 사용자가 입력한 Git 저장소의 소스코드를 실시간으로 복제하고, 분석에 필요한 정보만 걸러내어 저장.
+### 원클릭 저장소 연동: 브라우저 화면에서 GitHub URL만 입력하면 서버 내부에 실시간 복제.
+### 지능형 노이즈 필터링: node_modules, build, 바이너리 파일 등을 자동 제외하고, 설정/문서 파일은 보존하여 분석 효율을 극대화합니다.
+### Project
+### | ID | | 기능 명칭 (대분류) | | 모듈명 | | 분류 | | 기능명 | | 상세 설명 | | 담당자 |
+### | PROJECT-LIST-B-101 | | PROJECT | | LIST | | Backend | | 레포 목록 조회 API | | 전체 분석 이력 목록 반환 | | 강강영우성성민 신 |
+### | PROJECT-LIST-B-201 | | PROJECT | | LIST | | Backend | | 레포 크기, 파일 수 사전 검증 | | clone 전 파일 수·용량이 제한 초과 여부 확인 및 초과 시 사용자 안내 | | 강강영우성성민 신 |
+### | PROJECT-LIST-B-202 | | PROJECT | | LIST | | Backend | | 프로젝트 목록 조회 및 관리 | | 이전에 사용자가 진행한 작업에 대한 조회, 삭제 기능 | | 성성민 신강강영우 |
+### | PROJECT-LIST-B-301 | | PROJECT | | LIST | | Backend | | 분석 job metadata 저장 | | 분석 결과물에 대한 생성 시간 저장 | | 성성민 신강강영우 |
+### | PROJECT-LIST-F-101 | | PROJECT | | LIST | | Frontend | | 분석 이력 목록 화면 | | 이미 분석한 레포 목록과 각 분석상태(완료,처리중,실패)를 조회하는 홈화면 | | 강강영우성성민 신 |
+### | PROJECT-LIST-F-201 | | PROJECT | | LIST | | Frontend | | store에서 job 목록 조회 | | 이전 작업한 내용 확인 가능하게 프론트 구성 | | 성성민 신강강영우 |
+### | PROJECT-LIST-F-202 | | PROJECT | | LIST | | Frontend | | job 상태 업데이트 | | 작업 결과물에 대한 상태 확인가능하게 프론트 구성 | | 성성민 신강강영우 |
+### | PROJECT-LIST-F-203 | | PROJECT | | LIST | | Frontend | | 실패 job error 저장 | | 실패한 작업에 대한 프론트 구성 | | 성성민 신강강영우 |
+### | PROJECT-REPO-B-101 | | PROJECT | | REPO | | Backend | | 프로젝트 등록 API | | `POST /api/analysis` 요청 처리 | | 김효oosuhada |
+### | PROJECT-REPO-B-201 | | PROJECT | | REPO | | Backend | | Git Clone 처리 | | 서버 내부 임시 디렉토리에 저장소 복제 | | 김효oosuhada |
+### | PROJECT-REPO-B-202 | | PROJECT | | REPO | | Backend | | 파일 필터링 | | `node_modules`, `.git`, `build`, `dist`, 'venv', '.next', '.env', 'key' 바이너리 파일 제외 | | 김효oosuhada |
+### | PROJECT-REPO-B-203 | | PROJECT | | REPO | | Backend | | clone timeout 처리 | | timeout seconds 설정, subprocess error capture, 실패 시 cleanup | | 김효oosuhada |
+### | PROJECT-REPO-B-204 | | PROJECT | | REPO | | Backend | | 전체 분석 순서 정의 | | clone → code map → doc generation → onboarding guide → report 저장 | | 김효oosuhada |
+### | PROJECT-REPO-B-205 | | PROJECT | | REPO | | Backend | | job별 event queue 관리 | | publish, subscribe, timeout, cleanup 구현 | | 김효oosuhada |
+### | PROJECT-REPO-B-301 | | PROJECT | | REPO | | Backend | | Git 저장소 URL 검증 | | GitHub URL 형식 유효성 검사 및 예외 처리, job_id 반환 | | 김효oosuhada |
+### | PROJECT-REPO-B-302 | | PROJECT | | REPO | | Backend | | 프로젝트 메타데이터 저장 | | repo_name, owner, branch, clone_path 저장 | | 김효oosuhada |
+### | PROJECT-REPO-F-101 | | PROJECT | | REPO | | Frontend | | progress WebSocket endpoint 정리 | | frontend ProgressPanel에 이벤트 전달, /ws/progress/{job_id} 연결, subscribe, disconnect cleanup | | 김효oosuhada |
+### | PROJECT-REPO-F-201 | | PROJECT | | REPO | | Frontend | | GitHub URL 입력 UI | | 사용자가 GitHub 저장소 URL을 입력할 수 있는 입력 폼 제공 | | 김효oosuhada |
+### | PROJECT-REPO-F-202 | | PROJECT | | REPO | | Frontend | | 저장소 분석 요청 버튼 | | URL 검증 후 Backend API 호출 | | 김효oosuhada |
+### | PROJECT-REPO-F-203 | | PROJECT | | REPO | | Frontend | | 분석 진행 상태 UI | | Clone / 분석 진행 상태(로딩, 성공, 실패) 표시 | | 김효oosuhada |
+### | Untitled | | | | | | | | | | | | |
+### Project-API
+### | API ID | | Method | | 상태 | | 담당 | | Endpoint | | 목적 | | 관련 기능 ID |
+### | PROJECT-LIST-API-001 | | GET | |
+### 완료 | | 강강영우 | | /api/list/analysis | | 전체 저장소 분석 이력 및 작업 목록 조회 | | PROJECT-LIST-B-101, PROJECT-LIST-B-202, PROJECT-LIST-B-301, PROJECT-LIST-F-101, ROJECT-LIST-F-201 |
+### | PROJECT-LIST-API-002 | | POST | |
+### 시작 전 | | 성성민 신 | | /api/list/validate | | 클론 전 저장소 파일 수 및 용량 사전 검증 | | PROJECT-LIST-B-201 , PROJECT-LIST-F-101 |
+### | PROJECT-LIST-API-003 | | WS | |
+### 진행 중 | | 강강영우 | | /ws/list/progress/{job_id} | | 실시간 분석 작업 상태 및 진행률 공유 | | PROJECT-LIST-F-202 , PROJECT-LIST-F-203 |
+### | PROJECT-LIST-API-004 | | GET | |
+### 시작 전 | | | | /api/list/analysis/{job_id} | | | | |
+### | PROJECT-LIST-API-005 | | POST | |
+### 시작 전 | | | | /api/list/validate | | | | |
+### | PROJECT-LIST-API-006 | | PATCH | |
+### 시작 전 | | | | /api/list/analysis/{job_id}/status | | | | |
+### | PROJECT-REPO-API-001 | | POST | |
+### 완료 | | oosuhada | | /api/repo/analysis | | 저장소 분석 작업 생성 | | PROJECT-REPO-B-101, PROJECT-REPO-B-303, PROJECT-REPO-F-202 |
+### | PROJECT-REPO-API-002 | | POST | |
+### 완료 | | 김효 | | /api/repo/validate | | GitHub URL 형식 및 접근 가능 여부 검증 | | PROJECT-REPO-B-301, PROJECT-REPO-F-201 |
+### | PROJECT-REPO-API-003 | | GET | |
+### 완료 | | oosuhada | | /api/repo/analysis/{job_id} | | 분석 작업 상태 및 메타데이터 조회 | | PROJECT-REPO-B-302, PROJECT-REPO-F-204 |
+### | PROJECT-REPO-API-004 | | POST | |
+### 완료 | | 김효 | | /api/repo/analysis/{job_id}/clone | | 특정 job 기준 저장소 clone 실행 | | PROJECT-REPO-B-201, PROJECT-REPO-B-202, PROJECT-REPO-B-203 |
+### | PROJECT-REPO-API-005 | | GET | |
+### 완료 | | oosuhada | | /api/repo/analysis/{job_id}/events | | 분석 진행 상태 이벤트 스트림 수신 | | PROJECT-REPO-B-205, PROJECT-REPO-F-101, PROJECT-REPO-F-203, PROJECT-REPO-F-204 |
+### | PROJECT-REPO-API-006 | | WS | |
+### 완료 | | oosuhada | | /ws/progress/{job_id} | | WebSocket 기반 분석 진행 상태 수신 | | PROJECT-REPO-B-205, PROJECT-REPO-F-101 |
+### | PROJECT-REPO-API-007 | | POST | |
+### 완료 | | oosuhada | | /api/repo/analysis/{job_id}/start | | clone 이후 전체 분석 파이프라인 시작 | | PROJECT-REPO-B-204, PROJECT-REPO-F-204 |
+### | PROJECT-REPO-API-008 | | DELETE | |
+### 완료 | | 김효 | | /api/repo/analysis/{job_id}/workspace | | 실패/취소 시 임시 clone 디렉토리 cleanup | | PROJECT-REPO-B-203 |
+### | ⭐명세서 이상한거 있으면 여기 적어주세요~ | | | |
+### 시작 전 | | | | | | | | |
+### | 작업 순서 ← | | | |
+### 시작 전 | | | | | | | | |
+### PROJECT-LIST API 명세서
+### | 완료 여부 | | API ID | | HTTP 메서드 / 프로토콜 | | 엔드포인트 경로 | | 기능명 | | 관련 기능 ID | | 설명 |
+### | 완료 (영우) | | PROJECT-LIST-API-001 | | GET | | /api/list/analysis | | 전체 분석 이력 목록 조회 | | PROJECT-LIST-B-101, PROJECT-LIST-F-101 | | 사용자의 전체 저장소 분석 이력 및 작업 목록 반환 |
+### | 진행 중 (성민) | | PROJECT-LIST-API-002 | | POST | | /api/list/validate | | 레포 사전 검증 API | | PROJECT-LIST-B-201 | | Git Clone 시작 전 파일 개수와 용량 제한 초과 여부 사전 검증 |
+### | 완료 (영우) | | PROJECT-LIST-API-003 | | WS(WebSocket) | | /ws/list/progress/{job_id} | | 실시간 진행률 공유 | | PROJECT-LIST-F-202 | | 분석 작업 상태 변경 사항을 실시간 수신 및 갱신 |
+### | | | PROJECT-LIST-API-004 | | GET | | /api/list/analysis/{job_id} | | 분석 이력 상세 조회 API | | PROJECT-LIST-B-202 | | 특정 분석 job의 상세 metadata, 현재 단계, 메시지 조회 |
+### | | | PROJECT-LIST-API-005 | | POST | | /api/list/validate | | 제한 초과 경고 및 예외 응답 API | | PROJECT-LIST-B-203 | | 파일 수/용량 제한 초과 시 사용자 경고 또는 에러 응답 표준화 |
+### | | | PROJECT-LIST-API-006 | | PATCH | | /api/list/analysis/{job_id}/status | | 분석 job 상태 저장 API | | PROJECT-LIST-B-301, PROJECT-LIST-F-203 | | 파이프라인 내부에서 job 진행 상태와 실패 메시지 저장 |
+### PROJECT-LIST-API-001 전체 분석 이력 목록 조회
+### 기본 정보
+### | 항목 | | 값 |
+### | Endpoint | | /api/list/analysis |
+### | Method | | GET |
+### | 관련 기능 ID | | PROJECT-LIST-B-101, PROJECT-LIST-F-101 |
+### | 목적 | | 전체 저장소 분석 이력 및 작업 목록 조회 |
+### | 상태 | | 시작 전 |
+### 요청(Request)
+### Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### Query Parameters
+### | 필드명 | | 타입 | | 필수 | | 기본값 | | 설명 |
+### | page | | Integer | | N | | 1 | | 조회할 페이지 번호 |
+### | limit | | Integer | | N | | 10 | | 페이지당 반환할 이력 수 |
+### 요청 예시
+### GET /api/list/analysis?page=1&limit=10 HTTP/1.1
+### Host: localhost:8000
+### Authorization: Bearer eyJhbGci...
+### 응답(Response)
+### 성공 응답 - 200 OK
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 |
+### | message | | String | | "success" |
+### | data.totalCount | | Integer | | 전체 분석 이력 수 |
+### | data.page | | Integer | | 현재 페이지 번호 |
+### | data.limit | | Integer | | 페이지당 반환 개수 |
+### | data.jobs | | Array | | 분석 작업 목록 |
+### | data.jobs[].jobId | | UUID | | 분석 작업 고유 ID |
+### | data.jobs[].repoUrl | | String | | GitHub 저장소 URL |
+### | data.jobs[].branch | | String | | 분석 대상 브랜치 |
+### | data.jobs[].status | | String | | queued, running, completed, failed |
+### | data.jobs[].progress | | Integer | | 작업 진행률 |
+### | data.jobs[].failedAgent | | String | | 실패 단계 또는 실패 에이전트. 실패가 아니면 null |
+### | data.jobs[].errorMessage | | String | | 실패 사유. 실패가 아니면 null |
+### | data.jobs[].createdAt | | String | | 작업 생성 시각 |
+### | data.jobs[].updatedAt | | String | | 작업 최종 변경 시각 |
+### 응답 예시
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "totalCount": 2,
+### "page": 1,
+### "limit": 10,
+### "jobs": [
+### {
+### "jobId": "e94cc46e-d954-83fd-af3c-01123425f0b0",
+### "repoUrl": "https://github.com/example/my-awesome-repo",
+### "branch": "main",
+### "status": "completed",
+### "progress": 100,
+### "failedAgent": null,
+### "errorMessage": null,
+### "createdAt": "2026-06-17T10:00:00Z",
+### "updatedAt": "2026-06-17T10:15:30Z"
+### }
+### ]
+### }
+### }
+### 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 401 | | UNAUTHORIZED | | 인증 검증 | | 토큰이 누락되었거나 만료됨 |
+### | 500 | | DATABASE_ERROR | | DB 조회 | | 데이터베이스 조회 중 예외 발생 |
+### PROJECT-LIST-API-002 레포 사전 검증 API
+### 기본 정보
+### | 항목 | | 값 |
+### | Endpoint | | /api/list/validate |
+### | Method | | POST |
+### | 관련 기능 ID | | PROJECT-LIST-B-201 |
+### | 목적 | | 클론 전 저장소 파일 수 및 용량 사전 검증 |
+### | 상태 | | 시작 전 |
+### 요청(Request)
+### Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### Request Body
+### | 필드명 | | 타입 | | 필수 | | 기본값 | | 설명 |
+### | repoUrl | | String | | Y | | - | | 검증할 GitHub 저장소 URL |
+### | branch | | String | | N | | 기본 브랜치 | | 검증 대상 브랜치 |
+### 요청 예시
+### {
+### "repoUrl": "https://github.com/example/target-repo",
+### "branch": "main"
+### }
+### 응답(Response)
+### 성공 응답 - 200 OK
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 |
+### | message | | String | | "success" |
+### | data.isValid | | Boolean | | 분석 가능 여부 |
+### | data.fileCount | | Integer | | 저장소 내 대상 파일 수 |
+### | data.totalSizeKb | | Integer | | 저장소 총 용량 |
+### | data.warningMessage | | String | | 제한 조건 초과 안내. 초과하지 않으면 null |
+### 응답 예시
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "isValid": true,
+### "fileCount": 42,
+### "totalSizeKb": 1250,
+### "warningMessage": null
+### }
+### }
+### 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 400 | | INVALID_REPO_URL | | URL 형식 검증 | | GitHub URL 형식이 올바르지 않음 |
+### | 401 | | UNAUTHORIZED | | 인증 검증 | | 토큰이 누락되었거나 만료됨 |
+### | 404 | | REPOSITORY_NOT_FOUND | | 저장소 확인 | | 저장소가 존재하지 않거나 접근 불가 |
+### | 500 | | VALIDATION_FAILED | | 외부 API 통신 | | GitHub API 호출 또는 검증 중 오류 발생 |
+### PROJECT-LIST-API-003 실시간 진행률 공유
+### 기본 정보
+### | 항목 | | 값 |
+### | Endpoint | | /ws/list/progress/{job_id} |
+### | Method | | WEBSOCKET |
+### | 관련 기능 ID | | PROJECT-LIST-F-202 |
+### | 목적 | | 분석 작업 상태 및 진행률 실시간 공유 |
+### | 상태 | | 시작 전 |
+### 연결 규격
+### Path Parameters
+### | 파라미터명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | UUID | | Y | | 상태를 추적할 분석 작업 고유 ID |
+### 연결 예시
+### GET /ws/list/progress/0a8cc46e-d954-82c0-897c-013b0f2227b3 HTTP/1.1
+### Host: localhost:8000
+### Upgrade: websocket
+### Connection: Upgrade
+### 발행 데이터 포맷
+### | 필드명 | | 타입 | | 설명 |
+### | jobId | | UUID | | 상태를 추적하는 분석 작업 고유 ID |
+### | status | | String | | queued, running, completed, failed |
+### | progress | | Integer | | 작업 진행률 |
+### | currentStep | | String | | 현재 실행 중인 분석 단계명 |
+### | failedAgent | | String | | 실패 단계 또는 실패 에이전트. 실패가 아니면 null |
+### | errorMessage | | String | | 실패 사유. 실패가 아니면 null |
+### 메시지 예시
+### {
+### "jobId": "0a8cc46e-d954-82c0-897c-013b0f2227b3",
+### "status": "running",
+### "progress": 45,
+### "currentStep": "Code Embedding Generation",
+### "failedAgent": null,
+### "errorMessage": null
+### }
+### PROJECT-LIST-API-004 분석 이력 상세 조회 API
+### 기본 정보
+### | 항목 | | 값 |
+### | Endpoint | | /api/list/analysis/{job_id} |
+### | Method | | GET |
+### | 관련 기능 ID | | PROJECT-LIST-B-202 |
+### | 목적 | | 목록에서 선택한 분석 job의 상세 상태 및 metadata 조회 |
+### | 상태 | | 시작 전 |
+### 요청(Request)
+### Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### | Accept | | application/json | | N | | 응답 형식 |
+### Path Parameters
+### | 필드명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | UUID | | Y | | 조회할 분석 작업 ID |
+### 요청 예시
+### GET /api/list/analysis/8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e HTTP/1.1
+### Host: localhost:8000
+### Authorization: Bearer eyJhbGci...
+### Accept: application/json
+### 응답(Response)
+### 성공 응답 - 200 OK
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 |
+### | message | | String | | "success" |
+### | data.jobId | | UUID | | 분석 작업 고유 ID |
+### | data.repoUrl | | String | | GitHub 저장소 URL |
+### | data.repoName | | String | | 저장소 이름 |
+### | data.owner | | String | | 저장소 소유자 |
+### | data.branch | | String | | 분석 대상 브랜치 |
+### | data.status | | String | | queued, running, completed, failed |
+### | data.currentStep | | String | | 현재 분석 단계 |
+### | data.progress | | Integer | | 진행률 |
+### | data.message | | String | | 사용자 표시용 상태 메시지 |
+### | data.createdAt | | String | | 생성 시각 |
+### | data.updatedAt | | String | | 수정 시각 |
+### 응답 예시
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+### "repoUrl": "https://github.com/example/codemap",
+### "repoName": "codemap",
+### "owner": "example",
+### "branch": "main",
+### "status": "running",
+### "currentStep": "CODE_MAP",
+### "progress": 45,
+### "message": "코드 구조를 분석하는 중입니다.",
+### "createdAt": "2026-06-18T02:00:00Z",
+### "updatedAt": "2026-06-18T02:03:30Z"
+### }
+### }
+### 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 400 | | INVALID_JOB_ID | | Path 검증 | | job_id가 UUID 형식이 아님 |
+### | 401 | | UNAUTHORIZED | | 인증 검증 | | 토큰이 누락되었거나 만료됨 |
+### | 404 | | JOB_NOT_FOUND | | DB 조회 | | 해당 job_id가 존재하지 않음 |
+### | 500 | | DATABASE_ERROR | | DB 조회 | | 데이터베이스 조회 중 예외 발생 |
+### PROJECT-LIST-API-005 제한 초과 경고 및 예외 응답 API
+### 기본 정보
+### | 항목 | | 값 |
+### | Endpoint | | /api/list/validate |
+### | Method | | POST |
+### | 관련 기능 ID | | PROJECT-LIST-B-203 |
+### | 목적 | | 파일 수 또는 용량 제한 초과 시 API 응답 형식 통일 |
+### | 제한 기준 | | 파일 수 100개 이하, 파일당 100KB 이하 |
+### 이 API는 PROJECT-LIST-API-002와 같은 엔드포인트를 사용하되, 기능 명세서의 PROJECT-LIST-B-203에 해당하는 제한 초과 응답 케이스를 별도로 정리한 항목이다.
+### 제한 이내 응답
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "isValid": true,
+### "fileCount": 42,
+### "maxFileSizeKb": 83,
+### "totalSizeKb": 1250,
+### "warningMessage": null
+### }
+### }
+### 제한 초과 경고 응답 - 200 OK
+### | 필드명 | | 타입 | | 설명 |
+### | data.isValid | | Boolean | | false |
+### | data.fileCount | | Integer | | 대상 파일 수 |
+### | data.maxFileSizeKb | | Integer | | 가장 큰 파일 크기 |
+### | data.totalSizeKb | | Integer | | 총 용량 |
+### | data.limit.fileCount | | Integer | | 허용 파일 수 |
+### | data.limit.fileSizeKb | | Integer | | 허용 파일당 크기 |
+### | data.warningCode | | String | | FILE_COUNT_EXCEEDED, FILE_SIZE_EXCEEDED, REPO_LIMIT_EXCEEDED |
+### | data.warningMessage | | String | | 사용자 표시용 경고 메시지 |
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "isValid": false,
+### "fileCount": 250,
+### "maxFileSizeKb": 180,
+### "totalSizeKb": 15400,
+### "limit": {
+### "fileCount": 100,
+### "fileSizeKb": 100
+### },
+### "warningCode": "FILE_COUNT_EXCEEDED",
+### "warningMessage": "저장소 파일 수가 100개를 초과합니다. 핵심 파일만 선별하여 분석을 진행해야 합니다."
+### }
+### }
+### 제한 초과 예외 응답
+### | HTTP Status | | Error Code | | 설명 |
+### | 413 | | FILE_LIMIT_EXCEEDED | | 파일 수 또는 파일 크기 제한 초과 |
+### | 422 | | REPO_LIMIT_EXCEEDED | | 저장소 규모가 분석 허용 범위를 초과 |
+### | 500 | | VALIDATION_FAILED | | 파일 수/용량 계산 중 예외 발생 |
+### {
+### "code": 413,
+### "errorCode": "FILE_LIMIT_EXCEEDED",
+### "message": "파일 수 또는 용량 제한을 초과하여 분석을 시작할 수 없습니다.",
+### "detail": {
+### "fileCount": 250,
+### "maxFileSizeKb": 180,
+### "limit": {
+### "fileCount": 100,
+### "fileSizeKb": 100
+### }
+### }
+### }
+### PROJECT-LIST-API-006 분석 job 상태 저장 API
+### 기본 정보
+### | 항목 | | 값 |
+### | Endpoint | | /api/list/analysis/{job_id}/status |
+### | Method | | PATCH |
+### | 관련 기능 ID | | PROJECT-LIST-B-301, PROJECT-LIST-F-203 |
+### | 목적 | | 파이프라인 내부에서 job 상태, 단계, 진행률, 실패 메시지를 analysis_jobs에 저장 |
+### | 공개 범위 | | 내부 API 또는 서버 간 호출용 |
+### 요청(Request)
+### Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {service_token} | | Y | | 내부 서비스 토큰 |
+### Path Parameters
+### | 필드명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | UUID | | Y | | 상태를 저장할 분석 작업 ID |
+### Request Body
+### | 필드명 | | 타입 | | 필수 | | 설명 |
+### | status | | String | | Y | | queued, running, completed, failed |
+### | currentStep | | String | | N | | 현재 단계. CLONE, CODE_MAP, DOC_GEN, ONBOARDING, REPORT |
+### | progress | | Integer | | Y | | 진행률. 0-100 |
+### | message | | String | | N | | 사용자 표시용 진행 메시지 |
+### | errorMessage | | String | | N | | 실패 시 저장할 오류 메시지 |
+### 요청 예시
+### {
+### "status": "failed",
+### "currentStep": "CODE_MAP",
+### "progress": 45,
+### "message": "코드 구조 분석 중 오류가 발생했습니다.",
+### "errorMessage": "File limit exceeded during parse stage."
+### }
+### 응답(Response)
+### 성공 응답 - 200 OK
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 |
+### | message | | String | | "success" |
+### | data.jobId | | UUID | | 분석 작업 고유 ID |
+### | data.status | | String | | 저장된 상태 |
+### | data.currentStep | | String | | 저장된 단계 |
+### | data.progress | | Integer | | 저장된 진행률 |
+### | data.updatedAt | | String | | 상태 수정 시각 |
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+### "status": "failed",
+### "currentStep": "CODE_MAP",
+### "progress": 45,
+### "updatedAt": "2026-06-18T02:05:00Z"
+### }
+### }
+### DB 저장 규칙
+### | 요청 필드 | | 저장 컬럼 | | 저장 규칙 |
+### | status | | analysis_jobs.status | | running -> IN_PROGRESS, completed -> COMPLETED, failed -> FAILED |
+### | currentStep | | analysis_jobs.stage | | 현재 단계 또는 실패 단계 저장 |
+### | progress | | analysis_jobs.progress | | 0-100 범위 검증 후 저장 |
+### | message / errorMessage | | analysis_jobs.message | | failed이면 errorMessage 우선, 그 외 message 저장 |
+### | updatedAt | | analysis_jobs.updated_at | | 서버 현재 시각으로 갱신 |
+### 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 400 | | INVALID_STATUS | | 상태 검증 | | 허용되지 않은 status 값 |
+### | 400 | | INVALID_PROGRESS | | 진행률 검증 | | progress가 0-100 범위를 벗어남 |
+### | 401 | | UNAUTHORIZED | | 인증 검증 | | 내부 서비스 토큰 누락 또는 만료 |
+### | 404 | | JOB_NOT_FOUND | | DB 조회 | | 해당 job_id가 존재하지 않음 |
+### | 500 | | DATABASE_ERROR | | DB 저장 | | 상태 저장 중 예외 발생 |
+### 2️⃣
+### 코드 맥락 및 관계망 이해 (RAG 및 코드 임베딩)
+### 기능 개요: 단순 단어 비교 검색을 뛰어넘어, 코드가 갖는 고유한 역할, 설계 의미, 파일 간의 연결 관계를 학습해 의미 기반 사전을 구축.
+### 유기적 관계망 지도 구축: 의존성 및 Import 흐름을 추적하여 논리적 지도를 구성하고 상향식으로 개념을 탐색.
+### 자연어 질문 해석: 평상어 질문 문맥을 파악해 의도에 맞는 소스코드 파일을 정확히 탐색합니다.
+### RAG
+### | ID | | 기능 명칭 (대분류) | | 모듈명 | | 분류 | | 기능명 | | 상세 설명 | | 우선순위 |
+### | RAG-PARSE-B-206 | | RAG | | PARSE | | Backend | | 기술 스택 추론 | | package.json, requirements.txt, Dockerfile, docker-compose.yml 기반 프레임워크·런타임 자동 탐지 | | |
+### | RAG-PARSE-F-201 | | RAG | | PARSE | | Frontend | | 구조 분석 결과 표시 UI | | 파일 트리·기술 스택·진입점 탐지 결과를 화면에 시각적으로 표시 | | |
+### | RAG-PARSE-B-205 | | RAG | | PARSE | | Backend | | 실행 방법 추론 | | install/run command 자동 생성 | | |
+### | RAG-PARSE-B-204 | | RAG | | PARSE | | Backend | | 설정 파일 탐색 | | `package.json`, `requirements.txt`, `docker-compose` 등 분석 | | |
+### | RAG-PARSE-B-203 | | RAG | | PARSE | | Backend | | 핵심 파일 탐색 | | entry point(`main.py`, `App.tsx` 등) 자동 탐색 | | |
+### | RAG-PARSE-B-101 | | RAG | | PARSE | | Backend | | 분석 결과 조회 API | | `GET /api/analysis/{repo_id}` 반환 | | |
+### | RAG-PARSE-B-201 | | RAG | | PARSE | | Backend | | README 분석 | | README를 기반으로 프로젝트 목적 및 핵심 기능 추출 | | |
+### | RAG-PARSE-B-208 | | RAG | | PARSE | | Backend | | 파일 간 import 관계 분석 | | 의존 파일 목록 추출 [7. CODE-MAP ANALYSIS] AST 청킹, 의존성 트리, 엔트리포인트, 설정파일 종합 분석 파이프라인 간단히 파싱 | | |
+### | RAG-PARSE-B-209 | | RAG | | PARSE | | Backend | | 계층형 Bottom-up 요약 로직 | | 파일 요약 → 폴더 요약 → 프로젝트 마스터 요약 순서로 상향식 요약 파이프라인 구성 (Tree-based RAG 핵심) | | |
+### | RAG-EMBED-B-201 | | RAG | | EMBED | | Backend | | 임베딩 생성 | | 코드 및 문서를 벡터화 | | |
+### | RAG-PARSE-B-207 | | RAG | | PARSE | | Backend | | AST 기반 코드 청킹 | | 함수/클래스 단위 코드 분리 | | |
+### | RAG-PARSE-B-210 | | RAG | | PARSE | | Backend | | 구조 분석 agent 구현 | | 파일 트리, stack, entrypoint, risk, heatmap 결과 반환 | | |
+### | RAG-PARSE-B-202 | | RAG | | PARSE | | Backend | | 디렉토리 구조 분석 | | 프로젝트 폴더 트리 구조 생성 | | |
+### | RAG-EMBED-B-301 | | RAG | | EMBED | | Backend | | pgvector 저장 | | 임베딩 및 메타데이터 저장 | | |
+### RAG 모듈 개발 문서
+### | API ID | | Method | | 상태 | | 담당 | | Endpoint | | 목적 | | 관련 기능 ID |
+### | 시작전 체크 리스트 | | | |
+### 시작 전 | | | | | | | | |
+### | 인터페이스 스키마 | | | |
+### 시작 전 | | | | | | | | |
+### | 파이프라인 실행 명세 | | | |
+### 시작 전 | | | | | | | | |
+### | 함수 시그니처 명세 팀1 | | | |
+### 시작 전 | | | | | | | | |
+### | 함수 시그니처 명세 팀2 | | | |
+### 시작 전 | | | | | | | | |
+### 3️⃣
+### 자율 탐색형 AI 코드 분석 (Agentic Search)
+### 기능 개요: AI 비서가 스스로 계획을 세우고 디렉토리를 열어보며 답을 찾아내는 자율형 탐색 기능.
+### 자가 교정(Self-Correction): 탐색 실패 시 다른 경로를 탐색하여 오류를 자가 검증. 무한 분석 루프 방지를 위해 최대 5회, 처리 시간 20초로 제한.
+### 명확한 출처 제공: 답변 시 소스코드 파일명과 줄 번호를 제공하여 신뢰성을 확보.
+### AGENT
+### | ID | | 기능 명칭 (대분류) | | 모듈명 | | 분류 | | 기능명 | | 상세 설명 | | 우선순위 |
+### | AGENT-CORE-F-201 | | AGENT | | CORE | | Frontend | | ReportJsonResponse 필드 확정 | | summary, stack, file_map, recommendations, heatmap, durations, guide 포함, frontend와 report 계약 고정 | | |
+### | AGENT-CORE-B-204 | | AGENT | | CORE | | Backend | | agent 실패 처리 | | 실패 agent, error message 저장 및 failed event 발행 | | |
+### | AGENT-CORE-B-203 | | AGENT | | CORE | | Backend | | agent 실행 시간 측정 | | 각 agent start/end timestamp 기록 | | |
+### | AGENT-CORE-B-202 | | AGENT | | CORE | | Backend | | completed/failed 후 cleanup | | final event 이후 queue 정리 | | |
+### | AGENT-CORE-B-201 | | AGENT | | CORE | | Backend | | agent 시작/완료 이벤트 발행 | | agent_status, agent_completed, completed, failed 이벤트 publish | | |
+### | AGENT-CHAT-F-203 | | AGENT | | CHAT | | Frontend | | 관련 파일 검색 | | 벡터 검색 기반 관련 코드 탐색 | | |
+### | AGENT-CHAT-F-202 | | AGENT | | CHAT | | Frontend | | 탐색 루프 횟수/시간 제한 | | 에이전트 도구 호출 최대 5회·처리 시간 최대 20초 제한, 초과 시 수집 정보 기반 최선 답변 반환 | | |
+### | AGENT-CHAT-B-101 | | AGENT | | CHAT | | Backend | | Repo Chat API | | `POST /api/chat/{repo_id}` | | |
+### | AGENT-SEARCH-B-204 | | AGENT | | SEARCH | | Backend | | 에이전트 탐색 과정 표시 UI | | 에이전트가 현재 탐색 중인 파일·단계를 실시간으로 화면에 표시 | | |
+### | AGENT-CHAT-F-205 | | AGENT | | CHAT | | Frontend | | 답변 스트리밍 UI | | LLM 답변을 실시간 스트리밍으로 받아 타이핑 효과로 표시 | | |
+### | AGENT-CHAT-B-201 | | AGENT | | CHAT | | Backend | | 코드 컨텍스트 생성 | | 관련 파일을 묶어 LLM Context 구성 | | |
+### | AGENT-SEARCH-B-201 | | AGENT | | SEARCH | | Backend | | 자가 교정 탐색 | | 탐색 실패 시 최대 5회 재탐색 | | |
+### | AGENT-CHAT-F-204 | | AGENT | | CHAT | | Frontend | | 스트리밍 응답 처리 | | FastAPI SSE(Server-Sent Events) 기반 LLM 응답 스트리밍 처리 | | |
+### | AGENT-SEARCH-B-203 | | AGENT | | SEARCH | | Backend | | LLM 답변 생성 | | 프로젝트 맥락 기반 응답 생성 | | |
+### | AGENT-SEARCH-B-202 | | AGENT | | SEARCH | | Backend | | Repo Chat UI | | 사용자 질문 입력창 제공 | | |
+### | AGENT-CHAT-F-201 | | AGENT | | CHAT | | Frontend | | AI 응답 UI | | 답변 및 참조 파일명 표시 | | |
+### | AGENT-CHAT-F-206 | | AGENT | | CHAT | | Frontend | | 질문 의도 분석 | | 자연어 질문 파싱 | | |
+### | AGENT-CHAT-B-202 | | AGENT | | CHAT | | Backend | | 출처 파일 반환 | | 파일명 및 line 정보 제공 | | |
+### | AGENT-SEARCH-B-205 | | AGENT | | SEARCH | | Backend | | 에이전트 탐색 도구 정의 | | 에이전트가 호출할 코드 탐색 도구(grep 검색·파일 읽기·디렉토리 탐색) 정의 및 등록 | | |
+### 4️⃣
+### 계층형 프로젝트 가이드북 자동 생성 (Map-Reduce 문서화)
+### 기능 개요: 방대한 코드를 읽지 않아도 한눈에 파악할 수 있는 고품질의 Markdown 형식 '프로젝트 가이드북'을 자동 집필.
+### 상향식 정보 집필: 개별 소스코드 요약 -> 폴더 요약 -> 마스터 리포트로 융합.
+### 아키텍처 시각화: 저장소 연동 직후 트리, 핵심 데이터 흐름을 시각적으로 제공하여 온보딩 리소스 절감.
+### DOCS
+### | ID | | 기능 명칭 (대분류) | | 모듈명 | | 분류 | | 기능명 | | 상세 설명 | | 우선순위 |
+### | DOCS-GEN-B-101 | | DOCS | | GEN | | Backend | | 가이드북 조회 API | | `GET /api/docs/{repo_id}` 생성된 온보딩 가이드북 Markdown 반환 | | |
+### | DOCS-GEN-B-201 | | DOCS | | GEN | | Backend | | 문서 요약 agent 구현 | | README, config, package, route 파일 기반 프로젝트 설명 생성 | | |
+### | DOCS-GEN-B-202 | | DOCS | | GEN | | Backend | | 온보딩 guide agent 구현 | | 읽을 순서, 수정 시작점, 위험 파일, 추천 task 생성 | | |
+### | DOCS-GEN-B-203 | | DOCS | | GEN | | Backend | | 폴더 단위 요약 | | 하위 파일 요약 기반 디렉토리 설명 생성 | | |
+### | DOCS-GEN-B-204 | | DOCS | | GEN | | Backend | | 프로젝트 마스터 리포트 생성 | | 최종 온보딩 문서 통합 | | |
+### | DOCS-GEN-B-205 | | DOCS | | GEN | | Backend | | README 기반 프로젝트 소개 생성 | | 프로젝트 목적 및 핵심 기능 요약 | | |
+### | DOCS-GEN-B-206 | | DOCS | | GEN | | Backend | | 핵심 실행 플로우 설명 | | 요청 흐름 및 핵심 구조 설명 | | |
+### | DOCS-GEN-B-207 | | DOCS | | GEN | | Backend | | 문서 재생성 | | 기존 분석 기반 재생성 기능 | | |
+### | DOCS-GEN-B-301 | | DOCS | | GEN | | Backend | | Markdown 저장 | | 생성 결과 DB 저장 | | |
+### | DOCS-GEN-F-101 | | DOCS | | GEN | | Frontend | | 온보딩 문서 화면 | | JSON 기반 결과 렌더링 | | |
+### | DOCS-GEN-F-201 | | DOCS | | GEN | | Frontend | | 문서 다운로드 UI | | JSON → Markdown / HTML → PDF 다운로드 버튼 제공 | | |
+### | DOCS-GEN-F-202 | | DOCS | | GEN | | Frontend | | 파일 단위 요약 | | 개별 코드 파일 요약 생성 | | |
+### | DOCS-GEN-F-203 | | DOCS | | GEN | | Frontend | | 추천 읽기 순서/수정 전 주의점 생성 | | 신입 개발자 기준 파일 읽기 순서 및 다음행동 제안 제공 | | |
+### | DOCS-GUARD-B-201 | | DOCS | | GUARD | | Backend | | 민감정보 마스킹 | | API key, token, password pattern 탐지 시 원문 제거. report 생성 전 report에 민감정보 원문 미노출하도록 검증 | | |
+### 🥈
+### Phase 2: 고도화 추가 기능 (유연한 수정/추가 가능)
+### Phase2
+### | 대분류 ID | | 기능 명칭 (대분류) | | 소분류 ID | | 분류 | | 기능명 | | 상세 설명 | | 우선순위 |
+### | PROJECT-LIST-B-202 | | PROJECT | | LIST | | Backend | | Service | | 프로젝트 목록 조회 및 관리 | | 단일 레포 분석 우선으로 인한 보류 (UI/API) |
+### | PROJECT-LIST-B-301 | | PROJECT | | LIST | | Backend | | Repository | | 분석 job metadata 저장 | | job id, repo url, status, created_at, updated_at 저장 |
+### | PROJECT-LIST-F-201 | | PROJECT | | LIST | | Frontend | | UI Component | | store에서 최근 job 목록 조회 | | frontend HistoryList 표시 가능 |
+### | PROJECT-LIST-F-202 | | PROJECT | | LIST | | Frontend | | UI Component | | job 상태 업데이트 | | queued/running/completed/failed 상태 저장, frontend가 최신 상태 재조회 가능 |
+### | PROJECT-LIST-F-203 | | PROJECT | | LIST | | Frontend | | UI Component | | 실패 job error 저장 | | exception message, failed agent, timestamp 저장, frontend에서 실패 원인 표시 가능 |
+### | PROJECT-PIPELINE-B-201 | | PROJECT | | PIPELINE | | Backend | | Service | | 분석 단계 상태 관리 | | repository상태를 shallo_done/deep_processing/deep_done으로 분리 저장 및 전환 처리 |
+### | PROJECT-PIPELINE-B-202 | | PROJECT | | PIPELINE | | Backend | | Service | | 비동기 깊은 분석 파이프라인 | | 얕은 분석 완료후 함수/클래스 요약,의존성 추적,Map-Reduce를 백그라운드 비동기 병렬 처리 |
+### | PROJECT-PIPELINE-B-203 | | PROJECT | | PIPELINE | | Backend | | Service | | 파이프라인 외부 연동 | | 초기 기능 명세 외 범위로 보류 |
+### | PROJECT-PIPELINE-F-201 | | PROJECT | | PIPELINE | | Frontend | | UI Component | | 현재 분석 수준 안내 메시지 | | 심층 용약 요청시 “ ㅎ현재 1차분서만 완료 - 파일트리, 주요 파일목적, 실행 단서는 지금도 제공가능” 처럼 현재 가능한 범위를 투명하게 안내함 |
+### | PROJECT-PIPELINE-F-202 | | PROJECT | | PIPELINE | | Frontend | | UI Component | | 얕은/깊은 분석 분리 프로그레스 UI | | PHase1 기본 상태UI(로딩,성공,실패)를 얕은 분석 (파일트리,README)과 깊은 분석(함수 요약, 의존서으MAP-Reduce) 2단계로 고도화한 프로그레스바 표시 |
+### | PROJECT-PIPELINE-F-301 | | PROJECT | | PIPELINE | | Frontend | | API/Query | | 진행률 실시간 수신 | | SSE 또는 Polling으로 분석 진행률 수신후 프로그레스 바에 반영 |
+### | PROJECT-REPO-B-303 | | PROJECT | | REPO | | Backend | | Repository | | 중복 저장소 검사 | | 이미 분석된 URL 여부 확인 |
+### | RAG-GRAPH-B-201 | | RAG | | GRAPH | | Backend | | Service | | 의존성 그래프 시각화 | | Import 관계 노드/엣지 그래프 렌더링을 위한 데이터 처리 및 D3.js 기반 UI |
+### | RAG-GRAPH-F-201 | | RAG | | GRAPH | | Frontend | | UI Component | | 의존성 관계 그래프 UI | | imports / imported_by 메타데이터 기반 파일 간 의존성을 인터랙티브 그래프(react-flow 또는 mermaid)로 렌더링 |
+### | RAG-PARSE-B-211 | | RAG | | PARSE | | Backend | | Service | | 위험 신호 태깅 | | auth, db, env, payment, external API, migration, security 키워드 탐지. 위험 파일 목록 생성 |
+### | RAG-PARSE-B-212 | | RAG | | PARSE | | Backend | | Service | | 기술 스택 점수화 | | 기술 스택 숙련도 및 품질 상세 메트릭 분석 기능 보류 |
+### | RAG-PARSE-F-202 | | RAG | | PARSE | | Frontend | | UI Component | | heatmap용 risk score 생성 | | 파일 크기, import 수, 위험 키워드, config 여부 기반 점수화, frontend HeatmapChart 입력 데이터 생성 |
+### | AGENT-CHAT-B-203 | | AGENT | | CHAT | | Backend | | Service | | 장기 기억 (Long-term Memory) | | 사용자 세션 기반 지속적인 장기 기억 관리 로직 보류 |
+### | AGENT-SEARCH-B-206 | | AGENT | | SEARCH | | Backend | | Service | | 자율 외부 도구 사용 | | 에이전트가 인터넷 검색 등 외부 도구를 자율적으로 사용하는 로직 보류 |
+### | AGENT-SEARCH-B-207 | | AGENT | | SEARCH | | Backend | | Service | | Advanced Reasoning | | 단순 질의응답을 넘어서는 심층 추론 로직 보류 |
+### | DOCS-GEN-B-208 | | DOCS | | GEN | | Backend | | Service | | 추천 작업 생성 | | github issue 추천. 신규 팀원에게 다음 행동 제안 |
+### | DOCS-UTIL-B-201 | | DOCS | | UTIL | | Backend | | Service | | 번역/PDF/이메일 부가 기능 | | 다국어 번역, PDF 추출, 이메일 요약 전송 등 유틸 기능 보류 |
+### | Untitled | | | | | | | | | | | | P2 |
+### Phase2 - PROJECT-PIPELINE API 명세서
+### API 요약
+### | API ID | | HTTP 메서드 / 프로토콜 | | 엔드포인트 경로 | | 기능명 | | 관련 기능 ID | | 설명 |
+### | PROJECT-PIPELINE-API-001 | | GET | | /api/pipeline/{job_id}/status | | 분석 단계 상태 조회 API | | PROJECT-PIPELINE-B-201, PROJECT-PIPELINE-F-201 | | 분석 job의 현재 단계, 분석 수준, 진행 메시지를 조회 |
+### | PROJECT-PIPELINE-API-002 | | POST | | /api/pipeline/{job_id}/deep-analysis | | 비동기 깊은 분석 파이프라인 시작 API | | PROJECT-PIPELINE-B-202, PROJECT-PIPELINE-F-202 | | 얕은 분석 이후 깊은 분석 파이프라인을 비동기로 시작 |
+### | PROJECT-PIPELINE-API-003 | | WS(WebSocket) | | /ws/pipeline/progress/{job_id} | | 파이프라인 진행률 실시간 수신 API | | PROJECT-PIPELINE-F-301, PROJECT-PIPELINE-F-202 | | 얕은/깊은 분석 단계별 진행률을 실시간 수신 |
+### | PROJECT-PIPELINE-API-004 | | POST | | /api/pipeline/{job_id}/external-sync | | 파이프라인 외부 연동 API | | PROJECT-PIPELINE-B-203 | | 파이프라인 결과 또는 상태를 외부 모듈/서비스와 연동 |
+### DB 테이블 기준
+### | DB 컬럼 | | API 필드 | | 타입 | | 설명 |
+### | id | | jobId | | UUID | | 분석 작업 고유 ID |
+### | repo_url | | repoUrl | | String | | GitHub 저장소 URL |
+### | repo_name | | repoName | | String | | 저장소 이름 |
+### | owner | | owner | | String | | 저장소 소유자 |
+### | branch | | branch | | String | | 분석 대상 브랜치 |
+### | status | | status | | String | | 작업 상태 |
+### | stage | | currentStage | | String | | 현재 파이프라인 단계 |
+### | progress | | progress | | Integer | | 진행률 |
+### | message | | message | | String | | 사용자 표시용 진행 메시지 |
+### | created_at | | createdAt | | String | | 생성 시각 |
+### | updated_at | | updatedAt | | String | | 수정 시각 |
+### PROJECT-PIPELINE-API-001
+### | 항목 | | 값 |
+### | Endpoint | | /api/pipeline/{job_id}/status |
+### | Method | | GET |
+### | 관련 기능 ID | | PROJECT-PIPELINE-B-201, PROJECT-PIPELINE-F-201 |
+### | 목적 | | 분석 job의 현재 분석 단계, 분석 수준 안내 메시지, 진행률 조회 |
+### | 담당 | | |
+### | 담당 슬라이스 | | |
+### | 상태 | | 시작 전 |
+### 요청(Request)
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### | Accept | | application/json | | N | | 응답 형식 |
+### | 필드명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | UUID | | Y | | 상태를 조회할 분석 작업 ID |
+### GET /api/pipeline/8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e/status HTTP/1.1
+### Host: localhost:8000
+### Authorization: Bearer eyJhbGci...
+### Accept: application/json
+### 응답(Response)
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 |
+### | message | | String | | success |
+### | data.jobId | | UUID | | 분석 작업 고유 ID |
+### | data.status | | String | | queued, running, completed, failed |
+### | data.analysisLevel | | String | | shallow, deep |
+### | data.currentStage | | String | | 현재 파이프라인 단계 |
+### | data.progress | | Integer | | 진행률 |
+### | data.displayMessage | | String | | 현재 분석 수준 안내 메시지 |
+### | data.updatedAt | | String | | 상태 수정 시각 |
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+### "status": "running",
+### "analysisLevel": "shallow",
+### "currentStage": "PARSE",
+### "progress": 35,
+### "displayMessage": "현재 기본 구조 분석을 진행 중입니다.",
+### "updatedAt": "2026-06-18T02:05:00Z"
+### }
+### }
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 400 | | INVALID_JOB_ID | | Path 검증 | | job_id가 UUID 형식이 아님 |
+### | 401 | | UNAUTHORIZED | | 인증 검증 | | 토큰이 누락되었거나 만료됨 |
+### | 404 | | JOB_NOT_FOUND | | DB 조회 | | 해당 job_id가 존재하지 않음 |
+### | 500 | | DATABASE_ERROR | | DB 조회 | | 데이터베이스 조회 중 예외 발생 |
+### PROJECT-PIPELINE-API-002
+### | 항목 | | 값 |
+### | Endpoint | | /api/pipeline/{job_id}/deep-analysis |
+### | Method | | POST |
+### | 관련 기능 ID | | PROJECT-PIPELINE-B-202, PROJECT-PIPELINE-F-202 |
+### | 목적 | | 얕은 분석 이후 깊은 분석 파이프라인을 비동기로 시작 |
+### | 담당 | | |
+### | 담당 슬라이스 | | |
+### | 상태 | | 시작 전 |
+### 요청(Request)
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### | 필드명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | UUID | | Y | | 깊은 분석을 시작할 분석 작업 ID |
+### | 필드명 | | 타입 | | 필수 | | 기본값 | | 설명 |
+### | force | | Boolean | | N | | false | | 이미 실행 중이거나 완료된 깊은 분석을 강제로 재시작할지 여부 |
+### {
+### "force": false
+### }
+### 응답(Response)
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 |
+### | message | | String | | accepted |
+### | data.jobId | | UUID | | 분석 작업 고유 ID |
+### | data.status | | String | | queued, running |
+### | data.analysisLevel | | String | | deep |
+### | data.currentStage | | String | | 시작된 파이프라인 단계 |
+### | data.progress | | Integer | | 진행률 |
+### {
+### "code": 202,
+### "message": "accepted",
+### "data": {
+### "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+### "status": "queued",
+### "analysisLevel": "deep",
+### "currentStage": "EMBED",
+### "progress": 0
+### }
+### }
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 401 | | UNAUTHORIZED | | 인증 검증 | | 토큰이 누락되었거나 만료됨 |
+### | 404 | | JOB_NOT_FOUND | | DB 조회 | | 해당 job_id가 존재하지 않음 |
+### | 409 | | PIPELINE_ALREADY_RUNNING | | 상태 검증 | | 해당 job의 깊은 분석이 이미 실행 중 |
+### | 422 | | SHALLOW_ANALYSIS_NOT_COMPLETED | | 상태 검증 | | 깊은 분석 시작 전 필요한 선행 분석이 완료되지 않음 |
+### | 500 | | PIPELINE_START_FAILED | | 파이프라인 시작 | | 비동기 파이프라인 시작 중 예외 발생 |
+### PROJECT-PIPELINE-API-003
+### | 항목 | | 값 |
+### | Endpoint | | /ws/pipeline/progress/{job_id} |
+### | Method | | WEBSOCKET |
+### | 관련 기능 ID | | PROJECT-PIPELINE-F-301, PROJECT-PIPELINE-F-202 |
+### | 목적 | | 얕은/깊은 분석 단계별 진행률 실시간 수신 |
+### | 담당 | | |
+### | 담당 슬라이스 | | |
+### | 상태 | | 시작 전 |
+### 연결 규격
+### | 파라미터명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | UUID | | Y | | 진행률을 추적할 분석 작업 ID |
+### GET /ws/pipeline/progress/8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e HTTP/1.1
+### Host: localhost:8000
+### Upgrade: websocket
+### Connection: Upgrade
+### 발행 데이터 포맷
+### | 필드명 | | 타입 | | 설명 |
+### | type | | String | | pipeline_progress, pipeline_completed, pipeline_failed |
+### | jobId | | UUID | | 분석 작업 고유 ID |
+### | analysisLevel | | String | | shallow, deep |
+### | stage | | String | | 현재 단계 |
+### | status | | String | | queued, running, completed, failed |
+### | progress | | Integer | | 진행률 |
+### | message | | String | | 사용자 표시용 진행 메시지 |
+### | errorMessage | | String | | 실패 사유. 실패가 아니면 null |
+### {
+### "type": "pipeline_progress",
+### "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+### "analysisLevel": "deep",
+### "stage": "EMBED",
+### "status": "running",
+### "progress": 60,
+### "message": "코드 임베딩을 생성하는 중입니다.",
+### "errorMessage": null
+### }
+### 종료 조건: pipeline_completed 수신 시 연결 정리, pipeline_failed 수신 시 실패 메시지 저장 후 연결 정리
+### PROJECT-PIPELINE-API-004
+### | 항목 | | 값 |
+### | Endpoint | | /api/pipeline/{job_id}/external-sync |
+### | Method | | POST |
+### | 관련 기능 ID | | PROJECT-PIPELINE-B-203 |
+### | 목적 | | 파이프라인 결과 또는 상태를 외부 모듈/서비스와 연동 |
+### | 담당 | | |
+### | 담당 슬라이스 | | |
+### | 상태 | | 시작 전 |
+### 요청(Request)
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {service_token} | | Y | | 내부 서비스 토큰 |
+### | 필드명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | UUID | | Y | | 외부 연동 대상 분석 작업 ID |
+### | 필드명 | | 타입 | | 필수 | | 기본값 | | 설명 |
+### | target | | String | | Y | | - | | 연동 대상. Notion에서 세부 값 미확인 |
+### | payload | | Object | | N | | {} | | 외부 연동에 전달할 데이터 |
+### {
+### "target": "",
+### "payload": {}
+### }
+### 응답(Response)
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 |
+### | message | | String | | success |
+### | data.jobId | | UUID | | 분석 작업 고유 ID |
+### | data.target | | String | | 연동 대상 |
+### | data.synced | | Boolean | | 연동 성공 여부 |
+### | data.updatedAt | | String | | 연동 완료 시각 |
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+### "target": "",
+### "synced": true,
+### "updatedAt": "2026-06-18T02:10:00Z"
+### }
+### }
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 400 | | INVALID_SYNC_TARGET | | 요청 검증 | | 연동 대상 값이 올바르지 않음 |
+### | 401 | | UNAUTHORIZED | | 인증 검증 | | 내부 서비스 토큰 누락 또는 만료 |
+### | 404 | | JOB_NOT_FOUND | | DB 조회 | | 해당 job_id가 존재하지 않음 |
+### | 500 | | EXTERNAL_SYNC_FAILED | | 외부 연동 | | 외부 연동 중 예외 발생 |

@@ -1,0 +1,77 @@
+### ============================================================================
+### Notion 원문 보관본: PROJECT-REPO-API-001
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-001 3238086c7a27423580b262ade7bca7fd.html
+### 원본 SHA-256: f3a339c21ded1dd6101e84638f6741cd648ce16e9914d5f221401c3cd06fef61
+### 원문 토큰 수: 338
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### PROJECT-REPO-API-001
+### | Endpoint | | /api/repo/analysis |
+### | Method | | POST |
+### | 관련 기능 ID | | PROJECT-REPO-B-101, PROJECT-REPO-B-303, PROJECT-REPO-F-202 |
+### | 담당 | | oosuhada |
+### | 담당 슬라이스 | | 등록/API/상태 |
+### | 목적 | | 저장소 분석 작업 생성 |
+### | 상태 | |
+### 완료 |
+### POST /api/analysis 프로젝트 등록 (분석 요청)
+### 기능 ID: PROJECT-REPO-B-101
+### 🏗️
+### GitHub 저장소 URL을 받아 분석 작업을 등록하고 job_id를 발급한다. 내부적으로 URL 검증 → Clone → 파일 필터링 → Code Map → Doc Generation → Onboarding Guide → Report 저장 순서로 비동기 처리되며, 각 단계의 진행 상태는 WebSocket(/ws/progress/{job_id})으로 실시간 push된다.
+### 요청 (Request)
+### ■ Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### ■ Request Body (application/json)
+### | 필드명 | | 타입 | | 필수 | | 기본값 | | 설명 |
+### | repoUrl | | String | | Y | | - | | 분석할 GitHub 저장소 URL (https://github.com/owner/repo 형식) |
+### | branch | | String | | N | | 저장소 기본 브랜치 | | 분석 대상 브랜치. 미입력 시 GitHub API로 기본 브랜치를 조회하여 사용 |
+### ■ 요청 예시
+### Content-Type: application/json
+### Authorization: Bearer eyJhbGci...
+### {
+### "repoUrl": "https://github.com/username/my-project",
+### "branch": "main"
+### }
+### 응답 (Response)
+### ■ 성공 응답 — 201 Created
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 (201) |
+### | message | | String | | "created" |
+### | data.jobId | | String (UUID) | | 발급된 분석 작업 고유 ID |
+### | data.repoName | | String | | 저장소 이름 |
+### | data.owner | | String | | 저장소 소유자 |
+### | data.branch | | String | | 분석 대상 브랜치 |
+### | data.status | | String | | 초기 상태: IN_PROGRESS |
+### | data.createdAt | | String (ISO 8601) | | 작업 생성 시각 |
+### ■ 응답 예시
+### {
+### "code": 201,
+### "message": "created",
+### "data": {
+### "jobId": "550e8400-e29b-41d4-a716-446655440000",
+### "repoName": "my-project",
+### "owner": "username",
+### "branch": "main",
+### "status": "IN_PROGRESS",
+### "createdAt": "2025-06-17T09:00:00Z"
+### }
+### }
+### ■ 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 400 | | INVALID_REPO_URL | | URL 파싱 | | GitHub URL 형식이 올바르지 않음 |
+### | 404 | | REPOSITORY_NOT_FOUND | | Clone 시도 | | 저장소가 없거나 접근 불가 (private/삭제) |
+### | 408 | | CLONE_TIMEOUT | | Clone 실행 | | clone 제한 시간 초과 |
+### | 409 | | ALREADY_IN_PROGRESS | | 작업 등록 | | 동일 저장소 분석이 이미 진행 중 |
+### | 413 | | FILE_LIMIT_EXCEEDED | | Clone 후 검증 | | 실제 파일 수 또는 용량 제한 초과 |
+### | 422 | | REPO_LIMIT_EXCEEDED | | 사전 검증 | | Clone 전 GitHub API 기준 용량 초과 |
+### | 500 | | CLONE_FAILED | | Clone 실행 | | clone 중 subprocess 오류 발생 |
+### | 500 | | WORKSPACE_CLEANUP_FAILED | | cleanup 단계 | | 임시 디렉토리 삭제 실패 (내부 알람 발송) |
+### 🏗️
+### 비고
+### 📌 WORKSPACE_CLEANUP_FAILED는 클라이언트 UX에 영향을 주지 않으며, 내부 슬랙 알람으로 처리한다. 필요 시 별도 cleanup 재시도 API를 추가 정의한다.
+### 📌 branch 미입력 시 GitHub REST API GET /repos/{owner}/{repo} 의 default_branch 필드를 사용한다.
+### 📌 분석 진행 상태는 WebSocket /ws/progress/{job_id} (PROJECT-REPO-F-101) 을 통해 실시간으로 수신한다.

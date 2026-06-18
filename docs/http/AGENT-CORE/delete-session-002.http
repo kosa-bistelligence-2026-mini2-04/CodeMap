@@ -1,0 +1,35 @@
+# ============================================================
+# API ID  : AGENT-CORE-API-002
+# 기능명  : 에이전트 세션 종료
+# Method  : DELETE
+# Endpoint: /api/chat/{repo_id}/session/{session_id}
+# Auth    : 필요
+# 관련 기능 ID: AGENT-CORE-B-202
+# 상태    : 시작 전
+#
+# Description:
+# 실행 중인 에이전트 세션을 강제 종료하고 리소스를 정리한다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+@session_id = replace-me-session_id
+
+### 정상 요청
+DELETE {{baseUrl}}/api/chat/{{repo_id}}/session/{{session_id}}
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {"sessionId": "...", "status": "terminated", "cleanedAt": "2026-06-18T10:15:00Z"}
+# }
+
+
+### 에러 케이스 - 인증 없음
+DELETE {{baseUrl}}/api/chat/{{repo_id}}/session/{{session_id}}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }

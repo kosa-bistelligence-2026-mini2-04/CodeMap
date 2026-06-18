@@ -1,0 +1,72 @@
+### ============================================================================
+### Notion 원문 보관본: 파이프라인-실행-명세
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/파이프라인 실행 명세 383cc46ed954806395b2c7f39e1803dc.html
+### 원본 SHA-256: 5ebbe2859a1238d2e63f83a79d132948d320fe3db038dcb565681ee402c777d6
+### 원문 토큰 수: 353
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### 파이프라인 실행 명세
+### | 상태 | |
+### 시작 전 |
+### 📌 문서 2 — 파이프라인 실행 명세
+### 전체 통합 흐름
+### POST /api/repo/analysis (이미 구현됨)
+### └─ AnalysisPipelineSupervisor.run()
+### │
+### ├─ clone_node (PROJECT, 이미 구현됨)
+### │
+### ├─ code_map_node (PROJECT)
+### │ └─ 호출: parse.service.run_parse_pipeline(state)
+### │ └─ B-201~B-210 순차 실행
+### │ └─ returns ParseResult
+### │ └─ state["messages"] 에 ParseResult JSON 직렬화하여 저장
+### │
+### ├─ doc_gen_node (PROJECT, 이미 구현됨)
+### │ └─ state["messages"] 의 ParseResult 컨텍스트 활용
+### │
+### ├─ onboarding_node (PROJECT, 이미 구현됨)
+### │
+### └─ report_node (PROJECT)
+### └─ 호출: embed.service.run_embed_pipeline(EmbedRequest)
+### └─ B-201, B-301 실행 후 pgvector 저장
+### └─ returns EmbedResult
+### 팀 1 — 파싱 단계별 명세 (backend/app/parse/service.py)
+### | 기능 ID | | 함수 | | 입력 | | 출력 | | LLM | | 비고 |
+### | B-201 | | parse_readme | | clone_path: str | | str | None | | gpt-4o-mini | | README.md 없으면 None |
+### | B-202 | | analyze_directory | | clone_path: str | | list[ParsedFile] | | - | | content/chunks 비어있는 상태 |
+### | B-203 | | find_entry_points | | list[ParsedFile] | | list[str] | | - | | main > index > app 순 탐색 |
+### | B-204 | | tag_config_files | | list[ParsedFile] | | list[ParsedFile] | | - | | metadata에 is_config: True |
+### | B-205 | | extract_run_commands | | list[ParsedFile] | | list[str] | | - | | package.json scripts 등 |
+### | B-206 | | detect_tech_stack | | list[ParsedFile] | | list[str] | | - | | dependencies 기반 |
+### | B-207 | | chunk_by_ast | | list[ParsedFile] | | list[ParsedFile] | | - | | 최대 500토큰, 실패시 단일 청크 |
+### | B-208 | | analyze_imports | | list[ParsedFile] | | list[ParsedFile] | | - | | 저장소 루트 기준 상대경로 |
+### | B-209 | | build_hierarchical_summary | | list[ParsedFile] | | tuple[list[ParsedFile], str] | | gpt-4o-mini | | 파일→폴더→마스터 |
+### | B-210 | | run_structure_agent | | list[ParsedFile], list[str] | | list[ParsedFile] | | gpt-4o | | 최대 5회, 20초 timeout |
+### 필터링 규칙은 이미 repo/service.py 의 _filter_workspace에서 적용되어 있으므로 팀 1은 추가 필터링 불필요
+### 팀 2 — 임베딩/저장 단계별 명세 (backend/app/embed/service.py, repository.py)
+### | 기능 ID | | 함수 | | 입력 | | 출력 | | 비고 |
+### | B-201 | | generate_embeddings | | list[ParsedFile] | | list[ParsedFile] | | text-embedding-3-large, 1536차원 |
+### | B-301 | | save_to_pgvector | | job_id, list[ParsedFile] | | EmbedResult | | repository.py 분리 |
+### DB 매핑 — 새 테이블 추가 필요
+### 기존 analysis_jobs 테이블만 있으므로 RAG 결과 저장용 테이블 추가:
+### python
+### # backend/app/embed/models.py (신규 작성)
+### class CodeNode(Base):
+### __tablename__ = "code_nodes"
+### id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+### job_id: Mapped[UUID] = mapped_column(ForeignKey("analysis_jobs.id", ondelete="CASCADE"))
+### path: Mapped[str] = mapped_column(Text, nullable=False)
+### type: Mapped[str] = mapped_column(String(20)) # FILE / DIRECTORY
+### depth: Mapped[int]
+### content: Mapped[str | None] = mapped_column(Text, nullable=True)
+### summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+### embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+### file_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+### # metadata는 SQLAlchemy 예약어라 file_metadata로 명명
+### class Dependency(Base):
+### __tablename__ = "dependencies"
+### source_id: Mapped[UUID] = mapped_column(ForeignKey("code_nodes.id"), primary_key=True)
+### target_id: Mapped[UUID] = mapped_column(ForeignKey("code_nodes.id"), primary_key=True)
+### 📌 analysis_jobs.id 를 외래키로 사용 (PROJECT 팀이 이미 구현한 테이블 활용)

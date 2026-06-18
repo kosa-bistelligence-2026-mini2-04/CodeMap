@@ -1,0 +1,98 @@
+### ============================================================
+### PROJECT-LIST-API-001
+### ============================================================
+### API ID      : PROJECT-LIST-API-001
+### Endpoint    : GET /api/list/analysis
+### Method      : GET
+### 관련 기능 ID : PROJECT-LIST-B-101, PROJECT-LIST-B-202, PROJECT-LIST-B-301
+###               PROJECT-LIST-F-101, PROJECT-LIST-F-201
+### 담당         : 강영우
+### 담당 슬라이스: 등록/API/상태
+### 목적         : 전체 저장소 분석 이력 및 작업 목록 조회
+### 상태         : 완료
+### ============================================================
+
+### 설명 (Description)
+### 사용자가 이전에 분석을 시도했거나 완료한 전체 레포지토리 및 작업(Job) 목록을 반환합니다.
+### 페이징 처리를 지원하여 성능 부하를 방지합니다.
+
+# ─── Variables ────────────────────────────────────────────────
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+
+# ─── Query Parameters (선택) ──────────────────────────────────
+# | 필드명 | 타입    | 필수 | 기본값 | 설명                     |
+# | page   | Integer | N    | 1      | 조회할 페이지 번호        |
+# | limit  | Integer | N    | 10     | 페이지당 반환할 이력 수   |
+
+
+###
+### [001] GET /api/list/analysis — 전체 분석 이력 목록 조회 (기능 ID: PROJECT-LIST-B-101)
+###
+GET {{baseUrl}}/api/list/analysis?page=1&limit=10 HTTP/1.1
+Authorization: Bearer {{accessToken}}
+
+# ─── 성공 응답 (200 OK) ───────────────────────────────────────
+# | 필드명                 | 타입           | 설명                                                                |
+# | code                  | Integer        | HTTP 상태 코드 (200)                                               |
+# | message               | String         | "success"                                                          |
+# | data.totalCount       | Integer        | 전체 분석 이력 수                                                   |
+# | data.page             | Integer        | 현재 페이지 번호                                                    |
+# | data.limit            | Integer        | 페이지당 반환 개수                                                  |
+# | data.jobs             | Array          | 분석 작업 목록 배열                                                 |
+# | data.jobs[].jobId     | String (UUID)  | 분석 작업 고유 ID                                                   |
+# | data.jobs[].repoUrl   | String         | GitHub 저장소 URL                                                   |
+# | data.jobs[].branch    | String         | 분석 대상 브랜치                                                    |
+# | data.jobs[].status    | String         | 작업 상태 (queued, running, completed, failed)                      |
+# | data.jobs[].progress  | Integer        | 작업 진행률 (0 ~ 100)                                               |
+# | data.jobs[].failedAgent   | String     | 실패한 에이전트명 (실패 시에만 제공, 그 외 null)                    |
+# | data.jobs[].errorMessage  | String     | 예외 발생 시 구체적인 에러 메시지 (실패 시에만 제공, 그 외 null)    |
+# | data.jobs[].createdAt | String (ISO 8601) | 작업 생성 시각                                                   |
+# | data.jobs[].updatedAt | String (ISO 8601) | 작업 최종 변경 시각                                               |
+
+# ─── 응답 예시 ────────────────────────────────────────────────
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "totalCount": 2,
+#     "page": 1,
+#     "limit": 10,
+#     "jobs": [
+#       {
+#         "jobId": "e94cc46e-d954-83fd-af3c-01123425f0b0",
+#         "repoUrl": "https://github.com/example/my-awesome-repo",
+#         "branch": "main",
+#         "status": "completed",
+#         "progress": 100,
+#         "failedAgent": null,
+#         "errorMessage": null,
+#         "createdAt": "2026-06-17T10:00:00Z",
+#         "updatedAt": "2026-06-17T10:15:30Z"
+#       },
+#       {
+#         "jobId": "0a8cc46e-d954-82c0-897c-013b0f2227b3",
+#         "repoUrl": "https://github.com/example/broken-repo",
+#         "branch": "develop",
+#         "status": "failed",
+#         "progress": 45,
+#         "failedAgent": "embed_agent",
+#         "errorMessage": "Vector Embedding API Timeout: Request took longer than 30s.",
+#         "createdAt": "2026-06-17T18:30:00Z",
+#         "updatedAt": "2026-06-17T18:32:15Z"
+#       }
+#     ]
+#   }
+# }
+
+# ─── 에러 응답 ────────────────────────────────────────────────
+# | HTTP Status | Error Code     | 발생 시점  | 설명                              |
+# | 401         | UNAUTHORIZED   | 인증 검증  | 토큰이 누락되었거나 만료됨         |
+# | 500         | DATABASE_ERROR | DB 조회    | 데이터베이스 조회 중 예외 발생     |
+
+
+###
+### [001-ERR] 401 Unauthorized — 토큰 누락 테스트
+###
+GET {{baseUrl}}/api/list/analysis?page=1&limit=10 HTTP/1.1
+# Authorization 헤더 의도적으로 생략 → 401 UNAUTHORIZED 예상

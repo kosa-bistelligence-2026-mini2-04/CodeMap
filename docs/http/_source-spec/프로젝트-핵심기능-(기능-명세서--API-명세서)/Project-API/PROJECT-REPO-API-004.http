@@ -1,0 +1,70 @@
+### ============================================================================
+### Notion 원문 보관본: PROJECT-REPO-API-004
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-004 d4838ac0b789410687e58f4b6007bc5e.html
+### 원본 SHA-256: 8282fb6c3eb556bfda5f2f390e3624973a937bece6392ca82605c2969b1d95ce
+### 원문 토큰 수: 291
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### PROJECT-REPO-API-004
+### | Endpoint | | /api/repo/analysis/{job_id}/clone |
+### | Method | | POST |
+### | 관련 기능 ID | | PROJECT-REPO-B-201, PROJECT-REPO-B-202, PROJECT-REPO-B-203 |
+### | 담당 | | 김효 |
+### | 담당 슬라이스 | | URL/Clone/필터링 |
+### | 목적 | | 특정 job 기준 저장소 clone 실행 |
+### | 상태 | |
+### 완료 |
+### POST /api/project/repo/analysis/{job_id}/clone 특정 job 기준 저장소 clone 실행
+### 기능 ID: PROJECT-REPO-B-201, PROJECT-REPO-B-202, PROJECT-REPO-B-203 =
+### clone 전 파일 수·용량 사전 검증을 수행하며, clone 완료 후 node_modules, .git, build, dist, venv, .next, .env, key 등 불필요한 파일을 자동 필터링한다. timeout 설정이 적용되며 실패 시 임시 디렉토리를 자동 cleanup한다.
+### 요청 (Request)
+### ■ Headers
+### | 헤더명 | | 값 | | 필수 | | 설명 |
+### | Content-Type | | application/json | | Y | | 요청 본문 형식 |
+### | Authorization | | Bearer {access_token} | | Y | | 인증 토큰 |
+### ■ Path Parameters
+### | 파라미터명 | | 타입 | | 필수 | | 설명 |
+### | job_id | | String (UUID) | | Y | | 분석 작업 고유 ID |
+### ■ Request Body (application/json)
+### | 필드명 | | 타입 | | 필수 | | 기본값 | | 설명 |
+### | timeoutSeconds | | Integer | | N | | 300 | | clone 제한 시간 (초) |
+### ■ 요청 예시
+### json
+### {
+### "timeoutSeconds": 300
+### }
+### 응답 (Response)
+### ■ 성공 응답 — 200 OK
+### | 필드명 | | 타입 | | 설명 |
+### | code | | Integer | | HTTP 상태 코드 (200) |
+### | message | | String | | "success" |
+### | data.jobId | | String (UUID) | | 분석 작업 고유 ID |
+### | data.clonePath | | String | | 서버 내 clone 완료 경로 |
+### | data.fileCount | | Integer | | 필터링 후 분석 대상 파일 수 |
+### | data.sizeKb | | Integer | | 필터링 후 총 용량 (KB) |
+### ■ 응답 예시
+### json
+### {
+### "code": 200,
+### "message": "success",
+### "data": {
+### "jobId": "550e8400-e29b-41d4-a716-446655440000",
+### "clonePath": "/tmp/jobs/550e8400/repo",
+### "fileCount": 312,
+### "sizeKb": 4800
+### }
+### }
+### ■ 에러 응답
+### | HTTP Status | | Error Code | | 발생 시점 | | 설명 |
+### | 404 | | JOB_NOT_FOUND | | 요청 시 | | 존재하지 않는 job_id |
+### | 404 | | REPOSITORY_NOT_FOUND | | clone 시도 | | 저장소가 없거나 접근 불가 |
+### | 408 | | CLONE_TIMEOUT | | clone 실행 | | clone 제한 시간 초과 후 cleanup |
+### | 409 | | CLONE_ALREADY_DONE | | 요청 시 | | 이미 clone이 완료된 job |
+### | 413 | | FILE_LIMIT_EXCEEDED | | clone 후 검증 | | 실제 파일 수 또는 용량 제한 초과 |
+### | 500 | | CLONE_FAILED | | clone 실행 | | clone 중 subprocess 오류 발생 |
+### 비고
+### 📌 필터링 대상: node_modules/, .git/, build/, dist/, venv/, .next/, .env, key*, 바이너리 파일
+### 📌 timeout 초과 시 subprocess를 종료하고 임시 디렉토리를 cleanup한 후 CLONE_TIMEOUT을 반환한다.
+### 📌 이 API는 POST /api/project/repo/analysis 내부에서 자동 호출된다. 수동 재시도 시에만 직접 호출한다.

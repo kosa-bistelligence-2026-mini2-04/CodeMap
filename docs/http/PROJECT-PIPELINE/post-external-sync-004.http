@@ -1,0 +1,42 @@
+### ============================================================================
+### PROJECT-PIPELINE-API-004 | 파이프라인 외부 연동
+### Source of truth: Notion HTML export (source-confirmed, 계약 미확정)
+### Endpoint: POST /api/pipeline/{job_id}/external-sync
+### 관련 기능 ID: PROJECT-PIPELINE-B-203
+### 상태: 시작 전 / 초기 기능 명세 외 범위로 보류
+### 중요: target 허용값은 Notion 원문에도 정의되지 않았다. 구현 전 확정 필요.
+### ============================================================================
+
+@baseUrl = http://localhost:8000
+@serviceToken = replace-me-service-token
+@jobId = 8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e
+
+### [계약 초안] 외부 연동 요청
+POST {{baseUrl}}/api/pipeline/{{jobId}}/external-sync
+Authorization: Bearer {{serviceToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "target": "TODO_CONFIRM_TARGET",
+  "payload": {}
+}
+
+### 성공 응답 — 200 OK
+### {
+###   "code": 200,
+###   "message": "success",
+###   "data": {
+###     "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+###     "target": "TODO_CONFIRM_TARGET",
+###     "synced": true,
+###     "updatedAt": "2026-06-18T02:10:00Z"
+###   }
+### }
+
+### 에러 계약
+### | HTTP | Error Code          | 발생 시점 | 설명 |
+### | 400  | INVALID_SYNC_TARGET | 요청 검증 | 연동 대상 값이 올바르지 않음 |
+### | 401  | UNAUTHORIZED        | 인증 검증 | 내부 서비스 토큰 누락 또는 만료 |
+### | 404  | JOB_NOT_FOUND       | DB 조회   | job_id가 존재하지 않음 |
+### | 500  | EXTERNAL_SYNC_FAILED| 외부 연동 | 외부 연동 중 예외 |

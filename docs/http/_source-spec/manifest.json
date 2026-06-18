@@ -1,0 +1,916 @@
+{
+  "source_root": "/Users/gabriel/Downloads/Private & Shared 6",
+  "output_root": "/Users/gabriel/Development/langchain-kosa-biz/CodeMap/docs/http/_source-spec",
+  "source_file_count": 113,
+  "output_file_count": 113,
+  "source_token_count": 11522,
+  "preserved_token_count": 11522,
+  "missing_token_count": 0,
+  "coverage": 1.0,
+  "files": [
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-B-101 381cc46ed954806c9d32e3461ced2b12.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-B-101.http",
+      "sha256": "78cd88be5c14a8d1c6af97ce2d3244a3dd5eeb4c0feff487823c04c774a80378",
+      "source_tokens": 18,
+      "preserved_tokens": 18,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-B-201 19bcc46ed95482bdb82181df74fe83e8.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-B-201.http",
+      "sha256": "b23a9eb0e66f53be83af4781a3c30145c9bcfe5d478c51badbd60c335927e4a2",
+      "source_tokens": 21,
+      "preserved_tokens": 21,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-B-202 de3cc46ed954836b94100193a1e48d4b.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-B-202.http",
+      "sha256": "6737284d0f40dd8afd5c94bcc07e1c7c208c09c3e034fbbaa4df8419c6016ea2",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-F-201 5dbcc46ed9548273bdb8010d098f3485.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-F-201.http",
+      "sha256": "1781ae2cf6de0bc2641c3eb5d9f85efc0414433c2be867037a15248c4af4df5c",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-F-202 381cc46ed954813d908aff2e084892b9.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-F-202.http",
+      "sha256": "1fa09dcf64ce16b183bc9841de50e67a6ca6f23e12c48e547c8b81df1340d982",
+      "source_tokens": 34,
+      "preserved_tokens": 34,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-F-203 381cc46ed954818d922fcb3f2b7e54f8.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-F-203.http",
+      "sha256": "392a0f168ec9da46a15774c27eb9b44dbc633ff8fafcd80dabe202f6b57aa149",
+      "source_tokens": 21,
+      "preserved_tokens": 21,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-F-204 2cdcc46ed9548292914a01f2e26c8d16.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-F-204.http",
+      "sha256": "64760d4e0055e955182f952f25e7d314a39e5e097856a011ca03c0a658cb610e",
+      "source_tokens": 24,
+      "preserved_tokens": 24,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-F-205 381cc46ed95480c3806cc9010c4e4aa6.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-F-205.http",
+      "sha256": "8690032cdb8f027b3a20db7bcc35b3607da0c92c2eacdc875fba31c3fd60321a",
+      "source_tokens": 23,
+      "preserved_tokens": 23,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CHAT-F-206 828cc46ed954832fa3508194a727c3df.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CHAT-F-206.http",
+      "sha256": "afc72f7ed33f3a8b3c534808ed79e5d241fa3a67381cfa7570199b5a74939aca",
+      "source_tokens": 18,
+      "preserved_tokens": 18,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CORE-B-201 381cc46ed9548062ba1adeca456b259e.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CORE-B-201.http",
+      "sha256": "cee54929099089cc15c343fa051d417832a119851485030c60f2b24b63a714fa",
+      "source_tokens": 22,
+      "preserved_tokens": 22,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CORE-B-202 381cc46ed9548008b432e39b0fcc8893.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CORE-B-202.http",
+      "sha256": "290ec095761060b6ef62aee29e5cf29b5d8b442add412645ed3f7ebe58b09cea",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CORE-B-203 381cc46ed95480b3b9b7ce832ff4281e.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CORE-B-203.http",
+      "sha256": "e948b20cbeecd576a39e566fa42bdd396166223fcb974132698499862cead85a",
+      "source_tokens": 21,
+      "preserved_tokens": 21,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CORE-B-204 381cc46ed95480f5b141fc443ee25420.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CORE-B-204.http",
+      "sha256": "616b9e03cd842a597013fcc50fea7536a65a651dd4d5189b4a20d9253a8d1407",
+      "source_tokens": 24,
+      "preserved_tokens": 24,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-CORE-F-201 381cc46ed954805f9b0cd274e2c577bb.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-CORE-F-201.http",
+      "sha256": "3a34518c37c2237aeb0ae30559fe50361a45634efc3bfec0362fb479a93da464",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-SEARCH-B-201 230cc46ed95482cab55e0198e919c082.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-SEARCH-B-201.http",
+      "sha256": "3e2391f788044b6ae8793d7c9afc9b410d34f75f242466bde945328ca5ecbe71",
+      "source_tokens": 21,
+      "preserved_tokens": 21,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-SEARCH-B-202 b39cc46ed95482fc8b5781e83c188b9b.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-SEARCH-B-202.http",
+      "sha256": "445e606b82f010193a38d3e3dbd522fc5e594cf4fc3155d2bccfcd6904d8fefb",
+      "source_tokens": 19,
+      "preserved_tokens": 19,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-SEARCH-B-203 787cc46ed954833e8c820145ae16e4e0.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-SEARCH-B-203.http",
+      "sha256": "94011453b4b9e696f1459408d92f8e456b6a9b29ad84061a8ae6644fe0f30952",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-SEARCH-B-204 381cc46ed95480d88d30df7c9e0404cb.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-SEARCH-B-204.http",
+      "sha256": "ac93e8f684dc16021946f555f2ee284491f7fa64b3c3a28b5155deff55e55263",
+      "source_tokens": 26,
+      "preserved_tokens": 26,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/AGENT/AGENT-SEARCH-B-205 e06cc46ed95483ec800881e3284dc7be.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/AGENT/AGENT-SEARCH-B-205.http",
+      "sha256": "2f0032501132037e4221f131d07096c59254b0212e24f50a0cf836e69042df22",
+      "source_tokens": 30,
+      "preserved_tokens": 30,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-101 0e6cc46ed95482c7aaa9010ac4c86b7c.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-101.http",
+      "sha256": "11a1e9b084c050e5c038d13d987368ce9ff3ab92572be7217dfc91e6dfc7b886",
+      "source_tokens": 23,
+      "preserved_tokens": 23,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-201 f2dcc46ed95482e2ad1201704933ec33.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-201.http",
+      "sha256": "7249d8c97af5fd73b6523287a74e1e1d81666c1034783622c8f93c5fa8ea436a",
+      "source_tokens": 25,
+      "preserved_tokens": 25,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-202 139cc46ed9548324841d81105d774e4e.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-202.http",
+      "sha256": "2125f7afb4b35697e6dc15e58abc19b7975bead63c8e04928c39d4ae471d3a96",
+      "source_tokens": 25,
+      "preserved_tokens": 25,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-203 746cc46ed95483ff83088102e6fe19b9.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-203.http",
+      "sha256": "5f697ff94580256945555df31a9a416b1bc0a3c95844baca6fcdcfbf51d9eb4b",
+      "source_tokens": 22,
+      "preserved_tokens": 22,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-204 f7ecc46ed9548340975a819a19fb9829.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-204.http",
+      "sha256": "aae56ee200d5ee5c01686f83e9e9e822440220cf94e0f75224f6c662914003de",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-205 381cc46ed954808b99c3c59b86d37b86.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-205.http",
+      "sha256": "8977569f9e31b2b1d224c7c55dd7243182919f4553b5e980bbebbc03d20fcb86",
+      "source_tokens": 23,
+      "preserved_tokens": 23,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-206 b77cc46ed95483c0a6bf81bc481c74fa.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-206.http",
+      "sha256": "8d1fcd97fc839c688c71b5ea724852d6144faaa1fa66fb29a92d3866cc87e800",
+      "source_tokens": 22,
+      "preserved_tokens": 22,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-207 6dbcc46ed954837caab181110dedd70f.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-207.http",
+      "sha256": "b45adaed27089ef5dca4bfc623f357d11abc9d1ce3a1388fdc1868509c8f2718",
+      "source_tokens": 19,
+      "preserved_tokens": 19,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-B-301 498cc46ed9548261ab86019760f2afc6.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-B-301.http",
+      "sha256": "f5d1b485f21f09b13a0384af09d7c44a997e31c041552405710d3919b196bcd8",
+      "source_tokens": 18,
+      "preserved_tokens": 18,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-F-101 257cc46ed954831d978681d5098b4e7c.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-F-101.http",
+      "sha256": "3353c2e85777347dc306fe669c809e619c6820bc21cb9003d3d2262777e65ce1",
+      "source_tokens": 19,
+      "preserved_tokens": 19,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-F-201 86fcc46ed95483e5922d813cd3a63206.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-F-201.http",
+      "sha256": "f94e264d67d74c71491c3a126c9c2578258463db8590d611c670fd52c777c043",
+      "source_tokens": 22,
+      "preserved_tokens": 22,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-F-202 381cc46ed95480c2a3b7e9b644659a5c.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-F-202.http",
+      "sha256": "2548810751920656d9e3b70ba3586e201d3fb027c4cfe83ea0139be0173c7408",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GEN-F-203 381cc46ed95480cd8ec8cfeefc923af0.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GEN-F-203.http",
+      "sha256": "020d4fae35099877102a3c98947a8416f7bc88de7168158319d5d4b56da90826",
+      "source_tokens": 28,
+      "preserved_tokens": 28,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/DOCS/DOCS-GUARD-B-201 381cc46ed9548161823ee966bf5579a0.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/DOCS/DOCS-GUARD-B-201.http",
+      "sha256": "cb86d0231a6c383841232ce8454416cb0631e9cb8618973da25c78320844092b",
+      "source_tokens": 31,
+      "preserved_tokens": 31,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/AGENT-CHAT-B-203 381cc46ed95481bfa3f7e2dadc681750.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/AGENT-CHAT-B-203.http",
+      "sha256": "680c7e7e365fb8426ff3df6955926fdff40fc7abb03a3e975111186dd876becf",
+      "source_tokens": 28,
+      "preserved_tokens": 28,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/AGENT-SEARCH-B-206 381cc46ed954815ab7ecdf44ad5125c2.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/AGENT-SEARCH-B-206.http",
+      "sha256": "5ed147205e9e6da5cd80f2389636f4c7a22c50dd3e3b03ac54ec27531a58fbca",
+      "source_tokens": 29,
+      "preserved_tokens": 29,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/AGENT-SEARCH-B-207 381cc46ed954812dbb55c0a8a31886c4.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/AGENT-SEARCH-B-207.http",
+      "sha256": "4f8e038c0f66d8f68cb8d11c7f47d04bec1a7d1973a6f4fc94ad4c58af167d3d",
+      "source_tokens": 24,
+      "preserved_tokens": 24,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/DOCS-GEN-B-208 381cc46ed9548163b24aded3b05d1976.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/DOCS-GEN-B-208.http",
+      "sha256": "271a6efb713a0b70fec0020ecce861f0f0f5269f465b03d44611f98d206b3069",
+      "source_tokens": 26,
+      "preserved_tokens": 26,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/DOCS-UTIL-B-201 381cc46ed954810cbd35f8303dffaf67.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/DOCS-UTIL-B-201.http",
+      "sha256": "3027e2344cd702a73dac6106e669b2f2ed20ce5bc2fc22fe3d185859cfccc061",
+      "source_tokens": 29,
+      "preserved_tokens": 29,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-LIST-B-202 0a4cc46ed9548352bea30134750413dc.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-LIST-B-202.http",
+      "sha256": "6c8319d6ac0ed5c8d4e3f23ce1ba3a23385ed0ba57d0644dd2fc45cc2d52ac98",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-LIST-B-301 43dcc46ed9548355bc8881fe4ea5cafa.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-LIST-B-301.http",
+      "sha256": "42251b70e3eeb748eaa56ce33aba86eacc46d389d9bf4e219570583894542b36",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-LIST-F-201 e43cc46ed95483dea01001ead667ad96.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-LIST-F-201.http",
+      "sha256": "f8501347654439a6ef7cd2b51ebe6cd2ccf861cd849279c953d2a67d395fa0e3",
+      "source_tokens": 25,
+      "preserved_tokens": 25,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-LIST-F-202 404cc46ed954826ea91f81ba1c1297ef.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-LIST-F-202.http",
+      "sha256": "601c7a9eec89a2cad8fd73194204f4bf4c7d520dac3c9e894c209b282e364d43",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-LIST-F-203 0a8cc46ed95482c0897c013b0f2227b3.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-LIST-F-203.http",
+      "sha256": "c363bea1c142d41177f825bace0e41112e63307c8d8e9783557a82d3c211a2fd",
+      "source_tokens": 31,
+      "preserved_tokens": 31,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-PIPELINE-B-201 42ecc46ed95482058163813bfab87a25.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-PIPELINE-B-201.http",
+      "sha256": "d70bac4cae7389060c91b849cf0079993c6aa4e49b116ac462b329fc06796b53",
+      "source_tokens": 26,
+      "preserved_tokens": 26,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-PIPELINE-B-202 381cc46ed95480df91f6d28e8a60c281.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-PIPELINE-B-202.http",
+      "sha256": "1c7b10deefc5527f19c444d7ff78ecedf3228c06f5fd17fb038e7e229ccd7243",
+      "source_tokens": 31,
+      "preserved_tokens": 31,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-PIPELINE-B-203 381cc46ed95480d4975ad499d5ccfa86.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-PIPELINE-B-203.http",
+      "sha256": "0ef57975d839405e743a8f80a8bb08090f586c87fac5f2ecf8a11aad72f99f2a",
+      "source_tokens": 24,
+      "preserved_tokens": 24,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-PIPELINE-F-201 381cc46ed95480f48b73f6f47ad504c2.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-PIPELINE-F-201.http",
+      "sha256": "0bca83e266d6955dc3d5fecb68b069977c58abb464cbfac10290d1059fd30061",
+      "source_tokens": 40,
+      "preserved_tokens": 40,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-PIPELINE-F-202 381cc46ed954807ba4e4dfa6a03fee30.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-PIPELINE-F-202.http",
+      "sha256": "89b3341b25208821af61b3c9c5ef42cf6cce7692153b9c68494b80fcca820662",
+      "source_tokens": 42,
+      "preserved_tokens": 42,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-PIPELINE-F-301 381cc46ed95480aabfdde14f01bfaeff.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-PIPELINE-F-301.http",
+      "sha256": "7751b2013d63e00470ad4be3fba18cb5d51c2f55122c31e0eeed6f58033364f5",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/PROJECT-REPO-B-303 381cc46ed95480009e47e604e91628e9.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/PROJECT-REPO-B-303.http",
+      "sha256": "f6bfc262055b19fd16d10972691441b14fd424bb83cb85633e799c4d6b1e2085",
+      "source_tokens": 23,
+      "preserved_tokens": 23,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/RAG-GRAPH-B-201 381cc46ed9548071a8a6cd048d8dec61.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/RAG-GRAPH-B-201.http",
+      "sha256": "e5caab4935558f6f478ba5384a8312f3b68f420de4dc850787ca0b2cadd29757",
+      "source_tokens": 30,
+      "preserved_tokens": 30,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/RAG-GRAPH-F-201 381cc46ed95480d89a1fe78d725519a0.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/RAG-GRAPH-F-201.http",
+      "sha256": "da6691a3eeaeabb97f111afcdba359cd93f22d114e77d7483590af96d4920f8b",
+      "source_tokens": 34,
+      "preserved_tokens": 34,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/RAG-PARSE-B-211 381cc46ed954800786ecf980179526a5.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/RAG-PARSE-B-211.http",
+      "sha256": "72d164508a8ef9bf19947adeb4b68a47b7877a898a79b37ac04b4683d6a4f7a8",
+      "source_tokens": 32,
+      "preserved_tokens": 32,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/RAG-PARSE-B-212 381cc46ed95481f4a6fbdee6cf9f4db2.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/RAG-PARSE-B-212.http",
+      "sha256": "3858b3e0e06b739ffcfaa8b559de2c937ba101ea9e58fb712771a0784d3bad87",
+      "source_tokens": 28,
+      "preserved_tokens": 28,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/RAG-PARSE-F-202 381cc46ed9548118b3dcea74cc0e9e82.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/RAG-PARSE-F-202.http",
+      "sha256": "bb68324f0ab7dd12c2543b9bc3c030d3e7683262fe3d40f50a8d40022d220903",
+      "source_tokens": 35,
+      "preserved_tokens": 35,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Phase2/Untitled 381cc46ed9548100b6fad18abef19b05.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Phase2/Untitled.http",
+      "sha256": "f8d16cc46668b42b4dd7920bf100b6895e6ffb05c91fe445fdc1d5f554af5696",
+      "source_tokens": 2,
+      "preserved_tokens": 2,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-LIST-B-101 e94cc46ed95483fdaf3c01123425f0b0.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-LIST-B-101.http",
+      "sha256": "4763a830ea9e2725acf7f4267d81458fd0780cdfb9e5cfd99ceb14cc12673ea0",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-LIST-B-201 19ccc46ed95483a5931e814d087a2296.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-LIST-B-201.http",
+      "sha256": "10d1d1e31c62ef4519a668230d289f214542753dd2c75e8aab08ed2037393778",
+      "source_tokens": 38,
+      "preserved_tokens": 38,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-LIST-B-202 382cc46ed954800391bec1912945e159.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-LIST-B-202.http",
+      "sha256": "10f9f81884d6d7b82d66095a3781dd3b96773da07533d33ea085a9cdc28ace6a",
+      "source_tokens": 31,
+      "preserved_tokens": 31,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-LIST-B-301 382cc46ed95480a78b39ccf93cfeb7d6.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-LIST-B-301.http",
+      "sha256": "f992b0437cf7da95d303061f7255fadecf27907ecba5b4c92b1e10d5b1045b27",
+      "source_tokens": 28,
+      "preserved_tokens": 28,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-LIST-F-101 745cc46ed954831e8d9c0193e70e77c5.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-LIST-F-101.http",
+      "sha256": "cbf373c6065c14809e6a5f5ee58dbfd8cbc18b06d70439219d69f085e0ac1025",
+      "source_tokens": 34,
+      "preserved_tokens": 34,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-LIST-F-201 382cc46ed95480709d0ee7ad763fcfc7.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-LIST-F-201.http",
+      "sha256": "aea3a574533c0c7e3675ce61ac9abd45df4c53d565631abcbe841e9d0ba9d0c0",
+      "source_tokens": 29,
+      "preserved_tokens": 29,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-LIST-F-202 382cc46ed95480d793b2cfb1889675f9.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-LIST-F-202.http",
+      "sha256": "2d34393920ac86ddfb6b18954f7762dcb53d874f099caf99a6d0e9bbfdaddad0",
+      "source_tokens": 28,
+      "preserved_tokens": 28,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-LIST-F-203 382cc46ed95480118729da258d1646bf.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-LIST-F-203.http",
+      "sha256": "e4975617f8e0e1c006861d9c794785dc566ba89a498ce9e62d0cfdb685a31b27",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-B-101 3bbcc46ed954824f82730103e753e4b0.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-B-101.http",
+      "sha256": "ba19a10fed5954b287a36c20dd7eb3903439854d74ec5a4da5b5bfac152fa3b8",
+      "source_tokens": 24,
+      "preserved_tokens": 24,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-B-201 ff2cc46ed95483cb9f0f81b9ef86a8e4.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-B-201.http",
+      "sha256": "2616bda25ee284554cc2c6e73609c9d55cd8424c36eb0f90c2f54b0d58f25b4d",
+      "source_tokens": 26,
+      "preserved_tokens": 26,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-B-202 335cc46ed9548200bc4d811608bd5fff.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-B-202.http",
+      "sha256": "405da258cefe3259ea25b83f1d3c3db5f2379992562778201ceb2336190cb915",
+      "source_tokens": 30,
+      "preserved_tokens": 30,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-B-203 5b5cc46ed95483229ea481b6d0d6af78.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-B-203.http",
+      "sha256": "7e6a68c19387c21c10f8627e0c1327d9751f149006423bedb837331155715317",
+      "source_tokens": 29,
+      "preserved_tokens": 29,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-B-204 01ccc46ed95482ef91ef01fcb925371c.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-B-204.http",
+      "sha256": "0627c4d97f0dcb03a9ac0cb6dd9a350ca16bfdb7e7a016dc38ea367b0d1eedf8",
+      "source_tokens": 30,
+      "preserved_tokens": 30,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-B-205 381cc46ed954804f9346c7063e4c57a5.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-B-205.http",
+      "sha256": "d19877c00fa4f3dde7926be3add6e01c799337a92f5b9e3897c0b23410305e5a",
+      "source_tokens": 26,
+      "preserved_tokens": 26,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-B-301 381cc46ed954808584b4fae93f0c6ce1.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-B-301.http",
+      "sha256": "92e6690733531ee05a63ad129cf2543957c742aa9a20c843bfbcd43cd3f83c40",
+      "source_tokens": 31,
+      "preserved_tokens": 31,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-B-302 381cc46ed95480afa3ffc0ad6acbb246.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-B-302.http",
+      "sha256": "13da7015b7cda337cbbebd19c7197f25c5cd0a344c900f90a1c9d45066d9f895",
+      "source_tokens": 25,
+      "preserved_tokens": 25,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-F-101 381cc46ed9548099b180f4be98a57cd4.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-F-101.http",
+      "sha256": "a592658425bd3031258103365ff8222c6d7f6845ae858ad07bc2b28c0a2fa2d0",
+      "source_tokens": 31,
+      "preserved_tokens": 31,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-F-201 dbccc46ed954833db2a48194ffe59526.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-F-201.http",
+      "sha256": "a1e4fbb20e5e05c35b87ff3fbfb2f46d8e424a3fa1019713d85efa0993c89955",
+      "source_tokens": 31,
+      "preserved_tokens": 31,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-F-202 381cc46ed95480188b81fefef4852f00.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-F-202.http",
+      "sha256": "6bce5dcf17679a53628600dc4a9b3b095798cbd11f6a3bc06b760d073d3d3ee8",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/PROJECT-REPO-F-203 381cc46ed95480bea3fee82350adf71e.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/PROJECT-REPO-F-203.http",
+      "sha256": "0859c64b845b743a202f1f771b1482431f007da3e6320eded6860df846f71283",
+      "source_tokens": 29,
+      "preserved_tokens": 29,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project/Untitled 383cc46ed95480b5af84d25caf9081a4.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project/Untitled.http",
+      "sha256": "d72682f0e005cdb1129801550df0d6c23d59ee1abdc869daf536a915de41a096",
+      "source_tokens": 3,
+      "preserved_tokens": 3,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-LIST-API-001 382cc46ed954808f8034f2c78718acb5.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-LIST-API-001.http",
+      "sha256": "4632702abc2016349234b78433fce1b8434804eeffc2c47a1f6a40b77d23e5f8",
+      "source_tokens": 326,
+      "preserved_tokens": 326,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-LIST-API-002 382cc46ed95480d48161ded101aa67d2.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-LIST-API-002.http",
+      "sha256": "2d724b126d1111067f31204f71233d8916c05886e235560f9fbe540eedbdf25a",
+      "source_tokens": 287,
+      "preserved_tokens": 287,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-LIST-API-003 382cc46ed95480f087c7cebe02a772c8.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-LIST-API-003.http",
+      "sha256": "af79408b50e510759e89feefb58a91a7282e6ab4c194fade810c41b467a8cdd5",
+      "source_tokens": 202,
+      "preserved_tokens": 202,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-LIST-API-004 383cc46ed954801fb389fe01c94361fc.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-LIST-API-004.http",
+      "sha256": "60bc45331f7253eddd52c9bcf018aa7d93965646efe8dba7200d3b88cffd1865",
+      "source_tokens": 9,
+      "preserved_tokens": 9,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-LIST-API-005 383cc46ed95480a88305d0e5818a776f.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-LIST-API-005.http",
+      "sha256": "1a02471d299547b8584b0613ad3480d7ba6b7e648d309d03a1617a7e2ca6d8f2",
+      "source_tokens": 8,
+      "preserved_tokens": 8,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-LIST-API-006 383cc46ed95480e887cdfe661602c0ca.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-LIST-API-006.http",
+      "sha256": "7e80ecf00b5c31a09de5e9413cea971f8dd365865d32f505b55ec5e829383bb3",
+      "source_tokens": 10,
+      "preserved_tokens": 10,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-001 3238086c7a27423580b262ade7bca7fd.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-REPO-API-001.http",
+      "sha256": "f3a339c21ded1dd6101e84638f6741cd648ce16e9914d5f221401c3cd06fef61",
+      "source_tokens": 338,
+      "preserved_tokens": 338,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-002 6d493e002eb4402ead8c9553bd68c9a4.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-REPO-API-002.http",
+      "sha256": "bd73e373daa4d7ebf6eb74710a7bc486028bc21a6c091337a5f18c2c7bab15ee",
+      "source_tokens": 248,
+      "preserved_tokens": 248,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-003 c91c992bba224cf4bc8486b9b695399d.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-REPO-API-003.http",
+      "sha256": "01d98144923db1b4bffb820f59277f11034c0f6b504e459d57fa112058197743",
+      "source_tokens": 239,
+      "preserved_tokens": 239,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-004 d4838ac0b789410687e58f4b6007bc5e.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-REPO-API-004.http",
+      "sha256": "8282fb6c3eb556bfda5f2f390e3624973a937bece6392ca82605c2969b1d95ce",
+      "source_tokens": 291,
+      "preserved_tokens": 291,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-005 417192fe428f4be68f0c64495fc9238c.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-REPO-API-005.http",
+      "sha256": "6a4b83b4b9c3137e1981aceae2d2a3aad93c93ad2035119ed922cace7c1488d9",
+      "source_tokens": 264,
+      "preserved_tokens": 264,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-006 c55fe43faab2416289168d51f333f94c.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-REPO-API-006.http",
+      "sha256": "6b9bca0ab2a8bc5e2cf5f9cb9bd9b54a00756673b19333087bec5c5c85a1b4e1",
+      "source_tokens": 309,
+      "preserved_tokens": 309,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-007 91c7a5762c6b4e2da2bbc2ace272eb31.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-REPO-API-007.http",
+      "sha256": "1813c0010fe7c58cb5078c9b6be49a9dc5c9cf7cbdcd972540c3050fe662e0aa",
+      "source_tokens": 249,
+      "preserved_tokens": 249,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/PROJECT-REPO-API-008 7223479d2863409c911f18634f213cf8.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/PROJECT-REPO-API-008.http",
+      "sha256": "88b820ac649c873c41fb1237954e85cd1bb6a072ff393a0f8d4b8a8a21a1309c",
+      "source_tokens": 235,
+      "preserved_tokens": 235,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/명세서 이상한거 있으면 여기 적어주세요~ 382cc46ed9548013b0c1c3df24cae4a5.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/명세서-이상한거-있으면-여기-적어주세요~.http",
+      "sha256": "6e46f3a3d6f920272ae350ab5a773b8c63e47b9e659871003925fc3f14e7d321",
+      "source_tokens": 8,
+      "preserved_tokens": 8,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/Project-API/작업 순서 ← 8a9d130248184738bbd788dbc2bc9343.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/Project-API/작업-순서-.http",
+      "sha256": "79cc52a5502ab9f9eba97846bad584c8c489d86478d80fe9bd0dffe1cc127d7e",
+      "source_tokens": 5,
+      "preserved_tokens": 5,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-EMBED-B-201 1e7cc46ed95483a3a85b813a4a42d7be.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-EMBED-B-201.http",
+      "sha256": "7e17570d2832d71d5163c1f895e4ff26b830737bfc5112924fe11bce174c14cd",
+      "source_tokens": 18,
+      "preserved_tokens": 18,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-EMBED-B-301 fc2cc46ed954831497378141e6b3d3ef.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-EMBED-B-301.http",
+      "sha256": "5daf87820bc9e9822c05e1d198aaf764394f7bcae59050c31a39eacfb19d8e49",
+      "source_tokens": 18,
+      "preserved_tokens": 18,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-101 39ecc46ed95483328ca701375a894e38.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-101.http",
+      "sha256": "26558cfa8f5a57e47b19816739eafaf169fc07355c8d483deede8e0a9316bd42",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-201 3cecc46ed95483b7b76901dcc43cff77.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-201.http",
+      "sha256": "afcf33eb2898be0990905d764939471da3689d52012368f763c5673292ab47da",
+      "source_tokens": 22,
+      "preserved_tokens": 22,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-202 833cc46ed95482788e8f01624f9ab118.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-202.http",
+      "sha256": "729158e8d3db95090720d62e1b64ae2369c27522b42981d1481770201cc569dc",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-203 01acc46ed9548391b3a6813ec7fb5131.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-203.http",
+      "sha256": "a5c17446e1401786a82488964456205c4e10abe9eccb5b33145322d70703506b",
+      "source_tokens": 22,
+      "preserved_tokens": 22,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-204 381cc46ed95480358b9ef48a1eb37f86.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-204.http",
+      "sha256": "f86ea3cdc04243e31720f9e770073c7293d52ff4557b2f88ce451b329fd7e588",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-205 381cc46ed95480849bb1d541b559e09d.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-205.http",
+      "sha256": "d5f3cbaae052dc531b4bdda4055753bf45328099e4d9fadadea3b450a97ee74f",
+      "source_tokens": 19,
+      "preserved_tokens": 19,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-206 381cc46ed95481278b6df89c608bae2b.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-206.http",
+      "sha256": "ad4f14aefc3b6056d0c270bedcbbc2afb38f7aba8723a39169a46a7689828bff",
+      "source_tokens": 24,
+      "preserved_tokens": 24,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-207 24fcc46ed954826f9a9181a7d43bdffa.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-207.http",
+      "sha256": "1d548480b5a7236bd1ab3084f556258669b63e215e25959f9fc9ac2ea8de291f",
+      "source_tokens": 20,
+      "preserved_tokens": 20,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-208 a0acc46ed95482ac918381eecbe617aa.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-208.http",
+      "sha256": "b7db3836b3dbdf55bcf7c0fe55b621f2943c6e6d282c96e5df67ee7af51506a3",
+      "source_tokens": 35,
+      "preserved_tokens": 35,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-209 e6ccc46ed95483d6b04e01c557ccbb94.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-209.http",
+      "sha256": "57048edf2f9a35f0a781e4e6a614aac5adeb92bad93df19b551c528767db5737",
+      "source_tokens": 31,
+      "preserved_tokens": 31,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-B-210 79acc46ed95483e393790140e7d6a308.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-B-210.http",
+      "sha256": "234392e2ffb2c4d290d4f5cce27f96eaaedb0892e8f9582677baffeceb794884",
+      "source_tokens": 24,
+      "preserved_tokens": 24,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG/RAG-PARSE-F-201 381cc46ed95480edb170d6049f33f331.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG/RAG-PARSE-F-201.http",
+      "sha256": "fe29e8a5f8d83d1fbc2205a1208ac046760afbc4cc7af45caf265c4a50173c03",
+      "source_tokens": 27,
+      "preserved_tokens": 27,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/시작전 체크 리스트 383cc46ed95480379e3ef327da6186a0.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG-모듈-개발-문서/시작전-체크-리스트.http",
+      "sha256": "b5f0bc6bb1131d7a86258d90f46114b52d29d3f5193eba1c00b4fb4687336a6c",
+      "source_tokens": 112,
+      "preserved_tokens": 112,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/인터페이스 스키마 383cc46ed95480a4bfd5c03583d2461a.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG-모듈-개발-문서/인터페이스-스키마.http",
+      "sha256": "9d5b297bc8c940f7b873bb5e18e0607e9f2befb418518b753069fab450dd8058",
+      "source_tokens": 248,
+      "preserved_tokens": 248,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/파이프라인 실행 명세 383cc46ed954806395b2c7f39e1803dc.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG-모듈-개발-문서/파이프라인-실행-명세.http",
+      "sha256": "5ebbe2859a1238d2e63f83a79d132948d320fe3db038dcb565681ee402c777d6",
+      "source_tokens": 353,
+      "preserved_tokens": 353,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/함수 시그니처 명세 팀1 383cc46ed9548054bfd4deab20ee34cf.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG-모듈-개발-문서/함수-시그니처-명세-팀1.http",
+      "sha256": "3dd5be4a9c97b4cbf80a9ef210a14d8e7c54c69680004e0c137bbc758f3b674e",
+      "source_tokens": 374,
+      "preserved_tokens": 374,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/함수 시그니처 명세 팀2 383cc46ed9548015becadc950735bafe.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서)/RAG-모듈-개발-문서/함수-시그니처-명세-팀2.http",
+      "sha256": "05f70edfab88203692f30632a04a30fbea23e127502b2749c3b48aa3587386fd",
+      "source_tokens": 364,
+      "preserved_tokens": 364,
+      "coverage": 1.0
+    },
+    {
+      "source": "프로젝트 핵심기능 (기능 명세서 + API 명세서) 468cc46ed95483cca2d48117d284795c.html",
+      "target": "_source-spec/프로젝트-핵심기능-(기능-명세서--API-명세서).http",
+      "sha256": "ab8b1bdec86a633a3b030ee8f5f29a8ad7c2945bf4bb65989f8bbbebb3d4cd31",
+      "source_tokens": 4746,
+      "preserved_tokens": 4746,
+      "coverage": 1.0
+    }
+  ]
+}

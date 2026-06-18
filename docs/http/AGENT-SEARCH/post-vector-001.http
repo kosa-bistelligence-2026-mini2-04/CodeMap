@@ -1,0 +1,50 @@
+# ============================================================
+# API ID  : AGENT-SEARCH-API-001
+# 기능명  : 벡터 유사도 검색
+# Method  : POST
+# Endpoint: /api/search/{repo_id}/vector
+# Auth    : 필요
+# 관련 기능 ID: AGENT-SEARCH-B-201
+# 상태    : 시작 전
+#
+# Description:
+# 자연어 질문 기반 pgvector 의미 검색 수행.
+# 에이전트 내부 search_vector_db 도구로도 사용된다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+POST {{baseUrl}}/api/search/{{repo_id}}/vector
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "query": "JWT 토큰 인증 처리 로직",
+  "topK": 5,
+  "minScore": 0.7,
+  "fileExtensions": [".py"]
+}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "query": "JWT 토큰 인증 처리 로직",
+#     "totalResults": 3,
+#     "results": [{"path": "backend/app/core/middleware.py", "startLine": 12, "endLine": 45, "content": "def verify_jwt_token...", "score": 0.95}]
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+POST {{baseUrl}}/api/search/{{repo_id}}/vector
+Content-Type: application/json
+
+{}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }

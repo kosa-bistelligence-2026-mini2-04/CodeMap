@@ -1,0 +1,61 @@
+### ============================================================================
+### Notion 원문 보관본: 인터페이스-스키마
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/인터페이스 스키마 383cc46ed95480a4bfd5c03583d2461a.html
+### 원본 SHA-256: 9d5b297bc8c940f7b873bb5e18e0607e9f2befb418518b753069fab450dd8058
+### 원문 토큰 수: 248
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### 인터페이스 스키마
+### | 상태 | |
+### 시작 전 |
+### 📌 문서 1 — 인터페이스 스키마
+### 파일 위치: backend/app/parse/schemas.py
+### 팀 1 출력 → 팀 2 입력 데이터 계약. 개발 시작 전 두 팀 모두 이 파일 먼저 생성
+### python
+### RAG 파이프라인 공유 DTO 스키마
+### parse 모듈(팀 1)이 생성한 결과를 embed 모듈(팀 2)이 입력으로 받는다.
+### PROJECT 모듈의 PipelineState.messages를 통해 LangGraph 노드 간에도 전달된다.
+### from pydantic import BaseModel, Field
+### from typing import Literal
+### from uuid import UUID
+### class CodeChunk(BaseModel):
+### """AST 단위로 분리된 코드 조각"""
+### chunk_index: int
+### content: str = Field(description="청크 원문 (최대 500토큰)")
+### start_line: int
+### end_line: int
+### chunk_type: Literal["function", "class", "module", "other"]
+### class ParsedFile(BaseModel):
+### """파일 단위 파싱 결과"""
+### path: str = Field(description="저장소 루트 기준 상대경로")
+### file_type: Literal["FILE", "DIRECTORY"]
+### depth: int
+### content: str | None = Field(default=None, description="DIRECTORY면 None")
+### summary: str | None = Field(default=None, description="LLM 생성 요약")
+### chunks: list[CodeChunk] = Field(default_factory=list)
+### imports: list[str] = Field(default_factory=list, description="import 대상 경로")
+### metadata: dict | None = Field(default=None, description="is_config, framework 등")
+### class ParseResult(BaseModel):
+### """팀 1 최종 출력 (PROJECT 파이프라인 code_map_node 결과)"""
+### job_id: UUID
+### repo_name: str
+### owner: str
+### branch: str
+### readme_summary: str | None = None
+### tech_stack: list[str] = Field(default_factory=list)
+### run_commands: list[str] = Field(default_factory=list)
+### entry_points: list[str] = Field(default_factory=list)
+### files: list[ParsedFile] = Field(default_factory=list)
+### master_summary: str | None = None
+### class EmbedRequest(BaseModel):
+### """팀 2 입력 (ParseResult 그대로 전달)"""
+### job_id: UUID
+### files: list[ParsedFile]
+### class EmbedResult(BaseModel):
+### """팀 2 출력"""
+### job_id: UUID
+### total_files: int
+### total_chunks: int
+### failed_paths: list[str] = Field(default_factory=list)

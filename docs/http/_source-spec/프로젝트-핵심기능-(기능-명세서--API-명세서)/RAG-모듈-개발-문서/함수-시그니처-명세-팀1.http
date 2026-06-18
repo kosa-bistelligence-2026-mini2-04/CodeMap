@@ -1,0 +1,131 @@
+### ============================================================================
+### Notion 원문 보관본: 함수-시그니처-명세-팀1
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/함수 시그니처 명세 팀1 383cc46ed9548054bfd4deab20ee34cf.html
+### 원본 SHA-256: 3dd5be4a9c97b4cbf80a9ef210a14d8e7c54c69680004e0c137bbc758f3b674e
+### 원문 토큰 수: 374
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### 함수 시그니처 명세 팀1
+### | 상태 | |
+### 시작 전 |
+### 📌 문서 3 — 함수 시그니처 명세
+### 팀 1 — backend/app/parse/service.py
+### """
+### RAG 파싱 파이프라인 서비스
+### PROJECT 모듈의 code_map_node에서 run_parse_pipeline()을 호출한다.
+### 각 함수는 독립적으로 실행 가능하며, 실패 시 로그 남기고 빈 값/None 반환 후
+### 다음 단계로 계속 진행한다.
+### """
+### import asyncio
+### import logging
+### from pathlib import Path
+### from uuid import UUID
+### from langchain_openai import ChatOpenAI
+### from app.core.config import get_settings
+### from app.parse.schemas import CodeChunk, ParsedFile, ParseResult
+### logger = logging.getLogger(__name__)
+### settings = get_settings()
+### # ──────────────────────────────────────────────
+### # B-201: README 분석
+### # ──────────────────────────────────────────────
+### async def parse_readme(clone_path: str) -> str | None:
+### """
+### clone_path 에서 README.md (대소문자 무관) 탐색 후 LLM 요약
+### 없으면 None 반환, 파이프라인 계속 진행
+### """
+### # ──────────────────────────────────────────────
+### # B-202: 디렉토리 구조 분석
+### # ──────────────────────────────────────────────
+### async def analyze_directory(clone_path: str) -> list[ParsedFile]:
+### """
+### repo/service.py의 _filter_workspace가 이미 필터링 후 전달
+### 각 파일/디렉토리에 대해 ParsedFile 객체 생성 (content/chunks 비어있는 상태)
+### """
+### # ──────────────────────────────────────────────
+### # B-203: 핵심 파일 탐색
+### # ──────────────────────────────────────────────
+### async def find_entry_points(files: list[ParsedFile]) -> list[str]:
+### """
+### main.py, App.tsx, index.ts, server.py 등 진입점 파일 경로 반환
+### 우선순위: main > index > app > server
+### """
+### # ──────────────────────────────────────────────
+### # B-204: 설정 파일 탐색
+### # ──────────────────────────────────────────────
+### async def tag_config_files(files: list[ParsedFile]) -> list[ParsedFile]:
+### """
+### package.json, requirements.txt, docker-compose.yml, Dockerfile 등 탐색
+### 해당 ParsedFile.metadata 에 {"is_config": True} 추가 후 반환
+### """
+### # ──────────────────────────────────────────────
+### # B-205: 실행 방법 추론
+### # ──────────────────────────────────────────────
+### async def extract_run_commands(files: list[ParsedFile]) -> list[str]:
+### """
+### package.json scripts, Makefile, README 코드블록 파싱
+### 예: ["npm install", "npm run dev"]
+### """
+### # ──────────────────────────────────────────────
+### # B-206: 기술 스택 추론
+### # ──────────────────────────────────────────────
+### async def detect_tech_stack(files: list[ParsedFile]) -> list[str]:
+### """
+### dependencies, Dockerfile 기반 프레임워크 탐지
+### 예: ["Next.js", "FastAPI", "PostgreSQL"]
+### """
+### # ──────────────────────────────────────────────
+### # B-207: AST 기반 코드 청킹
+### # ──────────────────────────────────────────────
+### async def chunk_by_ast(files: list[ParsedFile]) -> list[ParsedFile]:
+### """
+### Python/TypeScript AST 파서로 함수/클래스 단위 분리
+### AST 파싱 실패 시 전체 파일을 단일 청크로 처리
+### 최대 500토큰
+### """
+### # ──────────────────────────────────────────────
+### # B-208: 파일 간 import 관계 분석
+### # ──────────────────────────────────────────────
+### async def analyze_imports(files: list[ParsedFile]) -> list[ParsedFile]:
+### """
+### 각 파일의 import/require 구문 파싱
+### 저장소 루트 기준 상대경로로 정규화하여 ParsedFile.imports 채움
+### """
+### # ──────────────────────────────────────────────
+### # B-209: 계층형 Bottom-up 요약
+### # ──────────────────────────────────────────────
+### async def build_hierarchical_summary(
+### files: list[ParsedFile]
+### ) -> tuple[list[ParsedFile], str]:
+### """
+### 파일 요약 → 폴더 요약 → 마스터 요약 순서로 Bottom-up
+### 반환: (summary 채워진 files, master_summary)
+### LLM: settings.OPENAI_MODEL (gpt-4o-mini)
+### """
+### # ──────────────────────────────────────────────
+### # B-210: 구조 분석 agent
+### # ──────────────────────────────────────────────
+### async def run_structure_agent(
+### files: list[ParsedFile],
+### entry_points: list[str]
+### ) -> list[ParsedFile]:
+### """
+### LangGraph create_react_agent 기반 자율 탐색
+### 최대 5회 탐색, 20초 timeout
+### LLM: gpt-4o (기술 스택 정확도가 중요한 단계)
+### """
+### # ──────────────────────────────────────────────
+### # 파이프라인 진입점 — code_map_node에서 호출
+### # ──────────────────────────────────────────────
+### async def run_parse_pipeline(
+### job_id: UUID,
+### repo_name: str,
+### owner: str,
+### branch: str,
+### clone_path: str,
+### ) -> ParseResult:
+### """
+### B-201 ~ B-210 순차 실행 후 ParseResult 반환
+### 각 단계 실패 시 logger.exception 남기고 다음 단계 계속 진행
+### """

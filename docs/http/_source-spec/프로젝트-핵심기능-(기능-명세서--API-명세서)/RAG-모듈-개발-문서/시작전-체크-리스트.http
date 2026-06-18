@@ -1,0 +1,32 @@
+### ============================================================================
+### Notion 원문 보관본: 시작전-체크-리스트
+### 원본 상대 경로: 프로젝트 핵심기능 (기능 명세서 + API 명세서)/RAG 모듈 개발 문서/시작전 체크 리스트 383cc46ed95480379e3ef327da6186a0.html
+### 원본 SHA-256: b5f0bc6bb1131d7a86258d90f46114b52d29d3f5193eba1c00b4fb4687336a6c
+### 원문 토큰 수: 112
+### 용도: 실행용 API 명세의 누락 검증 및 재변환 감사 자료
+### 주의: 이 파일은 모든 줄이 주석이므로 HTTP 요청을 전송하지 않습니다.
+### ============================================================================
+###
+### 시작전 체크 리스트
+### | 상태 | |
+### 시작 전 |
+### ✅ 개발 시작 전 체크리스트
+### | 항목 | | 내용 | | 상태 |
+### | 스키마 파일 | | backend/app/parse/schemas.py 두 팀 공통 사용 | | □ |
+### | Mock 데이터 | | 팀 2 선행 개발용 (tests/mock_parse_result.py) | | □ |
+### | 새 테이블 추가 | | code_nodes, dependencies (Alembic 마이그레이션) | | □ |
+### | OPENAI_API_KEY | | .env 확인 완료 (이미 core/config.py에서 지원) | | ✅ |
+### | OPENAI_MODEL | | gpt-4o-mini (기본값) | | ✅ |
+### | pgvector | | requirements.txt에 이미 포함 (pgvector==0.3.6) | | ✅ |
+### | PROJECT 연동 | | nodes.py code_map_node + report_node TODO 교체 | | □ |
+### | 브랜치 전략 | | feat/parse-pipeline, feat/embed-pipeline 분리 | | □ |
+### 📌 팀 간 합의 사항
+### | 항목 | | 결정 |
+### | CodeChunk 최대 토큰 | | 500토큰 |
+### | metadata 키 | | is_config: bool, framework: str |
+### | imports 경로 | | 저장소 루트 기준 상대경로 |
+### | 중복 처리 | | 동일 job_id + path UPDATE |
+### | 임베딩 모델 | | text-embedding-3-large (1536차원) |
+### | 파싱 LLM | | gpt-4o-mini (B-201, B-209) |
+### | Agent LLM | | gpt-4o (B-210 - 자율 탐색) |
+### | metadata SQLAlchemy 충돌 | | 컬럼명 file_metadata 로 명명 |

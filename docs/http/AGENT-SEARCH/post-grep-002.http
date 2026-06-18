@@ -1,0 +1,54 @@
+# ============================================================
+# API ID  : AGENT-SEARCH-API-002
+# 기능명  : 코드베이스 Grep 검색
+# Method  : POST
+# Endpoint: /api/search/{repo_id}/grep
+# Auth    : 필요
+# 관련 기능 ID: AGENT-SEARCH-B-205
+# 상태    : 시작 전
+#
+# Description:
+# 키워드 또는 정규식 패턴으로 코드베이스 grep 검색.
+# 에이전트 내부 grep_codebase 도구로도 사용된다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+POST {{baseUrl}}/api/search/{{repo_id}}/grep
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "pattern": "def verify_jwt",
+  "isRegex": false,
+  "fileExtensions": [".py"],
+  "maxResults": 20,
+  "contextLines": 2
+}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "pattern": "def verify_jwt",
+#     "totalMatches": 2,
+#     "results": [{"filePath": "backend/app/core/middleware.py", "lineNumber": 12, "lineContent": "def verify_jwt_token(token: str) -> dict:"}]
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+POST {{baseUrl}}/api/search/{{repo_id}}/grep
+Content-Type: application/json
+
+{}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 400 INVALID_PATTERN (패턴검증): 정규식 문법 오류

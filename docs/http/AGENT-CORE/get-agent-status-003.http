@@ -1,0 +1,29 @@
+### ============================================================================
+### AGENT-CORE-API-003 | 에이전트 실행 상태 조회
+### Contract status: 기능 명세 기반 설계 계약 (구현 전)
+### Endpoint: GET /api/chat/{repo_id}/agent/status
+### 관련 기능 ID: AGENT-CORE-B-203, AGENT-CORE-B-204
+### 목적: agent별 start/end timestamp, 실행 시간, 실패 정보와 이벤트 상태를 반환한다.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+GET {{baseUrl}}/api/chat/{{repoId}}/agent/status
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {
+###   "code": 200, "message": "success",
+###   "data": {
+###     "status": "running",
+###     "agents": [{
+###       "name": "search_agent", "status": "completed",
+###       "startedAt": "2026-06-18T10:00:00Z", "endedAt": "2026-06-18T10:00:03Z",
+###       "durationMs": 3000, "errorMessage": null
+###     }]
+###   }
+### }
+### status: queued | running | completed | failed
+### 오류: 401 UNAUTHORIZED, 404 REPO_NOT_FOUND, 404 AGENT_RUN_NOT_FOUND, 500 DATABASE_ERROR

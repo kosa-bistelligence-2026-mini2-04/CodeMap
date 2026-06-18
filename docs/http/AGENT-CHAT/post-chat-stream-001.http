@@ -1,0 +1,63 @@
+# ============================================================
+# API ID  : AGENT-CHAT-API-001
+# 기능명  : Repo Chat SSE 스트리밍
+# Method  : POST
+# Endpoint: /api/chat/{repo_id}
+# Auth    : 필요
+# 관련 기능 ID: AGENT-CHAT-B-101, AGENT-CHAT-B-202,
+#   AGENT-CHAT-F-201, AGENT-CHAT-F-202, AGENT-CHAT-F-203,
+#   AGENT-CHAT-F-204, AGENT-CHAT-F-205, AGENT-CHAT-F-206,
+#   AGENT-SEARCH-B-202, AGENT-SEARCH-B-203, AGENT-SEARCH-B-204,
+#   AGENT-SEARCH-B-207 (Advanced Reasoning은 Phase 2 보류)
+# 상태    : 시작 전
+#
+# Description:
+# 저장소에 대한 자연어 질문을 SSE 스트리밍으로 답변.
+# 최대 5회 도구 호출, 20초 타임아웃 내 자율 탐색.
+# SSE 이벤트: agent_status | token | agent_completed | agent_failed
+# # curl 테스트:
+# # curl -N -X POST http://localhost:8000/api/chat/{repo_id} \
+# #   -H 'Authorization: Bearer {token}' \
+# #   -H 'Content-Type: application/json' \
+# #   -H 'Accept: text/event-stream' \
+# #   -d '{"question": "인증 미들웨어는 어디에 있나요?"}'
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+POST {{baseUrl}}/api/chat/{{repo_id}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "question": "인증 미들웨어는 어디에 있고 어떻게 동작하나요?",
+  "maxToolCalls": 5,
+  "timeoutSeconds": 20
+}
+
+# Success Response: SSE Stream
+# event: agent_status
+# data: {"step": "searching", "toolCall": "search_vector_db", "count": 1}
+#
+# event: token
+# data: {"content": "인증 미들웨어는"}
+#
+# event: agent_completed
+# data: {"answer": "...", "sourceFiles": [...], "toolCallCount": 2, "elapsedSeconds": 6.3}
+
+
+### 에러 케이스 - 인증 없음
+POST {{baseUrl}}/api/chat/{{repo_id}}
+Content-Type: application/json
+
+{}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 404 EMBEDDING_NOT_READY (사전검증): 임베딩 미완료
+# 422 QUESTION_TOO_LONG (입력검증): 2000자 초과
