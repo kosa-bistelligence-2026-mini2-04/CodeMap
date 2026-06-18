@@ -712,6 +712,9 @@ def _is_binary_file(path: Path) -> bool:
             chunk = f.read(1024)
     except OSError:
         return True
+    # UTF-16 BOM(LE: FF FE, BE: FE FF)이면 텍스트로 판단
+    if chunk[:2] in (b'\xff\xfe', b'\xfe\xff'):
+        return False
     return b"\0" in chunk
 
 
