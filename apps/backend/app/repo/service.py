@@ -12,14 +12,12 @@ GitHub URL 파싱, 저장소 검증, 분석 작업 등록,
 """
 
 import asyncio
-import json
 import logging
 import re
 from datetime import datetime, timezone
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 from uuid import UUID
 
+import httpx
 from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -400,20 +398,30 @@ class RepoValidateService:
         api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
 
         try:
-            api_request = Request(api_url, headers={"User-Agent": "CodeMap"})
-            with urlopen(api_request, timeout=5) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            if exc.code == 404:
+            async with httpx.AsyncClient(timeout=5) as client:
+                response = await client.get(
+                    api_url,
+                    headers={"User-Agent": "CodeMap"},
+                )
+
+            if response.status_code == 404:
                 raise RepositoryNotFoundError(
                     "저장소가 없거나 접근할 수 없습니다."
-                ) from exc
-            raise CodeMapException(
-                500,
-                "GITHUB_API_ERROR",
-                f"GitHub API 호출 중 오류가 발생했습니다: {exc}"
-            ) from exc
-        except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+                )
+            if response.status_code >= 400:
+                raise CodeMapException(
+                    500,
+                    "GITHUB_API_ERROR",
+                    f"GitHub API 호출 중 오류가 발생했습니다: "
+                    f"HTTP {response.status_code}",
+                )
+
+            payload = response.json()
+        except RepositoryNotFoundError:
+            raise
+        except CodeMapException:
+            raise
+        except (httpx.RequestError, ValueError) as exc:
             raise CodeMapException(
                 500,
                 "GITHUB_API_ERROR",
