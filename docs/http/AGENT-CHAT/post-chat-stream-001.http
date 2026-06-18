@@ -10,7 +10,6 @@
 #   AGENT-SEARCH-B-202, AGENT-SEARCH-B-203, AGENT-SEARCH-B-204,
 #   AGENT-SEARCH-B-207 (Advanced Reasoning은 Phase 2 보류)
 # 상태    : 시작 전
-# 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 #
 # Description:
 # 저장소에 대한 자연어 질문을 SSE 스트리밍으로 답변.

@@ -4,7 +4,6 @@
 ### Endpoint: GET /api/graph/{repo_id}
 ### 관련 기능 ID: RAG-GRAPH-B-201, RAG-GRAPH-F-201
 ### 목적: react-flow 또는 Mermaid 시각화에 사용할 노드·엣지를 반환한다.
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### ============================================================================
 @baseUrl = http://localhost:8000
 @accessToken = replace-me

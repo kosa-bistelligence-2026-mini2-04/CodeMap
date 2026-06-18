@@ -4,7 +4,6 @@
 ### Endpoint: GET /api/chat/{repo_id}/memory
 ### 관련 기능 ID: AGENT-CHAT-B-203
 ### 개인정보/보존 정책과 삭제 API를 확정하기 전에는 운영 활성화 금지.
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### ============================================================================
 @baseUrl = http://localhost:8000
 @accessToken = replace-me

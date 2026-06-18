@@ -5,7 +5,6 @@
 ### 관련 기능 ID: PROJECT-PIPELINE-B-201, PROJECT-PIPELINE-F-201,
 ### PROJECT-PIPELINE-F-301
 ### 상태: 시작 전 (Phase 2)
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### 변경 이력: PROJECT-PIPELINE-API-001 Notion 초안의 /status 단일 상태를
 ### PIPELINE-API-001 단계별 /stages 응답으로 고도화.
 ### ============================================================================

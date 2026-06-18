@@ -4,7 +4,6 @@
 ### Endpoint: POST /api/repo/check-duplicate
 ### 관련 기능 ID: PROJECT-REPO-B-303
 ### 목적: 정규화된 owner/repo/branch 기준으로 기존 분석 여부를 확인한다.
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### ============================================================================
 @baseUrl = http://localhost:8000
 @accessToken = replace-me

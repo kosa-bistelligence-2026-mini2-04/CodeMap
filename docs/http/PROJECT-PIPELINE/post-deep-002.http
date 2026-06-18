@@ -5,7 +5,6 @@
 ### 관련 기능 ID: PROJECT-PIPELINE-B-202, PROJECT-PIPELINE-F-202
 ### 상태: 시작 전 (Phase 2)
 ### 선행 조건: 기본 분석 완료
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### 변경 이력: PROJECT-PIPELINE-API-002 Notion 초안의 force 기반
 ### /deep-analysis를 PIPELINE-API-002 기능 선택형 /deep으로 고도화.
 ### ============================================================================

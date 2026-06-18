@@ -4,7 +4,6 @@
 ### Endpoint: POST /api/gen/docs/{repo_id}/share
 ### 관련 기능 ID: DOCS-UTIL-B-202
 ### 상태: 시작 전 (Phase 2)
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### 보안: Slack Webhook URL은 응답·로그에서 마스킹하고 SSRF 방지 allowlist 적용.
 ### ============================================================================
 @baseUrl = http://localhost:8000

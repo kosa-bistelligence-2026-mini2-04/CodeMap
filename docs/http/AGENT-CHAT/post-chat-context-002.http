@@ -4,7 +4,6 @@
 ### Endpoint: POST /api/chat/{repo_id}/context
 ### 관련 기능 ID: AGENT-CHAT-B-201, AGENT-SEARCH-B-201
 ### 상태: 시작 전
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### ============================================================================
 @baseUrl = http://localhost:8000
 @accessToken = replace-me

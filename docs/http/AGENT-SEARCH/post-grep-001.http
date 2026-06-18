@@ -4,7 +4,6 @@
 ### Endpoint: POST /api/search/{repo_id}/grep
 ### 관련 기능 ID: AGENT-SEARCH-B-205
 ### 상태: 시작 전
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### ============================================================================
 @baseUrl = http://localhost:8000
 @accessToken = replace-me

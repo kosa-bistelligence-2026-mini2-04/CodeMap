@@ -2,8 +2,7 @@
 
 본 문서는 CodeMap 백엔드 API에서 발생하는 HTTP 에러 코드 및 WebSocket Close Code에 대한 통합 명세서입니다.
 
-모든 REST 오류는 `docs/04_Decisions/ERROR_HANDLING.md`와
-`docs/http/_shared/ERROR-CONTRACT.http`의 표준 envelope를 사용합니다. 표의 Error Code는
+모든 REST 오류는 `docs/04_Decisions/ERROR_HANDLING.md`의 표준 envelope를 사용합니다. 표의 Error Code는
 `error.code`에, HTTP Status는 최상위 `code`와 실제 HTTP status에 동일하게 기록합니다.
 
 ```json

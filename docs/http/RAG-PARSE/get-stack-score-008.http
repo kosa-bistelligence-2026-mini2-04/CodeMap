@@ -4,7 +4,6 @@
 ### Endpoint: GET /api/parse/analysis/{repo_id}/stack-score
 ### 관련 기능 ID: RAG-PARSE-B-212
 ### 주의: 점수 산식과 등급 경계는 기능 명세에 없으므로 구현 전 확정해야 한다.
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### ============================================================================
 @baseUrl = http://localhost:8000
 @accessToken = replace-me

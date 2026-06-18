@@ -5,7 +5,6 @@
 ### 관련 기능 ID: AGENT-CORE-B-201, AGENT-CORE-B-202, AGENT-CORE-B-203,
 ### AGENT-CORE-B-204
 ### 상태: 시작 전
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### ============================================================================
 @baseUrl = http://localhost:8000
 @accessToken = replace-me

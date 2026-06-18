@@ -4,7 +4,6 @@
 ### Endpoint: POST /api/pipeline/{job_id}/webhook
 ### 관련 기능 ID: PROJECT-PIPELINE-B-203
 ### 상태: 시작 전 (Phase 2)
-### 공통 오류 계약: ../_shared/ERROR-CONTRACT.http
 ### 변경 이력: PROJECT-PIPELINE-API-003 WebSocket 진행률 계약은 단계 조회
 ### polling 계약으로 통합. target/payload가 미확정이던 PROJECT-PIPELINE-API-004
 ### external-sync 초안은 PIPELINE-API-003 Webhook 계약으로 구체화.
