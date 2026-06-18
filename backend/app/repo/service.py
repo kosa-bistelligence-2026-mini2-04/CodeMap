@@ -339,6 +339,7 @@ class AnalysisService:
     async def cleanup_workspace(self, job_id: UUID) -> WorkspaceCleanupResponse:
         """
         분석 작업의 임시 clone 디렉토리를 삭제한다.
+        
         """
         job = await self.repository.get_job_by_id(job_id)
         if not job:
