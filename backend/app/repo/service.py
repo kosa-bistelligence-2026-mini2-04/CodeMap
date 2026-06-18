@@ -417,9 +417,7 @@ class AnalysisService:
                 # timeout 시 partial workspace 즉시 정리
                 _safe_remove(clone_path)
                 raise
-            return subprocess.CompletedResult(proc.returncode, stdout, stderr) if False else type(
-                "Result", (), {"returncode": proc.returncode, "stdout": stdout, "stderr": stderr}
-            )()
+            return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
         try:
             result = await asyncio.to_thread(_do_clone)
