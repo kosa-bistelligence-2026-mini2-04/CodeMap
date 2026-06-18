@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { GitBranch, Shield, Users, Activity, Layers, Code2, Network, Search } from "lucide-react";
+import { GitBranch, Shield, Activity, Layers, Code2, Network, Search } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
 
 export function BentoFeatures() {

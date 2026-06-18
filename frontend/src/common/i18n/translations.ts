@@ -18,18 +18,49 @@ export const translations = {
     // ── Home hero ─────────────────────────────────────────────────────────────
     hero: {
       badge: "CodeMap AI",
-      title: "Codebase Intelligence,\nPowered by Multi-Agent AI",
+      title: "Understand Any Codebase,\nWithout Reading It All",
       subtitle:
-        "Enter a GitHub repository URL or local path. CodeMap AI maps architecture, infers behavior, audits security, and generates interactive onboarding guides.",
-      placeholder: "https://github.com/owner/repo  or  /local/absolute/path",
+        "Find the structure, key flows, and important context of an unfamiliar repository. Multiple analysis agents turn scattered code into a clear, connected view.",
+      sourceLabel: "Repository source",
+      sourceGithub: "GitHub repository",
+      sourceLocal: "Local folder",
+      placeholder: "Search by repository name or paste a GitHub URL",
+      submit: "Analyze repository",
+      searchHint: "Try “react” or “fastapi” — we’ll find the repository for you.",
+      searching: "Searching GitHub repositories...",
+      searchError: "GitHub search is temporarily unavailable. You can still paste a full repository URL.",
+      searchPrompt: "Choose a suggested repository or paste its full GitHub URL.",
+      noResults: "No matching public repositories found.",
+      noDescription: "No repository description",
+      chooseFolder: "Choose a project folder",
+      chooseAgain: "Choose again",
+      browse: "Browse",
+      folderPickerHint: "Opens your system folder picker on macOS and Windows.",
+      folderReady: "Ready to analyze this folder",
+      folderSelected: "{count} files ready",
+      folderSafetyNote: "Only the source files needed for analysis will be uploaded.",
+      localUploadDetail: "{skipped} generated, sensitive, or oversized files were excluded.",
+      localAnalyze: "Analyze",
+      localUploading: "Uploading project folder...",
+      localUploadError: "The local folder could not be uploaded.",
+      localEmptyError: "No analyzable source files remain after applying the safety filters.",
+      localFolderReadError: "The selected folder could not be read. Please choose it again.",
       tryLabel: "Try:",
       statsLanguages: "Languages",
       statsAgents: "Agent Types",
       statsDepth: "Analysis Depth",
       statsDepthValue: "Full Repo",
-      statsPrivacy: "Privacy",
-      statsPrivacyValue: "Local-First",
+      statsPrivacy: "Evidence",
+      statsPrivacyValue: "Source-Linked",
       scroll: "Scroll",
+    },
+
+    trending: {
+      eyebrow: "Explore",
+      title: "Popular repositories, ready to analyze",
+      subtitle: "Start with a well-known open-source project and see how CodeMap turns a large codebase into a navigable workspace.",
+      curatedNote: "Curated examples · repository metadata may change",
+      analyze: "Analyze",
     },
 
     // ── Home sections ─────────────────────────────────────────────────────────
@@ -86,7 +117,7 @@ export const translations = {
         {
           question: "What types of repositories can CodeMap AI analyze?",
           answer:
-            "CodeMap AI supports any Git repository — local paths on your machine (e.g. /Users/you/projects/myrepo) or public GitHub URLs. Python, TypeScript, JavaScript, Go, and Rust codebases are especially well-supported.",
+            "CodeMap supports public GitHub repositories and project folders selected from macOS or Windows. Python, TypeScript, JavaScript, Go, and Rust codebases are especially well-supported.",
         },
         {
           question: "How does the multi-agent pipeline work?",
@@ -96,7 +127,7 @@ export const translations = {
         {
           question: "Is my code sent to the cloud?",
           answer:
-            "Local paths are processed entirely on your machine using the local FastAPI server. Only public GitHub URLs require fetching the repository. Your code is never stored or used for training.",
+            "Public GitHub repositories are cloned into a temporary server workspace. For local analysis, only the files you select are uploaded; dependency folders, build output, Git history, environment files, oversized files, and unsafe paths are excluded before analysis.",
         },
         {
           question: "How long does an analysis take?",
@@ -119,7 +150,7 @@ export const translations = {
     bento: {
       title: "Everything you need to understand code",
       subtitle:
-        "CodeMap AI gives you superpowers to digest entire repositories in seconds with multi-agent intelligence.",
+        "Move from repository structure to key flows and risk signals without losing the code-level evidence.",
       features: [
         {
           title: "Deep Code Analysis",
@@ -153,7 +184,7 @@ export const translations = {
     // ── InteractiveDemo ───────────────────────────────────────────────────────
     demo: {
       title: "See it in Action",
-      subtitle: "Whether analyzing, mapping, or auditing — CodeMap AI handles it all.",
+      subtitle: "Explore the structure, ask a question, and trace every answer back to the code in one continuous workflow.",
       scenarios: [
         {
           title: "Analyzing fastapi/fastapi",
@@ -192,25 +223,25 @@ export const translations = {
 
     // ── SecurityBanner ────────────────────────────────────────────────────────
     security: {
-      title: "Local-First. Privacy Guaranteed.",
-      desc: "CodeMap AI runs entirely on your infrastructure. Your codebase never leaves your machine. Local paths are analyzed locally — no data is sent to external servers unless you explicitly choose a GitHub URL.",
-      badge: "Multi-Agent Pipeline",
+      title: "Every insight stays connected to the code.",
+      desc: "CodeMap builds findings from the repository snapshot and preserves file and line references, so you can verify important claims instead of trusting a black-box summary.",
+      badge: "Evidence-backed analysis",
     },
 
     // ── Footer ────────────────────────────────────────────────────────────────
     footer: {
-      tagline: "Codebase Intelligence",
-      desc: "Multi-agent AI system for deep codebase analysis, architecture mapping, and interactive onboarding guides. Understand any repository in seconds.",
+      tagline: "A clearer way to read codebases",
+      desc: "Turn repository structure, key flows, and source-backed answers into one connected workspace.",
       featuresTitle: "Features",
       resourcesTitle: "Resources",
-      features: ["Repo Analysis", "Architecture Map", "Security Audit", "Onboarding Report"],
+      features: ["Repo Analysis", "Architecture View", "Risk Signals", "Onboarding Report"],
       resources: ["Getting Started", "API Docs", "GitHub"],
       ctaTitle: "Ready to analyze?",
-      ctaDesc: "Enter any GitHub URL or local path to start.",
+      ctaDesc: "Search for a public GitHub repository or paste its URL.",
       ctaButton: "Start Analysis →",
       statusOk: "Backend operational",
       copyright: "CODEMAP AI. BUILT FOR DEVELOPERS.",
-      localFirst: "LOCAL-FIRST PROCESSING",
+      localFirst: "SOURCE-LINKED FINDINGS",
       multiAgent: "MULTI-AGENT PIPELINE",
       poweredBy: "Powered by FastAPI + Next.js",
     },
@@ -225,21 +256,28 @@ export const translations = {
       loadingMsg: "Agents are mapping the codebase. Please wait...",
     },
 
-    // ── RepoInput ─────────────────────────────────────────────────────────────
     repoInput: {
-      title: "Analyze Repository",
-      subtitle: "Supports local Git paths or public GitHub URLs.",
+      title: "Analyze New Repository",
+      subtitle: "Clones public GitHub repositories to analyze structure and code context.",
       tabGithub: "GitHub URL",
       tabLocal: "Local Path",
       labelGithub: "Repository URL",
       labelLocal: "Absolute Path",
       placeholderGithub: "https://github.com/owner/repo",
       placeholderLocal: "/path/to/local/repo",
-      modelLabel: "Inference Model",
-      cacheLabel: "Skip cached response",
-      cacheHint: "Force re-analyze from scratch",
-      submit: "Start Analysis →",
-      submitting: "Analyzing...",
+      quickModelLabel: "Inference Model (Quick)",
+      fast: "Fast",
+      thinking: "Thinking",
+      advancedSettings: "Advanced Settings",
+      branchLabel: "Analysis Branch",
+      branchPlaceholder: "Auto-detect default branch",
+      customModelLabel: "Custom Model ID (Override)",
+      customModelEmpty: "Use Quick Selection (Default)",
+      comingSoon: "(Coming Soon)",
+      forceRefresh: "Analyze with fresh snapshot",
+      forceRefreshDesc: "Deletes existing clone on server and re-clones the remote repository.",
+      submit: "Create Analysis Workspace",
+      submitting: "Analyzing Repository...",
       errorGithubEmpty: "GitHub URL cannot be empty.",
       errorLocalEmpty: "Local path cannot be empty.",
       errorGithubInvalid: "Please enter a valid GitHub repository URL (e.g. https://github.com/owner/repo)",
@@ -329,9 +367,9 @@ export const translations = {
       copied: "Copied!",
       disclaimer: "AI can make mistakes. Verify important information.",
       mode: {
-        lite: "Lite",
+        fast: "Fast",
         deep: "Deep",
-        liteDesc: "Fast responses using gpt-4o-mini — great for simple questions",
+        fastDesc: "Fast responses using gpt-4o-mini — great for simple questions",
         deepDesc: "Deep analysis using gpt-4o — best for complex architecture questions",
       },
       status: {
@@ -367,52 +405,83 @@ export const translations = {
     // ── Home hero ─────────────────────────────────────────────────────────────
     hero: {
       badge: "CodeMap AI",
-      title: "코드베이스 인텔리전스,\n멀티 에이전트 AI로",
+      title: "복잡한 코드베이스도,\n한눈에 이해할 수 있게",
       subtitle:
-        "GitHub 저장소 URL 또는 로컬 경로를 입력하세요. CodeMap AI가 아키텍처를 매핑하고, 동작을 추론하며, 보안을 감사하고, 인터랙티브 온보딩 가이드를 생성합니다.",
-      placeholder: "https://github.com/owner/repo  또는  /로컬/절대/경로",
+        "낯선 저장소의 구조와 핵심 흐름, 꼭 알아야 할 맥락을 빠르게 파악하세요. 여러 분석 에이전트가 흩어진 코드를 연결해 이해하기 쉬운 화면으로 정리합니다.",
+      sourceLabel: "저장소 가져오기 방식",
+      sourceGithub: "GitHub 저장소",
+      sourceLocal: "내 컴퓨터 폴더",
+      placeholder: "저장소 이름을 검색하거나 GitHub URL을 붙여넣으세요",
+      submit: "저장소 분석하기",
+      searchHint: "‘react’ 또는 ‘fastapi’처럼 입력하면 저장소를 바로 찾아드려요.",
+      searching: "GitHub 저장소를 찾고 있습니다...",
+      searchError: "지금은 GitHub 검색을 사용할 수 없습니다. 전체 저장소 URL은 그대로 입력할 수 있어요.",
+      searchPrompt: "추천 저장소를 선택하거나 전체 GitHub URL을 입력해주세요.",
+      noResults: "일치하는 공개 저장소를 찾지 못했습니다.",
+      noDescription: "저장소 설명이 없습니다.",
+      chooseFolder: "프로젝트 폴더 선택",
+      chooseAgain: "다시 선택",
+      browse: "찾아보기",
+      folderPickerHint: "macOS와 Windows의 기본 폴더 탐색기가 열립니다.",
+      folderReady: "이 폴더를 분석할 준비가 됐어요",
+      folderSelected: "파일 {count}개 준비됨",
+      folderSafetyNote: "분석에 필요한 소스 파일만 업로드합니다.",
+      localUploadDetail: "생성물·민감 파일·대용량 파일 {skipped}개를 제외했습니다.",
+      localAnalyze: "분석 시작",
+      localUploading: "프로젝트 폴더 업로드 중...",
+      localUploadError: "로컬 폴더를 업로드하지 못했습니다.",
+      localEmptyError: "안전 필터를 적용한 뒤 분석할 수 있는 소스 파일이 남지 않았습니다.",
+      localFolderReadError: "선택한 폴더를 읽지 못했습니다. 다시 선택해주세요.",
       tryLabel: "예시:",
       statsLanguages: "언어",
       statsAgents: "에이전트 수",
       statsDepth: "분석 깊이",
       statsDepthValue: "전체 저장소",
-      statsPrivacy: "프라이버시",
-      statsPrivacyValue: "로컬 우선",
+      statsPrivacy: "검증 방식",
+      statsPrivacyValue: "코드 근거",
       scroll: "스크롤",
+    },
+
+    trending: {
+      eyebrow: "둘러보기",
+      title: "인기 저장소로 바로 시작해보세요",
+      subtitle: "잘 알려진 오픈소스 프로젝트를 골라 CodeMap이 큰 코드베이스를 탐색 가능한 워크스페이스로 바꾸는 과정을 확인해보세요.",
+      curatedNote: "직접 고른 예시 목록 · 저장소 정보는 달라질 수 있습니다",
+      analyze: "분석하기",
     },
 
     // ── Home sections ─────────────────────────────────────────────────────────
     howItWorks: {
-      title: "CodeMap AI 작동 방식",
-      subtitle: "모든 코드베이스를 구조적 지식으로 변환하는 4단계 에이전트 파이프라인.",
+      title: "저장소가 이해 가능한 지도가 되기까지",
+      subtitle: "코드를 가져오는 순간부터 핵심 맥락을 정리한 리포트까지, 네 단계로 이어집니다.",
       steps: [
         {
-          title: "저장소 제출",
-          desc: "GitHub URL 또는 로컬 절대 경로를 붙여넣으세요. CodeMap이 코드베이스를 가져오거나 읽습니다.",
+          title: "저장소 선택",
+          desc: "이름으로 공개 GitHub 저장소를 찾거나 URL을 붙여넣어 분석을 시작합니다.",
         },
         {
           title: "정적 분석",
-          desc: "정적 분석기가 파일 구조, 임포트, 의존성 체인을 매핑합니다.",
+          desc: "파일 구조와 임포트, 모듈 사이의 의존 관계를 코드에서 직접 읽어냅니다.",
         },
         {
-          title: "심층 추론",
-          desc: "동작 및 커뮤니티 에이전트가 런타임 패턴, 기술 스택, 코드 품질을 추론합니다.",
+          title: "핵심 흐름 파악",
+          desc: "여러 분석 에이전트가 실행 흐름과 기술 스택, 코드 품질 신호를 함께 살펴봅니다.",
         },
         {
           title: "온보딩 리포트",
-          desc: "리포터가 분석 결과를 인터랙티브 HTML 가이드와 JSON 출력물로 합성합니다.",
+          desc: "분석 결과를 구조도와 근거 코드, 바로 질문할 수 있는 워크스페이스로 정리합니다.",
         },
       ],
     },
 
     // ── Use Cases ─────────────────────────────────────────────────────────────
     useCases: {
-      title: "의사결정을 이끄는 활용 사례",
-      subtitle: "CodeMap AI는 도입, 온보딩, 감사 결정 전의 불확실성을 줄이는 데 도움을 줍니다.",
+      title: "코드를 이해해야 하는 순간마다",
+      subtitle: "기술 도입 검토부터 새 팀원의 적응, 보안 위험 확인까지 필요한 맥락을 빠르게 찾을 수 있습니다.",
       cases: [
         {
-          title: "저장소 실사",
-          desc: "의존성 도입이나 팀 온보딩 전에 낯선 저장소를 평가하세요. 즉각적인 명확성을 위한 시스템 수준 스냅샷을 얻으세요.",
+          title: "기술 도입 검토",
+          desc: "낯선 라이브러리나 프로젝트를 도입하기 전에 구조와 의존성, 유지보수 신호를 먼저 확인하세요.",
           link: "분석 시작",
         },
         {
@@ -423,7 +492,7 @@ export const translations = {
         {
           title: "보안 우선순위 지정",
           desc: "실행 가능한 위험 신호를 발견하고 엔지니어링 맥락으로 분류하세요. 심각도 기반의 해결 방향을 얻으세요.",
-          link: "보안 감사",
+          link: "위험 신호 확인",
         },
       ],
     },
@@ -435,17 +504,17 @@ export const translations = {
         {
           question: "CodeMap AI가 분석할 수 있는 저장소 유형은?",
           answer:
-            "CodeMap AI는 모든 Git 저장소를 지원합니다 — 로컬 경로(예: /Users/you/projects/myrepo)나 공개 GitHub URL 모두 가능합니다. Python, TypeScript, JavaScript, Go, Rust 코드베이스가 특히 잘 지원됩니다.",
+            "공개 GitHub 저장소와 macOS·Windows에서 선택한 프로젝트 폴더를 분석할 수 있습니다. Python, TypeScript, JavaScript, Go, Rust 프로젝트를 특히 잘 분석합니다.",
         },
         {
           question: "멀티 에이전트 파이프라인은 어떻게 작동하나요?",
           answer:
-            "CodeMap AI는 4개의 전문 에이전트를 병렬로 실행합니다: 파일 구조와 임포트를 매핑하는 정적 분석기, 런타임 패턴을 이해하는 동작 추론기, 코드 품질 신호를 평가하는 커뮤니티 평가자, 모든 것을 인터랙티브 온보딩 가이드로 합성하는 리포터.",
+            "서로 다른 역할을 맡은 분석 에이전트가 파일 구조와 의존 관계, 실행 흐름, 코드 품질 신호를 나눠 살펴봅니다. 마지막에는 결과를 한곳에서 탐색하고 바로 질문할 수 있는 워크스페이스로 정리합니다.",
         },
         {
           question: "코드가 클라우드로 전송되나요?",
           answer:
-            "로컬 경로는 로컬 FastAPI 서버를 사용하여 전적으로 사용자 컴퓨터에서 처리됩니다. 공개 GitHub URL의 경우에만 저장소를 가져와야 합니다. 코드는 절대 저장되거나 학습에 사용되지 않습니다.",
+            "공개 GitHub 저장소는 서버의 임시 작업 공간에 복제됩니다. 로컬 분석은 사용자가 직접 고른 파일만 업로드하며, 의존성 폴더와 빌드 결과, Git 이력, 환경설정 파일, 대용량 파일, 안전하지 않은 경로는 분석 전에 제외합니다.",
         },
         {
           question: "분석에 얼마나 걸리나요?",
@@ -457,9 +526,9 @@ export const translations = {
 
     // ── CTA ───────────────────────────────────────────────────────────────────
     cta: {
-      title: "코드베이스를 매핑할 준비가 되셨나요?",
+      title: "궁금한 저장소부터 열어보세요",
       subtitle:
-        "GitHub 저장소 URL이나 로컬 절대 경로로 시작하세요. 2분 이내에 첫 번째 분석 결과를 받아보세요.",
+        "저장소 이름을 검색하거나 GitHub URL을 붙여넣으면 구조와 핵심 흐름을 바로 살펴볼 수 있습니다.",
       primary: "분석 시작",
       secondary: "GitHub에서 보기",
     },
@@ -468,25 +537,25 @@ export const translations = {
     bento: {
       title: "코드를 이해하는 데 필요한 모든 것",
       subtitle:
-        "CodeMap AI는 멀티 에이전트 인텔리전스로 전체 저장소를 수 초 만에 이해하는 초능력을 제공합니다.",
+        "저장소 구조부터 핵심 흐름과 위험 신호까지, 코드 근거를 놓치지 않고 한 화면에서 확인하세요.",
       features: [
         {
           title: "심층 코드 분석",
-          desc: "멀티 에이전트 시스템이 전체 코드베이스를 분석하여 모든 저장소 구조에 대한 전문가 수준의 이해를 제공합니다 — 클론-브라우즈 단계를 완전히 제거합니다.",
+          desc: "여러 분석 에이전트가 파일과 의존성 흐름을 함께 읽어, 처음 보는 저장소도 중요한 부분부터 파악할 수 있게 돕습니다.",
         },
         {
-          title: "아키텍처 매핑",
-          desc: "인터랙티브 의존성 그래프와 모듈 맵을 자동으로 생성합니다.",
+          title: "구조 시각화",
+          desc: "모듈 관계와 의존성 흐름을 한눈에 볼 수 있는 그래프로 정리합니다.",
           mockLabel: "출력:",
           mockValue: "dependency-graph.svg",
         },
         {
-          title: "Git 고고학",
-          desc: "커밋 히스토리와 브랜치 패턴을 통해 코드 진화를 추적합니다.",
+          title: "변경 이력 추적",
+          desc: "커밋과 브랜치 흐름을 따라 코드가 어떻게 바뀌어 왔는지 살펴봅니다.",
         },
         {
-          title: "보안 감사",
-          desc: "노출된 비밀과 코드 취약점을 자동으로 감지합니다.",
+          title: "보안 위험 점검",
+          desc: "노출된 인증 정보와 주의가 필요한 코드 패턴을 찾아 우선순위와 함께 보여줍니다.",
         },
         {
           title: "시맨틱 검색",
@@ -502,7 +571,7 @@ export const translations = {
     // ── InteractiveDemo ───────────────────────────────────────────────────────
     demo: {
       title: "실제 동작 확인",
-      subtitle: "분석, 매핑, 감사 등 — CodeMap AI가 모두 처리합니다.",
+      subtitle: "구조를 살펴보고 질문한 뒤 답변의 근거 코드로 돌아가는 과정을 한 흐름에서 확인하세요.",
       scenarios: [
         {
           title: "fastapi/fastapi 분석 중",
@@ -541,25 +610,25 @@ export const translations = {
 
     // ── SecurityBanner ────────────────────────────────────────────────────────
     security: {
-      title: "로컬 우선. 프라이버시 보장.",
-      desc: "CodeMap AI는 전적으로 사용자 인프라에서 실행됩니다. 코드베이스는 절대 외부로 전송되지 않습니다. 로컬 경로는 로컬에서 분석됩니다 — GitHub URL을 명시적으로 선택하지 않는 한 데이터는 외부 서버로 전송되지 않습니다.",
-      badge: "멀티 에이전트 파이프라인",
+      title: "분석 결과를 코드에서 바로 확인하세요",
+      desc: "CodeMap은 저장소 스냅샷을 바탕으로 결과를 만들고 파일과 라인 근거를 함께 남깁니다. 중요한 설명은 요약만 믿지 않고 실제 코드로 돌아가 직접 확인할 수 있습니다.",
+      badge: "코드 근거 기반 분석",
     },
 
     // ── Footer ────────────────────────────────────────────────────────────────
     footer: {
-      tagline: "코드베이스 인텔리전스",
-      desc: "심층 코드베이스 분석, 아키텍처 매핑, 인터랙티브 온보딩 가이드를 위한 멀티 에이전트 AI 시스템. 모든 저장소를 수 초 만에 이해하세요.",
+      tagline: "코드베이스를 더 선명하게 읽는 방법",
+      desc: "저장소 구조와 핵심 흐름, 코드 근거가 있는 답변을 하나의 워크스페이스로 연결합니다.",
       featuresTitle: "기능",
       resourcesTitle: "리소스",
-      features: ["저장소 분석", "아키텍처 맵", "보안 감사", "온보딩 리포트"],
+      features: ["저장소 분석", "구조 시각화", "위험 신호", "온보딩 리포트"],
       resources: ["시작하기", "API 문서", "GitHub"],
       ctaTitle: "분석할 준비가 됐나요?",
-      ctaDesc: "GitHub URL 또는 로컬 경로를 입력하여 시작하세요.",
+      ctaDesc: "공개 GitHub 저장소를 검색하거나 URL을 붙여넣어 시작하세요.",
       ctaButton: "분석 시작 →",
       statusOk: "백엔드 정상 작동",
       copyright: "CODEMAP AI. 개발자를 위해 만들었습니다.",
-      localFirst: "로컬 우선 처리",
+      localFirst: "코드 근거 연결",
       multiAgent: "멀티 에이전트 파이프라인",
       poweredBy: "FastAPI + Next.js 기반",
     },
@@ -573,24 +642,31 @@ export const translations = {
       loadingMsg: "에이전트가 코드베이스를 매핑하고 있습니다. 잠시 기다려주세요...",
     },
 
-    // ── RepoInput ─────────────────────────────────────────────────────────────
     repoInput: {
-      title: "저장소 분석",
-      subtitle: "로컬 Git 경로 또는 공개 GitHub URL을 지원합니다.",
+      title: "새 저장소 분석",
+      subtitle: "공개 GitHub 저장소를 실제로 복제해 구조와 코드 근거를 분석합니다.",
       tabGithub: "GitHub URL",
       tabLocal: "로컬 경로",
-      labelGithub: "저장소 URL",
+      labelGithub: "Repository URL",
       labelLocal: "절대 경로",
       placeholderGithub: "https://github.com/owner/repo",
       placeholderLocal: "/경로/로컬/저장소",
-      modelLabel: "추론 모델",
-      cacheLabel: "캐시 건너뛰기",
-      cacheHint: "처음부터 다시 분석",
-      submit: "분석 시작 →",
-      submitting: "분석 중...",
+      quickModelLabel: "분석 모델 (빠른 선택)",
+      fast: "Fast",
+      thinking: "Thinking",
+      advancedSettings: "고급 분석 설정",
+      branchLabel: "분석 브랜치",
+      branchPlaceholder: "기본 브랜치 자동 감지",
+      customModelLabel: "사용자 지정 모델 ID (오버라이드)",
+      customModelEmpty: "빠른 선택 사용 (기본)",
+      comingSoon: "(준비중)",
+      forceRefresh: "새 스냅샷으로 다시 분석",
+      forceRefreshDesc: "서버에 남은 기존 clone을 삭제하고 원격 저장소를 다시 복제합니다.",
+      submit: "분석 워크스페이스 만들기",
+      submitting: "저장소 분석 중",
       errorGithubEmpty: "GitHub URL을 입력해주세요.",
       errorLocalEmpty: "로컬 경로를 입력해주세요.",
-      errorGithubInvalid: "유효한 GitHub 저장소 URL을 입력해주세요 (예: https://github.com/owner/repo)",
+      errorGithubInvalid: "https://github.com/owner/repository 형식으로 입력해주세요.",
       errorLocalInvalid: "유효한 로컬 절대 경로를 입력해주세요.",
     },
 
@@ -677,9 +753,9 @@ export const translations = {
       copied: "복사됨!",
       disclaimer: "AI는 실수할 수 있습니다. 중요한 정보는 직접 확인하세요.",
       mode: {
-        lite: "Lite",
+        fast: "Fast",
         deep: "Deep",
-        liteDesc: "gpt-4o-mini로 빠른 응답 — 간단한 질문에 적합",
+        fastDesc: "gpt-4o-mini로 빠른 응답 — 간단한 질문에 적합",
         deepDesc: "gpt-4o로 심층 분석 — 복잡한 아키텍처 질문에 최적",
       },
       status: {

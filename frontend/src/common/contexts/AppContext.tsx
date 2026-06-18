@@ -19,7 +19,7 @@ export type Theme = "dark" | "light";
 interface AppContextValue {
   theme: Theme;
   locale: Locale;
-  t: any;
+  t: (typeof translations)[Locale];
   toggleTheme: () => void;
   toggleLocale: () => void;
 }
@@ -41,11 +41,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Hydrate from localStorage after mount (avoids SSR mismatch)
   useEffect(() => {
-    const savedTheme = (localStorage.getItem("cm-theme") as Theme) ?? "dark";
-    const savedLocale = (localStorage.getItem("cm-locale") as Locale) ?? "en";
-    setTheme(savedTheme);
-    setLocale(savedLocale);
-    setMounted(true);
+    queueMicrotask(() => {
+      const savedTheme = (localStorage.getItem("cm-theme") as Theme) ?? "dark";
+      const savedLocale = (localStorage.getItem("cm-locale") as Locale) ?? "en";
+      setTheme(savedTheme);
+      setLocale(savedLocale);
+      setMounted(true);
+    });
   }, []);
 
   // Apply theme class to <html>

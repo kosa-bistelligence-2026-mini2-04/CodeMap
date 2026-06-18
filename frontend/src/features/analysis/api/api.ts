@@ -1,6 +1,7 @@
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
+  JobStatusData,
 } from "@/common/types/contracts";
 
 const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(/\/$/, "");
@@ -43,7 +44,7 @@ export async function startAnalysis(
  */
 export async function fetchJobStatus(
   jobId: string,
-): Promise<{ code: number; message: string; data: Record<string, unknown> }> {
+): Promise<{ code: number; message: string; data: JobStatusData }> {
   const resp = await fetch(apiPath(`/repo/analysis/${jobId}`));
   if (!resp.ok) {
     throw new Error(`Failed to fetch job status: ${resp.status}`);

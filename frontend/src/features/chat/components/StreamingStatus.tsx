@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Search, BookOpen, Sparkles, CheckCircle2 } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
 import type { StreamPhase } from "@/features/chat/api/chatApi";

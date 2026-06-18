@@ -1,0 +1,78 @@
+import type { WorkspaceReport } from "@/common/types/contracts";
+
+export const demoWorkspaceReport: WorkspaceReport = {
+  job_id: "preview-codemap",
+  status: "completed",
+  completed_at: new Date().toISOString(),
+  model_used: "auto",
+  repository: { name: "CodeMap" },
+  stats: {
+    files: 136,
+    lines: 15926,
+    bytes: 720832,
+    tests: 8,
+    todos: 10,
+    primary_language: "TypeScript",
+  },
+  languages: [
+    { name: "TypeScript", lines: 8054 },
+    { name: "Python", lines: 4380 },
+    { name: "Markdown", lines: 1820 },
+    { name: "SQL", lines: 612 },
+    { name: "Shell", lines: 336 },
+  ],
+  stack: ["Next.js", "FastAPI", "PostgreSQL", "LangGraph"],
+  entrypoints: [
+    "frontend/src/app/layout.tsx",
+    "frontend/src/app/analyze/page.tsx",
+    "backend/app/main.py",
+    "backend/app/repo/router.py",
+    "backend/app/repo/pipeline/graph.py",
+  ],
+  reading_order: [
+    "README.md",
+    "frontend/src/app/layout.tsx",
+    "frontend/src/app/analyze/page.tsx",
+    "backend/app/main.py",
+    "backend/app/repo/router.py",
+    "backend/app/repo/pipeline/graph.py",
+  ],
+  files: [
+    { path: "README.md", name: "README.md", language: "Markdown", lines: 181, size: 12500, kind: "source" },
+    { path: "frontend/src/app/layout.tsx", name: "layout.tsx", language: "TypeScript", lines: 61, size: 2400, kind: "source" },
+    { path: "frontend/src/app/analyze/page.tsx", name: "page.tsx", language: "TypeScript", lines: 358, size: 14200, kind: "source" },
+    { path: "frontend/src/features/chat/components/ChatInterface.tsx", name: "ChatInterface.tsx", language: "TypeScript", lines: 310, size: 13500, kind: "source" },
+    { path: "backend/app/main.py", name: "main.py", language: "Python", lines: 76, size: 3200, kind: "source" },
+    { path: "backend/app/repo/router.py", name: "router.py", language: "Python", lines: 281, size: 9900, kind: "source" },
+    { path: "backend/app/repo/pipeline/graph.py", name: "graph.py", language: "Python", lines: 163, size: 6500, kind: "source" },
+    { path: "backend/app/chat/service.py", name: "service.py", language: "Python", lines: 140, size: 5800, kind: "source" },
+    { path: "database/init.sql", name: "init.sql", language: "SQL", lines: 112, size: 4900, kind: "source" },
+    { path: "frontend/src/features/chat/components/ChatInterface.test.tsx", name: "ChatInterface.test.tsx", language: "TypeScript", lines: 88, size: 3500, kind: "test" },
+  ],
+  health_score: 82,
+  executive_summary: "CodeMap은 Next.js 인터페이스와 FastAPI 분석 파이프라인을 결합한 저장소 지능화 애플리케이션입니다. 분석 리포트와 저장소 채팅이 동일한 프로젝트 스냅샷을 사용하도록 구성되어 있습니다.",
+  key_strengths: [
+    "프런트엔드와 백엔드가 기능 도메인 기준으로 분리되어 주요 변경 지점을 찾기 쉽습니다.",
+    "분석 진행 상태가 WebSocket과 상태 API로 노출되어 장시간 작업의 가시성이 확보되어 있습니다.",
+    "파일·라인 출처를 포함하는 저장소 채팅 흐름이 분석 결과와 동일한 스냅샷을 사용합니다.",
+  ],
+  key_risks: [
+    "통합 테스트 범위가 제한적이어서 분석 완료부터 채팅 인용까지의 회귀 검증을 보강해야 합니다.",
+    "생성형 모델이 없는 환경에서 제공되는 결정론적 답변과 AI 답변의 기능 차이를 사용자에게 명확히 알려야 합니다.",
+  ],
+  recommendations: [
+    {
+      title: "분석-채팅 핵심 흐름 E2E 테스트 추가",
+      detail: "저장소 등록, 분석 완료, 리포트 질문, 출처 파일 선택까지 하나의 사용자 여정으로 검증하세요.",
+      affected_files: ["frontend/src/app/analyze/page.tsx", "backend/app/chat/router.py"],
+      priority: "high",
+    },
+    {
+      title: "프로젝트 상태를 URL과 서버에 함께 보존",
+      detail: "repoId, jobId, threadId를 공유 가능한 URL에 유지하고 대화는 서버에서 복원하세요.",
+      affected_files: ["frontend/src/features/chat/components/ChatInterface.tsx"],
+      priority: "medium",
+    },
+  ],
+  conflicts_resolved: [],
+};

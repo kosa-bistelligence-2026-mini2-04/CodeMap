@@ -41,6 +41,8 @@ class AnalysisJobRepository:
         repo_name: str,
         owner: str,
         branch: str,
+        model_used: str = "auto",
+        force_refresh: bool = False,
     ) -> AnalysisJob:
         """
         새로운 분석 작업 레코드를 DB에 생성한다.
@@ -63,6 +65,8 @@ class AnalysisJobRepository:
             stage=None,
             progress=0,
             message="분석 작업이 등록되었습니다.",
+            model_used=model_used,
+            force_refresh=force_refresh,
         )
         self.db.add(job) # DB에 INSERT 준비
         try:
@@ -120,6 +124,12 @@ class AnalysisJobRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_jobs(self, limit: int = 30) -> list[AnalysisJob]:
+        result = await self.db.execute(
+            select(AnalysisJob).order_by(AnalysisJob.created_at.desc()).limit(min(limit, 100))
+        )
+        return list(result.scalars())
+
     # ──────────────────────────────────────────
     # 분석 작업 상태 업데이트 (UPDATE)
     # ──────────────────────────────────────────
@@ -130,6 +140,7 @@ class AnalysisJobRepository:
         stage: Optional[str] = None,
         progress: Optional[int] = None,
         message: Optional[str] = None,
+        report_json: Optional[dict] = None,
     ) -> Optional[AnalysisJob]:
         """
         분석 작업의 상태를 업데이트한다.
@@ -160,6 +171,8 @@ class AnalysisJobRepository:
             job.progress = progress
         if message is not None:
             job.message = message
+        if report_json is not None:
+            job.report_json = report_json
 
         await self.db.flush()
         await self.db.refresh(job)

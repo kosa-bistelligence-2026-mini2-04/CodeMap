@@ -7,7 +7,7 @@ API 명세서에 정의된 모든 필드명, 타입, 필수 여부를 정확히 
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -66,6 +66,9 @@ class AnalysisRequest(BaseModel):
         ),
         examples=["main"],
     )
+
+    model: str = Field(default="auto", description="분석 모델 정책. 기본값은 자동 선택")
+    forceRefresh: bool = Field(default=False, description="기존 스냅샷을 무시하고 새로 분석")
 
 
 # ──────────────────────────────────────────────
@@ -181,6 +184,7 @@ class AnalysisData(BaseModel):
     createdAt: datetime = Field(
         description="작업 생성 시각"
     )
+    model: str = Field(default="auto", description="적용된 분석 모델 정책")
 
 
 class AnalysisResponse(BaseModel):
@@ -218,6 +222,12 @@ class JobStatusData(BaseModel):
             " IN_PROGRESS / CLONED / COMPLETED / FAILED"
         )
     )
+    repoUrl: str = Field(description="분석 저장소 URL")
+    stage: Optional[str] = Field(default=None, description="현재 분석 단계")
+    progress: int = Field(default=0, ge=0, le=100, description="전체 진행률")
+    statusMessage: Optional[str] = Field(default=None, description="현재 상태 설명")
+    model: str = Field(default="auto", description="분석 모델 정책")
+    report: Optional[dict[str, Any]] = Field(default=None, description="완료된 구조 분석 리포트")
     createdAt: datetime = Field(
         description="작업 생성 시각"
     )

@@ -15,7 +15,7 @@ import json
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +36,7 @@ from app.repo.schemas import (
     WorkspaceCleanupResponse,
 )
 from app.repo.service import AnalysisService, RepoValidateService
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,50 @@ logger = logging.getLogger(__name__)
 # APIRouter 인스턴스 생성
 # ──────────────────────────────────────────────
 router = APIRouter(tags=["Project Repository Analysis"])
+
+
+@router.get("/api/repo/models", summary="분석 모델 정책 조회")
+async def list_models():
+    settings = get_settings()
+    return {
+        "provider": "openai" if settings.OPENAI_API_KEY else "custom",
+        "base_url": None,
+        "default_model": "auto",
+        "models": [
+            {
+                "id": "auto",
+                "label": "자동 선택",
+                "hint": "저장소 구조 분석은 항상 실제 파일 스캔으로 수행하고, 서버 모델 설정이 있으면 설명을 보강합니다.",
+            },
+            {
+                "id": settings.OPENAI_MODEL,
+                "label": settings.OPENAI_MODEL,
+                "hint": "서버에 설정된 생성형 모델을 분석 설명에 사용합니다.",
+            },
+        ] if settings.OPENAI_API_KEY else [{
+            "id": "auto",
+            "label": "자동 선택",
+            "hint": "현재 서버는 결정론적 구조 분석 모드입니다.",
+        }],
+    }
+
+
+@router.get("/api/repo/analyses", summary="최근 분석 프로젝트 조회")
+async def list_analyses(limit: int = 30, db: AsyncSession = Depends(get_db)):
+    jobs = await AnalysisService(db).repository.list_jobs(limit)
+    status_map = {"IN_PROGRESS": "running", "COMPLETED": "completed", "FAILED": "failed"}
+    return {"items": [{
+        "job_id": str(job.id),
+        "source": "local" if job.repo_url.startswith("local-upload://") else "github",
+        "path": job.repo_url,
+        "status": status_map.get(job.status, "failed"),
+        "created_at": job.created_at.timestamp(),
+        "completed_at": job.updated_at.timestamp() if job.status == "COMPLETED" else None,
+        "total_pipeline_ms": None,
+        "error_message": job.message if job.status == "FAILED" else None,
+        "model_used": job.model_used,
+        "force_refresh": job.force_refresh,
+    } for job in jobs]}
 
 
 # ──────────────────────────────────────────────
@@ -99,6 +144,30 @@ async def register_analysis(
     """
     service = AnalysisService(db)
     return await service.register_analysis(request, background_tasks)
+
+
+@router.post(
+    "/api/repo/analysis/local",
+    response_model=AnalysisResponse,
+    status_code=201,
+    summary="로컬 폴더 업로드 및 분석 요청",
+)
+async def register_local_analysis(
+    background_tasks: BackgroundTasks,
+    folder_name: str = Form(..., alias="folderName"),
+    relative_paths: list[str] = Form(..., alias="paths"),
+    files: list[UploadFile] = File(...),
+    model: str = Form("auto"),
+    db: AsyncSession = Depends(get_db),
+) -> AnalysisResponse:
+    """Upload a browser-selected directory into an isolated analysis workspace."""
+    return await AnalysisService(db).register_local_analysis(
+        folder_name=folder_name,
+        files=files,
+        relative_paths=relative_paths,
+        model=model,
+        background_tasks=background_tasks,
+    )
 
 
 # ──────────────────────────────────────────────

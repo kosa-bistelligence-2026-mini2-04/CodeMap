@@ -8,9 +8,9 @@ PostgreSQL 테이블에 매핑하는 SQLAlchemy ORM 모델을 정의한다.
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Integer, Text, DateTime, Enum as SAEnum, Index, text
+from sqlalchemy import Boolean, String, Integer, Text, DateTime, Index, text
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.core.database import Base
 from app.repo.schemas import JobStatus, PipelineStage
@@ -69,6 +69,12 @@ class AnalysisJob(Base):
 
     # 진행 상태 메시지 - "저장소 복제 중..."
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    model_used: Mapped[str] = mapped_column(String(255), nullable=False, default="auto")
+
+    force_refresh: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    report_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # 작업 생성 시각
     created_at: Mapped[datetime] = mapped_column(

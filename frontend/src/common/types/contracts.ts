@@ -85,6 +85,8 @@ export interface ProviderCatalog {
 export interface AnalyzeRequest {
   repoUrl: string;
   branch?: string;
+  model?: string;
+  forceRefresh?: boolean;
 }
 
 export interface AnalysisData {
@@ -94,6 +96,61 @@ export interface AnalysisData {
   branch: string;
   status: string;
   createdAt: string;
+  model?: string;
+}
+
+export interface WorkspaceFile {
+  path: string;
+  name: string;
+  language: string;
+  lines: number;
+  size: number;
+  kind: 'source' | 'test';
+}
+
+export interface WorkspaceReport {
+  job_id?: string;
+  status?: 'completed';
+  completed_at?: string;
+  model_used?: string;
+  repository: { name: string; root?: string };
+  stats: {
+    files: number;
+    lines: number;
+    bytes: number;
+    tests: number;
+    todos: number;
+    primary_language: string;
+  };
+  languages: Array<{ name: string; lines: number }>;
+  stack: string[];
+  entrypoints: string[];
+  files: WorkspaceFile[];
+  health_score: number;
+  executive_summary: string;
+  key_strengths: string[];
+  key_risks: string[];
+  recommendations: Recommendation[];
+  conflicts_resolved: ConflictResolution[];
+  reading_order?: string[];
+  onboarding_steps?: Array<{ title: string; files: string[] }>;
+}
+
+export interface JobStatusData {
+  jobId: string;
+  repoName: string;
+  owner: string;
+  repoUrl: string;
+  branch: string;
+  clonePath: string;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  stage?: string | null;
+  progress: number;
+  statusMessage?: string | null;
+  model: string;
+  report?: WorkspaceReport | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AnalyzeResponse {
@@ -232,10 +289,17 @@ export type WsEvent =
 
 // ── Chat types ──────────────────────────────────────────────────────────────
 
-export type ChatMode = 'lite' | 'deep';
+export type ChatMode = 'quick' | 'deep';
 
 export type StreamPhase =
   | 'searching'
   | 'building_context'
   | 'generating'
   | 'complete';
+
+export interface CodeReference {
+  file: string;
+  line: number;
+  snippet: string;
+  language: string;
+}

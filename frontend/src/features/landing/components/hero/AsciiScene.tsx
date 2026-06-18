@@ -177,7 +177,7 @@ export function AsciiScene({ isDark = true }: { isDark?: boolean }) {
       }
     };
 
-    const onDocumentMouseDown = (event: MouseEvent) => {
+    const onDocumentMouseDown = () => {
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(
         shapes.map((s) => s.mesh),

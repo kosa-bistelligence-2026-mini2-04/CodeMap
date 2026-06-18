@@ -9,14 +9,7 @@ function TypewriterText({ text, step }: { text: string; step: number }) {
   const [displayedText, setDisplayedText] = useState("");
 
   useEffect(() => {
-    if (step === 0) {
-      setDisplayedText("");
-      return;
-    }
-    if (step >= 2) {
-      setDisplayedText(text);
-      return;
-    }
+    if (step !== 1) return;
 
     let i = 0;
     const speed = 1500 / text.length;
@@ -31,51 +24,13 @@ function TypewriterText({ text, step }: { text: string; step: number }) {
 
   return (
     <span className="whitespace-pre-wrap break-words">
-      {displayedText}
+      {step === 0 ? "" : step >= 2 ? text : displayedText}
       {(step === 0 || step === 1) && (
         <span className="inline-block w-[2px] h-[1em] bg-blue-500 animate-pulse align-middle ml-[2px]" />
       )}
     </span>
   );
 }
-
-const scenarios = [
-  {
-    id: "analyze",
-    title: "Analyzing fastapi/fastapi",
-    query: "Explain the dependency injection system and how routes register.",
-    loadingText: "Reading repository index...",
-    analyzingText: "Tracing injection patterns...",
-    tags: [
-      { icon: Code2, text: "fastapi/dependencies/utils.py", color: "text-green-400" },
-      { icon: Code2, text: "fastapi/routing.py", color: "text-green-400" },
-    ],
-    type: "chat",
-  },
-  {
-    id: "architecture",
-    title: "Architecture Map for numpy/numpy",
-    query: "Generate a module dependency graph for the core numeric engine.",
-    loadingText: "Parsing import graph...",
-    analyzingText: "Generating architecture diagram...",
-    tags: [
-      { icon: GitMerge, text: "numpy/core/_multiarray_umath.py", color: "text-blue-400" },
-      { icon: Network, text: "numpy/linalg/__init__.py", color: "text-blue-400" },
-    ],
-    type: "architecture",
-  },
-  {
-    id: "security",
-    title: "Security Scan for requests/requests",
-    query: "Are there any hardcoded credentials or unsafe deserialization patterns?",
-    loadingText: "Scanning for secret patterns...",
-    analyzingText: "Cross-referencing CVE database...",
-    tags: [
-      { icon: ShieldAlert, text: "requests/utils.py", color: "text-red-400" },
-    ],
-    type: "security",
-  }
-];
 
 export function InteractiveDemo() {
   const [step, setStep] = useState(0);
@@ -85,6 +40,7 @@ export function InteractiveDemo() {
   const isInView = useInView(containerRef, { once: false, margin: "-100px" });
   const { theme, t } = useApp();
   const isDark = theme === "dark";
+  const scenarioCount = t.demo.scenarios.length;
 
   // Derive scenarios array with translated text
   const scenarios = [
@@ -155,14 +111,14 @@ export function InteractiveDemo() {
       const nextIndex = index >= sequence.length ? 0 : index;
       setStep(sequence[nextIndex].step);
       if (nextIndex === 0 && index !== 0) {
-        setScenarioIndex((prev) => (prev + 1) % scenarios.length);
+        setScenarioIndex((prev) => (prev + 1) % scenarioCount);
       }
       timer = setTimeout(() => runSequence(nextIndex + 1), sequence[nextIndex].delay);
     };
 
     timer = setTimeout(() => runSequence(0), 1000);
     return () => clearTimeout(timer);
-  }, [isInView, playbackKey]);
+  }, [isInView, playbackKey, scenarioCount]);
 
   const currentScenario = scenarios[scenarioIndex];
   const visibleStep = isInView ? step : 0;
@@ -170,6 +126,7 @@ export function InteractiveDemo() {
   const renderResponse = () => {
     if (currentScenario.type === "chat") {
       const tData = currentScenario.translationData;
+      if (!("chatPart1" in tData)) return null;
       return (
         <div className="space-y-3 font-sans text-sm leading-relaxed">
           <p>
@@ -204,6 +161,7 @@ export function InteractiveDemo() {
 
     if (currentScenario.type === "architecture") {
       const tData = currentScenario.translationData;
+      if (!("archText" in tData)) return null;
       return (
         <div className="space-y-3 font-sans text-sm leading-relaxed">
           <p>
@@ -229,6 +187,7 @@ export function InteractiveDemo() {
 
     if (currentScenario.type === "security") {
       const tData = currentScenario.translationData;
+      if (!("secText" in tData)) return null;
       return (
         <div className="space-y-3 font-sans text-sm leading-relaxed">
           <p>

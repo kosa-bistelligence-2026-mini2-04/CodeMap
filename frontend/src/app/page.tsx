@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Github, GitBranch, Code2, Network, Shield, ChevronDown } from "lucide-react";
@@ -11,6 +11,8 @@ import { InteractiveDemo } from "@/features/landing/components/InteractiveDemo";
 import { SecurityBanner } from "@/common/components/ui/SecurityBanner";
 import { CodeMapFooter } from "@/common/components/layout/CodeMapFooter";
 import { useApp } from "@/common/contexts/AppContext";
+import { RepositoryLauncher } from "@/features/landing/components/RepositoryLauncher";
+import { TrendingRepos } from "@/features/landing/components/TrendingRepos";
 
 const EXAMPLE_REPOS = [
   { label: "fastapi/fastapi", url: "https://github.com/tiangolo/fastapi" },
@@ -19,32 +21,13 @@ const EXAMPLE_REPOS = [
 ];
 
 export default function Home() {
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
   const router = useRouter();
   const { theme, t } = useApp();
 
   const isDark = theme === "dark";
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError("");
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setError(isDark
-        ? "Please enter a valid GitHub URL or local absolute path."
-        : "GitHub URL 또는 로컬 절대 경로를 입력해주세요.");
-      return;
-    }
-    setLoading(true);
-    const isGithub = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+?(?:\.git)?\/?$/.test(trimmed);
-    const source = isGithub ? "github" : "local";
-    router.push(`/analyze?path=${encodeURIComponent(trimmed)}&source=${source}`);
-  };
-
-  const handleExampleClick = (url: string) => {
+  const handleAnalyze = (url: string) => {
     router.push(`/analyze?path=${encodeURIComponent(url)}&source=github`);
   };
 
@@ -116,66 +99,26 @@ export default function Home() {
             {t.hero.subtitle}
           </p>
 
-          {/* Search Input */}
-          <div className="w-full max-w-2xl mt-2">
-            <form onSubmit={handleSubmit} className="w-full relative group">
-              <div className="relative flex items-center">
-                <div className="absolute left-4" style={{ color: "var(--text-faint)" }}>
-                  <Github className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t.hero.placeholder}
-                  className="w-full pl-11 pr-14 py-4 text-sm rounded-2xl transition-all shadow-lg cm-input"
-                  disabled={loading}
-                />
-                <button
-                  type="submit"
-                  disabled={loading || !query.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all shadow-sm cursor-pointer disabled:cursor-not-allowed cm-btn-primary"
-                >
-                  {loading ? (
-                    <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  ) : (
-                    <ArrowRight className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-            </form>
+          <RepositoryLauncher onAnalyze={handleAnalyze} />
 
-            {error && (
-              <motion.p
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-2 text-xs font-semibold ml-1"
-                style={{ color: "var(--accent-red)" }}
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-faint)" }}>
+              {t.hero.tryLabel}
+            </span>
+            {EXAMPLE_REPOS.map((repo) => (
+              <button
+                key={repo.label}
+                onClick={() => handleAnalyze(repo.url)}
+                className="text-xs rounded-lg px-3 py-1.5 transition-all border"
+                style={{
+                  color: "var(--text-secondary)",
+                  borderColor: "var(--border-primary)",
+                  background: "var(--bg-card)",
+                }}
               >
-                {error}
-              </motion.p>
-            )}
-
-            {/* Example repos */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-faint)" }}>
-                {t.hero.tryLabel}
-              </span>
-              {EXAMPLE_REPOS.map((repo) => (
-                <button
-                  key={repo.label}
-                  onClick={() => handleExampleClick(repo.url)}
-                  className="text-xs rounded-lg px-3 py-1.5 transition-all border"
-                  style={{
-                    color: "var(--text-secondary)",
-                    borderColor: "var(--border-primary)",
-                    background: "var(--bg-card)",
-                  }}
-                >
-                  {repo.label}
-                </button>
-              ))}
-            </div>
+                {repo.label}
+              </button>
+            ))}
           </div>
 
           {/* Stats Row */}
@@ -208,6 +151,10 @@ export default function Home() {
         </motion.div>
       </section>
 
+      <div className={`relative z-10 w-full ${sectionAlt}`}>
+        <TrendingRepos onAnalyze={handleAnalyze} />
+      </div>
+
       {/* ═══════════════════════════════════════════════
           HOW IT WORKS
       ═══════════════════════════════════════════════ */}
@@ -222,7 +169,7 @@ export default function Home() {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {t.howItWorks.steps.map((item: any, i: number) => {
+            {t.howItWorks.steps.map((item, i) => {
               const colors = ["text-blue-400", "text-purple-400", "text-cyan-400", "text-green-400"];
               return (
                 <article key={i} className={`${cardClass} p-5 relative overflow-hidden group transition-colors`}>
@@ -269,7 +216,7 @@ export default function Home() {
           </h2>
           <p className={`text-lg mb-8 ${textSec}`}>{t.useCases.subtitle}</p>
           <div className="space-y-4">
-            {t.useCases.cases.map((c: any, i: number) => {
+            {t.useCases.cases.map((c, i) => {
               const colors = ["text-cyan-500", "text-purple-500", "text-red-500"];
               return (
                 <article key={i} className={`${cardClass} p-5 group transition-colors`}>
@@ -296,7 +243,7 @@ export default function Home() {
             {t.faq.title}
           </h2>
           <div className="space-y-4">
-            {t.faq.items.map((item: any, index: number) => (
+            {t.faq.items.map((item, index) => (
               <article key={index} className={`${cardClass} transition-colors`}>
                 <button
                   type="button"

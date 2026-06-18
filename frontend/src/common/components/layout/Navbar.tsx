@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sun, Moon, Languages } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
 
 export function Navbar() {
@@ -94,11 +94,8 @@ export function Navbar() {
             <Link href="/" className={`${linkHover} transition-colors`}>
               {t.nav.home}
             </Link>
-            <Link href="/analyze" className={`${linkHover} transition-colors`}>
-              {t.nav.analyze}
-            </Link>
-            <Link href="/chat" className={`${linkHover} transition-colors`}>
-              {t.nav.chat}
+            <Link href="/analyze" className={`${pathname.startsWith("/analyze") || pathname.startsWith("/chat") ? textBase : linkHover} transition-colors`}>
+              {locale === "ko" ? "프로젝트" : "Projects"}
             </Link>
           </nav>
         </div>
@@ -131,9 +128,9 @@ export function Navbar() {
             )}
           </button>
 
-          {/* GitHub */}
+          {/* Project repository */}
           <a
-            href="https://github.com"
+            href="https://github.com/kosa-bistelligence-2026-mini2-04/CodeMap"
             target="_blank"
             rel="noopener noreferrer"
             className={`text-xs font-semibold ${linkHover} transition-colors ml-1`}
@@ -141,18 +138,6 @@ export function Navbar() {
             {t.nav.github}
           </a>
 
-          {/* Launch App */}
-          <Link
-            href="/analyze"
-            className={
-              "rounded-xl px-3 py-1.5 text-xs font-bold transition-all duration-150 shadow-sm ml-1 " +
-              (isDark
-                ? "bg-white text-black hover:bg-zinc-200"
-                : "bg-black text-white hover:bg-zinc-800")
-            }
-          >
-            {t.nav.launchApp}
-          </Link>
         </div>
       </div>
     </header>

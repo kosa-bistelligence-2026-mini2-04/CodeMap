@@ -4,6 +4,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import type { AgentName, AgentRuntimeStatus } from "@/common/types/contracts";
 import { useApp } from "@/common/contexts/AppContext";
+import { translations, type Locale } from "@/common/i18n/translations";
 
 export interface ProgressPanelProps {
   jobId: string;
@@ -42,7 +43,7 @@ interface AgentStatusCardProps {
   onRetry?: (name: AgentName) => void;
   index: number;
   isDark: boolean;
-  t: any;
+  t: (typeof translations)[Locale];
 }
 
 const AgentStatusCard = memo(function AgentStatusCardImpl({

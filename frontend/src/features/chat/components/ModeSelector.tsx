@@ -12,21 +12,21 @@ interface ModeSelectorProps {
 }
 
 export function ModeSelector({ mode, onChange, disabled }: ModeSelectorProps) {
-  const { t } = useApp();
+  const { locale } = useApp();
 
   const modes = [
     {
-      key: "lite" as const,
+      key: "quick" as const,
       icon: Zap,
-      label: t.chat.mode.lite,
-      desc: t.chat.mode.liteDesc,
+      label: locale === "ko" ? "빠른 질문" : "Quick",
+      desc: locale === "ko" ? "관련 파일을 빠르게 찾아 답변합니다" : "Fast answer from the most relevant files",
       color: "var(--accent-cyan)",
     },
     {
       key: "deep" as const,
       icon: Brain,
-      label: t.chat.mode.deep,
-      desc: t.chat.mode.deepDesc,
+      label: locale === "ko" ? "깊은 탐색" : "Deep",
+      desc: locale === "ko" ? "더 많은 파일과 연결 관계를 탐색합니다" : "Explore more files and relationships",
       color: "var(--accent-purple)",
     },
   ];

@@ -14,9 +14,16 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     stage VARCHAR(20),
     progress INTEGER NOT NULL DEFAULT 0,
     message TEXT,
+    model_used VARCHAR(255) NOT NULL DEFAULT 'auto',
+    force_refresh BOOLEAN NOT NULL DEFAULT FALSE,
+    report_json JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS model_used VARCHAR(255) NOT NULL DEFAULT 'auto';
+ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS force_refresh BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS report_json JSONB;
 
 -- 3. 소스코드 원문 테이블 (1: 파일 정보 및 원문 저장)
 CREATE TABLE IF NOT EXISTS source_files (
@@ -61,6 +68,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_analysis_jobs_in_progress
 ON analysis_jobs (repo_url, branch)
 WHERE status = 'IN_PROGRESS';
 
+CREATE TABLE IF NOT EXISTS chat_conversations (
+    id UUID PRIMARY KEY,
+    repo_id UUID NOT NULL REFERENCES analysis_jobs(id) ON DELETE CASCADE,
+    title VARCHAR(160) NOT NULL DEFAULT '새 대화',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_conversations_repo ON chat_conversations (repo_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id UUID PRIMARY KEY,
+    conversation_id UUID NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    mode VARCHAR(20) NOT NULL DEFAULT 'quick',
+    references JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages (conversation_id, created_at);
+
 -- 7. 서비스 전용 권한 및 역할 부여
 DO $$
 BEGIN
@@ -79,4 +108,3 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO codemap_service;
 -- 이후 생성될 테이블에 대한 기본 권한 설정
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO codemap_service;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO codemap_service;
-

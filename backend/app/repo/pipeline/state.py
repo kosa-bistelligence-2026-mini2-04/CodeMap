@@ -38,6 +38,9 @@ class PipelineState(TypedDict):
     branch: str
     owner: str
     repo_name: str
+    model: str
+    force_refresh: bool
+    analysis_report: Optional[dict[str, Any]]
 
     # Clone 결과 경로 (clone_node 완료 후 설정, start_pipeline 재시작 시 미리 설정됨)
     clone_path: Optional[str]

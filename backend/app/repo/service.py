@@ -18,10 +18,10 @@ import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -40,6 +40,7 @@ from app.core.exceptions import (
 )
 from app.repo.event_manager import event_manager
 from app.repo.models import AnalysisJob
+from app.repo.local_upload import save_local_upload
 from app.repo.repository import AnalysisJobRepository
 from app.repo.schemas import (
     AnalysisData,
@@ -151,8 +152,8 @@ class AnalysisService:
         # 1. GitHub URL에서 owner, repo 이름 파싱
         owner, repo_name = self._parse_github_url(request.repoUrl)
 
-        # 2. 브랜치 미입력 시 기본값 main 설정
-        branch = request.branch or "main"
+        # 2. 브랜치 미입력 시 git이 원격 기본 브랜치를 자동 선택한다.
+        branch = request.branch or "default"
 
         # 3. 동일 저장소(레포)에 대한 중복 분석이 있는지 확인
         duplicate = await self.repository.check_duplicate_job(request.repoUrl, branch)
@@ -165,6 +166,8 @@ class AnalysisService:
             repo_name=repo_name,
             owner=owner,
             branch=branch,
+            model_used=request.model,
+            force_refresh=request.forceRefresh,
         )
 
         # 5. [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 실행
@@ -182,6 +185,62 @@ class AnalysisService:
                 branch=job.branch,
                 status=JobStatus.IN_PROGRESS,
                 createdAt=job.created_at,
+                model=job.model_used,
+            ),
+        )
+
+    async def register_local_analysis(
+        self,
+        folder_name: str,
+        files: list[UploadFile],
+        relative_paths: list[str],
+        model: str,
+        background_tasks: BackgroundTasks,
+    ) -> AnalysisResponse:
+        """Store a browser-selected directory and start the standard analysis pipeline."""
+        repo_name = Path(folder_name).name.strip()[:255]
+        if not repo_name or repo_name in {".", ".."}:
+            raise CodeMapException(400, "INVALID_FOLDER_NAME", "올바른 폴더 이름이 필요합니다.")
+
+        source_id = uuid4()
+        job = await self.repository.create_job(
+            repo_url=f"local-upload://{source_id}/{repo_name}",
+            repo_name=repo_name,
+            owner="local",
+            branch="workspace",
+            model_used=model or "auto",
+            force_refresh=False,
+        )
+        workspace = Path(settings.CLONE_BASE_DIR) / str(job.id) / "repo"
+        file_count, total_bytes = await save_local_upload(
+            files,
+            relative_paths,
+            repo_name,
+            workspace,
+        )
+        await self.repository.update_job_status(
+            job_id=job.id,
+            status=JobStatus.IN_PROGRESS.value,
+            stage=PipelineStage.CLONE.value,
+            progress=20,
+            message=f"로컬 폴더 업로드 완료 · {file_count:,}개 파일 · {total_bytes / 1024 / 1024:.1f}MB",
+        )
+        # BackgroundTasks runs before the request dependency finalizer commits.
+        # Make the uploaded job visible to the pipeline's independent DB session first.
+        await self.db.commit()
+        background_tasks.add_task(self._run_pipeline_with_langgraph, str(job.id))
+
+        return AnalysisResponse(
+            code=201,
+            message="created",
+            data=AnalysisData(
+                jobId=job.id,
+                repoName=job.repo_name,
+                owner=job.owner,
+                branch=job.branch,
+                status=JobStatus.IN_PROGRESS,
+                createdAt=job.created_at,
+                model=job.model_used,
             ),
         )
 
@@ -220,6 +279,12 @@ class AnalysisService:
                 branch=job.branch,
                 clonePath=clone_path,
                 status=JobStatus(job.status),
+                repoUrl=job.repo_url,
+                stage=job.stage,
+                progress=job.progress,
+                statusMessage=job.message,
+                model=job.model_used,
+                report=job.report_json,
                 createdAt=job.created_at,
                 updatedAt=job.updated_at,
             ),
@@ -338,12 +403,21 @@ class AnalysisService:
         import subprocess
 
         def _do_clone() -> subprocess.CompletedProcess:
-            return subprocess.run(
+            proc = subprocess.Popen(
                 ["git", "clone", "--depth", "1", "--branch", branch, repo_url, str(clone_path)],
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=timeout_seconds,
             )
+            try:
+                stdout, stderr = proc.communicate(timeout=timeout_seconds)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+                # timeout 시 partial workspace 즉시 정리
+                _safe_remove(clone_path)
+                raise
+            return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
         try:
             result = await asyncio.to_thread(_do_clone)
@@ -351,6 +425,8 @@ class AnalysisService:
             raise asyncio.TimeoutError() from exc
 
         if result.returncode != 0:
+            # clone 실패 시 partial workspace 정리
+            _safe_remove(clone_path)
             error_message = result.stderr.strip() or result.stdout.strip()
             logger.error(
                 "git clone failed: returncode=%d stderr=%r stdout=%r",
@@ -359,6 +435,9 @@ class AnalysisService:
                 result.stdout.strip(),
             )
             raise RuntimeError(error_message or f"git exited with code {result.returncode}")
+
+        # clone 완료 marker 생성 (atomic completion 표시)
+        (clone_path / ".clone_complete").write_text("ok", encoding="utf-8")
 
     # ──────────────────────────────────────────
     # API-008: 임시 clone 디렉토리 cleanup
@@ -443,7 +522,8 @@ class AnalysisService:
         clone_path = os.path.join(
             settings.CLONE_BASE_DIR, str(job_id), "repo"
         )
-        if not os.path.exists(clone_path):
+        clone_complete_marker = os.path.join(clone_path, ".clone_complete")
+        if not os.path.exists(clone_path) or not os.path.exists(clone_complete_marker):
             raise CloneNotCompletedError()
 
         now = datetime.now(timezone.utc)
@@ -539,6 +619,9 @@ class AnalysisService:
                 "branch": job.branch,
                 "owner": job.owner,
                 "repo_name": job.repo_name,
+                "model": job.model_used,
+                "force_refresh": job.force_refresh,
+                "analysis_report": job.report_json,
                 # clone_path는 None으로 시작한다.
                 # clone_node가 os.path.exists()로 실제 파일 존재를 확인하여
                 # 이미 Clone된 경우 단계를 건너끰다.
