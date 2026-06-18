@@ -50,7 +50,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
   const [items, setItems] = useState<AnalysisRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { theme, t } = useApp();
   const isDark = theme === "dark";
 
@@ -58,32 +58,20 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
     setLoading(true);
     setError(null);
     try {
-      // PROJECT-LIST-API-001: GET /api/list/analysis (팀원 담당 List 모듈)
-      const resp = await fetch(apiPath("/list/analysis?limit=30"));
-      if (resp.status === 404 || resp.status === 401) {
-        // 엔드포인트 미구현 또는 인증 미적용 — 조용히 빈 목록 표시
-        setItems([]);
-        return;
-      }
-      if (!resp.ok) throw new Error(`${resp.status}`);
-      const data = await resp.json();
-      // 명세 응답: { data: { jobs: [...] } } 또는 fallback
-      const jobs = data?.data?.jobs || data?.items || data?.data || [];
-      // 명세의 jobs 필드를 AnalysisRow 형식으로 변환
-      setItems(jobs.map((j: Record<string, unknown>) => ({
-        job_id: (j.jobId ?? j.job_id) as string,
-        source: (j.source ?? (String(j.repoUrl ?? j.path ?? "").startsWith("https://") ? "github" : "local")) as "github" | "local",
-        path: (j.repoUrl ?? j.path ?? "") as string,
-        status: (j.status === "IN_PROGRESS" ? "running" : j.status === "COMPLETED" ? "completed" : j.status === "FAILED" ? "failed" : j.status) as "running" | "completed" | "failed",
-        created_at: j.createdAt ? new Date(j.createdAt as string).getTime() / 1000 : (j.created_at as number ?? 0),
-        completed_at: j.updatedAt && j.status === "COMPLETED" ? new Date(j.updatedAt as string).getTime() / 1000 : (j.completed_at as number | null ?? null),
-        total_pipeline_ms: (j.total_pipeline_ms as number | null) ?? null,
-        error_message: (j.errorMessage ?? j.error_message ?? null) as string | null,
-        model_used: (j.model_used ?? null) as string | null,
-        force_refresh: (j.force_refresh as boolean) ?? false,
+      const response = await fetchAnalysisHistory(1, 30);
+      setItems(response.data.jobs.map((job) => ({
+        job_id: job.jobId,
+        source: job.repoUrl.startsWith("https://") ? "github" : "local",
+        path: job.repoUrl,
+        status: job.status,
+        created_at: toUnixSeconds(job.createdAt),
+        completed_at: job.status === "completed" ? toUnixSeconds(job.updatedAt) : null,
+        total_pipeline_ms: null,
+        error_message: job.errorMessage,
+        model_used: null,
+        force_refresh: false,
       })));
-    } catch {
-      // Silently fail — history is optional
+    } catch (requestError) {
       setItems([]);
       setError(requestError instanceof Error ? requestError.message : t.historyList.loadFailed);
     } finally {
@@ -102,15 +90,15 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
     failed: { color: "text-red-500 bg-red-500/10 border-red-500/30", icon: XCircle, label: t.historyList.statusFailed },
   };
 
-  const containerClass = isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-white border-zinc-200 shadow-sm';
-  const headerBorderClass = isDark ? 'border-zinc-800' : 'border-zinc-200';
-  const titleClass = isDark ? 'text-white' : 'text-zinc-900';
-  const refreshBtnClass = isDark ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900';
-  const itemHoverClass = isDark ? 'hover:bg-zinc-800/40' : 'hover:bg-zinc-50';
-  const activeItemClass = isDark ? 'bg-zinc-800/70 border-l-blue-500' : 'bg-blue-50 border-l-blue-500';
-  const pathClass = isDark ? 'text-zinc-200' : 'text-zinc-700';
-  const timeClass = isDark ? 'text-zinc-600' : 'text-zinc-400';
-  const dividerClass = isDark ? 'divide-zinc-800/60' : 'divide-zinc-100';
+  const containerClass = isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200 shadow-sm";
+  const headerBorderClass = isDark ? "border-zinc-800" : "border-zinc-200";
+  const titleClass = isDark ? "text-white" : "text-zinc-900";
+  const refreshBtnClass = isDark ? "text-zinc-500 hover:text-white" : "text-zinc-400 hover:text-zinc-900";
+  const itemHoverClass = isDark ? "hover:bg-zinc-800/40" : "hover:bg-zinc-50";
+  const activeItemClass = isDark ? "bg-zinc-800/70 border-l-blue-500" : "bg-blue-50 border-l-blue-500";
+  const pathClass = isDark ? "text-zinc-200" : "text-zinc-700";
+  const timeClass = isDark ? "text-zinc-600" : "text-zinc-400";
+  const dividerClass = isDark ? "divide-zinc-800/60" : "divide-zinc-100";
 
   return (
     <div className={`border rounded-2xl backdrop-blur-sm overflow-hidden transition-colors ${containerClass}`}>
@@ -146,7 +134,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
             {items.map((it) => {
               const cfg = STATUS_CONFIG[it.status];
               const StatusIcon = cfg.icon;
-              const isGithub = it.path.startsWith("https://");
+              const isGithub = it.source === "github";
               const isActive = activeJobId === it.job_id;
 
               return (
