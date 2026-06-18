@@ -1,0 +1,48 @@
+from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class AnalysisJobItem(BaseModel):
+    """분석 작업 목록의 단일 항목 DTO입니다."""
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    job_id: UUID = Field(alias="jobId", description="분석 작업 고유 ID")
+    repo_url: str = Field(alias="repoUrl", description="GitHub 저장소 URL")
+    branch: str = Field(description="분석 대상 브랜치")
+    status: str = Field(description="작업 상태")
+    progress: int = Field(ge=0, le=100, description="작업 진행률")
+    failed_agent: Optional[str] = Field(default=None, alias="failedAgent", description="실패한 에이전트명")
+    error_message: Optional[str] = Field(default=None, alias="errorMessage", description="실패 시 에러 메시지")
+    created_at: datetime = Field(alias="createdAt", description="작업 생성 시각")
+    updated_at: datetime = Field(alias="updatedAt", description="작업 최종 변경 시각")
+
+
+class AnalysisJobListData(BaseModel):
+    """분석 작업 목록 응답의 data DTO입니다."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    total_count: int = Field(alias="totalCount", description="전체 분석 이력 수")
+    page: int = Field(description="현재 페이지 번호")
+    limit: int = Field(description="페이지당 반환 개수")
+    jobs: list[AnalysisJobItem] = Field(description="분석 작업 목록")
+
+
+class AnalysisJobListResponse(BaseModel):
+    """PROJECT-LIST-API-001 성공 응답 DTO입니다."""
+
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="응답 메시지")
+    data: AnalysisJobListData
+
+
+class ErrorResponse(BaseModel):
+    """PROJECT-LIST-API-001 에러 응답 DTO입니다."""
+
+    code: int = Field(description="HTTP 상태 코드")
+    errorCode: str = Field(description="에러 코드")
+    message: str = Field(description="에러 메시지")

@@ -1,0 +1,52 @@
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.list.models import AnalysisJobListModel
+from app.repo.models import AnalysisJob
+
+
+class AnalysisJobListRepository:
+    """분석 작업 목록 조회에 필요한 DB 접근을 담당합니다."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def count_analysis_jobs(self) -> int:
+        """전체 분석 작업 수를 조회합니다."""
+        result = await self.db.execute(select(func.count()).select_from(AnalysisJob))
+        return result.scalar_one()
+
+    async def find_analysis_jobs(self, page: int, limit: int) -> list[AnalysisJobListModel]:
+        """페이지 번호와 페이지 크기에 맞춰 분석 작업 목록을 조회합니다."""
+        offset = (page - 1) * limit
+        result = await self.db.execute(
+            select(AnalysisJob)
+            .order_by(AnalysisJob.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return [self._to_list_model(job) for job in result.scalars().all()]
+
+    def _to_list_model(self, job: AnalysisJob) -> AnalysisJobListModel:
+        """DB 엔티티를 목록 API 내부 모델로 변환합니다."""
+        is_failed = job.status == "FAILED"
+        return AnalysisJobListModel(
+            job_id=job.id,
+            repo_url=job.repo_url,
+            branch=job.branch,
+            status=self._to_api_status(job.status),
+            progress=job.progress,
+            failed_agent=job.stage if is_failed else None,
+            error_message=job.message if is_failed else None,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
+
+    def _to_api_status(self, status: str) -> str:
+        """DB 작업 상태를 명세의 응답 상태값으로 변환합니다."""
+        status_map = {
+            "IN_PROGRESS": "running",
+            "COMPLETED": "completed",
+            "FAILED": "failed",
+        }
+        return status_map.get(status, status.lower())
