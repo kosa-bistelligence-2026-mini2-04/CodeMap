@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     """애플리케이션 환경 설정 클래스"""
 
     # 데이터베이스 연결 URL (PostgreSQL + pgvector)
-    DATABASE_URL: str = "postgresql://codemap_service:codemap@kosa165.iptime.org:50004/codemap"
+    DATABASE_URL: str = "postgres:postgres@localhost:5432/codemap"
 
     # Git 저장소 clone 시 사용할 임시 디렉토리 경로
     CLONE_BASE_DIR: str = "/tmp/codemap/jobs"
