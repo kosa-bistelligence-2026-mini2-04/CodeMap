@@ -218,6 +218,9 @@ export default function AnalyzePage() {
   }, []);
 
   // Detect URL search query params on mount
+  const [initialPath, setInitialPath] = useState<string | undefined>();
+  const [initialSource, setInitialSource] = useState<RepoSource | undefined>();
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -225,6 +228,8 @@ export default function AnalyzePage() {
     const sourceParam = params.get("source") as RepoSource | null;
 
     if (pathParam) {
+      setInitialPath(pathParam);
+      setInitialSource(sourceParam || "github");
       void submit({
         path: pathParam,
         source: sourceParam || "local",
@@ -272,7 +277,12 @@ export default function AnalyzePage() {
       <main className="mx-auto max-w-7xl px-6 py-8 grid gap-6 lg:grid-cols-[380px_1fr]">
         {/* Sidebar */}
         <aside className="space-y-5">
-          <RepoInput onSubmit={submit} disabled={running} />
+          <RepoInput
+            onSubmit={submit}
+            disabled={running}
+            initialPath={initialPath}
+            initialMode={initialSource}
+          />
 
           <AnimatePresence>
             {jobId && (
