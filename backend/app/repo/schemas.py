@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 class JobStatus(str, Enum):
     """분석 작업의 상태를 정의하는 열거형"""
     IN_PROGRESS = "IN_PROGRESS"
+    CLONED = "CLONED"        # clone 완료, 파이프라인 미시작
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
@@ -102,6 +103,60 @@ class RepoValidateResponse(BaseModel):
     data: RepoValidateData
 
 
+# ──────────────────────────────────────────────
+# API-004: 특정 job 기준 저장소 clone 요청/응답 DTO
+# ──────────────────────────────────────────────
+class CloneRequest(BaseModel):
+    """
+    POST /api/repo/analysis/{job_id}/clone 요청 본문 스키마
+
+    timeoutSeconds 미입력 시 기본 300초를 사용한다.
+    """
+    timeoutSeconds: int = Field(
+        default=300,
+        ge=1,
+        le=1800,
+        description="clone 제한 시간(초)",
+        examples=[300],
+    )
+
+
+class CloneData(BaseModel):
+    """API-004 성공 응답의 data 필드 스키마"""
+    jobId: UUID = Field(description="분석 작업 고유 ID")
+    clonePath: str = Field(description="작업 기준 논리 경로 (jobs/{jobId})")
+    fileCount: int = Field(description="필터링 후 분석 대상 파일 수")
+    sizeKb: int = Field(description="필터링 후 총 용량(KB)")
+
+
+class CloneResponse(BaseModel):
+    """
+    POST /api/repo/analysis/{job_id}/clone 성공 응답 스키마 (200 OK)
+    """
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="응답 메시지")
+    data: CloneData
+
+
+# ──────────────────────────────────────────────
+# API-008: 임시 clone 디렉토리 cleanup 응답 DTO
+# ──────────────────────────────────────────────
+class WorkspaceCleanupData(BaseModel):
+    """API-008 성공 응답의 data 필드 스키마"""
+    jobId: UUID = Field(description="cleanup된 분석 작업 고유 ID")
+    cleanedPath: str = Field(description="삭제된 임시 디렉토리 경로")
+    cleanedAt: datetime = Field(description="cleanup 완료 시각")
+
+
+class WorkspaceCleanupResponse(BaseModel):
+    """
+    DELETE /api/repo/analysis/{job_id}/workspace 성공 응답 스키마 (200 OK)
+    """
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="응답 메시지")
+    data: WorkspaceCleanupData
+
+
 
 # ──────────────────────────────────────────────
 # API-001: 프로젝트 등록 응답 내부 데이터 DTO
@@ -160,7 +215,7 @@ class JobStatusData(BaseModel):
     status: JobStatus = Field(
         description=(
             "현재 상태:"
-            " IN_PROGRESS / COMPLETED / FAILED"
+            " IN_PROGRESS / CLONED / COMPLETED / FAILED"
         )
     )
     createdAt: datetime = Field(

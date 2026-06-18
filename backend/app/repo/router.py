@@ -25,12 +25,15 @@ from app.repo.event_manager import event_manager
 from app.repo.schemas import (
     AnalysisRequest,
     AnalysisResponse,
+    CloneRequest,
+    CloneResponse,
     ErrorResponse,
     JobStatus,
     JobStatusResponse,
     PipelineStartResponse,
     RepoValidateRequest,
     RepoValidateResponse,
+    WorkspaceCleanupResponse,
 )
 from app.repo.service import AnalysisService, RepoValidateService
 
@@ -96,6 +99,59 @@ async def register_analysis(
     """
     service = AnalysisService(db)
     return await service.register_analysis(request, background_tasks)
+
+
+# ──────────────────────────────────────────────
+# API-004: 특정 job 기준 저장소 clone 실행
+# POST /api/repo/analysis/{job_id}/clone
+# ──────────────────────────────────────────────
+@router.post(
+    "/api/repo/analysis/{job_id}/clone",
+    response_model=CloneResponse,
+    summary="특정 job 기준 저장소 clone 실행",
+    description="job_id에 해당하는 저장소를 clone하고 분석 대상 파일만 남기도록 필터링한다.",
+    responses={
+        404: {"model": ErrorResponse, "description": "존재하지 않는 job_id"},
+        408: {"model": ErrorResponse, "description": "Clone 제한 시간 초과"},
+        409: {"model": ErrorResponse, "description": "이미 clone이 완료된 job"},
+        413: {"model": ErrorResponse, "description": "파일 수/용량 제한 초과"},
+        500: {"model": ErrorResponse, "description": "Clone 실행 오류 (브랜치 없음·저장소 접근 불가·네트워크 오류 등 git 오류는 모두 500)"},
+    },
+)
+async def clone_repository(
+    job_id: UUID,
+    request: CloneRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> CloneResponse:
+    """
+    수동 재시작 또는 단계별 테스트를 위해 특정 job의 저장소 clone만 실행한다.
+    """
+    service = AnalysisService(db)
+    return await service.clone_repository(job_id, request or CloneRequest())
+
+
+# ──────────────────────────────────────────────
+# API-008: 임시 clone 디렉토리 cleanup
+# DELETE /api/repo/analysis/{job_id}/workspace
+# ──────────────────────────────────────────────
+@router.delete(
+    "/api/repo/analysis/{job_id}/workspace",
+    response_model=WorkspaceCleanupResponse,
+    summary="임시 clone 디렉토리 cleanup",
+    description="분석 실패 또는 수동 재시도 시 서버 내부 임시 clone 디렉토리를 삭제한다.",
+    responses={
+        404: {"model": ErrorResponse, "description": "존재하지 않는 job_id 또는 workspace 없음"},
+        409: {"model": ErrorResponse, "description": "분석 파이프라인 진행 중 삭제 시도"},
+        500: {"model": ErrorResponse, "description": "파일 시스템 cleanup 실패"},
+    },
+)
+async def cleanup_workspace(
+    job_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> WorkspaceCleanupResponse:
+    """수동 cleanup 또는 재시도 준비를 위해 임시 clone 디렉토리를 삭제한다."""
+    service = AnalysisService(db)
+    return await service.cleanup_workspace(job_id)
 
 
 # ──────────────────────────────────────────────
