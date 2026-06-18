@@ -46,19 +46,29 @@ async def chat(repo_id: UUID, request: ChatRequest, db: AsyncSession = Depends(g
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     async def stream():
-        yield _event({"type": "thread", "threadId": str(thread.id)})
-        yield _event({"type": "status", "phase": "searching"})
-        for item in references:
-            yield _event({"type": "exploration", "step": f"{item['file']}:{item['line']} 확인"})
-        yield _event({"type": "status", "phase": "building_context"})
-        answer = await service.answer(job.repo_name, request, references)
-        yield _event({"type": "status", "phase": "generating"})
-        for index in range(0, len(answer), 36):
-            yield _event({"type": "content", "content": answer[index:index + 36]})
-            await asyncio.sleep(0.01)
-        yield _event({"type": "references", "references": references})
-        await service.persist_answer(thread, answer, mode, references)
-        yield _event({"type": "done"})
+        answer = None
+        try:
+            yield _event({"type": "thread", "threadId": str(thread.id)})
+            yield _event({"type": "status", "phase": "searching"})
+            for item in references:
+                yield _event({"type": "exploration", "step": f"{item['file']}:{item['line']} 확인"})
+            yield _event({"type": "status", "phase": "building_context"})
+            answer = await service.answer(job.repo_name, request, references, mode)
+            yield _event({"type": "status", "phase": "generating"})
+            for index in range(0, len(answer), 36):
+                yield _event({"type": "content", "content": answer[index:index + 36]})
+                await asyncio.sleep(0.01)
+            yield _event({"type": "references", "references": references})
+            await service.persist_answer(thread, answer, mode, references)
+            yield _event({"type": "done"})
+        except Exception as exc:
+            # 스트리밍 중 오류 발생 시 에러 이벤트 전송 후 정리
+            import logging
+            logging.getLogger(__name__).exception("SSE stream failed for repo %s", repo_id)
+            yield _event({"type": "error", "message": "답변 생성 중 오류가 발생했습니다. 다시 시도해주세요."})
+            # 답변이 생성되지 않았으면 user 메시지도 롤백
+            if answer is None:
+                await db.rollback()
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 

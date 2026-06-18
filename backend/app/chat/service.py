@@ -51,7 +51,7 @@ class RepositoryChatService:
             10 if mode == "deep" else 5,
         )
 
-    async def answer(self, repo_name: str, request: ChatRequest, references: list[dict]) -> str:
+    async def answer(self, repo_name: str, request: ChatRequest, references: list[dict], mode: str = "quick") -> str:
         if not references:
             return (
                 f"`{repo_name}` 저장소에서 질문과 직접 연결되는 코드 근거를 찾지 못했습니다. "
@@ -61,11 +61,14 @@ class RepositoryChatService:
         if self.settings.OPENAI_API_KEY:
             from langchain_openai import ChatOpenAI
 
+            # mode에 따라 실제 모델 분기 적용
+            model_name = "gpt-4o" if mode == "deep" else self.settings.OPENAI_MODEL
+
             context = "\n\n".join(
                 f"[{item['file']}:{item['line']}]\n{item['snippet']}" for item in references
             )
             llm = ChatOpenAI(
-                model=self.settings.OPENAI_MODEL,
+                model=model_name,
                 api_key=self.settings.OPENAI_API_KEY,
                 temperature=0.1,
             )
