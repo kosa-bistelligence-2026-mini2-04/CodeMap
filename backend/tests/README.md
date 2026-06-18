@@ -10,8 +10,8 @@
 | `evals/` | 검색 정확도와 LLM 답변 품질을 고정 평가셋으로 검증 |
 | `fixtures/` | 테스트와 평가에서 공유하는 소형 저장소 및 입력 데이터 |
 
-단위 테스트는 `backend`에서 다음과 같이 실행한다.
+전체 테스트는 `backend`에서 다음과 같이 실행한다. 아직 구현되지 않은 Notion RAG 계약은 삭제하지 않고 `skipped`로 표시되며, 해당 모듈과 함수가 추가되면 자동으로 활성화된다.
 
 ```bash
-python -m unittest discover -s tests/unit -p 'test_*.py'
+python -m unittest discover -s tests -p 'test_*.py'
 ```
