@@ -284,8 +284,10 @@ class AnalysisService:
                 progress=0,
                 message="clone 제한 시간이 초과되었습니다.",
             )
+            await self.db.commit()
             raise CloneTimeoutError() from exc
         except Exception as exc:
+            logger.exception("clone_repository failed (job_id=%s)", job_id)
             await asyncio.to_thread(_safe_remove, job_root)
             await self.repository.update_job_status(
                 job_id=job_id,
@@ -294,7 +296,8 @@ class AnalysisService:
                 progress=0,
                 message="저장소 clone 중 오류가 발생했습니다.",
             )
-            raise CloneFailedError(str(exc)) from exc
+            await self.db.commit()
+            raise CloneFailedError(str(exc) or "저장소 clone 중 오류가 발생했습니다.") from exc
 
     async def _run_git_clone(
         self,
@@ -303,35 +306,30 @@ class AnalysisService:
         clone_path: Path,
         timeout_seconds: int,
     ) -> None:
-        process = await asyncio.create_subprocess_exec(
-            "git",
-            "clone",
-            "--depth",
-            "1",
-            "--branch",
-            branch,
-            repo_url,
-            str(clone_path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        import subprocess
 
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
+        def _do_clone() -> subprocess.CompletedProcess:
+            return subprocess.run(
+                ["git", "clone", "--depth", "1", "--branch", branch, repo_url, str(clone_path)],
+                capture_output=True,
+                text=True,
                 timeout=timeout_seconds,
             )
-        except asyncio.TimeoutError:
-            process.kill()
-            await process.communicate()
-            raise
 
-        if process.returncode != 0:
-            error_message = stderr.decode("utf-8", errors="ignore") or stdout.decode(
-                "utf-8",
-                errors="ignore",
+        try:
+            result = await asyncio.to_thread(_do_clone)
+        except subprocess.TimeoutExpired as exc:
+            raise asyncio.TimeoutError() from exc
+
+        if result.returncode != 0:
+            error_message = result.stderr.strip() or result.stdout.strip()
+            logger.error(
+                "git clone failed: returncode=%d stderr=%r stdout=%r",
+                result.returncode,
+                result.stderr.strip(),
+                result.stdout.strip(),
             )
-            raise RuntimeError(error_message.strip())
+            raise RuntimeError(error_message or f"git exited with code {result.returncode}")
 
     # ──────────────────────────────────────────
     # API-008: 임시 clone 디렉토리 cleanup
@@ -648,7 +646,10 @@ def _filter_workspace(repo_dir: Path) -> None:
         if path.is_dir() and path.name in EXCLUDED_DIRS:
             _safe_remove(path)
         elif path.is_file() and _should_remove_file(path):
-            path.unlink(missing_ok=True)
+            # excluded dir 내부 파일은 건너뜀 — 부모 디렉토리가 _safe_remove로 통째로 삭제됨
+            rel_parts = path.relative_to(repo_dir).parts
+            if not any(part in EXCLUDED_DIRS for part in rel_parts[:-1]):
+                path.unlink(missing_ok=True)
 
 
 def _should_remove_file(path: Path) -> bool:
@@ -680,7 +681,12 @@ def _measure_workspace(repo_dir: Path) -> tuple[int, int]:
 
 def _safe_remove(path: Path) -> None:
     if path.exists():
-        shutil.rmtree(path)
+        def _on_error(func, fpath, _exc):
+            # Windows에서 git이 생성한 읽기 전용 파일 삭제 시 read-only 해제 후 재시도
+            import os, stat
+            os.chmod(fpath, stat.S_IWRITE)
+            func(fpath)
+        shutil.rmtree(path, onexc=_on_error)
 
 
 def _remove_empty_parent(path: Path) -> None:
