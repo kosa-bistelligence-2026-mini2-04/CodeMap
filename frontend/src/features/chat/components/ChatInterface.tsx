@@ -186,12 +186,12 @@ export function ChatInterface({
 
   if (!repoId) {
     return (
-      <section className="flex h-full flex-col bg-zinc-950">
-        <div className="border-b border-zinc-800 px-4 py-3"><p className="text-xs font-bold text-zinc-200">CodeMap AI chat</p></div>
+      <section className={`flex h-full flex-col ${isDark ? "bg-zinc-950" : "bg-zinc-50"}`}>
+        <div className={`border-b px-4 py-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}><p className={`text-xs font-bold ${isDark ? "text-zinc-200" : "text-zinc-700"}`}>CodeMap AI chat</p></div>
         <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-          <div className="flex size-11 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900"><LockKeyhole className="size-4 text-zinc-500" /></div>
-          <p className="mt-4 text-xs font-semibold text-zinc-300">분석할 저장소를 먼저 선택하세요</p>
-          <p className="mt-1.5 text-[10px] leading-5 text-zinc-600">분석 결과와 실제 파일을 공유하는 프로젝트 전용 채팅이 열립니다.</p>
+          <div className={`flex size-11 items-center justify-center rounded-2xl border ${isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-white"}`}><LockKeyhole className={`size-4 ${isDark ? "text-zinc-500" : "text-zinc-400"}`} /></div>
+          <p className={`mt-4 text-xs font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>분석할 저장소를 먼저 선택하세요</p>
+          <p className={`mt-1.5 text-[10px] leading-5 ${isDark ? "text-zinc-600" : "text-zinc-500"}`}>분석 결과와 실제 파일을 공유하는 프로젝트 전용 채팅이 열립니다.</p>
         </div>
       </section>
     );

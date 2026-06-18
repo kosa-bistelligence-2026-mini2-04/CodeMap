@@ -42,15 +42,23 @@ STACK_SIGNALS = {
     "build.gradle": "Gradle/Java", "go.mod": "Go", "Cargo.toml": "Rust",
     "docker-compose.yml": "Docker", "docker-compose.yaml": "Docker",
 }
-TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_./-]{2,}")
+TOKEN_RE = re.compile(r"[\w][\w./-]{1,}", re.UNICODE)
 
 
 def _iter_files(root: Path, limit: int = 1200):
+    root = root.resolve()
     count = 0
     for path in root.rglob("*"):
         if count >= limit:
             break
+        if path.is_symlink():
+            continue
         if not path.is_file() or any(part in IGNORED_DIRS for part in path.parts):
+            continue
+        # resolved path가 workspace 내부인지 검증 (symlink 경유 탈출 방지)
+        try:
+            path.resolve().relative_to(root)
+        except ValueError:
             continue
         if path.suffix.lower() not in TEXT_SUFFIXES and path.name not in STACK_SIGNALS:
             continue
@@ -58,7 +66,14 @@ def _iter_files(root: Path, limit: int = 1200):
         yield path
 
 
-def _read_text(path: Path, limit: int = 160_000) -> str:
+def _read_text(path: Path, limit: int = 160_000, root: Path | None = None) -> str:
+    if path.is_symlink():
+        return ""
+    if root is not None:
+        try:
+            path.resolve().relative_to(root.resolve())
+        except ValueError:
+            return ""
     try:
         raw = path.read_bytes()[:limit]
         if b"\x00" in raw:

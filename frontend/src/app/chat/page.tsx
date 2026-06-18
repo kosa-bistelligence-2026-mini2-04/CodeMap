@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import { ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { FileTree } from "@/features/chat/components/FileTree";
@@ -11,6 +12,8 @@ import type { WorkspaceReport } from "@/common/types/contracts";
 
 function ChatContent() {
   const searchParams = useSearchParams();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
   const repoId = searchParams.get("repo_id") || searchParams.get("job");
   const threadId = searchParams.get("thread");
   const preview = searchParams.get("preview") === "1";
@@ -29,14 +32,14 @@ function ChatContent() {
 
   const repoName = report?.repository.name || (preview ? "CodeMap" : "현재 프로젝트");
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] w-full flex-col overflow-hidden bg-zinc-950 text-white">
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-zinc-800 px-3">
-        <Link href={preview ? "/analyze?preview=1" : `/analyze?job=${repoId || ""}`} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold text-zinc-500 transition hover:bg-zinc-900 hover:text-white">
+    <div className={`flex h-[calc(100vh-3.5rem)] w-full flex-col overflow-hidden ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"}`}>
+      <div className={`flex h-10 shrink-0 items-center gap-2 border-b px-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+        <Link href={preview ? "/analyze?preview=1" : `/analyze?job=${repoId || ""}`} className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:bg-zinc-900 hover:text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"}`}>
           <ArrowLeft className="size-3" /> 분석 워크스페이스
         </Link>
-        <span className="text-zinc-800">/</span>
-        <span className="truncate text-[10px] font-semibold text-zinc-300">{repoName}</span>
-        <button onClick={() => setSidebarOpen((open) => !open)} className="ml-auto rounded-md p-1.5 text-zinc-500 hover:bg-zinc-900 hover:text-white" title="파일 패널 전환">
+        <span className={isDark ? "text-zinc-800" : "text-zinc-300"}>/</span>
+        <span className={`truncate text-[10px] font-semibold ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>{repoName}</span>
+        <button onClick={() => setSidebarOpen((open) => !open)} className={`ml-auto rounded-md p-1.5 transition ${isDark ? "text-zinc-500 hover:bg-zinc-900 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"}`} title="파일 패널 전환">
           {sidebarOpen ? <PanelLeftClose className="size-3.5" /> : <PanelLeftOpen className="size-3.5" />}
         </button>
       </div>
@@ -62,5 +65,5 @@ function ChatContent() {
 }
 
 export default function ChatPage() {
-  return <Suspense fallback={<div className="h-[calc(100vh-3.5rem)] bg-zinc-950" />}><ChatContent /></Suspense>;
+  return <Suspense fallback={<div className="h-[calc(100vh-3.5rem)] w-full" />}><ChatContent /></Suspense>;
 }

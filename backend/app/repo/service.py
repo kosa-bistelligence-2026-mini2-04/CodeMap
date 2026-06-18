@@ -403,12 +403,21 @@ class AnalysisService:
         import subprocess
 
         def _do_clone() -> subprocess.CompletedProcess:
-            return subprocess.run(
+            proc = subprocess.Popen(
                 ["git", "clone", "--depth", "1", "--branch", branch, repo_url, str(clone_path)],
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=timeout_seconds,
             )
+            try:
+                stdout, stderr = proc.communicate(timeout=timeout_seconds)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+                # timeout 시 partial workspace 즉시 정리
+                _safe_remove(clone_path)
+                raise
+            return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
         try:
             result = await asyncio.to_thread(_do_clone)
@@ -416,6 +425,8 @@ class AnalysisService:
             raise asyncio.TimeoutError() from exc
 
         if result.returncode != 0:
+            # clone 실패 시 partial workspace 정리
+            _safe_remove(clone_path)
             error_message = result.stderr.strip() or result.stdout.strip()
             logger.error(
                 "git clone failed: returncode=%d stderr=%r stdout=%r",
@@ -424,6 +435,9 @@ class AnalysisService:
                 result.stdout.strip(),
             )
             raise RuntimeError(error_message or f"git exited with code {result.returncode}")
+
+        # clone 완료 marker 생성 (atomic completion 표시)
+        (clone_path / ".clone_complete").write_text("ok", encoding="utf-8")
 
     # ──────────────────────────────────────────
     # API-008: 임시 clone 디렉토리 cleanup
@@ -508,7 +522,8 @@ class AnalysisService:
         clone_path = os.path.join(
             settings.CLONE_BASE_DIR, str(job_id), "repo"
         )
-        if not os.path.exists(clone_path):
+        clone_complete_marker = os.path.join(clone_path, ".clone_complete")
+        if not os.path.exists(clone_path) or not os.path.exists(clone_complete_marker):
             raise CloneNotCompletedError()
 
         now = datetime.now(timezone.utc)
