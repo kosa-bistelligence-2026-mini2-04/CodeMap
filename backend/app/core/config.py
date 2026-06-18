@@ -6,15 +6,31 @@ DATABASE_URL, CLONE_DIR, OPENAI_API_KEY 등 핵심 설정값을 .env 파일
 또는 시스템 환경 변수에서 읽어온다.
 """
 
+import os
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import ArgumentError
+
+# backend/.env 파일의 절대 경로 계산 (실행 디렉토리에 구애받지 않도록 설정)
+current_dir = os.path.dirname(os.path.abspath(__file__))  # app/core
+backend_dir = os.path.dirname(os.path.dirname(current_dir))  # backend
+env_path = os.path.join(backend_dir, ".env")
 
 
 class Settings(BaseSettings):
     """애플리케이션 환경 설정 클래스"""
 
+    # 데이터베이스 상세 접속 정보 (로그인을 위한 계정 정보 포함)
+    DB_USER: str = "codemap_service"
+    DB_PASSWORD: str = "codemap"
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5432
+    DB_NAME: str = "codemap"
+
     # 데이터베이스 연결 URL (PostgreSQL + pgvector)
-    DATABASE_URL: str = "postgres:postgres@localhost:5432/codemap"
+    DATABASE_URL: str = ""
 
     # Git 저장소 clone 시 사용할 임시 디렉토리 경로
     CLONE_BASE_DIR: str = "/tmp/codemap/jobs"
@@ -41,7 +57,36 @@ class Settings(BaseSettings):
     # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
     OPENAI_MODEL: str = "gpt-4o-mini"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": env_path, "env_file_encoding": "utf-8"}
+
+    @model_validator(mode="after")
+    def assemble_db_connection(self) -> "Settings":
+        # 1. DATABASE_URL이 비어있거나 생략된 경우 URL.create()로 동적 조립 (특수문자 이스케이프 대응)
+        if not self.DATABASE_URL or not self.DATABASE_URL.strip():
+            self.DATABASE_URL = URL.create(
+                drivername="postgresql+asyncpg",  # 실제 database.py의 asyncpg 드라이버 기준
+                username=self.DB_USER,
+                password=self.DB_PASSWORD,
+                host=self.DB_HOST,
+                port=self.DB_PORT,
+                database=self.DB_NAME,
+            ).render_as_string(hide_password=False)
+            return self
+
+        # 2. 옛날 postgres:// 스킴을 표준 postgresql:// 로 정정
+        if self.DATABASE_URL.startswith("postgres://"):
+            self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+        # 3. SQLAlchemy URL 파서를 통한 주소의 엄밀한 검증 및 에러 조기 감지
+        try:
+            parsed_url = make_url(self.DATABASE_URL)
+        except ArgumentError as exc:
+            raise ValueError("DATABASE_URL 형식이 올바르지 않습니다.") from exc
+
+        if not parsed_url.drivername.startswith("postgresql"):
+            raise ValueError("PostgreSQL DATABASE_URL만 사용할 수 있습니다.")
+
+        return self
 
 
 @lru_cache()

@@ -55,19 +55,18 @@ graph TD
 
 ```plain text
 CodeMap/
-├── apps/
-│   ├── frontend/                 # React 19 (FSD 구조: pages, features, common)
-│   │   ├── src/
-│   │   │   ├── common/           # 공통 UI 컴포넌트, 훅, 테마
-│   │   │   ├── features/         # 기능별 도메인 UI, API 통신, 상태 관리
-│   │   │   └── pages/            # 화면 조립 및 라우터 정의 페이지
-│   │   └── vite.config.js
-│   └── backend/                  # FastAPI - Python 3.12 (3-Tier Layer)
-│       ├── app/
-│       │   ├── {domain}/         # 기능 도메인 폴더 (router, service, repository, schemas, models)
-│       │   └── main.py           # FastAPI 서버 진입점
-│       ├── certs/                # 로컬 SSL 인증서
-│       └── requirements.txt
+├── frontend/                 # Next.js 16 + React 19 (FSD & Bulletproof)
+│   ├── src/
+│   │   ├── app/              # Next.js App Router 영역 (page.tsx, layout.tsx)
+│   │   ├── common/           # 공통 UI 컴포넌트, 훅, 테마
+│   │   └── features/         # 기능별 도메인 UI, API 통신, 상태 관리
+│   └── next.config.ts
+├── backend/                  # FastAPI - Python 3.12 (3-Tier Layer)
+│   ├── app/
+│   │   ├── {domain}/         # 기능 도메인 폴더 (router, service, repository, schemas, models)
+│   │   └── main.py           # FastAPI 서버 진입점
+│   ├── certs/                # 로컬 SSL 인증서
+│   └── requirements.txt
 ├── database/                     # DB 스키마 설계 (init.sql)
 ├── scripts/                      # Docker Compose 및 인프라 실행 환경 스크립트
 └── docs/                         # 시스템 설계 문서 및 팀 컨벤션 가이드
