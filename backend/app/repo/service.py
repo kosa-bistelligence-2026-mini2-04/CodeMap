@@ -13,6 +13,7 @@ GitHub URL 파싱, 저장소 검증, 분석 작업 등록,
 
 import asyncio
 import logging
+import os
 import re
 import shutil
 from datetime import datetime, timezone
@@ -74,8 +75,30 @@ EXCLUDED_DIRS = {
     ".next",
     "__pycache__",
 }
-EXCLUDED_FILE_NAMES = {".env"}
-EXCLUDED_FILE_PREFIXES = ("key",)
+EXCLUDED_FILE_NAMES = {
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.production",
+    ".env.staging",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+    "id_rsa.pub",
+    "id_dsa.pub",
+    "id_ecdsa.pub",
+    "id_ed25519.pub",
+}
+EXCLUDED_FILE_EXTENSIONS = {
+    ".pem",
+    ".key",
+    ".p12",
+    ".pfx",
+    ".keystore",
+    ".jks",
+}
+EXCLUDED_FILE_PREFIXES: tuple[str, ...] = ()
 
 # GitHub URL 파싱용 정규식 패턴
 GITHUB_URL_PATTERN = re.compile(
@@ -220,12 +243,16 @@ class AnalysisService:
         clone_path = Path(settings.CLONE_BASE_DIR) / str(job_id) / "repo"
         job_root = clone_path.parent
 
-        if clone_path.exists():
+        if job.status == JobStatus.CLONED.value:
             raise CodeMapException(
                 409,
                 "CLONE_ALREADY_DONE",
                 "이미 clone이 완료된 job입니다.",
             )
+
+        # 이전 시도에서 남은 불완전 workspace 정리 후 재시도
+        if clone_path.exists():
+            await asyncio.to_thread(_safe_remove, job_root)
 
         await self.repository.update_job_status(
             job_id=job_id,
@@ -253,22 +280,24 @@ class AnalysisService:
                     progress=0,
                     message="분석 가능한 파일 수 또는 용량 제한을 초과했습니다.",
                 )
+                await self.db.commit()
                 raise FileLimitExceededError()
 
             await self.repository.update_job_status(
                 job_id=job_id,
-                status=JobStatus.IN_PROGRESS.value,
+                status=JobStatus.CLONED.value,
                 stage=PipelineStage.CLONE.value,
                 progress=20,
                 message="저장소 clone이 완료되었습니다.",
             )
+            await self.db.commit()
 
             return CloneResponse(
                 code=200,
                 message="success",
                 data=CloneData(
                     jobId=job_id,
-                    clonePath=str(clone_path),
+                    clonePath=f"jobs/{job_id}",
                     fileCount=file_count,
                     sizeKb=(total_size + 1023) // 1024,
                 ),
@@ -642,28 +671,45 @@ class RepoValidateService:
 
 
 def _filter_workspace(repo_dir: Path) -> None:
-    for path in sorted(repo_dir.rglob("*"), reverse=True):
-        if path.is_dir() and path.name in EXCLUDED_DIRS:
-            _safe_remove(path)
-        elif path.is_file() and _should_remove_file(path):
-            # excluded dir 내부 파일은 건너뜀 — 부모 디렉토리가 _safe_remove로 통째로 삭제됨
-            rel_parts = path.relative_to(repo_dir).parts
-            if not any(part in EXCLUDED_DIRS for part in rel_parts[:-1]):
-                path.unlink(missing_ok=True)
+    for dirpath_str, dirnames, filenames in os.walk(str(repo_dir), topdown=True, followlinks=False):
+        dirpath = Path(dirpath_str)
+
+        # excluded 디렉토리 제거 및 하위 순회 차단 (dirnames in-place 수정)
+        excluded = [d for d in dirnames if d in EXCLUDED_DIRS]
+        for d in excluded:
+            _safe_remove(dirpath / d)
+            dirnames.remove(d)
+
+        # 심볼릭 링크 디렉토리 제거 (followlinks=False이므로 순회 안 됨, 직접 삭제 필요)
+        symlinked = [d for d in dirnames if (dirpath / d).is_symlink()]
+        for d in symlinked:
+            (dirpath / d).unlink(missing_ok=True)
+            dirnames.remove(d)
+
+        # 파일 처리: 심볼릭 링크 및 제외 대상 삭제
+        for fname in filenames:
+            fpath = dirpath / fname
+            if fpath.is_symlink() or _should_remove_file(fpath):
+                fpath.unlink(missing_ok=True)
 
 
 def _should_remove_file(path: Path) -> bool:
     lower_name = path.name.lower()
     if lower_name in EXCLUDED_FILE_NAMES:
         return True
-    if lower_name.startswith(EXCLUDED_FILE_PREFIXES):
+    if EXCLUDED_FILE_PREFIXES and lower_name.startswith(EXCLUDED_FILE_PREFIXES):
+        return True
+    if path.suffix.lower() in EXCLUDED_FILE_EXTENSIONS:
         return True
     return _is_binary_file(path)
 
 
 def _is_binary_file(path: Path) -> bool:
+    if path.is_symlink():
+        return True
     try:
-        chunk = path.read_bytes()[:1024]
+        with path.open("rb") as f:
+            chunk = f.read(1024)
     except OSError:
         return True
     return b"\0" in chunk
@@ -673,7 +719,7 @@ def _measure_workspace(repo_dir: Path) -> tuple[int, int]:
     file_count = 0
     total_size = 0
     for path in repo_dir.rglob("*"):
-        if path.is_file():
+        if path.is_file() and not path.is_symlink():
             file_count += 1
             total_size += path.stat().st_size
     return file_count, total_size
@@ -681,12 +727,20 @@ def _measure_workspace(repo_dir: Path) -> tuple[int, int]:
 
 def _safe_remove(path: Path) -> None:
     if path.exists():
-        def _on_error(func, fpath, _exc):
-            # Windows에서 git이 생성한 읽기 전용 파일 삭제 시 read-only 해제 후 재시도
-            import os, stat
+        import os, stat, sys
+
+        def _on_error(func, fpath, _exc_info):
             os.chmod(fpath, stat.S_IWRITE)
             func(fpath)
-        shutil.rmtree(path, onexc=_on_error)
+
+        def _on_exc(func, fpath, _exc):
+            os.chmod(fpath, stat.S_IWRITE)
+            func(fpath)
+
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_on_exc)
+        else:
+            shutil.rmtree(path, onerror=_on_error)
 
 
 def _remove_empty_parent(path: Path) -> None:

@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 class JobStatus(str, Enum):
     """분석 작업의 상태를 정의하는 열거형"""
     IN_PROGRESS = "IN_PROGRESS"
+    CLONED = "CLONED"        # clone 완료, 파이프라인 미시작
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
@@ -123,7 +124,7 @@ class CloneRequest(BaseModel):
 class CloneData(BaseModel):
     """API-004 성공 응답의 data 필드 스키마"""
     jobId: UUID = Field(description="분석 작업 고유 ID")
-    clonePath: str = Field(description="서버 내 clone 완료 경로")
+    clonePath: str = Field(description="작업 기준 논리 경로 (jobs/{jobId})")
     fileCount: int = Field(description="필터링 후 분석 대상 파일 수")
     sizeKb: int = Field(description="필터링 후 총 용량(KB)")
 
@@ -214,7 +215,7 @@ class JobStatusData(BaseModel):
     status: JobStatus = Field(
         description=(
             "현재 상태:"
-            " IN_PROGRESS / COMPLETED / FAILED"
+            " IN_PROGRESS / CLONED / COMPLETED / FAILED"
         )
     )
     createdAt: datetime = Field(

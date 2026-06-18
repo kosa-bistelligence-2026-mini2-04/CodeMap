@@ -111,11 +111,11 @@ async def register_analysis(
     summary="특정 job 기준 저장소 clone 실행",
     description="job_id에 해당하는 저장소를 clone하고 분석 대상 파일만 남기도록 필터링한다.",
     responses={
-        404: {"model": ErrorResponse, "description": "존재하지 않는 job_id 또는 저장소 접근 불가"},
+        404: {"model": ErrorResponse, "description": "존재하지 않는 job_id"},
         408: {"model": ErrorResponse, "description": "Clone 제한 시간 초과"},
         409: {"model": ErrorResponse, "description": "이미 clone이 완료된 job"},
         413: {"model": ErrorResponse, "description": "파일 수/용량 제한 초과"},
-        500: {"model": ErrorResponse, "description": "Clone 실행 오류"},
+        500: {"model": ErrorResponse, "description": "Clone 실행 오류 (브랜치 없음·저장소 접근 불가·네트워크 오류 등 git 오류는 모두 500)"},
     },
 )
 async def clone_repository(
