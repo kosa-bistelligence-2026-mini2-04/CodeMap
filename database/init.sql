@@ -60,3 +60,23 @@ CREATE INDEX IF NOT EXISTS idx_analysis_jobs_repo_branch ON analysis_jobs (repo_
 CREATE UNIQUE INDEX IF NOT EXISTS uq_analysis_jobs_in_progress
 ON analysis_jobs (repo_url, branch)
 WHERE status = 'IN_PROGRESS';
+
+-- 7. 서비스 전용 권한 및 역할 부여
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'codemap_service') THEN
+        CREATE ROLE codemap_service WITH LOGIN PASSWORD 'codemap';
+    END IF;
+END
+$$;
+
+-- 데이터베이스 및 스키마 권한 부여
+GRANT CONNECT ON DATABASE codemap TO codemap_service;
+GRANT USAGE ON SCHEMA public TO codemap_service;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO codemap_service;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO codemap_service;
+
+-- 이후 생성될 테이블에 대한 기본 권한 설정
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO codemap_service;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO codemap_service;
+
