@@ -53,17 +53,30 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
     setLoading(true);
     setError(null);
     try {
-      // TODO: Backend list endpoint not yet implemented
-      // Will be available at GET /api/repo/analyses or similar
-      const resp = await fetch(apiPath("/repo/analyses?limit=30"));
-      if (resp.status === 404) {
-        // Endpoint not available yet — silently show empty
+      // PROJECT-LIST-API-001: GET /api/list/analysis (팀원 담당 List 모듈)
+      const resp = await fetch(apiPath("/list/analysis?limit=30"));
+      if (resp.status === 404 || resp.status === 401) {
+        // 엔드포인트 미구현 또는 인증 미적용 — 조용히 빈 목록 표시
         setItems([]);
         return;
       }
       if (!resp.ok) throw new Error(`${resp.status}`);
       const data = await resp.json();
-      setItems(data.items || data.data || []);
+      // 명세 응답: { data: { jobs: [...] } } 또는 fallback
+      const jobs = data?.data?.jobs || data?.items || data?.data || [];
+      // 명세의 jobs 필드를 AnalysisRow 형식으로 변환
+      setItems(jobs.map((j: Record<string, unknown>) => ({
+        job_id: (j.jobId ?? j.job_id) as string,
+        source: (j.source ?? (String(j.repoUrl ?? j.path ?? "").startsWith("https://") ? "github" : "local")) as "github" | "local",
+        path: (j.repoUrl ?? j.path ?? "") as string,
+        status: (j.status === "IN_PROGRESS" ? "running" : j.status === "COMPLETED" ? "completed" : j.status === "FAILED" ? "failed" : j.status) as "running" | "completed" | "failed",
+        created_at: j.createdAt ? new Date(j.createdAt as string).getTime() / 1000 : (j.created_at as number ?? 0),
+        completed_at: j.updatedAt && j.status === "COMPLETED" ? new Date(j.updatedAt as string).getTime() / 1000 : (j.completed_at as number | null ?? null),
+        total_pipeline_ms: (j.total_pipeline_ms as number | null) ?? null,
+        error_message: (j.errorMessage ?? j.error_message ?? null) as string | null,
+        model_used: (j.model_used ?? null) as string | null,
+        force_refresh: (j.force_refresh as boolean) ?? false,
+      })));
     } catch {
       // Silently fail — history is optional
       setItems([]);
