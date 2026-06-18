@@ -13,8 +13,11 @@ GitHub URL 파싱, 저장소 검증, 분석 작업 등록,
 
 import asyncio
 import logging
+import os
 import re
+import shutil
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 import httpx
@@ -24,8 +27,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.exceptions import (
     AlreadyInProgressError,
+    CloneFailedError,
     CloneNotCompletedError,
+    CloneTimeoutError,
     CodeMapException,
+    FileLimitExceededError,
     InvalidRepoUrlError,
     JobNotFoundError,
     PipelineAlreadyRunningError,
@@ -39,6 +45,9 @@ from app.repo.schemas import (
     AnalysisData,
     AnalysisRequest,
     AnalysisResponse,
+    CloneData,
+    CloneRequest,
+    CloneResponse,
     JobStatus,
     JobStatusData,
     JobStatusResponse,
@@ -49,10 +58,47 @@ from app.repo.schemas import (
     RepoValidateData,
     RepoValidateRequest,
     RepoValidateResponse,
+    WorkspaceCleanupData,
+    WorkspaceCleanupResponse,
 )
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+EXCLUDED_DIRS = {
+    ".git",
+    "node_modules",
+    "build",
+    "dist",
+    "venv",
+    ".venv",
+    ".next",
+    "__pycache__",
+}
+EXCLUDED_FILE_NAMES = {
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.production",
+    ".env.staging",
+    "id_rsa",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+    "id_rsa.pub",
+    "id_dsa.pub",
+    "id_ecdsa.pub",
+    "id_ed25519.pub",
+}
+EXCLUDED_FILE_EXTENSIONS = {
+    ".pem",
+    ".key",
+    ".p12",
+    ".pfx",
+    ".keystore",
+    ".jks",
+}
+EXCLUDED_FILE_PREFIXES: tuple[str, ...] = ()
 
 # GitHub URL 파싱용 정규식 패턴
 GITHUB_URL_PATTERN = re.compile(
@@ -176,6 +222,189 @@ class AnalysisService:
                 status=JobStatus(job.status),
                 createdAt=job.created_at,
                 updatedAt=job.updated_at,
+            ),
+        )
+
+    # ──────────────────────────────────────────
+    # API-004: 특정 job 기준 저장소 clone 실행
+    # ──────────────────────────────────────────
+    async def clone_repository(
+        self,
+        job_id: UUID,
+        request: CloneRequest,
+    ) -> CloneResponse:
+        """
+        등록된 분석 작업의 저장소를 clone하고 불필요한 파일을 필터링한다.
+        """
+        job = await self.repository.get_job_by_id(job_id)
+        if not job:
+            raise JobNotFoundError()
+
+        clone_path = Path(settings.CLONE_BASE_DIR) / str(job_id) / "repo"
+        job_root = clone_path.parent
+
+        if job.status == JobStatus.CLONED.value:
+            raise CodeMapException(
+                409,
+                "CLONE_ALREADY_DONE",
+                "이미 clone이 완료된 job입니다.",
+            )
+
+        # 이전 시도에서 남은 불완전 workspace 정리 후 재시도
+        if clone_path.exists():
+            await asyncio.to_thread(_safe_remove, job_root)
+
+        await self.repository.update_job_status(
+            job_id=job_id,
+            status=JobStatus.IN_PROGRESS.value,
+            stage=PipelineStage.CLONE.value,
+            progress=5,
+            message="저장소 clone을 시작합니다.",
+        )
+
+        try:
+            await asyncio.to_thread(job_root.mkdir, parents=True, exist_ok=True)
+            await self._run_git_clone(job.repo_url, job.branch, clone_path, request.timeoutSeconds)
+            await asyncio.to_thread(_filter_workspace, clone_path)
+            file_count, total_size = await asyncio.to_thread(_measure_workspace, clone_path)
+
+            if (
+                file_count > settings.MAX_FILE_COUNT
+                or total_size > settings.MAX_REPO_SIZE_MB * 1024 * 1024
+            ):
+                await asyncio.to_thread(_safe_remove, job_root)
+                await self.repository.update_job_status(
+                    job_id=job_id,
+                    status=JobStatus.FAILED.value,
+                    stage=PipelineStage.CLONE.value,
+                    progress=0,
+                    message="분석 가능한 파일 수 또는 용량 제한을 초과했습니다.",
+                )
+                await self.db.commit()
+                raise FileLimitExceededError()
+
+            await self.repository.update_job_status(
+                job_id=job_id,
+                status=JobStatus.CLONED.value,
+                stage=PipelineStage.CLONE.value,
+                progress=20,
+                message="저장소 clone이 완료되었습니다.",
+            )
+            await self.db.commit()
+
+            return CloneResponse(
+                code=200,
+                message="success",
+                data=CloneData(
+                    jobId=job_id,
+                    clonePath=f"jobs/{job_id}",
+                    fileCount=file_count,
+                    sizeKb=(total_size + 1023) // 1024,
+                ),
+            )
+        except CodeMapException:
+            raise
+        except asyncio.TimeoutError as exc:
+            await asyncio.to_thread(_safe_remove, job_root)
+            await self.repository.update_job_status(
+                job_id=job_id,
+                status=JobStatus.FAILED.value,
+                stage=PipelineStage.CLONE.value,
+                progress=0,
+                message="clone 제한 시간이 초과되었습니다.",
+            )
+            await self.db.commit()
+            raise CloneTimeoutError() from exc
+        except Exception as exc:
+            logger.exception("clone_repository failed (job_id=%s)", job_id)
+            await asyncio.to_thread(_safe_remove, job_root)
+            await self.repository.update_job_status(
+                job_id=job_id,
+                status=JobStatus.FAILED.value,
+                stage=PipelineStage.CLONE.value,
+                progress=0,
+                message="저장소 clone 중 오류가 발생했습니다.",
+            )
+            await self.db.commit()
+            raise CloneFailedError(str(exc) or "저장소 clone 중 오류가 발생했습니다.") from exc
+
+    async def _run_git_clone(
+        self,
+        repo_url: str,
+        branch: str,
+        clone_path: Path,
+        timeout_seconds: int,
+    ) -> None:
+        import subprocess
+
+        def _do_clone() -> subprocess.CompletedProcess:
+            return subprocess.run(
+                ["git", "clone", "--depth", "1", "--branch", branch, repo_url, str(clone_path)],
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+            )
+
+        try:
+            result = await asyncio.to_thread(_do_clone)
+        except subprocess.TimeoutExpired as exc:
+            raise asyncio.TimeoutError() from exc
+
+        if result.returncode != 0:
+            error_message = result.stderr.strip() or result.stdout.strip()
+            logger.error(
+                "git clone failed: returncode=%d stderr=%r stdout=%r",
+                result.returncode,
+                result.stderr.strip(),
+                result.stdout.strip(),
+            )
+            raise RuntimeError(error_message or f"git exited with code {result.returncode}")
+
+    # ──────────────────────────────────────────
+    # API-008: 임시 clone 디렉토리 cleanup
+    # ──────────────────────────────────────────
+    async def cleanup_workspace(self, job_id: UUID) -> WorkspaceCleanupResponse:
+        """
+        분석 작업의 임시 clone 디렉토리를 삭제한다.
+        
+        """
+        job = await self.repository.get_job_by_id(job_id)
+        if not job:
+            raise JobNotFoundError()
+
+        if job.status == JobStatus.IN_PROGRESS.value:
+            raise CodeMapException(
+                409,
+                "WORKSPACE_IN_USE",
+                "분석 파이프라인이 진행 중인 workspace는 삭제할 수 없습니다.",
+            )
+
+        clone_path = Path(settings.CLONE_BASE_DIR) / str(job_id) / "repo"
+        if not clone_path.exists():
+            raise CodeMapException(
+                404,
+                "WORKSPACE_NOT_FOUND",
+                "임시 clone 디렉토리가 존재하지 않습니다.",
+            )
+
+        try:
+            await asyncio.to_thread(_safe_remove, clone_path)
+            await asyncio.to_thread(_remove_empty_parent, clone_path.parent)
+        except OSError as exc:
+            logger.exception("workspace cleanup failed (job_id=%s)", job_id)
+            raise CodeMapException(
+                500,
+                "WORKSPACE_CLEANUP_FAILED",
+                "임시 작업 디렉토리 정리에 실패했습니다.",
+            ) from exc
+
+        return WorkspaceCleanupResponse(
+            code=200,
+            message="success",
+            data=WorkspaceCleanupData(
+                jobId=job_id,
+                cleanedPath=str(clone_path),
+                cleanedAt=datetime.now(timezone.utc),
             ),
         )
 
@@ -439,3 +668,86 @@ class RepoValidateService:
                 isPrivate=bool(payload.get("private", False)),
             ),
         )
+
+
+def _filter_workspace(repo_dir: Path) -> None:
+    for dirpath_str, dirnames, filenames in os.walk(str(repo_dir), topdown=True, followlinks=False):
+        dirpath = Path(dirpath_str)
+
+        # excluded 디렉토리 제거 및 하위 순회 차단 (dirnames in-place 수정)
+        excluded = [d for d in dirnames if d in EXCLUDED_DIRS]
+        for d in excluded:
+            _safe_remove(dirpath / d)
+            dirnames.remove(d)
+
+        # 심볼릭 링크 디렉토리 제거 (followlinks=False이므로 순회 안 됨, 직접 삭제 필요)
+        symlinked = [d for d in dirnames if (dirpath / d).is_symlink()]
+        for d in symlinked:
+            (dirpath / d).unlink(missing_ok=True)
+            dirnames.remove(d)
+
+        # 파일 처리: 심볼릭 링크 및 제외 대상 삭제
+        for fname in filenames:
+            fpath = dirpath / fname
+            if fpath.is_symlink() or _should_remove_file(fpath):
+                fpath.unlink(missing_ok=True)
+
+
+def _should_remove_file(path: Path) -> bool:
+    lower_name = path.name.lower()
+    if lower_name in EXCLUDED_FILE_NAMES:
+        return True
+    if EXCLUDED_FILE_PREFIXES and lower_name.startswith(EXCLUDED_FILE_PREFIXES):
+        return True
+    if path.suffix.lower() in EXCLUDED_FILE_EXTENSIONS:
+        return True
+    return _is_binary_file(path)
+
+
+def _is_binary_file(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    try:
+        with path.open("rb") as f:
+            chunk = f.read(1024)
+    except OSError:
+        return True
+    # UTF-16 BOM(LE: FF FE, BE: FE FF)이면 텍스트로 판단
+    if chunk[:2] in (b'\xff\xfe', b'\xfe\xff'):
+        return False
+    return b"\0" in chunk
+
+
+def _measure_workspace(repo_dir: Path) -> tuple[int, int]:
+    file_count = 0
+    total_size = 0
+    for path in repo_dir.rglob("*"):
+        if path.is_file() and not path.is_symlink():
+            file_count += 1
+            total_size += path.stat().st_size
+    return file_count, total_size
+
+
+def _safe_remove(path: Path) -> None:
+    if path.exists():
+        import os, stat, sys
+
+        def _on_error(func, fpath, _exc_info):
+            os.chmod(fpath, stat.S_IWRITE)
+            func(fpath)
+
+        def _on_exc(func, fpath, _exc):
+            os.chmod(fpath, stat.S_IWRITE)
+            func(fpath)
+
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_on_exc)
+        else:
+            shutil.rmtree(path, onerror=_on_error)
+
+
+def _remove_empty_parent(path: Path) -> None:
+    try:
+        path.rmdir()
+    except OSError:
+        return
