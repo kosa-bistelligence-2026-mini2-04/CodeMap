@@ -61,8 +61,8 @@ uvicorn app.main:app --reload --ssl-keyfile certs/localhost-key.pem --ssl-certfi
 
 ---
 
-## 2. Frontend (React/Vite) 구동 세팅
-프론트엔드는 Node.js(버전 18 이상 권장) 및 React 19가 사용됩니다.
+## 2. Frontend (Next.js) 구동 세팅
+프론트엔드는 Node.js(버전 18 이상 권장) 및 Next.js 16, React 19가 사용됩니다.
 
 ```bash
 # 1. 프론트엔드 폴더로 이동
@@ -70,37 +70,18 @@ cd frontend
 
 # 2. 필수 라이브러리(node_modules) 설치
 npm install
+# (또는 pnpm install)
+
+# 3. Next.js 개발 서버 실행 (HTTPS 적용)
+npx next dev --experimental-https --experimental-https-key ../backend/certs/localhost-key.pem --experimental-https-cert ../backend/certs/localhost.pem
 ```
-
-프론트엔드 서버도 발급받은 인증서를 사용하도록 `frontend/vite.config.js`를 다음과 같이 세팅합니다.
-
-```javascript
-// frontend/vite.config.js 예시
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import fs from 'fs'
-
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    https: {
-      key: fs.readFileSync('../backend/certs/localhost-key.pem'),
-      cert: fs.readFileSync('../backend/certs/localhost.pem'),
-    }
-  }
-})
-```
-
-```bash
-# 3. Vite 개발 서버 실행
-npm run dev
-```
-> 정상 실행 시 `https://localhost:5173` 으로 서버가 열립니다.
+> 정상 실행 시 `https://localhost:3000` 으로 서버가 열립니다.
+> 만약 윈도우 환경에서 `localhost` 인증서 문제나 권한 문제가 있다면, 브라우저에서 안전하지 않음으로 이동을 클릭하여 신뢰를 허용해 주십시오.
 
 ---
 
 ## 3. HTTPS 통신 구성 (CORS 및 API 연결)
-로컬 환경에서 프론트엔드(`https://localhost:5173`)와 백엔드(`https://localhost:8000`)가 통신하기 위한 필수 설정입니다.
+로컬 환경에서 프론트엔드(`https://localhost:3000`)와 백엔드(`https://localhost:8000`)가 통신하기 위한 필수 설정입니다.
 
 ### 🛡️ 백엔드: CORS 설정 (main.py)
 ```python
@@ -111,17 +92,20 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://localhost:5173"],  # 프론트엔드의 HTTPS 주소 허용
+    allow_origins=["https://localhost:3000"],  # 프론트엔드의 HTTPS 주소 허용
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 ```
 
-### 🌐 프론트엔드: Axios 환경 변수 세팅
+### 🌐 프론트엔드: 백엔드 API URL 환경 변수 세팅
+Next.js는 `next.config.ts`의 `rewrites`를 통해 클라이언트의 `/api` 요청을 백엔드로 프록시 전달합니다.
+이를 위해 `.env` 파일에 백엔드 주소를 지정해 줍니다.
+
 ```text
 # frontend/.env
-VITE_API_BASE_URL=https://localhost:8000
+BACKEND_URL=https://localhost:8000
 ```
 
 ---
