@@ -15,7 +15,7 @@ import json
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -75,7 +75,7 @@ async def list_analyses(limit: int = 30, db: AsyncSession = Depends(get_db)):
     status_map = {"IN_PROGRESS": "running", "COMPLETED": "completed", "FAILED": "failed"}
     return {"items": [{
         "job_id": str(job.id),
-        "source": "github",
+        "source": "local" if job.repo_url.startswith("local-upload://") else "github",
         "path": job.repo_url,
         "status": status_map.get(job.status, "failed"),
         "created_at": job.created_at.timestamp(),
@@ -141,6 +141,30 @@ async def register_analysis(
     """
     service = AnalysisService(db)
     return await service.register_analysis(request, background_tasks)
+
+
+@router.post(
+    "/api/repo/analysis/local",
+    response_model=AnalysisResponse,
+    status_code=201,
+    summary="로컬 폴더 업로드 및 분석 요청",
+)
+async def register_local_analysis(
+    background_tasks: BackgroundTasks,
+    folder_name: str = Form(..., alias="folderName"),
+    relative_paths: list[str] = Form(..., alias="paths"),
+    files: list[UploadFile] = File(...),
+    model: str = Form("auto"),
+    db: AsyncSession = Depends(get_db),
+) -> AnalysisResponse:
+    """Upload a browser-selected directory into an isolated analysis workspace."""
+    return await AnalysisService(db).register_local_analysis(
+        folder_name=folder_name,
+        files=files,
+        relative_paths=relative_paths,
+        model=model,
+        background_tasks=background_tasks,
+    )
 
 
 # ──────────────────────────────────────────────

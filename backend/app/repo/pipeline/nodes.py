@@ -52,7 +52,8 @@ async def clone_node(state: PipelineState) -> dict:
     if force_refresh and os.path.exists(clone_path):
         shutil.rmtree(os.path.dirname(clone_path), ignore_errors=True)
 
-    if os.path.isdir(os.path.join(clone_path, ".git")):
+    is_local_upload = os.path.isfile(os.path.join(clone_path, ".codemap-upload"))
+    if os.path.isdir(os.path.join(clone_path, ".git")) or is_local_upload:
         await _publish(job_id, PipelineStage.CLONE, JobStatus.IN_PROGRESS, 20, "기존 저장소 스냅샷 확인")
         return {
             "clone_path": clone_path,

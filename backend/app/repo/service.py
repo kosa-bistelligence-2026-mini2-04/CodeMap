@@ -15,10 +15,11 @@ import asyncio
 import logging
 import re
 from datetime import datetime, timezone
-from uuid import UUID
+from pathlib import Path
+from uuid import UUID, uuid4
 
 import httpx
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -34,6 +35,7 @@ from app.core.exceptions import (
 )
 from app.repo.event_manager import event_manager
 from app.repo.models import AnalysisJob
+from app.repo.local_upload import save_local_upload
 from app.repo.repository import AnalysisJobRepository
 from app.repo.schemas import (
     AnalysisData,
@@ -128,6 +130,61 @@ class AnalysisService:
         background_tasks.add_task(self._run_pipeline_with_langgraph, str(job.id))
 
         # 6. 201 Created 응답 DTO 구성
+        return AnalysisResponse(
+            code=201,
+            message="created",
+            data=AnalysisData(
+                jobId=job.id,
+                repoName=job.repo_name,
+                owner=job.owner,
+                branch=job.branch,
+                status=JobStatus.IN_PROGRESS,
+                createdAt=job.created_at,
+                model=job.model_used,
+            ),
+        )
+
+    async def register_local_analysis(
+        self,
+        folder_name: str,
+        files: list[UploadFile],
+        relative_paths: list[str],
+        model: str,
+        background_tasks: BackgroundTasks,
+    ) -> AnalysisResponse:
+        """Store a browser-selected directory and start the standard analysis pipeline."""
+        repo_name = Path(folder_name).name.strip()[:255]
+        if not repo_name or repo_name in {".", ".."}:
+            raise CodeMapException(400, "INVALID_FOLDER_NAME", "올바른 폴더 이름이 필요합니다.")
+
+        source_id = uuid4()
+        job = await self.repository.create_job(
+            repo_url=f"local-upload://{source_id}/{repo_name}",
+            repo_name=repo_name,
+            owner="local",
+            branch="workspace",
+            model_used=model or "auto",
+            force_refresh=False,
+        )
+        workspace = Path(settings.CLONE_BASE_DIR) / str(job.id) / "repo"
+        file_count, total_bytes = await save_local_upload(
+            files,
+            relative_paths,
+            repo_name,
+            workspace,
+        )
+        await self.repository.update_job_status(
+            job_id=job.id,
+            status=JobStatus.IN_PROGRESS.value,
+            stage=PipelineStage.CLONE.value,
+            progress=20,
+            message=f"로컬 폴더 업로드 완료 · {file_count:,}개 파일 · {total_bytes / 1024 / 1024:.1f}MB",
+        )
+        # BackgroundTasks runs before the request dependency finalizer commits.
+        # Make the uploaded job visible to the pipeline's independent DB session first.
+        await self.db.commit()
+        background_tasks.add_task(self._run_pipeline_with_langgraph, str(job.id))
+
         return AnalysisResponse(
             code=201,
             message="created",
