@@ -266,7 +266,7 @@ export const translations = {
       placeholderGithub: "https://github.com/owner/repo",
       placeholderLocal: "/path/to/local/repo",
       quickModelLabel: "Inference Model (Quick)",
-      lite: "Fast",
+      fast: "Fast",
       thinking: "Thinking",
       advancedSettings: "Advanced Settings",
       branchLabel: "Analysis Branch",
@@ -367,9 +367,9 @@ export const translations = {
       copied: "Copied!",
       disclaimer: "AI can make mistakes. Verify important information.",
       mode: {
-        lite: "Lite",
+        fast: "Fast",
         deep: "Deep",
-        liteDesc: "Fast responses using gpt-4o-mini — great for simple questions",
+        fastDesc: "Fast responses using gpt-4o-mini — great for simple questions",
         deepDesc: "Deep analysis using gpt-4o — best for complex architecture questions",
       },
       status: {
@@ -652,7 +652,7 @@ export const translations = {
       placeholderGithub: "https://github.com/owner/repo",
       placeholderLocal: "/경로/로컬/저장소",
       quickModelLabel: "분석 모델 (빠른 선택)",
-      lite: "Fast",
+      fast: "Fast",
       thinking: "Thinking",
       advancedSettings: "고급 분석 설정",
       branchLabel: "분석 브랜치",
@@ -753,9 +753,9 @@ export const translations = {
       copied: "복사됨!",
       disclaimer: "AI는 실수할 수 있습니다. 중요한 정보는 직접 확인하세요.",
       mode: {
-        lite: "Lite",
+        fast: "Fast",
         deep: "Deep",
-        liteDesc: "gpt-4o-mini로 빠른 응답 — 간단한 질문에 적합",
+        fastDesc: "gpt-4o-mini로 빠른 응답 — 간단한 질문에 적합",
         deepDesc: "gpt-4o로 심층 분석 — 복잡한 아키텍처 질문에 최적",
       },
       status: {

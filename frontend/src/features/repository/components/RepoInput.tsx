@@ -49,7 +49,7 @@ export function RepoInput({
   const [value, setValue] = useState(initialPath || "");
   const [branch, setBranch] = useState("");
   const [forceRefresh, setForceRefresh] = useState(false);
-  const [model, setModel] = useState<"lite" | "thinking">("lite");
+  const [model, setModel] = useState<"fast" | "thinking">("fast");
   const [customModel, setCustomModel] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -115,9 +115,9 @@ export function RepoInput({
       <div className="mt-4">
         <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">{t.repoInput.quickModelLabel}</label>
         <div className="flex gap-3">
-          <label className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 transition ${model === "lite" ? "border-blue-500 bg-blue-500/10 text-blue-500" : isDark ? "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100"}`}>
-            <input type="radio" className="hidden" name="quick_model" value="lite" checked={model === "lite"} onChange={() => setModel("lite")} disabled={disabled} />
-            <span className="text-[11px] font-bold">{t.repoInput.lite}</span>
+          <label className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 transition ${model === "fast" ? "border-blue-500 bg-blue-500/10 text-blue-500" : isDark ? "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100"}`}>
+            <input type="radio" className="hidden" name="quick_model" value="fast" checked={model === "fast"} onChange={() => setModel("fast")} disabled={disabled} />
+            <span className="text-[11px] font-bold">{t.repoInput.fast}</span>
           </label>
           <label className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 transition ${model === "thinking" ? "border-purple-500 bg-purple-500/10 text-purple-500" : isDark ? "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100"}`}>
             <input type="radio" className="hidden" name="quick_model" value="thinking" checked={model === "thinking"} onChange={() => setModel("thinking")} disabled={disabled} />

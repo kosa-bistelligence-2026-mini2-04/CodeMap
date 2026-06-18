@@ -34,7 +34,7 @@ class RepositoryChatService:
             request.threadId,
             request.message.strip().replace("\n", " ")[:72],
         )
-        mode = "quick" if request.mode == "lite" else request.mode
+        mode = "quick" if request.mode == "fast" else request.mode
         await self.chat_repository.add_message(thread, "user", request.message, mode)
         await self.db.commit()
         references = await self._search(clone_path, request, mode)
