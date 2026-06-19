@@ -120,7 +120,7 @@ response = openai.embeddings.create(
 ```
 임베딩 모델:  text-embedding-3-large + dimensions=1536
 벡터 스토어:  pgvector (PostgreSQL)
-인덱스 타입:  HNSW (IVFFlat 대비 빠른 빌드 시간, 증분 삽입 지원, 1536차원에서 안정적 성능)
+인덱스 타입:  IVFFlat (1536차원 범위 내 정상 동작)
 검색 방식:    하이브리드 (정적 분석 + 키워드 + 벡터)
 Lite/Thinking: 동일 인덱스, 검색 전략과 생성 모델로 차이
 ```
@@ -130,7 +130,7 @@ Lite/Thinking: 동일 인덱스, 검색 전략과 생성 모델로 차이
 | 한국어↔영어 의미 검색 | △ | ✅ | ✅ |
 | 저장공간 효율 | ✅ | ❌ | ✅ |
 | 검색 속도 | ✅ | △ | ✅ |
-| pgvector HNSW 호환 | ✅ | ❌ | ✅ |
+| pgvector IVFFlat 호환 | ✅ | ❌ | ✅ |
 | MVP→서비스 확장성 | △ | ✅ | ✅ |
 | 구현 복잡도 | ✅ | △ | ✅ |
 

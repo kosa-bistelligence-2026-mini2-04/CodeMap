@@ -30,7 +30,7 @@
 - 모델: `text-embedding-3-large` + `dimensions=1536`
   - large 모델의 다국어(한국어↔영어) 검색 강점 유지
   - 1536차원으로 저장 용량·pgvector HNSW 인덱스 호환성 확보
-  - 결정 근거: [`docs/04_Decisions/EMBEDDING_MODEL_DECISION.md`](../../04_Decisions/EMBEDDING_MODEL_DECISION.md)
+  - 결정 근거: [`docs/04_Decisions/EMBEDDING_MODEL_DECISION.md`](../../../../04_Decisions/EMBEDDING_MODEL_DECISION.md)
 - 구현 방식: LangChain `OpenAIEmbeddings` wrapper 사용 (`langchain-openai` 패키지)
   ```python
   from langchain_openai import OpenAIEmbeddings
