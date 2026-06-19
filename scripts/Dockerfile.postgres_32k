@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libxml2-dev \
     libxslt-dev \
+    libicu-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # PostgreSQL 17 소스 다운로드 및 32KB 블록크기 빌드
