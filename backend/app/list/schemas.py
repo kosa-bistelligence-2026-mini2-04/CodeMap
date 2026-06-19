@@ -66,12 +66,22 @@ class AnalysisJobDetailResponse(BaseModel):
     data: AnalysisJobDetailData
 
 
+class ErrorDetail(BaseModel):
+    """PROJECT-LIST 공통 에러 상세 DTO입니다."""
+
+    code: str = Field(description="도메인 에러 코드")
+    detail: Optional[str] = Field(default=None, description="디버깅용 안전 상세 정보")
+    field: Optional[str] = Field(default=None, description="오류가 발생한 요청 필드")
+    retryable: bool = Field(description="자동 재시도 가능 여부")
+
+
 class ErrorResponse(BaseModel):
     """PROJECT-LIST 공통 에러 응답 DTO입니다."""
 
     code: int = Field(description="HTTP 상태 코드")
-    errorCode: str = Field(description="에러 코드")
-    message: str = Field(description="에러 메시지")
+    message: str = Field(description="사용자 표시용 에러 메시지")
+    data: None = Field(default=None, description="에러 응답에서는 항상 null")
+    error: ErrorDetail
 
 
 class AnalysisProgressMessage(BaseModel):
