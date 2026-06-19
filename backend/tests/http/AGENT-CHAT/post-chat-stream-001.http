@@ -1,0 +1,68 @@
+# ============================================================
+# API ID  : AGENT-CHAT-API-001
+# 기능명  : Repo Chat SSE 스트리밍
+# Method  : POST
+# Endpoint: /api/chat/{repo_id}
+# Auth    : 필요
+# 관련 기능 ID: AGENT-CHAT-B-101, AGENT-CHAT-B-202,
+#   AGENT-CHAT-F-201, AGENT-CHAT-F-202, AGENT-CHAT-F-203,
+#   AGENT-CHAT-F-204, AGENT-CHAT-F-205, AGENT-CHAT-F-206,
+#   AGENT-SEARCH-B-202, AGENT-SEARCH-B-203, AGENT-SEARCH-B-204,
+#   AGENT-SEARCH-B-207 (Advanced Reasoning은 Phase 2 보류)
+# 상태    : 시작 전
+#
+# Description:
+# 저장소에 대한 자연어 질문을 SSE 스트리밍으로 답변.
+# 최대 5회 도구 호출, 20초 타임아웃 내 자율 탐색.
+# SSE 이벤트: agent_status | token | agent_completed | agent_failed
+# # curl 테스트:
+# # curl -N -X POST http://localhost:8000/api/chat/{repo_id} \
+# #   -H 'Authorization: Bearer {token}' \
+# #   -H 'Content-Type: application/json' \
+# #   -H 'Accept: text/event-stream' \
+# #   -d '{"question": "인증 미들웨어는 어디에 있나요?"}'
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+POST {{baseUrl}}/api/chat/{{repo_id}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: text/event-stream
+
+{
+  "question": "인증 미들웨어는 어디에 있고 어떻게 동작하나요?",
+  "maxToolCalls": 5,
+  "timeoutSeconds": 20
+}
+
+# Success Response: SSE Stream
+# event: agent_status
+# data: {"step": "searching", "toolCall": "search_vector_db", "count": 1}
+#
+# event: token
+# data: {"content": "인증 미들웨어는"}
+#
+# event: agent_completed
+# data: {"answer": "...", "sourceFiles": [...], "toolCallCount": 2, "elapsedSeconds": 6.3}
+
+
+### 에러 케이스 - 인증 없음
+POST {{baseUrl}}/api/chat/{{repo_id}}
+Content-Type: application/json
+
+{}
+
+# 연결 전 오류 응답은 표준 HTTP 오류 envelope를 사용한다.
+# {"code":401,"message":"인증이 필요합니다.","data":null,"error":{"code":"UNAUTHORIZED","detail":null,"field":null,"retryable":false}}
+# 401 UNAUTHORIZED: 토큰 누락/만료
+# 404 REPO_NOT_FOUND: 저장소 없음
+# 404 EMBEDDING_NOT_READY: 임베딩 미완료
+# 422 QUESTION_TOO_LONG: 질문 최대 길이 초과
+# 500 AGENT_INTERNAL_ERROR: LLM/도구 실행 오류
+# 스트림 시작 후 오류는 HTTP status 대신 SSE error event로 발행한다.
+# event: error
+# data: {"code":"AGENT_INTERNAL_ERROR","message":"답변 생성 중 오류가 발생했습니다.","retryable":true}

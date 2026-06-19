@@ -1,0 +1,43 @@
+### ============================================================================
+### PROJECT-LIST-API-006 | 분석 job 상태 저장
+### Source of truth: Notion HTML export (source-confirmed)
+### Endpoint: PATCH /api/list/analysis/{job_id}/status
+### 관련 기능 ID: PROJECT-LIST-B-301, PROJECT-LIST-F-203
+### 공개 범위: 내부 API / 서버 간 호출 전용
+### ============================================================================
+@baseUrl = http://localhost:8000
+@serviceToken = replace-me-service-token
+@jobId = 8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e
+
+### [정상] 실패 상태 저장
+PATCH {{baseUrl}}/api/list/analysis/{{jobId}}/status
+Authorization: Bearer {{serviceToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "status": "failed",
+  "currentStep": "CODE_MAP",
+  "progress": 45,
+  "message": "코드 구조 분석 중 오류가 발생했습니다.",
+  "errorMessage": "File limit exceeded during parse stage."
+}
+
+### 200 OK
+### {"code":200,"message":"success","data":{"jobId":"8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e","status":"failed","currentStep":"CODE_MAP","progress":45,"updatedAt":"2026-06-18T02:05:00Z"}}
+### status: queued | running | completed | failed
+### currentStep: CLONE | CODE_MAP | DOC_GEN | ONBOARDING | REPORT
+### 저장 규칙:
+### - running -> IN_PROGRESS, completed -> COMPLETED, failed -> FAILED
+### - failed이면 analysis_jobs.message에 errorMessage 우선 저장, 아니면 message 저장
+### - progress는 0..100, updatedAt은 서버 시각
+
+### [오류] 허용되지 않는 진행률
+PATCH {{baseUrl}}/api/list/analysis/{{jobId}}/status
+Authorization: Bearer {{serviceToken}}
+Content-Type: application/json
+
+{"status":"running","progress":101}
+
+### 오류: 400 INVALID_STATUS, 400 INVALID_PROGRESS, 401 UNAUTHORIZED,
+###       404 JOB_NOT_FOUND, 500 DATABASE_ERROR

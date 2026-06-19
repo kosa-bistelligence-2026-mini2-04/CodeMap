@@ -1,0 +1,23 @@
+### ============================================================================
+### UTIL-API-001 | HTML-PDF 파일 렌더링 및 변환
+### Markdown source: docs/03_API/PHASE2_API_SPEC.md
+### Endpoint: POST /api/gen/docs/{repo_id}/export/pdf
+### 관련 기능 ID: DOCS-UTIL-B-201
+### 상태: 시작 전 (Phase 2)
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+POST {{baseUrl}}/api/gen/docs/{{repoId}}/export/pdf
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/pdf
+
+{"theme":"default","includeCodeHighlight":true}
+
+### 200 OK — binary response
+### Content-Type: application/pdf
+### Content-Disposition: attachment; filename="{repoName}_onboarding.pdf"
+### theme: default | dark | minimal
+### 오류: 401 UNAUTHORIZED, 404 REPO_NOT_FOUND, 404 DOCS_NOT_FOUND, 500 PDF_RENDER_FAILED

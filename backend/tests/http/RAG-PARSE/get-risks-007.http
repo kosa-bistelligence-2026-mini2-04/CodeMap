@@ -1,0 +1,21 @@
+### ============================================================================
+### PARSE-ADVANCED-API-001 | 위험 신호 태깅 결과 조회
+### Contract status: 기능 명세 기반 설계 계약 (Phase 2, 구현 전)
+### Endpoint: GET /api/parse/analysis/{repo_id}/risks
+### 관련 기능 ID: RAG-PARSE-B-211, RAG-PARSE-F-202
+### 탐지 범주: auth, db, env, payment, external_api, migration, security
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+### [정상] 위험 신호 태깅 결과 조회
+GET {{baseUrl}}/api/parse/analysis/{{repoId}}/risks
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {"code":200,"message":"success","data":{"repoId":"3f7cc46e-d954-83ab-9f12-013b0c9d2a1e","risks":[{"path":"backend/app/core/config.py","type":"sensitive_data","severity":"high","description":"환경변수 및 인증 설정 파일","riskScore":85}]}}
+### riskScore 산정 입력: 파일 크기, import 수, 위험 키워드, config 여부
+### 오류: 401 UNAUTHORIZED, 404 REPO_NOT_FOUND, 404 RISK_ANALYSIS_NOT_FOUND,
+### 500 RISK_ANALYSIS_FAILED

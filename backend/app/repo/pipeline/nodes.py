@@ -23,6 +23,7 @@ import asyncio
 import logging
 import os
 import shutil
+import subprocess
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -104,16 +105,16 @@ async def clone_node(state: PipelineState) -> dict:
         if state.get("branch") and state["branch"] != "default":
             command.extend(["--branch", state["branch"]])
         command.extend([state["repo_url"], clone_path])
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        # asyncio.create_subprocess_exec는 Windows의 SelectorEventLoop(uvicorn --reload)에서
+        # NotImplementedError를 던진다. 어느 이벤트 루프에서도 동작하도록 스레드에서 subprocess.run을 실행한다.
+        result = await asyncio.to_thread(
+            subprocess.run,
+            command,
+            capture_output=True,
+            timeout=settings.CLONE_TIMEOUT_SECONDS,
         )
-        _, stderr = await asyncio.wait_for(
-            process.communicate(), timeout=settings.CLONE_TIMEOUT_SECONDS
-        )
-        if process.returncode != 0:
-            raise RuntimeError(stderr.decode(errors="replace").strip() or "git clone failed")
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.decode(errors="replace").strip() or "git clone failed")
 
         await _update_db(
             job_id,

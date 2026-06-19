@@ -1,0 +1,49 @@
+# ============================================================
+# API ID  : DOCS-GEN-API-001
+# 기능명  : 온보딩 가이드북 조회
+# Method  : GET
+# Endpoint: /api/gen/docs/{repo_id}
+# Auth    : 필요
+# 관련 기능 ID: DOCS-GEN-B-101, DOCS-GEN-B-206, DOCS-GEN-B-208,
+#   DOCS-GEN-F-101, DOCS-GEN-F-202, DOCS-GEN-F-203
+# 상태    : 시작 전
+#
+# Description:
+# 생성 완료된 온보딩 가이드북 Markdown 전문 또는 구조화된 JSON 반환.
+# format: markdown | json
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/gen/docs/{{repo_id}}?format=json
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "repoName": "CodeMap",
+#     "summary": "GitHub 저장소 분석 기반 온보딩 가이드 자동 생성 AI 앱",
+#     "techStack": ["Python 3.12", "FastAPI"],
+#     "coreFlow": "URL 입력 → Clone → Parse → Embed → Agent → Docs",
+#     "readingOrder": [{"rank": 1, "path": "docs/GETTING_STARTED.md", "reason": "프로젝트 목적 파악"}],
+#     "dangerFiles": [{"path": "backend/app/core/config.py", "reason": "환경변수 관리 파일"}],
+#     "generatedAt": "2026-06-18T10:15:00Z",
+#     "version": 1
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/gen/docs/{{repo_id}}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 404 DOCS_NOT_FOUND (DB): 가이드북 미생성
+# 401 UNAUTHORIZED / 404 REPO_NOT_FOUND / 500 DATABASE_ERROR

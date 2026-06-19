@@ -1,0 +1,39 @@
+# ============================================================
+# API ID  : RAG-PARSE-API-005
+# 기능명  : 코드 맵 분석 결과 조회
+# Method  : GET
+# Endpoint: /api/parse/analysis/{repo_id}/codemap
+# Auth    : 필요
+# 관련 기능 ID: RAG-PARSE-B-207, RAG-PARSE-B-208, RAG-PARSE-B-210
+# 상태    : 시작 전
+#
+# Description:
+# AST 기반 코드 청킹, 파일 간 import 관계, 복잡도 히트맵 반환.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/codemap
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "fileMap": [{"path": "backend/app/repo/service.py", "language": "python", "chunkCount": 12, "imports": [], "importedBy": ["backend/app/main.py"], "riskScore": 30}],
+#     "heatmap": [{"path": "backend/app/parse/service.py", "score": 85}]
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/codemap
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+# Markdown 에러 규칙: 404 REPO_NOT_FOUND / 404 CODEMAP_NOT_FOUND /
+# 500 AST_PARSE_FAILED

@@ -1,0 +1,33 @@
+### ============================================================================
+### AGENT-CORE-API-002 | Report JSON 계약 조회
+### Markdown source: docs/03_API/AGENT_API_SPEC.md
+### Endpoint: GET /api/chat/{repo_id}/report
+### 관련 기능 ID: AGENT-CORE-F-201
+### 상태: 시작 전
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+GET {{baseUrl}}/api/chat/{{repoId}}/report
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {
+###   "code": 200, "message": "success",
+###   "data": {
+###     "summary": "프로젝트 마스터 요약", "stack": ["FastAPI", "Next.js"],
+###     "fileMap": [], "recommendations": [], "heatmap": [],
+###     "durations": {"parseSeconds":1.2,"embedSeconds":2.4,"agentSeconds":6.3,"docsSeconds":4.1},
+###     "guide": "# 온보딩 가이드"
+###   }
+### }
+
+### [오류] 아직 리포트가 생성되지 않음
+GET {{baseUrl}}/api/chat/00000000-0000-0000-0000-000000000000/report
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 401 UNAUTHORIZED / 404 REPO_NOT_FOUND / 404 REPORT_NOT_FOUND
+### {"code":404,"message":"분석 리포트가 아직 생성되지 않았습니다.","data":null,"error":{"code":"REPORT_NOT_FOUND","detail":null,"field":null,"retryable":false}}

@@ -1,0 +1,161 @@
+### ============================================================
+### PROJECT-REPO-API-001
+### Endpoint   : POST /api/repo/analysis
+### Method     : POST
+### 관련 기능 ID : PROJECT-REPO-B-101, PROJECT-REPO-B-303, PROJECT-REPO-F-202
+### 담당        : oosuhada
+### 담당 슬라이스 : 등록/API/상태
+### 목적        : 저장소 분석 작업 생성 (프로젝트 등록 / 분석 요청)
+### 상태        : 완료
+###
+### 설명:
+###   GitHub 저장소 URL을 받아 분석 작업을 등록하고 job_id를 발급한다.
+###   내부적으로 URL 검증 → Clone → 파일 필터링 → Code Map →
+###   Doc Generation → Onboarding Guide → Report 저장 순서로 비동기 처리되며,
+###   각 단계의 진행 상태는 WebSocket(/ws/progress/{job_id})으로 실시간 push된다.
+### ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+
+### ============================================================
+### [정상] 저장소 분석 작업 생성 (branch 명시)
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "repoUrl": "https://github.com/username/my-project",
+  "branch": "main"
+}
+
+###
+### 성공 응답 — 201 Created
+###
+### {
+###   "code": 201,
+###   "message": "created",
+###   "data": {
+###     "jobId": "550e8400-e29b-41d4-a716-446655440000",   // String (UUID) — 발급된 분석 작업 고유 ID
+###     "repoName": "my-project",                          // String — 저장소 이름
+###     "owner": "username",                               // String — 저장소 소유자
+###     "branch": "main",                                  // String — 분석 대상 브랜치
+###     "status": "IN_PROGRESS",                           // String — 초기 상태
+###     "createdAt": "2025-06-17T09:00:00Z"               // String (ISO 8601) — 작업 생성 시각
+###   }
+### }
+###
+
+### ============================================================
+### [정상] 저장소 분석 작업 생성 (branch 미입력 → 기본 브랜치 자동 조회)
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "repoUrl": "https://github.com/username/my-project"
+}
+
+###
+
+### ============================================================
+### [에러 테스트] 400 — INVALID_REPO_URL: GitHub URL 형식 오류
+### 발생 시점: URL 파싱
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "repoUrl": "not-a-github-url"
+}
+
+### 예상 응답:
+### HTTP/1.1 400 Bad Request
+### { "code": 400, "error": "INVALID_REPO_URL", "message": "GitHub URL 형식이 올바르지 않음" }
+
+### ============================================================
+### [에러 테스트] 404 — REPOSITORY_NOT_FOUND: 저장소 없음/접근 불가
+### 발생 시점: Clone 시도
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "repoUrl": "https://github.com/nonexistent-user/nonexistent-repo",
+  "branch": "main"
+}
+
+### 예상 응답:
+### HTTP/1.1 404 Not Found
+### { "code": 404, "error": "REPOSITORY_NOT_FOUND", "message": "저장소가 없거나 접근 불가 (private/삭제)" }
+
+### ============================================================
+### [에러 테스트] 409 — ALREADY_IN_PROGRESS: 동일 저장소 분석 진행 중
+### 발생 시점: 작업 등록
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "repoUrl": "https://github.com/username/my-project",
+  "branch": "main"
+}
+
+### 예상 응답:
+### HTTP/1.1 409 Conflict
+### { "code": 409, "error": "ALREADY_IN_PROGRESS", "message": "동일 저장소 분석이 이미 진행 중" }
+
+### ============================================================
+### [에러 테스트] 422 — REPO_LIMIT_EXCEEDED: Clone 전 용량 초과
+### 발생 시점: 사전 검증 (GitHub API 기준)
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "repoUrl": "https://github.com/username/very-large-repo",
+  "branch": "main"
+}
+
+### 예상 응답:
+### HTTP/1.1 422 Unprocessable Entity
+### { "code": 422, "error": "REPO_LIMIT_EXCEEDED", "message": "Clone 전 GitHub API 기준 용량 초과" }
+
+### ============================================================
+### [에러 테스트] 401 — 인증 토큰 없음
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis
+Content-Type: application/json
+
+{
+  "repoUrl": "https://github.com/username/my-project",
+  "branch": "main"
+}
+
+### 예상 응답:
+### HTTP/1.1 401 Unauthorized
+
+###
+### 에러 응답 전체 목록:
+### | HTTP Status | Error Code              | 발생 시점     | 설명                                              |
+### |-------------|-------------------------|--------------|--------------------------------------------------|
+### | 400         | INVALID_REPO_URL        | URL 파싱      | GitHub URL 형식이 올바르지 않음                    |
+### | 404         | REPOSITORY_NOT_FOUND    | Clone 시도    | 저장소가 없거나 접근 불가 (private/삭제)            |
+### | 408         | CLONE_TIMEOUT           | Clone 실행    | clone 제한 시간 초과                               |
+### | 409         | ALREADY_IN_PROGRESS     | 작업 등록     | 동일 저장소 분석이 이미 진행 중                      |
+### | 413         | FILE_LIMIT_EXCEEDED     | Clone 후 검증  | 실제 파일 수 또는 용량 제한 초과                   |
+### | 422         | REPO_LIMIT_EXCEEDED     | 사전 검증     | Clone 전 GitHub API 기준 용량 초과                  |
+### | 500         | CLONE_FAILED            | Clone 실행    | clone 중 subprocess 오류 발생                      |
+### | 500         | WORKSPACE_CLEANUP_FAILED| cleanup 단계  | 임시 디렉토리 삭제 실패 (내부 알람 발송)            |
+###
+### 비고:
+### 📌 WORKSPACE_CLEANUP_FAILED는 클라이언트 UX에 영향을 주지 않으며, 내부 슬랙 알람으로 처리한다.
+###    필요 시 별도 cleanup 재시도 API를 추가 정의한다.
+### 📌 branch 미입력 시 GitHub REST API GET /repos/{owner}/{repo} 의 default_branch 필드를 사용한다.
+### 📌 분석 진행 상태는 WebSocket /ws/progress/{job_id} (PROJECT-REPO-API-006) 를 통해 실시간 수신한다.

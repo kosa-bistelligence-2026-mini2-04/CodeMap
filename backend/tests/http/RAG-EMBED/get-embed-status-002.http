@@ -1,0 +1,43 @@
+# ============================================================
+# API ID  : RAG-EMBED-API-002
+# 기능명  : 임베딩 저장 상태 조회
+# Method  : GET
+# Endpoint: /api/embed/analysis/{repo_id}/status
+# Auth    : 필요
+# 관련 기능 ID: RAG-EMBED-B-301
+# 상태    : 시작 전
+#
+# Description:
+# pgvector에 저장된 임베딩 현황 및 상태 조회.
+# status: not_started | in_progress | completed | failed
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/embed/analysis/{{repo_id}}/status
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "status": "completed",
+#     "totalChunks": 342,
+#     "embeddedChunks": 342,
+#     "model": "text-embedding-3-large",
+#     "dimensions": 3072,
+#     "completedAt": "2026-06-18T10:05:00Z"
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/embed/analysis/{{repo_id}}/status
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+# Markdown 에러 규칙: 404 REPO_NOT_FOUND / 500 DATABASE_ERROR

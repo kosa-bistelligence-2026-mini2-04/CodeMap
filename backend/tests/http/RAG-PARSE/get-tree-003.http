@@ -1,0 +1,40 @@
+# ============================================================
+# API ID  : RAG-PARSE-API-003
+# 기능명  : 디렉토리 구조 분석 조회
+# Method  : GET
+# Endpoint: /api/parse/analysis/{repo_id}/tree
+# Auth    : 필요
+# 관련 기능 ID: RAG-PARSE-B-202
+# 상태    : 시작 전
+#
+# Description:
+# 프로젝트 폴더 트리 구조 및 진입점 탐지 결과 반환.
+# depth 파라미터로 탐색 깊이를 제한할 수 있다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/tree?depth=3
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "directoryTree": "CodeMap/\n├── frontend/\n└── backend/",
+#     "entryPoints": [{"path": "backend/app/main.py", "type": "backend"}],
+#     "totalFiles": 87
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/tree
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+# Markdown 에러 규칙: 404 REPO_NOT_FOUND / 500 TREE_PARSE_FAILED

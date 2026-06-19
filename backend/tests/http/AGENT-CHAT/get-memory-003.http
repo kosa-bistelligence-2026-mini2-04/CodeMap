@@ -1,0 +1,19 @@
+### ============================================================================
+### AGENT-ADVANCED-API-001 | 에이전트 장기 기억 조회
+### Contract status: 보류 기능의 설계 계약 (Phase 2, 구현 전)
+### Endpoint: GET /api/chat/{repo_id}/memory
+### 관련 기능 ID: AGENT-CHAT-B-203
+### 개인정보/보존 정책과 삭제 API를 확정하기 전에는 운영 활성화 금지.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+GET {{baseUrl}}/api/chat/{{repoId}}/memory?userId=user-uuid&limit=20
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {"code":200,"message":"success","data":{"memories":[{"key":"preferred_entrypoint","value":"사용자는 백엔드 구조를 먼저 이해하려고 함","createdAt":"2026-06-18T10:00:00Z","accessCount":3}]}}
+### 오류: 401 UNAUTHORIZED, 403 MEMORY_ACCESS_DENIED, 404 REPO_NOT_FOUND,
+### 500 MEMORY_RETRIEVAL_FAILED

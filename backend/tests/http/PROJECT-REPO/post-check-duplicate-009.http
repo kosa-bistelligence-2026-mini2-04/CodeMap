@@ -1,0 +1,21 @@
+### ============================================================================
+### REPO-ADVANCED-API-001 | 중복 저장소 검사
+### Contract status: 기능 명세 기반 설계 계약 (구현 전)
+### Endpoint: POST /api/repo/check-duplicate
+### 관련 기능 ID: PROJECT-REPO-B-303
+### 목적: 정규화된 owner/repo/branch 기준으로 기존 분석 여부를 확인한다.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+
+POST {{baseUrl}}/api/repo/check-duplicate
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{"repoUrl":"https://github.com/kosa-bistelligence-2026-mini2-04/CodeMap","branch":"main"}
+
+### 200 OK
+### {"code":200,"message":"success","data":{"isDuplicate":true,"existingJob":{"jobId":"8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e","status":"completed","createdAt":"2026-06-18T10:00:00Z"}}}
+### URL 정규화: trailing slash와 .git 제거, host/owner/repo 비교, branch 미입력 시 default branch.
+### 오류: 400 INVALID_REPO_URL, 401 UNAUTHORIZED, 500 DATABASE_ERROR

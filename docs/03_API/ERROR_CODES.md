@@ -2,6 +2,23 @@
 
 본 문서는 CodeMap 백엔드 API에서 발생하는 HTTP 에러 코드 및 WebSocket Close Code에 대한 통합 명세서입니다.
 
+모든 REST 오류는 `docs/04_Decisions/ERROR_HANDLING.md`의 표준 envelope를 사용합니다. 표의 Error Code는
+`error.code`에, HTTP Status는 최상위 `code`와 실제 HTTP status에 동일하게 기록합니다.
+
+```json
+{
+  "code": 404,
+  "message": "요청한 분석 작업을 찾을 수 없습니다.",
+  "data": null,
+  "error": {
+    "code": "JOB_NOT_FOUND",
+    "detail": null,
+    "field": "jobId",
+    "retryable": false
+  }
+}
+```
+
 ## 1. PROJECT-REPO-API-001 (분석 작업 생성)
 `POST /api/repo/analysis`
 
@@ -52,3 +69,123 @@
 | 409 | `PIPELINE_ALREADY_RUNNING` | 요청 시 | 이미 파이프라인이 실행 중인 job |
 | 422 | `CLONE_NOT_COMPLETED` | 요청 시 | clone이 완료되지 않은 상태에서 호출 |
 | 500 | `PIPELINE_START_FAILED` | 파이프라인 초기화 | 파이프라인 시작 중 오류 발생 |
+
+## 6. RAG-PARSE-API (코드 분석 - 파싱)
+`GET /api/parse/analysis/{repo_id}`
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `REPO_NOT_FOUND` | DB 조회 | repo_id가 존재하지 않음 |
+| 404 | `PARSE_RESULT_NOT_FOUND` | DB 조회 | 분석 결과가 아직 생성되지 않음 |
+| 404 | `README_NOT_FOUND` | 파일 탐색 | README 파일이 저장소에 없음 |
+| 404 | `CODEMAP_NOT_FOUND` | DB 조회 | 코드 맵 분석 결과가 없음 |
+| 500 | `TREE_PARSE_FAILED` | 파일 탐색 | 디렉토리 트리 생성 실패 |
+| 500 | `STACK_DETECTION_FAILED` | 파일 파싱 | 기술 스택 탐지 실패 |
+| 500 | `AST_PARSE_FAILED` | AST 처리 | AST 청킹 또는 의존성 분석 실패 |
+| 500 | `SUMMARY_FAILED` | LLM 처리 | Bottom-up 요약 생성 실패 |
+
+## 7. RAG-EMBED-API (벡터 임베딩)
+`POST /api/embed/analysis/{repo_id}`
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 409 | `EMBEDDING_IN_PROGRESS` | 중복 검사 | 이미 임베딩이 진행 중인 저장소 |
+| 422 | `PARSE_NOT_COMPLETED` | 사전 검증 | 파싱이 완료되지 않은 상태에서 임베딩 요청 |
+| 500 | `EMBEDDING_FAILED` | 임베딩 처리 | OpenAI API 호출 또는 벡터 저장 중 오류 |
+
+## 8. AGENT-CHAT-API (코드 Q&A)
+`POST /api/chat/{repo_id}`
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `EMBEDDING_NOT_READY` | 사전 검증 | 임베딩이 완료되지 않아 검색 불가 |
+| 422 | `QUESTION_TOO_LONG` | 입력 검증 | 질문이 최대 허용 길이 초과 |
+| 500 | `AGENT_INTERNAL_ERROR` | 에이전트 실행 | LLM 호출 또는 도구 실행 중 내부 오류 |
+| 500 | `VECTOR_SEARCH_FAILED` | 벡터 검색 | pgvector 유사도 검색 실패 |
+
+## 9. AGENT-SEARCH-API (자율 탐색 도구)
+`POST /api/search/{repo_id}/grep`
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 400 | `INVALID_PATTERN` | 패턴 검증 | 정규식 패턴 문법 오류 |
+| 400 | `INVALID_PATH` | 경로 검증 | 잘못된 파일 경로 또는 접근 금지 경로 |
+| 404 | `FILE_NOT_FOUND` | 파일 접근 | 요청 경로의 파일이 없음 |
+| 500 | `GREP_FAILED` | grep 실행 | grep 도구 실행 중 오류 |
+| 500 | `FILE_READ_FAILED` | 파일 읽기 | 파일 읽기 중 오류 |
+
+## 10. DOCS-GEN-API (가이드북 생성)
+`POST /api/gen/docs/{repo_id}`
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `DOCS_NOT_FOUND` | DB 조회 | 가이드북이 아직 생성되지 않음 |
+| 409 | `DOCS_ALREADY_EXISTS` | 중복 검사 | 가이드북이 이미 존재 (force=false) |
+| 409 | `DOCS_GENERATION_IN_PROGRESS` | 중복 검사 | 가이드북 생성이 이미 진행 중 |
+| 422 | `ANALYSIS_NOT_COMPLETED` | 사전 검증 | RAG 파이프라인이 완료되지 않음 |
+| 500 | `DOCS_GENERATION_FAILED` | LLM 처리 | 가이드북 생성 중 오류 |
+| 500 | `FILE_GENERATION_FAILED` | 파일 생성 | Markdown/PDF 파일 생성 실패 |
+
+## 11. DOCS-GUARD-API (민감정보 보호)
+`POST /api/gen/docs/{repo_id}/guard`
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 400 | `INVALID_CONTENT` | 입력 검증 | 검사 대상 content가 비어있음 |
+| 500 | `GUARD_FAILED` | 패턴 탐지 | 민감정보 탐지 처리 중 오류 |
+
+## 12. PROJECT-LIST API
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 400 | `INVALID_JOB_ID` | Path 검증 | job_id가 UUID 형식이 아님 |
+| 400 | `INVALID_STATUS` | 상태 저장 | 허용되지 않는 상태 값 |
+| 400 | `INVALID_PROGRESS` | 상태 저장 | progress가 0-100 범위를 벗어남 |
+| 401 | `UNAUTHORIZED` | 인증 검증 | 토큰 누락 또는 만료 |
+| 404 | `JOB_NOT_FOUND` | DB 조회 | 분석 작업 없음 |
+| 413 | `FILE_LIMIT_EXCEEDED` | 제한 검증 | 파일 수 또는 파일 크기 제한 초과 |
+| 422 | `REPO_LIMIT_EXCEEDED` | 제한 검증 | 저장소 규모가 분석 허용 범위 초과 |
+| 500 | `VALIDATION_FAILED` | 사전 검증 | 파일 수 또는 용량 계산 실패 |
+| 500 | `DATABASE_ERROR` | DB 처리 | 조회 또는 상태 저장 실패 |
+
+## 13. PROJECT-PIPELINE API (Phase 2)
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 400 | `INVALID_WEBHOOK_URL` | Webhook 검증 | 허용되지 않는 Webhook URL |
+| 401 | `UNAUTHORIZED` | 인증 검증 | 토큰 누락 또는 만료 |
+| 404 | `JOB_NOT_FOUND` | DB 조회 | 분석 작업 없음 |
+| 409 | `BASIC_ANALYSIS_NOT_COMPLETED` | 사전 검증 | 기본 분석 미완료 |
+| 500 | `PIPELINE_START_FAILED` | 파이프라인 초기화 | 심층 분석 시작 실패 |
+
+## 14. RAG-GRAPH / PARSE-ADVANCED API (Phase 2)
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `GRAPH_NOT_FOUND` | DB 조회 | 의존성 그래프 미생성 |
+| 404 | `RISK_ANALYSIS_NOT_FOUND` | DB 조회 | 위험 분석 결과 없음 |
+| 404 | `STACK_SCORE_NOT_FOUND` | DB 조회 | 기술 스택 점수 결과 없음 |
+| 500 | `GRAPH_BUILD_FAILED` | 그래프 처리 | 그래프 생성 실패 |
+| 500 | `RISK_ANALYSIS_FAILED` | 위험 분석 | 위험 신호 분석 실패 |
+| 500 | `STACK_SCORE_FAILED` | 점수 계산 | 기술 스택 점수화 실패 |
+
+## 15. AGENT-ADVANCED / DOCS-UTIL API (Phase 2)
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 400 | `INVALID_CHANNEL` | 공유 채널 검증 | 이메일 또는 Slack 대상이 유효하지 않음 |
+| 404 | `DOCS_NOT_FOUND` | DB 조회 | 공유 또는 변환할 가이드북 없음 |
+| 404 | `REPO_NOT_FOUND` | DB 조회 | 저장소 없음 |
+| 500 | `MEMORY_RETRIEVAL_FAILED` | 기억 조회 | 장기 기억 조회 실패 |
+| 500 | `PDF_RENDER_FAILED` | PDF 변환 | HTML-PDF 렌더링 실패 |
+| 500 | `SHARE_FAILED` | 외부 전송 | 이메일 또는 Slack 발송 실패 |
+
+## 16. 클라이언트 처리 원칙
+
+- `400`, `403`, `404`, `413`, `422`: 요청 또는 상태를 수정하기 전 자동 재시도 금지
+- `401`: 재인증 후 새 요청
+- `408`: 멱등 요청만 제한적으로 재시도
+- `409`: 충돌 원인이 해소됐는지 상태를 다시 조회한 뒤 요청
+- `500`: `error.retryable`이 true인 경우에만 제한적으로 재시도
+- SSE 연결 후 오류는 HTTP status가 아니라 `event: error`로 처리
+- WebSocket 종료는 close code와 최종 이벤트를 함께 기록
