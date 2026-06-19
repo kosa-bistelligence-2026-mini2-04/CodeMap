@@ -20,12 +20,16 @@ os.path.exists()로 이미 Clone된 경우를 감지한다.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
+
+from pydantic import BaseModel, SecretStr, ValidationError
 
 from app.core.config import get_settings
 from app.core.database import async_session_factory
@@ -180,23 +184,159 @@ async def code_map_node(state: PipelineState) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────
+# 공통 헬퍼: LLM 기반 문서 생성 (doc_gen / onboarding 공용)
+#
+# [Sec05 - ChatOpenAI] app/chat/service.py의 LLM 호출 패턴을 그대로 적용한다.
+# OPENAI_API_KEY가 없거나 호출이 실패하면 None을 반환하고, 호출측에서
+# 기존 휴리스틱 출력으로 폴백한다. (문서 생성 실패가 분석 전체를 중단시키지 않는다.)
+# ──────────────────────────────────────────────────────────────
+# LLM 호출이 느릴 때 분석 job이 무한정 멈추지 않도록 하는 한도 (초)
+_LLM_TIMEOUT_SECONDS = 30
+_LLM_MAX_RETRIES = 1
+
+
+# LLM 출력 스키마 — 모델이 반환한 JSON 구조를 검증/정규화한다.
+# 모양이 어긋나면 ValidationError로 떨어뜨려 호출측이 휴리스틱으로 폴백하게 한다.
+class _ComponentSummary(BaseModel):
+    area: str = ""
+    summary: str = ""
+
+
+class _DocGenOutput(BaseModel):
+    architecture_overview: str = ""
+    component_summaries: list[_ComponentSummary] = []
+    reading_order: list[str] = []
+
+
+class _OnboardingStep(BaseModel):
+    title: str = ""
+    detail: str = ""
+    files: list[str] = []
+
+
+class _RiskArea(BaseModel):
+    file: str = ""
+    reason: str = ""
+
+
+class _OnboardingOutput(BaseModel):
+    onboarding_steps: list[_OnboardingStep] = []
+    first_contributions: list[str] = []
+    risk_areas: list[_RiskArea] = []
+
+
+def _read_readme(clone_path: str | None) -> str:
+    """저장소 루트의 README를 찾아 최대 3000자까지 발췌한다."""
+    if not clone_path:
+        return ""
+    root = Path(clone_path)
+    for name in ("README.md", "readme.md", "README.rst", "README.txt", "README"):
+        candidate = root / name
+        if candidate.is_file():
+            try:
+                return candidate.read_text(encoding="utf-8", errors="replace")[:3000]
+            except OSError:
+                return ""
+    return ""
+
+
+def _repo_context(report: dict, readme: str) -> str:
+    """분석 리포트와 README를 LLM 프롬프트용 컨텍스트 문자열로 압축한다."""
+    stats = report.get("stats", {})
+    languages = ", ".join(
+        f"{item['name']}({item['lines']}줄)" for item in report.get("languages", [])[:6]
+    )
+    parts = [
+        f"저장소 이름: {report.get('repository', {}).get('name', '미상')}",
+        f"주 언어: {stats.get('primary_language', '미상')}",
+        f"기술 스택: {', '.join(report.get('stack', [])) or '미탐지'}",
+        f"언어 분포: {languages or '미상'}",
+        f"규모: 파일 {stats.get('files', 0)}개 · {stats.get('lines', 0)}줄 · 테스트 {stats.get('tests', 0)}개",
+        f"진입점: {', '.join(report.get('entrypoints', [])[:12]) or '미탐지'}",
+        f"강점: {', '.join(report.get('key_strengths', [])[:5]) or '없음'}",
+        f"위험 신호: {', '.join(report.get('key_risks', [])[:5]) or '없음'}",
+    ]
+    if readme:
+        parts.append(f"\nREADME 발췌:\n{readme}")
+    return "\n".join(parts)
+
+
+async def _llm_json(system: str, user: str) -> dict | None:
+    """OPENAI_API_KEY가 있으면 LLM을 호출해 JSON dict를 반환, 실패/미설정 시 None."""
+    if not settings.OPENAI_API_KEY:
+        return None
+    try:
+        from langchain_openai import ChatOpenAI
+
+        llm = ChatOpenAI(
+            model=settings.OPENAI_MODEL,
+            api_key=SecretStr(settings.OPENAI_API_KEY),
+            temperature=0.2,
+            timeout=_LLM_TIMEOUT_SECONDS,
+            max_retries=_LLM_MAX_RETRIES,
+            model_kwargs={"response_format": {"type": "json_object"}},
+        )
+        response = await llm.ainvoke([("system", system), ("user", user)])
+        content = str(response.content).strip()
+        if content.startswith("```"):  # 방어적 코드펜스 제거
+            content = content.strip("`")
+            if content[:4].lower() == "json":
+                content = content[4:]
+        result = json.loads(content)
+        # 호출측이 dict.get()을 쓰므로 객체가 아니면 폴백 (모델이 배열 등을 반환한 경우 방어)
+        return result if isinstance(result, dict) else None
+    except Exception as exc:  # LLM 오류는 분석을 중단시키지 않고 휴리스틱으로 폴백
+        logger.warning("LLM 문서 생성 실패, 휴리스틱으로 대체합니다: %s", exc)
+        return None
+
+
+# ──────────────────────────────────────────────────────────────
 # 노드 3: 문서 자동 생성 (Doc Generation)
 #
 # [Sec05 - create_react_agent]
 # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
-# 코드 분석 결과를 바탕으로 파일/폴더 단위 요약 문서를 생성한다.
+# 코드 분석 결과 + README를 근거로 LLM이 아키텍처 개요/영역별 요약/읽기 순서를 생성한다.
+# OPENAI_API_KEY 미설정 또는 LLM 실패 시 진입점 기반 휴리스틱으로 폴백한다.
 # ──────────────────────────────────────────────────────────────
 async def doc_gen_node(state: PipelineState) -> dict:
     job_id = state["job_id"]
     await _publish(job_id, PipelineStage.DOC_GEN, JobStatus.IN_PROGRESS, 64, "분석 근거와 읽기 순서 구성 중")
     report = dict(state.get("analysis_report") or {})
-    report["reading_order"] = list(report.get("entrypoints", []))[:8]
+    entrypoints = list(report.get("entrypoints", []))
+
+    readme = await asyncio.to_thread(_read_readme, state.get("clone_path"))
+    generated = await _llm_json(
+        "당신은 코드베이스 분석 문서를 작성하는 시니어 엔지니어입니다. "
+        "제공된 저장소 분석 데이터와 README 발췌만 근거로 한국어 기술 문서를 작성하세요. "
+        "데이터에 없는 내용을 지어내지 말고, 다음 키를 가진 JSON만 반환하세요: "
+        "architecture_overview(문자열, 3~5문장), "
+        "component_summaries(객체 배열, 각 {area, summary}, 3~6개), "
+        "reading_order(파일 경로 문자열 배열, 처음 읽을 순서대로 최대 8개).",
+        _repo_context(report, readme),
+    )
+    doc = None
+    if generated:
+        try:
+            doc = _DocGenOutput.model_validate(generated)
+        except ValidationError as exc:
+            logger.warning("doc_gen LLM 출력 스키마 불일치, 휴리스틱으로 대체: %s", exc)
+    if doc:
+        report["architecture_overview"] = doc.architecture_overview
+        report["component_summaries"] = [c.model_dump() for c in doc.component_summaries]
+        report["reading_order"] = doc.reading_order or entrypoints[:8]
+        report["doc_generated_by"] = settings.OPENAI_MODEL
+        message = "AI 기반 분석 문서 생성 완료"
+    else:
+        report["reading_order"] = entrypoints[:8]
+        report["doc_generated_by"] = "heuristic"
+        message = "근거 기반 분석 문서 구성 완료(휴리스틱)"
+
     await _update_db(
         job_id,
         status=JobStatus.IN_PROGRESS.value,
         stage=PipelineStage.DOC_GEN.value,
         progress=72,
-        message="근거 기반 분석 문서 구성 완료",
+        message=message,
         report_json=report,
     )
     return {"analysis_report": report, "current_stage": PipelineStage.DOC_GEN.value, "progress": 72}
@@ -207,24 +347,53 @@ async def doc_gen_node(state: PipelineState) -> dict:
 #
 # [Sec05 - create_react_agent]
 # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
-# 신입 개발자를 위한 추천 읽기 순서, 수정 시작점, 위험 파일 목록을 생성한다.
+# LLM이 신입 개발자용 온보딩 단계/첫 기여 제안/주의 파일을 근거 기반으로 생성한다.
+# OPENAI_API_KEY 미설정 또는 LLM 실패 시 진입점 기반 휴리스틱으로 폴백한다.
 # ──────────────────────────────────────────────────────────────
 async def onboarding_node(state: PipelineState) -> dict:
     job_id = state["job_id"]
     await _publish(job_id, PipelineStage.ONBOARDING, JobStatus.IN_PROGRESS, 80, "온보딩 경로 생성 중")
     report = dict(state.get("analysis_report") or {})
-    entrypoints = report.get("entrypoints", [])
-    report["onboarding_steps"] = [
-        {"title": "실행 경계 확인", "files": entrypoints[:3]},
-        {"title": "핵심 기능 흐름 추적", "files": entrypoints[3:6]},
-        {"title": "테스트와 배포 구성 검증", "files": entrypoints[6:9]},
-    ]
+    entrypoints = list(report.get("entrypoints", []))
+
+    readme = await asyncio.to_thread(_read_readme, state.get("clone_path"))
+    generated = await _llm_json(
+        "당신은 신입 개발자 온보딩 가이드를 만드는 시니어 엔지니어입니다. "
+        "제공된 저장소 분석 데이터와 README 발췌만 근거로, 처음 합류한 개발자가 따라갈 수 있는 "
+        "실질적인 온보딩 가이드를 한국어로 작성하세요. 데이터에 없는 파일을 지어내지 마세요. "
+        "다음 키를 가진 JSON만 반환하세요: "
+        "onboarding_steps(객체 배열, 각 {title, detail, files:[경로]}, 3~5개), "
+        "first_contributions(문자열 배열, 처음 기여로 적합한 작업 2~4개), "
+        "risk_areas(객체 배열, 각 {file, reason}, 최대 4개).",
+        _repo_context(report, readme),
+    )
+    guide = None
+    if generated:
+        try:
+            guide = _OnboardingOutput.model_validate(generated)
+        except ValidationError as exc:
+            logger.warning("onboarding LLM 출력 스키마 불일치, 휴리스틱으로 대체: %s", exc)
+    if guide and guide.onboarding_steps:
+        report["onboarding_steps"] = [s.model_dump() for s in guide.onboarding_steps]
+        report["first_contributions"] = guide.first_contributions
+        report["risk_areas"] = [r.model_dump() for r in guide.risk_areas]
+        report["onboarding_generated_by"] = settings.OPENAI_MODEL
+        message = "AI 기반 온보딩 가이드 생성 완료"
+    else:
+        report["onboarding_steps"] = [
+            {"title": "실행 경계 확인", "files": entrypoints[:3]},
+            {"title": "핵심 기능 흐름 추적", "files": entrypoints[3:6]},
+            {"title": "테스트와 배포 구성 검증", "files": entrypoints[6:9]},
+        ]
+        report["onboarding_generated_by"] = "heuristic"
+        message = "온보딩 경로 생성 완료(휴리스틱)"
+
     await _update_db(
         job_id,
         status=JobStatus.IN_PROGRESS.value,
         stage=PipelineStage.ONBOARDING.value,
         progress=90,
-        message="온보딩 경로 생성 완료",
+        message=message,
         report_json=report,
     )
     return {"analysis_report": report, "current_stage": PipelineStage.ONBOARDING.value, "progress": 90}

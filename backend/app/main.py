@@ -10,8 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.exceptions import register_exception_handlers
 from app.list.router import router as list_router
+from app.list.websocket import ws_router as list_ws_router
 from app.repo.router import router as repo_router
-from app.repo.websocket import ws_router
+from app.repo.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
 
 # ──────────────────────────────────────────────
@@ -58,9 +59,10 @@ def read_root():
 # Project Repository 분석 관련 REST API (API-001, 003, 005, 007)
 app.include_router(repo_router)
 app.include_router(list_router)
+app.include_router(list_ws_router)
 
 # Project Repository 분석 WebSocket 엔드포인트 (API-006)
-app.include_router(ws_router)
+app.include_router(repo_ws_router)
 
 # Repository-scoped grounded chat and conversation history
 app.include_router(chat_router)
