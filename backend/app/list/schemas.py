@@ -59,24 +59,16 @@ class AnalysisProgressMessage(BaseModel):
     errorMessage: str | None = Field(default=None, description="실패 사유")
 
 
-# ──────────────────────────────────────────────
-# 저장소 사전 검증 요청 DTO
-# ──────────────────────────────────────────────
 class ListValidateRequest(BaseModel):
-    '''
-    저장소 사전 검증 요청 DTO
-    '''
+    """저장소 사전 검증 요청 DTO입니다."""
+
     repo_url: str = Field(alias="repoUrl", description="GitHub 저장소 URL")
     branch: Optional[str] = Field(default=None, description="분석 대상 브랜치")
 
 
-# ──────────────────────────────────────────────
-# 저장소 사전 검증 결과 데이터 DTO
-# ──────────────────────────────────────────────
 class ListValidateData(BaseModel):
-    '''
-    저장소 사전 검증 결과 데이터 DTO
-    '''
+    """저장소 사전 검증 결과 데이터 DTO입니다."""
+
     model_config = ConfigDict(populate_by_name=True)
 
     is_valid: bool = Field(alias="isValid", description="저장소 유효성 여부")
@@ -85,13 +77,9 @@ class ListValidateData(BaseModel):
     warning_message: Optional[str] = Field(default=None, alias="warningMessage", description="경고 메시지")
 
 
-# ──────────────────────────────────────────────
-# 저장소 사전 검증 응답 DTO
-# ──────────────────────────────────────────────
 class ListValidateResponse(BaseModel):
-    '''
-    저장소 사전 검증 응답 DTO
-    '''
+    """저장소 사전 검증 응답 DTO입니다."""
+
     code: int = Field(default=200, description="HTTP 상태 코드")
     message: str = Field(default="success", description="응답 메시지")
     data: ListValidateData

@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
     OPENAI_MODEL: str = "gpt-4o-mini"
 
-    ## GitHub API 호출 시 사용할 개인 액세스 토큰
+    # GitHub API 호출 시 사용할 개인 액세스 토큰
     GITHUB_TOKEN: str = ""
 
     # [RAG-EMBED] 임베딩 모델 설정
