@@ -480,7 +480,7 @@ Accept: application/json
 | 필드명 | 타입 | 필수 | 기본값 | 설명 |
 | :--- | :--- | :--- | :--- | :--- |
 | model | String | N | text-embedding-3-large | 사용할 임베딩 모델 |
-| dimensions | Integer | N | 3072 | 임베딩 벡터 차원 (마트료시카 지원) |
+| dimensions | Integer | N | 1536 | 임베딩 벡터 차원 (마트료시카 지원, 결정 근거: `docs/04_Decisions/EMBEDDING_MODEL_DECISION.md`) |
 | forceReembed | Boolean | N | false | 기존 임베딩 삭제 후 재생성 여부 |
 
 ##### 요청 예시
@@ -488,7 +488,7 @@ Accept: application/json
 ```json
 {
   "model": "text-embedding-3-large",
-  "dimensions": 3072,
+  "dimensions": 1536,
   "forceReembed": false
 }
 ```
