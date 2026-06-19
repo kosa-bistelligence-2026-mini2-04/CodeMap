@@ -257,3 +257,4 @@ mkcert.exe
 ### Local reference materials ###
 docs/basecode/
 docs/notion/
+package-lock.json

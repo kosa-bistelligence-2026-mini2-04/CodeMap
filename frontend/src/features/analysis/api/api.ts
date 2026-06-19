@@ -1,4 +1,5 @@
 import type {
+  AnalysisHistoryResponse,
   AnalyzeRequest,
   AnalyzeResponse,
   JobStatusData,
@@ -10,6 +11,16 @@ const BASE_URL = `${BASE_PATH}/api`;
 export function apiPath(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${BASE_URL}${normalizedPath}`;
+}
+
+function getAuthorizationHeader(): string {
+  if (typeof window === "undefined") return "Bearer frontend-client";
+  const token = localStorage.getItem("cm-access-token")
+    || localStorage.getItem("access_token")
+    || localStorage.getItem("accessToken")
+    || localStorage.getItem("token")
+    || "frontend-client";
+  return `Bearer ${token}`;
 }
 
 /**
@@ -49,6 +60,38 @@ export async function fetchJobStatus(
   if (!resp.ok) {
     throw new Error(`Failed to fetch job status: ${resp.status}`);
   }
+  return await resp.json();
+}
+
+export async function fetchAnalysisHistory(
+  page = 1,
+  limit = 30,
+): Promise<AnalysisHistoryResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  const resp = await fetch(apiPath(`/list/analysis?${params.toString()}`), {
+    headers: {
+      Authorization: getAuthorizationHeader(),
+    },
+  });
+
+  // 404(엔드포인트 미구현) / 401(인증 미적용) 상황에서는
+  // 에러를 throw하지 않고 빈 목록으로 graceful fallback 처리합니다.
+  if (resp.status === 404 || resp.status === 401) {
+    return {
+      code: resp.status,
+      message: "fallback",
+      data: { totalCount: 0, page, limit, jobs: [] },
+    };
+  }
+
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail?.message || `Failed to fetch analysis history: ${resp.status}`);
+  }
+
   return await resp.json();
 }
 
