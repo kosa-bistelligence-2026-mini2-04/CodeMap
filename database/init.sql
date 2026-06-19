@@ -41,9 +41,19 @@ CREATE TABLE IF NOT EXISTS code_chunks (
     id UUID PRIMARY KEY,
     file_id UUID NOT NULL REFERENCES source_files(id) ON DELETE CASCADE,
     chunk_summary TEXT NOT NULL,
-    embedding_vector vector(1536), -- OpenAI text-embedding-3-large 1536차원 기본 설정
+    embedding_vector vector(1536), -- OpenAI text-embedding-3-large dimensions=1536 (EMBEDDING_MODEL_DECISION.md 참고)
+    start_line INTEGER,            -- AST 청킹 시작 라인 (RAG-PARSE-B-207)
+    end_line INTEGER,              -- AST 청킹 종료 라인
+    symbol VARCHAR(255),           -- 함수/클래스/모듈 심볼명 (검색 필터링용)
+    language VARCHAR(50),          -- 프로그래밍 언어 (python, javascript, typescript 등)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 기존 DB 마이그레이션: code_chunks 메타데이터 컬럼 추가 (RAG-EMBED-B-201 구현 대응)
+ALTER TABLE code_chunks ADD COLUMN IF NOT EXISTS start_line INTEGER;
+ALTER TABLE code_chunks ADD COLUMN IF NOT EXISTS end_line INTEGER;
+ALTER TABLE code_chunks ADD COLUMN IF NOT EXISTS symbol VARCHAR(255);
+ALTER TABLE code_chunks ADD COLUMN IF NOT EXISTS language VARCHAR(50);
 
 -- 5. 파일 간 의존성 관계 테이블 (Fan-in / Fan-out 그래프 구현용)
 CREATE TABLE IF NOT EXISTS file_dependencies (
@@ -55,7 +65,15 @@ CREATE TABLE IF NOT EXISTS file_dependencies (
 
 -- 6. 인덱스 설정
 -- 코사인 유사도 검색을 위한 HNSW 인덱스 구축
+-- HNSW 채택 근거: IVFFlat 대비 빠른 빌드 시간, 증분 삽입 지원, 1536차원에서 안정적 성능
+-- 관련 명세: RAG_EMBED_SPEC.md, EMBEDDING_MODEL_DECISION.md
 CREATE INDEX IF NOT EXISTS code_chunks_vector_idx ON code_chunks USING hnsw (embedding_vector vector_cosine_ops);
+
+-- file_id 기반 청크 조회 성능 향상 인덱스 (임베딩 상태 조회 시 사용)
+CREATE INDEX IF NOT EXISTS idx_code_chunks_file_id ON code_chunks (file_id);
+
+-- language 기반 필터링 인덱스 (언어별 코드 청크 검색용)
+CREATE INDEX IF NOT EXISTS idx_code_chunks_language ON code_chunks (language);
 
 -- 분석 작업 상태 조회 성능 향상을 위한 인덱스
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_status ON analysis_jobs (status);

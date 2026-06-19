@@ -28,3 +28,11 @@ langchain-openai>=0.1.0
 langchain-community>=0.2.0
 pypdf>=4.0.0
 pgvector>=0.2.0
+
+# [RAG-EMBED] OpenAI 임베딩 API 직접 호출 (text-embedding-3-large, dimensions=1536)
+# RAG_EMBED_SPEC.md / EMBEDDING_MODEL_DECISION.md 참고
+openai>=1.0.0
+
+# [RAG-EMBED] 지수 백오프 재시도 (OpenAI API 호출 실패 시 최대 3회 재시도)
+# RAG_EMBED_SPEC.md 구현 노트 참고
+tenacity>=8.0.0

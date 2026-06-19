@@ -57,6 +57,20 @@ class Settings(BaseSettings):
     # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
     OPENAI_MODEL: str = "gpt-4o-mini"
 
+    # [RAG-EMBED] 임베딩 모델 설정
+    # 결정 근거: docs/04_Decisions/EMBEDDING_MODEL_DECISION.md
+    # text-embedding-3-large + dimensions=1536: large 모델의 한국어↔영어 의미 검색 강점을
+    # 유지하면서 저장공간·pgvector HNSW 인덱스 호환성을 확보하는 절충안
+    EMBEDDING_MODEL: str = "text-embedding-3-large"
+    EMBEDDING_DIMENSIONS: int = 1536
+
+    # [RAG-EMBED] 배치 임베딩 처리 설정
+    # 배치 크기: 100개 청크 → OpenAI API 오버헤드 최소화 (RAG_EMBED_SPEC.md)
+    EMBEDDING_BATCH_SIZE: int = 100
+
+    # [RAG-EMBED] API 호출 실패 시 지수 백오프 재시도 횟수 (RAG_EMBED_SPEC.md)
+    EMBEDDING_MAX_RETRIES: int = 3
+
     model_config = {"env_file": env_path, "env_file_encoding": "utf-8"}
 
     @model_validator(mode="after")
