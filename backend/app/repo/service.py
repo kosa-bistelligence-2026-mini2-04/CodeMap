@@ -158,7 +158,11 @@ class AnalysisService:
         # 3. 동일 저장소(레포)에 대한 중복 분석이 있는지 확인
         duplicate = await self.repository.check_duplicate_job(request.repoUrl, branch)
         if duplicate:
-            raise AlreadyInProgressError()
+            return AnalysisResponse(
+                code=201,
+                message="success",
+                data=AnalysisData(jobId=str(duplicate.id)),
+            )
 
         # 4. DB에 새 분석 작업 생성
         job = await self.repository.create_job(
