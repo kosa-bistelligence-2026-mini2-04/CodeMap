@@ -1,0 +1,35 @@
+### ============================================================================
+### PIPELINE-API-003 | 파이프라인 외부 연동 Webhook 등록
+### Markdown source: docs/03_API/PHASE2_API_SPEC.md
+### Endpoint: POST /api/pipeline/{job_id}/webhook
+### 관련 기능 ID: PROJECT-PIPELINE-B-203
+### 상태: 시작 전 (Phase 2)
+### 변경 이력: PROJECT-PIPELINE-API-003 WebSocket 진행률 계약은 단계 조회
+### polling 계약으로 통합. target/payload가 미확정이던 PROJECT-PIPELINE-API-004
+### external-sync 초안은 PIPELINE-API-003 Webhook 계약으로 구체화.
+### 보안: secret은 응답·로그에 노출하지 않고 저장 시 암호화 또는 secret manager 사용.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+POST {{baseUrl}}/api/pipeline/{{jobId}}/webhook
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{"webhookUrl":"https://example.com/codemap/events","events":["completed","failed"],"secret":"replace-me-webhook-secret"}
+
+### 201 Created
+### {"code":201,"message":"created","data":{"webhookId":"webhook-uuid","webhookUrl":"https://example.com/codemap/events"}}
+### events: completed | failed
+
+### [오류] 허용되지 않는 URL
+POST {{baseUrl}}/api/pipeline/{{jobId}}/webhook
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{"webhookUrl":"file:///etc/passwd","events":["completed"]}
+
+### 400 INVALID_WEBHOOK_URL / 404 JOB_NOT_FOUND
+### {"code":400,"message":"Webhook URL 형식이 올바르지 않습니다.","data":null,"error":{"code":"INVALID_WEBHOOK_URL","detail":"Only approved https destinations are allowed","field":"webhookUrl","retryable":false}}

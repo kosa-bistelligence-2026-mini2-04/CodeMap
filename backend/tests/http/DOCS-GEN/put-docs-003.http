@@ -1,0 +1,42 @@
+# ============================================================
+# API ID  : DOCS-GEN-API-003
+# 기능명  : 가이드북 재생성
+# Method  : PUT
+# Endpoint: /api/gen/docs/{repo_id}
+# Auth    : 필요
+# 관련 기능 ID: DOCS-GEN-B-207
+# 상태    : 시작 전
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+PUT {{baseUrl}}/api/gen/docs/{{repo_id}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "model": "gpt-4o-mini",
+  "reason": "코드 변경 후 재분석"
+}
+
+# Success Response: 202 Accepted
+# {
+#   "code": 202,
+#   "message": "accepted",
+#   "data": {"jobId": "...", "previousVersion": 1, "newVersion": 2}
+# }
+
+
+### 에러 케이스 - 인증 없음
+PUT {{baseUrl}}/api/gen/docs/{{repo_id}}
+Content-Type: application/json
+
+{}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+# Markdown 에러 규칙: 404 REPO_NOT_FOUND / 404 DOCS_NOT_FOUND /
+# 500 DOCS_GENERATION_FAILED

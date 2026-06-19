@@ -1,0 +1,36 @@
+### ============================================================================
+### AGENT-SEARCH-API-002 | 파일 내용 및 디렉토리 조회
+### Markdown source: docs/03_API/AGENT_API_SPEC.md
+### Endpoint: GET /api/search/{repo_id}/file
+### 관련 기능 ID: AGENT-SEARCH-B-206
+### 상태: 시작 전
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+### [정상] 파일 1~50줄 조회
+GET {{baseUrl}}/api/search/{{repoId}}/file?path=backend/app/embed/service.py&startLine=1&endLine=50
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK — file
+### {"code":200,"message":"success","data":{"type":"file","path":"backend/app/embed/service.py","language":"python","totalLines":120,"content":"...","startLine":1,"endLine":50}}
+### endLine-startLine 범위는 최대 200줄이다.
+
+### [정상] 디렉토리 조회
+GET {{baseUrl}}/api/search/{{repoId}}/file?path=backend/app/embed
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK — directory
+### {"code":200,"message":"success","data":{"type":"directory","path":"backend/app/embed","children":[{"name":"service.py","type":"file","size":4096}]}}
+
+### [오류] 루트 탈출 경로
+GET {{baseUrl}}/api/search/{{repoId}}/file?path=../../.env
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 400 INVALID_PATH / 401 UNAUTHORIZED / 404 REPO_NOT_FOUND /
+### 404 FILE_NOT_FOUND / 500 FILE_READ_FAILED
+### {"code":400,"message":"접근할 수 없는 경로입니다.","data":null,"error":{"code":"INVALID_PATH","detail":"path traversal is not allowed","field":"path","retryable":false}}

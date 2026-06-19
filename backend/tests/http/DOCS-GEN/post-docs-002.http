@@ -1,0 +1,50 @@
+# ============================================================
+# API ID  : DOCS-GEN-API-002
+# 기능명  : 가이드북 생성 트리거
+# Method  : POST
+# Endpoint: /api/gen/docs/{repo_id}
+# Auth    : 필요
+# 관련 기능 ID: DOCS-GEN-B-201, DOCS-GEN-B-202, DOCS-GEN-B-203, DOCS-GEN-B-204
+# 상태    : 시작 전
+#
+# Description:
+# Map-Reduce 파이프라인(파일 요약→폴더 통합→마스터 리포트)으로 온보딩 가이드북 생성 시작.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+POST {{baseUrl}}/api/gen/docs/{{repo_id}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "force": false,
+  "model": "gpt-4o-mini"
+}
+
+# Success Response: 202 Accepted
+# {
+#   "code": 202,
+#   "message": "accepted",
+#   "data": {"jobId": "...", "status": "docs_queued", "estimatedMinutes": 3}
+# }
+
+
+### 에러 케이스 - 인증 없음
+POST {{baseUrl}}/api/gen/docs/{{repo_id}}
+Content-Type: application/json
+
+{}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 409 DOCS_ALREADY_EXISTS (중복): 가이드북 존재, force=false
+# 404 REPO_NOT_FOUND (DB): 저장소 없음
+# 409 DOCS_GENERATION_IN_PROGRESS (중복): 생성 작업 진행 중
+# 422 ANALYSIS_NOT_COMPLETED (사전검증): RAG 파이프라인 미완료
+# 500 DOCS_GENERATION_FAILED (생성): LLM 또는 문서 생성 실패

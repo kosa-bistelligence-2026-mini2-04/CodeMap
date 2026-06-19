@@ -1,0 +1,104 @@
+### ============================================================
+### PROJECT-REPO-API-007
+### Endpoint   : POST /api/repo/analysis/{job_id}/start
+### Method     : POST
+### 관련 기능 ID : PROJECT-REPO-B-204, PROJECT-REPO-F-204
+### 담당        : oosuhada
+### 담당 슬라이스 : 등록/API/상태
+### 목적        : clone 이후 전체 분석 파이프라인 시작
+### 상태        : 완료
+###
+### 설명:
+###   clone이 완료된 job에 대해
+###   Code Map → Doc Generation → Onboarding Guide → Report 저장 순서로
+###   전체 분석 파이프라인을 비동기 시작한다.
+###   각 단계의 진행 상태는 이벤트 큐에 publish되어
+###   WebSocket(PROJECT-REPO-API-006) 및 SSE(PROJECT-REPO-API-005)로 전달된다.
+###   이 API는 POST /api/project/repo/analysis 내부에서 자동 호출된다.
+###   clone 실패 후 수동 재시작 시에만 직접 호출한다.
+### ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = 550e8400-e29b-41d4-a716-446655440000
+
+### ============================================================
+### [정상] 전체 분석 파이프라인 시작
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/start
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+###
+### 성공 응답 — 202 Accepted
+###
+### {
+###   "code": 202,
+###   "message": "accepted",
+###   "data": {
+###     "jobId": "550e8400-e29b-41d4-a716-446655440000",  // String (UUID) — 분석 작업 고유 ID
+###     "status": "IN_PROGRESS",                           // String — 파이프라인 시작 상태
+###     "startedAt": "2025-06-17T09:01:00Z"               // String (ISO 8601) — 파이프라인 시작 시각
+###   }
+### }
+###
+
+### ============================================================
+### [에러 테스트] 404 — JOB_NOT_FOUND: 존재하지 않는 job_id
+### 발생 시점: 요청 시
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/00000000-0000-0000-0000-000000000000/start
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+### 예상 응답:
+### HTTP/1.1 404 Not Found
+### { "code": 404, "error": "JOB_NOT_FOUND", "message": "존재하지 않는 job_id" }
+
+### ============================================================
+### [에러 테스트] 409 — PIPELINE_ALREADY_RUNNING: 이미 파이프라인 실행 중
+### 발생 시점: 요청 시
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/start
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+### 예상 응답:
+### HTTP/1.1 409 Conflict
+### { "code": 409, "error": "PIPELINE_ALREADY_RUNNING", "message": "이미 파이프라인이 실행 중인 job" }
+
+### ============================================================
+### [에러 테스트] 422 — CLONE_NOT_COMPLETED: clone 미완료 상태에서 호출
+### 발생 시점: 요청 시
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/start
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+### 예상 응답:
+### HTTP/1.1 422 Unprocessable Entity
+### { "code": 422, "error": "CLONE_NOT_COMPLETED", "message": "clone이 완료되지 않은 상태에서 호출" }
+
+### ============================================================
+### [에러 테스트] 401 — 인증 토큰 없음
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/start
+
+### 예상 응답:
+### HTTP/1.1 401 Unauthorized
+
+###
+### 에러 응답 전체 목록:
+### | HTTP Status | Error Code              | 발생 시점        | 설명                            |
+### |-------------|-------------------------|----------------|----------------------------------|
+### | 404         | JOB_NOT_FOUND           | 요청 시          | 존재하지 않는 job_id              |
+### | 409         | PIPELINE_ALREADY_RUNNING| 요청 시          | 이미 파이프라인이 실행 중인 job    |
+### | 422         | CLONE_NOT_COMPLETED     | 요청 시          | clone이 완료되지 않은 상태에서 호출 |
+### | 500         | PIPELINE_START_FAILED   | 파이프라인 초기화  | 파이프라인 시작 중 오류 발생        |
+###
+### 비고:
+### 📌 이 API는 POST /api/project/repo/analysis 내부에서 자동 호출된다.
+###    clone 실패 후 수동 재시작 시에만 직접 호출한다.
+### 📌 파이프라인 순서: Code Map → Doc Generation → Onboarding Guide → Report 저장.
+###    각 단계는 이전 단계 완료 후 실행된다.
+### 📌 진행 상태는 WebSocket(PROJECT-REPO-API-006) 또는 SSE(PROJECT-REPO-API-005)로 실시간 수신 가능하다.

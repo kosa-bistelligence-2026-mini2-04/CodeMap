@@ -1,0 +1,41 @@
+# ============================================================
+# API ID  : RAG-PARSE-API-004
+# 기능명  : 기술 스택 탐지 결과 조회
+# Method  : GET
+# Endpoint: /api/parse/analysis/{repo_id}/stack
+# Auth    : 필요
+# 관련 기능 ID: RAG-PARSE-B-206
+# 상태    : 시작 전
+#
+# Description:
+# package.json, requirements.txt, Dockerfile 기반 기술 스택 탐지 결과 반환.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/stack
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "techStack": [
+#       {"name": "Python", "version": "3.12", "category": "language"},
+#       {"name": "FastAPI", "version": "0.115.0", "category": "framework"}
+#     ],
+#     "runCommands": {"install": "pip install -r requirements.txt", "run": "uvicorn app.main:app --reload"}
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/stack
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+# Markdown 에러 규칙: 404 REPO_NOT_FOUND / 500 STACK_DETECTION_FAILED

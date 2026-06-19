@@ -1,0 +1,34 @@
+### ============================================================================
+### AGENT-CHAT-API-002 | 코드 컨텍스트 검색
+### Markdown source: docs/03_API/AGENT_API_SPEC.md
+### Endpoint: POST /api/chat/{repo_id}/context
+### 관련 기능 ID: AGENT-CHAT-B-201, AGENT-SEARCH-B-201
+### 상태: 시작 전
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+### [정상] 자연어 질문과 관련된 코드 청크 검색
+POST {{baseUrl}}/api/chat/{{repoId}}/context
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{"question":"RAG 임베딩 로직은 어느 파일에 있나요?","topK":5,"threshold":0.7}
+
+### 200 OK
+### {"code":200,"message":"success","data":{"question":"RAG 임베딩 로직은 어느 파일에 있나요?","results":[{"filePath":"backend/app/embed/service.py","startLine":12,"endLine":45,"content":"...","similarity":0.91,"language":"python"}]}}
+### topK: Integer, 선택, 기본 5
+### threshold: Float, 선택, 기본 0.7, cosine similarity 하한
+
+### [오류] 저장소 없음
+POST {{baseUrl}}/api/chat/00000000-0000-0000-0000-000000000000/context
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{"question":"임베딩 로직은 어디에 있나요?"}
+
+### 401 UNAUTHORIZED / 404 REPO_NOT_FOUND / 500 VECTOR_SEARCH_FAILED
+### 표준 오류 예시:
+### {"code":500,"message":"코드 컨텍스트 검색 중 오류가 발생했습니다.","data":null,"error":{"code":"VECTOR_SEARCH_FAILED","detail":null,"field":null,"retryable":true}}

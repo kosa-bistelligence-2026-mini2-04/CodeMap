@@ -1,0 +1,30 @@
+### ============================================================================
+### AGENT-CORE-API-001 | 에이전트 실행 상태 조회
+### Markdown source: docs/03_API/AGENT_API_SPEC.md
+### Endpoint: GET /api/chat/{repo_id}/agent/status
+### 관련 기능 ID: AGENT-CORE-B-201, AGENT-CORE-B-202, AGENT-CORE-B-203,
+### AGENT-CORE-B-204
+### 상태: 시작 전
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+@sessionId = session-uuid
+
+GET {{baseUrl}}/api/chat/{{repoId}}/agent/status?sessionId={{sessionId}}
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {"code":200,"message":"success","data":{"sessionId":"session-uuid","status":"running","currentStep":2,"maxSteps":5,"elapsedSeconds":6.3,"maxSeconds":20,"currentAction":"관련 파일 검색 중","startedAt":"2026-06-18T10:00:00Z"}}
+### status: running | completed | failed | timeout
+### maxSteps=5, maxSeconds=20은 에이전트 실행 상한이다.
+### 실패 시 status=failed, currentAction은 안전한 실패 요약을 반환하고 상세 예외는 서버 로그에 저장한다.
+
+### [오류] 만료되거나 없는 세션
+GET {{baseUrl}}/api/chat/{{repoId}}/agent/status?sessionId=missing-session
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 401 UNAUTHORIZED / 404 SESSION_NOT_FOUND
+### {"code":404,"message":"에이전트 세션을 찾을 수 없습니다.","data":null,"error":{"code":"SESSION_NOT_FOUND","detail":null,"field":"sessionId","retryable":false}}

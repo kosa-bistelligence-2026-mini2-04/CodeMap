@@ -1,0 +1,27 @@
+### ============================================================================
+### GRAPH-API-001 | 코드 의존성 그래프 생성
+### Contract status: 기능 명세 기반 설계 계약 (Phase 2, 구현 전)
+### Endpoint: POST /api/graph/{repo_id}
+### 관련 기능 ID: RAG-GRAPH-B-201
+### 목적: import/imported_by 관계를 노드·엣지 그래프로 비동기 생성한다.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+### [정상] 의존성 그래프 생성 요청
+POST {{baseUrl}}/api/graph/{{repoId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "maxDepth": 3,
+  "excludePaths": ["node_modules", ".venv", "dist", "build"]
+}
+
+### 202 Accepted
+### {"code":202,"message":"accepted","data":{"graphId":"7f8a9b0c-1d2e-4f5a-9b0c-1d2e3f4a5b6c","status":"graph_queued"}}
+### 필드: maxDepth(Integer, 선택, 기본 3), excludePaths(Array<String>, 선택, 기본 [])
+### 사전 조건 오류(설계 보강): 401 UNAUTHORIZED, 404 REPO_NOT_FOUND,
+### 409 GRAPH_ALREADY_RUNNING, 422 PARSE_NOT_COMPLETED, 500 GRAPH_BUILD_FAILED

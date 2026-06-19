@@ -1,0 +1,80 @@
+### ============================================================
+### PROJECT-REPO-API-003
+### Endpoint   : GET /api/repo/analysis/{job_id}
+### Method     : GET
+### 관련 기능 ID : PROJECT-REPO-B-302, PROJECT-REPO-F-204
+### 담당        : oosuhada
+### 담당 슬라이스 : 등록/API/상태
+### 목적        : 분석 작업 상태 및 메타데이터 조회
+### 상태        : 완료
+###
+### 설명:
+###   job_id에 해당하는 분석 작업의 현재 상태(IN_PROGRESS / COMPLETED / FAILED)와
+###   저장소 메타데이터(repo_name, owner, branch, clone_path 등)를 반환한다.
+###   폴링 방식으로 진행 상태를 확인할 때 사용하며,
+###   실시간 수신은 WebSocket(PROJECT-REPO-API-006)을 권장한다.
+### ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = 550e8400-e29b-41d4-a716-446655440000
+
+### ============================================================
+### [정상] 분석 작업 상태 및 메타데이터 조회
+### ============================================================
+GET {{baseUrl}}/api/repo/analysis/{{jobId}}
+Authorization: Bearer {{accessToken}}
+
+###
+### 성공 응답 — 200 OK
+###
+### {
+###   "code": 200,
+###   "message": "success",
+###   "data": {
+###     "jobId": "550e8400-e29b-41d4-a716-446655440000",  // String (UUID) — 분석 작업 고유 ID
+###     "repoName": "my-project",                          // String — 저장소 이름
+###     "owner": "username",                               // String — 저장소 소유자
+###     "branch": "main",                                  // String — 분석 대상 브랜치
+###     "clonePath": "/tmp/jobs/550e8400/repo",            // String — 서버 내 임시 clone 경로
+###     "status": "COMPLETED",                             // String — IN_PROGRESS / COMPLETED / FAILED
+###     "createdAt": "2025-06-17T09:00:00Z",              // String (ISO 8601) — 작업 생성 시각
+###     "updatedAt": "2025-06-17T09:05:00Z"               // String (ISO 8601) — 마지막 상태 변경 시각
+###   }
+### }
+###
+
+### ============================================================
+### [에러 테스트] 404 — JOB_NOT_FOUND: 존재하지 않는 job_id
+### 발생 시점: 조회 시
+### ============================================================
+GET {{baseUrl}}/api/repo/analysis/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+### 예상 응답:
+### HTTP/1.1 404 Not Found
+### { "code": 404, "error": "JOB_NOT_FOUND", "message": "존재하지 않는 job_id" }
+
+### ============================================================
+### [에러 테스트] 401 — 인증 토큰 없음
+### ============================================================
+GET {{baseUrl}}/api/repo/analysis/{{jobId}}
+
+### 예상 응답:
+### HTTP/1.1 401 Unauthorized
+
+### ============================================================
+### [에러 테스트] 500 — INTERNAL_ERROR: 서버 내부 오류
+### 발생 시점: 조회 시
+### ============================================================
+
+###
+### 에러 응답 전체 목록:
+### | HTTP Status | Error Code     | 발생 시점 | 설명                    |
+### |-------------|----------------|---------|-------------------------|
+### | 404         | JOB_NOT_FOUND  | 조회 시   | 존재하지 않는 job_id     |
+### | 500         | INTERNAL_ERROR | 조회 시   | 서버 내부 오류            |
+###
+### 비고:
+### 📌 실시간 진행 상태 수신은 폴링 대신 WebSocket (PROJECT-REPO-API-006) 사용을 권장한다.
+### 📌 clonePath는 서버 내부 경로로 클라이언트가 직접 접근 불가. 참조 정보 용도로만 사용한다.

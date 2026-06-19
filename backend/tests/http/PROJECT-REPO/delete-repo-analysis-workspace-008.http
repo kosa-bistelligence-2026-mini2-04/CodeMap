@@ -1,0 +1,101 @@
+### ============================================================
+### PROJECT-REPO-API-008
+### Endpoint   : DELETE /api/repo/analysis/{job_id}/workspace
+### Method     : DELETE
+### 관련 기능 ID : PROJECT-REPO-B-203
+### 담당        : 김효
+### 담당 슬라이스 : URL/Clone/필터링
+### 목적        : 실패/취소 시 임시 clone 디렉토리 cleanup
+### 상태        : 완료
+###
+### 설명:
+###   분석 실패 또는 취소 시 서버 내부에 생성된 임시 clone 디렉토리를 삭제한다.
+###   CLONE_TIMEOUT, CLONE_FAILED 등의 오류 발생 시 내부적으로 자동 호출되며,
+###   수동으로 디스크 공간을 회수해야 할 때 직접 호출할 수 있다.
+### ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = 550e8400-e29b-41d4-a716-446655440000
+
+### ============================================================
+### [정상] 임시 clone 디렉토리 cleanup
+### ============================================================
+DELETE {{baseUrl}}/api/repo/analysis/{{jobId}}/workspace
+Authorization: Bearer {{accessToken}}
+
+###
+### 성공 응답 — 200 OK
+###
+### {
+###   "code": 200,
+###   "message": "success",
+###   "data": {
+###     "jobId": "550e8400-e29b-41d4-a716-446655440000",  // String (UUID) — cleanup된 분석 작업 고유 ID
+###     "cleanedPath": "/tmp/jobs/550e8400/repo",          // String — 삭제된 임시 디렉토리 경로
+###     "cleanedAt": "2025-06-17T09:10:00Z"               // String (ISO 8601) — cleanup 완료 시각
+###   }
+### }
+###
+
+### ============================================================
+### [에러 테스트] 404 — JOB_NOT_FOUND: 존재하지 않는 job_id
+### 발생 시점: 요청 시
+### ============================================================
+DELETE {{baseUrl}}/api/repo/analysis/00000000-0000-0000-0000-000000000000/workspace
+Authorization: Bearer {{accessToken}}
+
+### 예상 응답:
+### HTTP/1.1 404 Not Found
+### { "code": 404, "error": "JOB_NOT_FOUND", "message": "존재하지 않는 job_id" }
+
+### ============================================================
+### [에러 테스트] 404 — WORKSPACE_NOT_FOUND: 이미 삭제됐거나 존재하지 않는 디렉토리
+### 발생 시점: 삭제 시
+### ============================================================
+DELETE {{baseUrl}}/api/repo/analysis/{{jobId}}/workspace
+Authorization: Bearer {{accessToken}}
+
+### 예상 응답:
+### HTTP/1.1 404 Not Found
+### { "code": 404, "error": "WORKSPACE_NOT_FOUND", "message": "이미 삭제되었거나 존재하지 않는 임시 디렉토리" }
+
+### ============================================================
+### [에러 테스트] 409 — WORKSPACE_IN_USE: 파이프라인 진행 중 삭제 시도
+### 발생 시점: 삭제 시
+### ============================================================
+DELETE {{baseUrl}}/api/repo/analysis/{{jobId}}/workspace
+Authorization: Bearer {{accessToken}}
+
+### 예상 응답:
+### HTTP/1.1 409 Conflict
+### { "code": 409, "error": "WORKSPACE_IN_USE", "message": "분석 파이프라인이 진행 중인 상태에서 삭제 시도" }
+
+### ============================================================
+### [에러 테스트] 401 — 인증 토큰 없음
+### ============================================================
+DELETE {{baseUrl}}/api/repo/analysis/{{jobId}}/workspace
+
+### 예상 응답:
+### HTTP/1.1 401 Unauthorized
+
+### ============================================================
+### [에러 테스트] 500 — WORKSPACE_CLEANUP_FAILED: 파일 시스템 오류
+### 발생 시점: 삭제 실행
+### ============================================================
+
+###
+### 에러 응답 전체 목록:
+### | HTTP Status | Error Code               | 발생 시점  | 설명                                          |
+### |-------------|--------------------------|-----------|-----------------------------------------------|
+### | 404         | JOB_NOT_FOUND            | 요청 시    | 존재하지 않는 job_id                            |
+### | 404         | WORKSPACE_NOT_FOUND      | 삭제 시    | 이미 삭제되었거나 존재하지 않는 임시 디렉토리      |
+### | 409         | WORKSPACE_IN_USE         | 삭제 시    | 분석 파이프라인이 진행 중인 상태에서 삭제 시도    |
+### | 500         | WORKSPACE_CLEANUP_FAILED | 삭제 실행  | 파일 시스템 오류로 삭제 실패                     |
+###
+### 비고:
+### 📌 CLONE_TIMEOUT, CLONE_FAILED 오류 발생 시 서버가 자동으로 cleanup을 수행한다.
+###    이 API는 수동 cleanup 또는 재시도용이다.
+### 📌 status가 IN_PROGRESS인 job의 workspace는 삭제 불가 (WORKSPACE_IN_USE 반환).
+### 📌 WORKSPACE_CLEANUP_FAILED 발생 시 내부 슬랙 알람을 발송하며,
+###    클라이언트에는 오류 코드만 반환한다.

@@ -1,0 +1,37 @@
+### ============================================================================
+### PROJECT-LIST-API-004 | 분석 이력 상세 조회
+### Source of truth: Notion HTML export (source-confirmed)
+### Endpoint: GET /api/list/analysis/{job_id}
+### 관련 기능 ID: PROJECT-LIST-B-202
+### 상태: 시작 전
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = 8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e
+
+### [정상] 분석 job 상세 상태와 metadata 조회
+GET {{baseUrl}}/api/list/analysis/{{jobId}}
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {
+###   "code": 200, "message": "success",
+###   "data": {
+###     "jobId": "8f2d5a3c-b1a9-4d2c-9a3e-7f8a9b0c1d2e",
+###     "repoUrl": "https://github.com/example/codemap",
+###     "repoName": "codemap", "owner": "example", "branch": "main",
+###     "status": "running", "currentStep": "CODE_MAP", "progress": 45,
+###     "message": "코드 구조를 분석하는 중입니다.",
+###     "createdAt": "2026-06-18T02:00:00Z", "updatedAt": "2026-06-18T02:03:30Z"
+###   }
+### }
+### status: queued | running | completed | failed
+### currentStep은 파이프라인 단계 식별자이며 완료 전 null일 수 있다.
+
+### [오류] 존재하지 않는 job
+GET {{baseUrl}}/api/list/analysis/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 오류: 400 INVALID_JOB_ID, 401 UNAUTHORIZED, 404 JOB_NOT_FOUND, 500 DATABASE_ERROR

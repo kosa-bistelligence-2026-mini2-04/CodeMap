@@ -1,0 +1,40 @@
+# ============================================================
+# API ID  : RAG-PARSE-API-006
+# 기능명  : Bottom-up 계층 요약 조회
+# Method  : GET
+# Endpoint: /api/parse/analysis/{repo_id}/summary
+# Auth    : 필요
+# 관련 기능 ID: RAG-PARSE-B-209
+# 상태    : 시작 전
+#
+# Description:
+# 파일→폴더→프로젝트 순서의 Bottom-up 계층 요약 결과 반환.
+# level 파라미터: file / folder / project / all
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/summary?level=all
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "projectSummary": "GitHub 저장소 분석 기반 온보딩 문서 자동 생성 AI 앱",
+#     "folderSummaries": [{"path": "backend/app/repo", "summary": "저장소 클론·필터링 파이프라인"}],
+#     "fileSummaries": [{"path": "backend/app/repo/service.py", "summary": "Git clone 수행 및 파일 필터링"}]
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/summary
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+# Markdown 에러 규칙: 404 REPO_NOT_FOUND / 500 SUMMARY_FAILED

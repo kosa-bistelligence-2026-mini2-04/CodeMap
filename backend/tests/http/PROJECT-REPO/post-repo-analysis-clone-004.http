@@ -1,0 +1,151 @@
+### ============================================================
+### PROJECT-REPO-API-004
+### Endpoint   : POST /api/repo/analysis/{job_id}/clone
+### Method     : POST
+### 관련 기능 ID : PROJECT-REPO-B-201, PROJECT-REPO-B-202, PROJECT-REPO-B-203
+### 담당        : 김효
+### 담당 슬라이스 : URL/Clone/필터링
+### 목적        : 특정 job 기준 저장소 clone 실행
+### 상태        : 완료
+###
+### 설명:
+###   clone 전 파일 수·용량 사전 검증을 수행하며, clone 완료 후
+###   node_modules, .git, build, dist, venv, .next, .env, key 등 불필요한 파일을 자동 필터링한다.
+###   timeout 설정이 적용되며 실패 시 임시 디렉토리를 자동 cleanup한다.
+###   이 API는 POST /api/project/repo/analysis 내부에서 자동 호출된다.
+###   수동 재시도 시에만 직접 호출한다.
+### ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = 550e8400-e29b-41d4-a716-446655440000
+
+### ============================================================
+### [정상] 저장소 clone 실행 (timeout 명시)
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/clone
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "timeoutSeconds": 300
+}
+
+###
+### 성공 응답 — 200 OK
+###
+### {
+###   "code": 200,
+###   "message": "success",
+###   "data": {
+###     "jobId": "550e8400-e29b-41d4-a716-446655440000",  // String (UUID) — 분석 작업 고유 ID
+###     "clonePath": "/tmp/jobs/550e8400/repo",            // String — 서버 내 clone 완료 경로
+###     "fileCount": 312,                                  // Integer — 필터링 후 분석 대상 파일 수
+###     "sizeKb": 4800                                     // Integer — 필터링 후 총 용량 (KB)
+###   }
+### }
+###
+
+### ============================================================
+### [정상] 저장소 clone 실행 (timeout 기본값 사용: 300초)
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/clone
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{}
+
+###
+
+### ============================================================
+### [에러 테스트] 404 — JOB_NOT_FOUND: 존재하지 않는 job_id
+### 발생 시점: 요청 시
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/00000000-0000-0000-0000-000000000000/clone
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "timeoutSeconds": 300
+}
+
+### 예상 응답:
+### HTTP/1.1 404 Not Found
+### { "code": 404, "error": "JOB_NOT_FOUND", "message": "존재하지 않는 job_id" }
+
+### ============================================================
+### [에러 테스트] 404 — REPOSITORY_NOT_FOUND: 저장소 없음/접근 불가
+### 발생 시점: clone 시도
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/clone
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "timeoutSeconds": 300
+}
+
+### 예상 응답:
+### HTTP/1.1 404 Not Found
+### { "code": 404, "error": "REPOSITORY_NOT_FOUND", "message": "저장소가 없거나 접근 불가" }
+
+### ============================================================
+### [에러 테스트] 408 — CLONE_TIMEOUT: clone 시간 초과
+### 발생 시점: clone 실행
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/clone
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "timeoutSeconds": 1
+}
+
+### 예상 응답:
+### HTTP/1.1 408 Request Timeout
+### { "code": 408, "error": "CLONE_TIMEOUT", "message": "clone 제한 시간 초과 후 cleanup" }
+
+### ============================================================
+### [에러 테스트] 409 — CLONE_ALREADY_DONE: 이미 clone 완료된 job
+### 발생 시점: 요청 시
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/clone
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "timeoutSeconds": 300
+}
+
+### 예상 응답:
+### HTTP/1.1 409 Conflict
+### { "code": 409, "error": "CLONE_ALREADY_DONE", "message": "이미 clone이 완료된 job" }
+
+### ============================================================
+### [에러 테스트] 401 — 인증 토큰 없음
+### ============================================================
+POST {{baseUrl}}/api/repo/analysis/{{jobId}}/clone
+Content-Type: application/json
+
+{
+  "timeoutSeconds": 300
+}
+
+### 예상 응답:
+### HTTP/1.1 401 Unauthorized
+
+###
+### 에러 응답 전체 목록:
+### | HTTP Status | Error Code           | 발생 시점    | 설명                                        |
+### |-------------|----------------------|-------------|---------------------------------------------|
+### | 404         | JOB_NOT_FOUND        | 요청 시      | 존재하지 않는 job_id                          |
+### | 404         | REPOSITORY_NOT_FOUND | clone 시도   | 저장소가 없거나 접근 불가                       |
+### | 408         | CLONE_TIMEOUT        | clone 실행   | clone 제한 시간 초과 후 cleanup               |
+### | 409         | CLONE_ALREADY_DONE   | 요청 시      | 이미 clone이 완료된 job                       |
+### | 413         | FILE_LIMIT_EXCEEDED  | clone 후 검증 | 실제 파일 수 또는 용량 제한 초과               |
+### | 500         | CLONE_FAILED         | clone 실행   | clone 중 subprocess 오류 발생                 |
+###
+### 비고:
+### 📌 필터링 대상: node_modules/, .git/, build/, dist/, venv/, .next/, .env, key*, 바이너리 파일
+### 📌 timeout 초과 시 subprocess를 종료하고 임시 디렉토리를 cleanup한 후 CLONE_TIMEOUT을 반환한다.
+### 📌 이 API는 POST /api/project/repo/analysis 내부에서 자동 호출된다. 수동 재시도 시에만 직접 호출한다.

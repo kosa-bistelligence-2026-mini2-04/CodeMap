@@ -1,0 +1,31 @@
+# ============================================================
+# API ID  : DOCS-GEN-API-004
+# 기능명  : 가이드북 파일 다운로드
+# Method  : GET
+# Endpoint: /api/gen/docs/{repo_id}/download
+# Auth    : 필요
+# 관련 기능 ID: DOCS-GEN-F-201
+# 상태    : 시작 전
+#
+# Description:
+# 생성된 온보딩 가이드북을 .md 파일로 다운로드.
+# format: md | pdf
+# Content-Disposition: attachment; filename={repoName}_onboarding.md
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/gen/docs/{{repo_id}}/download?format=md
+Authorization: Bearer {{accessToken}}
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/gen/docs/{{repo_id}}/download
+
+# Error Response: 401 Unauthorized
+# {"code":401,"message":"인증이 필요합니다.","data":null,"error":{"code":"UNAUTHORIZED","detail":null,"field":null,"retryable":false}}
+# Markdown 에러 규칙: 404 REPO_NOT_FOUND / 404 DOCS_NOT_FOUND /
+# 500 FILE_GENERATION_FAILED

@@ -1,0 +1,46 @@
+# ============================================================
+# API ID  : RAG-PARSE-API-002
+# 기능명  : README 분석 결과 조회
+# Method  : GET
+# Endpoint: /api/parse/analysis/{repo_id}/readme
+# Auth    : 필요
+# 관련 기능 ID: RAG-PARSE-B-201
+# 상태    : 시작 전
+#
+# Description:
+# README 파싱 기반 프로젝트 목적 및 핵심 기능 요약 반환.
+# README가 없는 저장소는 404를 반환한다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/readme
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "projectPurpose": "GitHub 레포 URL 입력 시 온보딩 문서 자동 생성",
+#     "coreFeatures": ["Git Clone 및 필터링", "RAG 임베딩", "Agent 탐색", "가이드북 생성"],
+#     "targetAudience": "신입 개발자",
+#     "rawReadme": "# CodeMap\n..."
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}/readme
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 401 UNAUTHORIZED (인증): 토큰 누락
+# 404 REPO_NOT_FOUND (DB 조회): 저장소 없음
+# 404 README_NOT_FOUND (파일 탐색): README 없음
+# 500 PARSE_FAILED (LLM 처리): README 분석 실패

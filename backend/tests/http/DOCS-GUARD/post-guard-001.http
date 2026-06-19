@@ -1,0 +1,52 @@
+# ============================================================
+# API ID  : DOCS-GUARD-API-001
+# 기능명  : 민감정보 마스킹 검증
+# Method  : POST
+# Endpoint: /api/gen/docs/{repo_id}/guard
+# Auth    : 필요
+# 관련 기능 ID: DOCS-GUARD-B-201
+# 상태    : 시작 전
+#
+# Description:
+# 가이드북 원문에서 API 키·토큰·비밀번호 패턴 탐지 및 [MASKED] 처리.
+# 가이드북 생성 파이프라인 내부에서 자동 호출된다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+POST {{baseUrl}}/api/gen/docs/{{repo_id}}/guard
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "content": "## 환경 설정\nOPENAI_API_KEY=sk-proj-abc123...\nDATABASE_URL=postgresql://admin:password@localhost/db"
+}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "maskedContent": "## 환경 설정\nOPENAI_API_KEY=[MASKED]\nDATABASE_URL=[MASKED]",
+#     "detectedCount": 2,
+#     "detectedPatterns": [{"type": "api_key", "location": "line:2"}, {"type": "db_url", "location": "line:3"}]
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+POST {{baseUrl}}/api/gen/docs/{{repo_id}}/guard
+Content-Type: application/json
+
+{}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 400 INVALID_CONTENT (입력검증): content 비어있음
+# 404 REPO_NOT_FOUND (DB): 저장소 없음
+# 500 GUARD_FAILED (검사): 민감정보 패턴 탐지 처리 실패

@@ -1,0 +1,31 @@
+### ============================================================================
+### UTIL-API-002 | 이메일 및 Slack 외부 공유
+### Markdown source: docs/03_API/PHASE2_API_SPEC.md
+### Endpoint: POST /api/gen/docs/{repo_id}/share
+### 관련 기능 ID: DOCS-UTIL-B-202
+### 상태: 시작 전 (Phase 2)
+### 보안: Slack Webhook URL은 응답·로그에서 마스킹하고 SSRF 방지 allowlist 적용.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+POST {{baseUrl}}/api/gen/docs/{{repoId}}/share
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{"channels":[{"type":"email","target":"newdev@example.com"},{"type":"slack","target":"https://hooks.slack.com/services/REPLACE/ME"}],"includeFullGuide":false}
+
+### 200 OK
+### {"code":200,"message":"success","data":{"sentChannels":[{"type":"email","target":"newdev@example.com"}],"failedChannels":[],"sentAt":"2026-06-18T10:00:00Z"}}
+
+### [오류] 유효하지 않은 채널
+POST {{baseUrl}}/api/gen/docs/{{repoId}}/share
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{"channels":[{"type":"email","target":"not-an-email"}],"includeFullGuide":false}
+
+### 400 INVALID_CHANNEL / 401 UNAUTHORIZED / 404 REPO_NOT_FOUND /
+### 404 DOCS_NOT_FOUND / 500 SHARE_FAILED

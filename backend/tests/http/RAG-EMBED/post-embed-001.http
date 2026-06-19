@@ -1,0 +1,57 @@
+# ============================================================
+# API ID  : RAG-EMBED-API-001
+# 기능명  : 임베딩 생성 요청
+# Method  : POST
+# Endpoint: /api/embed/analysis/{repo_id}
+# Auth    : 필요
+# 관련 기능 ID: RAG-EMBED-B-201
+# 상태    : 시작 전
+#
+# Description:
+# 파싱된 코드 및 문서를 text-embedding-3-large로 벡터화하여 pgvector에 저장.
+# parse 파이프라인이 완료된 상태에서만 호출 가능하다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+POST {{baseUrl}}/api/embed/analysis/{{repo_id}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "model": "text-embedding-3-large",
+  "dimensions": 3072,
+  "forceReembed": false
+}
+
+# Success Response: 202 Accepted
+# {
+#   "code": 202,
+#   "message": "accepted",
+#   "data": {
+#     "jobId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+#     "repoId": "3f7cc46e-d954-83ab-9f12-013b0c9d2a1e",
+#     "status": "embedding_queued",
+#     "estimatedFiles": 87
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+POST {{baseUrl}}/api/embed/analysis/{{repo_id}}
+Content-Type: application/json
+
+{}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 401 UNAUTHORIZED (인증): 토큰 누락
+# 404 REPO_NOT_FOUND (DB): 저장소 없음
+# 409 EMBEDDING_IN_PROGRESS (중복): 임베딩 진행 중
+# 422 PARSE_NOT_COMPLETED (사전검증): 파싱 미완료
+# 500 EMBEDDING_FAILED (임베딩): 외부 API 또는 벡터 저장 실패

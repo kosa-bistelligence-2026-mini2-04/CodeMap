@@ -1,0 +1,26 @@
+### ============================================================================
+### GRAPH-API-002 | 의존성 그래프 데이터 조회
+### Contract status: 기능 명세 기반 설계 계약 (Phase 2, 구현 전)
+### Endpoint: GET /api/graph/{repo_id}
+### 관련 기능 ID: RAG-GRAPH-B-201, RAG-GRAPH-F-201
+### 목적: react-flow 또는 Mermaid 시각화에 사용할 노드·엣지를 반환한다.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+### [정상] 그래프 조회
+GET {{baseUrl}}/api/graph/{{repoId}}?maxDepth=3
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {
+###   "code": 200, "message": "success",
+###   "data": {
+###     "repoId": "3f7cc46e-d954-83ab-9f12-013b0c9d2a1e",
+###     "nodes": [{"id":"backend/app/main.py","label":"main.py","type":"entrypoint","riskScore":20}],
+###     "edges": [{"source":"backend/app/main.py","target":"backend/app/repo/router.py","type":"import"}]
+###   }
+### }
+### 오류: 401 UNAUTHORIZED, 404 REPO_NOT_FOUND, 404 GRAPH_NOT_FOUND, 500 GRAPH_BUILD_FAILED

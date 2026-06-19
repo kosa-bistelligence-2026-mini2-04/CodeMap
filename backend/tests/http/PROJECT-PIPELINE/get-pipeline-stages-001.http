@@ -1,0 +1,42 @@
+### ============================================================================
+### PIPELINE-API-001 | 분석 단계 상태 조회
+### Markdown source: docs/03_API/PHASE2_API_SPEC.md
+### Endpoint: GET /api/pipeline/{job_id}/stages
+### 관련 기능 ID: PROJECT-PIPELINE-B-201, PROJECT-PIPELINE-F-201,
+### PROJECT-PIPELINE-F-301
+### 상태: 시작 전 (Phase 2)
+### 변경 이력: PROJECT-PIPELINE-API-001 Notion 초안의 /status 단일 상태를
+### PIPELINE-API-001 단계별 /stages 응답으로 고도화.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@jobId = a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+GET {{baseUrl}}/api/pipeline/{{jobId}}/stages
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK
+### {
+###   "code": 200, "message": "success",
+###   "data": {
+###     "jobId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "overallStatus": "running",
+###     "stages": [
+###       {"name":"clone","status":"completed","startedAt":"2026-06-18T10:00:00Z","completedAt":"2026-06-18T10:00:30Z","elapsedSeconds":30.5},
+###       {"name":"parse","status":"completed","startedAt":"2026-06-18T10:00:31Z","completedAt":"2026-06-18T10:01:00Z","elapsedSeconds":29.0},
+###       {"name":"embed","status":"running","startedAt":"2026-06-18T10:01:01Z","completedAt":null,"elapsedSeconds":null},
+###       {"name":"agent","status":"queued","startedAt":null,"completedAt":null,"elapsedSeconds":null},
+###       {"name":"docs","status":"queued","startedAt":null,"completedAt":null,"elapsedSeconds":null}
+###     ]
+###   }
+### }
+### overallStatus/stages[].status: queued | running | completed | failed
+### stages[].name: clone | parse | embed | agent | docs
+
+### [오류] 존재하지 않는 job
+GET {{baseUrl}}/api/pipeline/00000000-0000-0000-0000-000000000000/stages
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 401 UNAUTHORIZED / 404 JOB_NOT_FOUND
+### {"code":404,"message":"분석 작업을 찾을 수 없습니다.","data":null,"error":{"code":"JOB_NOT_FOUND","detail":null,"field":"jobId","retryable":false}}
