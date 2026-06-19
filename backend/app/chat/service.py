@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chat.repository import ChatRepository
@@ -69,7 +70,7 @@ class RepositoryChatService:
             )
             llm = ChatOpenAI(
                 model=model_name,
-                api_key=self.settings.OPENAI_API_KEY,
+                api_key=SecretStr(self.settings.OPENAI_API_KEY),
                 temperature=0.1,
             )
             response = await llm.ainvoke([
