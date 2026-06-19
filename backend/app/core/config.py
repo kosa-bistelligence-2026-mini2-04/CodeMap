@@ -85,7 +85,7 @@ class Settings(BaseSettings):
                 host=self.DB_HOST,
                 port=self.DB_PORT,
                 database=self.DB_NAME,
-            ).render_as_string(hide_password=True)  # [C-01] 패스워드를 로그/출력에서 숨김
+            ).render_as_string(hide_password=False)  # 실제 연결에 패스워드가 필요하므로 False 유지
             return self
 
         # 2. 옛날 postgres:// 스킴을 표준 postgresql:// 로 정정

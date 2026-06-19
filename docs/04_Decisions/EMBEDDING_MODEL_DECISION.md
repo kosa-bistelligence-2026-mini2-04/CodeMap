@@ -483,5 +483,5 @@ MacBook Pro 64GB:
 > - [MIRACL 다국어 검색 벤치마크](https://github.com/project-miracl/miracl)
 > - [pgvector 인덱싱 가이드](https://github.com/pgvector/pgvector#indexing)
 > - 관련 내부 문서: [`docs/04_Decisions/MODEL_SELECTION_EVIDENCE.md`](MODEL_SELECTION_EVIDENCE.md)
-> - 관련 기능 명세: [`docs/03_Specifications/rag/RAG_EMBED_SPEC.md`](../03_Specifications/rag/RAG_EMBED_SPEC.md)
+> - 관련 기능 명세: [`docs/03_Specifications/02_RAG/spec/RAG_EMBED_SPEC.md`](../03_Specifications/02_RAG/spec/RAG_EMBED_SPEC.md)
 
