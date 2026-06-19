@@ -2,12 +2,12 @@
 환경 변수 설정 모듈
 
 애플리케이션 전역에서 사용하는 환경 변수를 Pydantic Settings로 관리한다.
-DATABASE_URL, CLONE_DIR, OPENAI_API_KEY 등 핵심 설정값을 .env 파일
+DATABASE_URL, CLONE_BASE_DIR, OPENAI_API_KEY 등 핵심 설정값을 .env 파일
 또는 시스템 환경 변수에서 읽어온다.
 """
 
 import os
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from sqlalchemy.engine import URL, make_url
@@ -50,8 +50,9 @@ class Settings(BaseSettings):
     # [Sec05 - ChatOpenAI] LangChain Agent에서 사용할 OpenAI API 키
     # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
     # .env에 OPENAI_API_KEY=sk-... 형태로 설정한다.
-    # 미설정 시 시뮬레이션 모드로 폴백된다 (nodes.py 소)
-    OPENAI_API_KEY: str = ""
+    # 미설정 시 LLM 호출이 스킵되고 휴리스틱으로 폴백된다 (nodes.py 참조).
+    # SecretStr 선언으로 로그/출력 시 자동 마스킹 (보안 C-01 대응)
+    OPENAI_API_KEY: SecretStr = SecretStr("")
 
     # [Sec05 - ChatOpenAI] 사용할 OpenAI 모델
     # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
@@ -84,7 +85,7 @@ class Settings(BaseSettings):
                 host=self.DB_HOST,
                 port=self.DB_PORT,
                 database=self.DB_NAME,
-            ).render_as_string(hide_password=False)
+            ).render_as_string(hide_password=True)  # [C-01] 패스워드를 로그/출력에서 숨김
             return self
 
         # 2. 옛날 postgres:// 스킴을 표준 postgresql:// 로 정정

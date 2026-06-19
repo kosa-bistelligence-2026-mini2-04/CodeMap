@@ -14,9 +14,6 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     stage VARCHAR(20),
     progress INTEGER NOT NULL DEFAULT 0,
     message TEXT,
-    model_used VARCHAR(255) NOT NULL DEFAULT 'auto',
-    force_refresh BOOLEAN NOT NULL DEFAULT FALSE,
-    report_json JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -42,10 +39,6 @@ CREATE TABLE IF NOT EXISTS code_chunks (
     file_id UUID NOT NULL REFERENCES source_files(id) ON DELETE CASCADE,
     chunk_summary TEXT NOT NULL,
     embedding_vector vector(1536), -- OpenAI text-embedding-3-large dimensions=1536 (EMBEDDING_MODEL_DECISION.md 참고)
-    start_line INTEGER,            -- AST 청킹 시작 라인 (RAG-PARSE-B-207)
-    end_line INTEGER,              -- AST 청킹 종료 라인
-    symbol VARCHAR(255),           -- 함수/클래스/모듈 심볼명 (검색 필터링용)
-    language VARCHAR(50),          -- 프로그래밍 언어 (python, javascript, typescript 등)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
