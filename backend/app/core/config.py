@@ -63,10 +63,10 @@ class Settings(BaseSettings):
 
     # [RAG-EMBED] 임베딩 모델 설정
     # 결정 근거: docs/04_Decisions/EMBEDDING_MODEL_DECISION.md
-    # text-embedding-3-large + dimensions=1536: large 모델의 한국어↔영어 의미 검색 강점을
-    # 유지하면서 저장공간·pgvector HNSW 인덱스 호환성을 확보하는 절충안
+    # text-embedding-3-large + dimensions=3072: large 모델의 한국어↔영어 의미 검색 강점을
+    # 극대화하기 위해 최대 차원으로 설정
     EMBEDDING_MODEL: str = "text-embedding-3-large"
-    EMBEDDING_DIMENSIONS: int = 1536
+    EMBEDDING_DIMENSIONS: int = 3072
 
     # [RAG-EMBED] 배치 임베딩 처리 설정
     # 배치 크기: 100개 청크 → OpenAI API 오버헤드 최소화 (RAG_EMBED_SPEC.md)

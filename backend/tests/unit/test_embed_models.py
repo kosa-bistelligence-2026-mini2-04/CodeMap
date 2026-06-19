@@ -31,10 +31,10 @@ class EmbedModelContractTests(unittest.TestCase):
             self.assertIn(name, columns)
         self.assertNotIn("metadata", columns)
 
-    def test_embedding_column_uses_1536_dimensions(self):
+    def test_embedding_column_uses_3072_dimensions(self):
         embedding_type = embed_models.CodeNode.__table__.columns["embedding"].type
         dimension = getattr(embedding_type, "dim", getattr(embedding_type, "dimensions", None))
-        self.assertEqual(dimension, 1536)
+        self.assertEqual(dimension, 3072)
 
     def test_dependency_uses_source_and_target_as_composite_key(self):
         primary_keys = {column.name for column in embed_models.Dependency.__table__.primary_key.columns}
