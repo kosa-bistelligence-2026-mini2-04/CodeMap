@@ -26,7 +26,7 @@ docker run --name postgresql-17 \
   -v postgresql-17-volume:/var/lib/postgresql-17/data \
   --restart always \
   codemap-postgres-32k \
-  postgres -c max_connections=500
+  postgres -c max_connections=500 -c listen_addresses='*'
 
 # 4. 포트포워딩 및 방화벽 설정 안내
 echo "============================================="
