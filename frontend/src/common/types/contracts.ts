@@ -159,6 +159,33 @@ export interface AnalyzeResponse {
   data: AnalysisData;
 }
 
+export type AnalysisHistoryStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+export interface AnalysisHistoryJob {
+  jobId: string;
+  repoUrl: string;
+  branch: string;
+  status: AnalysisHistoryStatus;
+  progress: number;
+  failedAgent: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnalysisHistoryData {
+  totalCount: number;
+  page: number;
+  limit: number;
+  jobs: AnalysisHistoryJob[];
+}
+
+export interface AnalysisHistoryResponse {
+  code: number;
+  message: string;
+  data: AnalysisHistoryData;
+}
+
 export interface GuardrailRegexBlock {
   original_text: string;
   rule_id: string;
