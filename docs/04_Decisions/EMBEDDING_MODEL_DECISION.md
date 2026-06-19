@@ -136,9 +136,69 @@ Lite/Thinking: 동일 인덱스, 검색 전략과 생성 모델로 차이
 
 ---
 
+---
+
+## 6. 팀 논의: 검색 속도 우려 및 서버 환경 검토
+
+> [!NOTE]
+> 2026-06-19 팀 논의 내용 기록. 원본 대화 참조: https://chatgpt.com/share/6a34cdd4-4e3c-83e8-8f47-5d8bafad82d7
+
+### Q. `large + dimensions=1536` 사용 시 검색 속도가 느려질 수 있지 않나?
+
+**결론: 우려 수준의 문제는 아님. 단 규모가 커지면 모니터링 필요.**
+
+#### 속도에 영향을 주는 요소와 실제 부담
+
+임베딩 차원 수가 검색 속도에 영향을 주는 것은 맞지만, 실제 부담이 발생하는 구간은 아래와 같습니다.
+
+| 요소 | 설명 |
+| --- | --- |
+| **벡터 유사도 계산 자체** | 1536차원 코사인 유사도는 CPU/메모리 연산이라 빠름. 차원 2배 = 연산량 2배이지만 절대값이 작음 |
+| **ANN 인덱스 (IVFFlat)** | 1536차원은 pgvector IVFFlat 권장 범위 내. 수십만 chunk까지는 수십ms 내 검색 가능 |
+| **full scan (인덱스 없음)** | chunk 수천 개 수준에서는 full scan도 수ms 수준. 수십만 개부터 부담 증가 |
+| **네트워크/LLM 응답** | 실제 사용자 체감 지연의 대부분은 벡터 검색이 아닌 LLM 생성 단계에서 발생 |
+
+**MVP 규모 예상치**: 레포 1개 분석 시 chunk 수 = 수백~수천 개 수준. 이 규모에서는 1536차원 IVFFlat 검색이 병목이 되기 어렵습니다.
+
+#### Q. 서버가 64비트 공용 PC라서 크게 관계 없지 않나?
+
+**맞습니다. 다만 "64비트"보다 "RAM 용량"과 "pgvector 인덱스 설정"이 더 핵심 변수입니다.**
+
+| 환경 요소 | 검색 속도 영향 |
+| --- | --- |
+| **64비트 아키텍처** | SIMD 명령어(AVX2 등) 지원 → 벡터 연산 가속. 32비트 대비 실질적 이점 있음 |
+| **RAM 용량** | pgvector IVFFlat 인덱스가 메모리에 올라가야 빠름. RAM 부족 시 디스크 I/O 발생 |
+| **공용 PC 공유 부하** | 다른 프로세스와 CPU/RAM 경합 가능. 단독 서버 대비 불안정할 수 있음 |
+
+64비트 환경은 SIMD 명령어를 통해 벡터 연산 자체를 가속하므로 "크게 관계없다"는 의견이 맞습니다. 단, 공용 PC의 전체 RAM과 pgvector가 사용할 수 있는 메모리 여유분이 핵심입니다.
+
+#### Q. 문제가 생기면 MacBook Pro 64GB RAM을 활용하는 방법은?
+
+**충분히 현실적인 대안입니다.** 아래 방식으로 전환 가능합니다.
+
+| 방식 | 설명 |
+| --- | --- |
+| **PostgreSQL + pgvector 로컬 실행** | MacBook Pro에서 직접 실행. 64GB RAM → 대용량 인덱스도 메모리에 적재 가능 |
+| **포트 포워딩으로 팀 공유** | `ngrok` 또는 SSH 터널링으로 팀원이 로컬 DB에 접근하도록 구성 |
+| **Docker 기반** | `docker run -e POSTGRES_PASSWORD=... pgvector/pgvector` 로 즉시 실행 가능 |
+| **성능 이점** | Apple Silicon M-series는 통합 메모리 구조 → 메모리 대역폭이 일반 PC 대비 높아 벡터 연산에 유리 |
+
+### 정리: 속도 걱정 없이 `large + dims=1536`으로 진행해도 됩니다
+
+```
+MVP 규모 (레포 1개, chunk 수백~수천): 속도 이슈 없음
+중간 규모 (레포 수십 개, chunk 수만): IVFFlat + 적절한 lists 설정으로 대응
+대규모 (chunk 수십만+): HNSW 인덱스 전환 고려 또는 pgvector → Qdrant/Weaviate 마이그레이션
+
+현 단계 우선순위: 검색 속도보다 LLM 생성 품질과 청킹 전략이 훨씬 중요
+```
+
+---
+
 > **참고 문서**
 > - [OpenAI Embeddings 공식 문서](https://platform.openai.com/docs/guides/embeddings)
 > - [text-embedding-3 모델 발표 (OpenAI)](https://openai.com/blog/new-embedding-models-and-api-updates)
 > - [MIRACL 다국어 검색 벤치마크](https://github.com/project-miracl/miracl)
+> - [pgvector 인덱싱 가이드](https://github.com/pgvector/pgvector#indexing)
 > - 관련 내부 문서: [`docs/04_Decisions/MODEL_SELECTION_EVIDENCE.md`](MODEL_SELECTION_EVIDENCE.md)
 > - 관련 기능 명세: [`docs/03_Specifications/rag/RAG_EMBED_SPEC.md`](../03_Specifications/rag/RAG_EMBED_SPEC.md)
