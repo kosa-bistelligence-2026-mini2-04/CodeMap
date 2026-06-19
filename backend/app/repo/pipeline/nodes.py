@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import BaseModel, SecretStr, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import get_settings
 from app.core.database import async_session_factory

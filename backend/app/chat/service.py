@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import SecretStr
+
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 
