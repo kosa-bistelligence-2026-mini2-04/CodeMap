@@ -116,11 +116,14 @@ class AnalysisJobRepository:
             진행 중인 AnalysisJob 엔티티 또는 None
         """
         result = await self.db.execute(
-            select(AnalysisJob).where(
+            select(AnalysisJob)
+            .where(
                 AnalysisJob.repo_url == repo_url,
                 AnalysisJob.branch == branch,
-                AnalysisJob.status == JobStatus.IN_PROGRESS.value,
+                AnalysisJob.status.in_([JobStatus.IN_PROGRESS.value, JobStatus.COMPLETED.value])
             )
+            .order_by(AnalysisJob.created_at.desc())
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
