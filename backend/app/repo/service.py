@@ -171,7 +171,9 @@ class AnalysisService:
         )
 
         # 5. [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 실행
-        #    응답이 전송되고 DB 커밋이 완료된 후 파이프라인이 실행되도록 BackgroundTasks에 등록한다.
+        #    BackgroundTasks는 요청 의존성(get_db)의 commit보다 먼저 실행되므로,
+        #    파이프라인의 독립 세션이 job을 조회할 수 있도록 여기서 먼저 commit한다.
+        await self.db.commit()
         background_tasks.add_task(self._run_pipeline_with_langgraph, str(job.id))
 
         # 6. 201 Created 응답 DTO 구성
