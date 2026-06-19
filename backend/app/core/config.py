@@ -2,12 +2,12 @@
 환경 변수 설정 모듈
 
 애플리케이션 전역에서 사용하는 환경 변수를 Pydantic Settings로 관리한다.
-DATABASE_URL, CLONE_DIR, OPENAI_API_KEY 등 핵심 설정값을 .env 파일
+DATABASE_URL, CLONE_BASE_DIR, OPENAI_API_KEY 등 핵심 설정값을 .env 파일
 또는 시스템 환경 변수에서 읽어온다.
 """
 
 import os
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from sqlalchemy.engine import URL, make_url
@@ -50,8 +50,9 @@ class Settings(BaseSettings):
     # [Sec05 - ChatOpenAI] LangChain Agent에서 사용할 OpenAI API 키
     # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
     # .env에 OPENAI_API_KEY=sk-... 형태로 설정한다.
-    # 미설정 시 시뮬레이션 모드로 폴백된다 (nodes.py 소)
-    OPENAI_API_KEY: str = ""
+    # 미설정 시 LLM 호출이 스킵되고 휴리스틱으로 폴백된다 (nodes.py 참조).
+    # SecretStr 선언으로 로그/출력 시 자동 마스킹 (보안 C-01 대응)
+    OPENAI_API_KEY: SecretStr = SecretStr("")
 
     # [Sec05 - ChatOpenAI] 사용할 OpenAI 모델
     # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
@@ -59,6 +60,20 @@ class Settings(BaseSettings):
 
     ## GitHub API 호출 시 사용할 개인 액세스 토큰
     GITHUB_TOKEN: str = ""
+
+    # [RAG-EMBED] 임베딩 모델 설정
+    # 결정 근거: docs/04_Decisions/EMBEDDING_MODEL_DECISION.md
+    # text-embedding-3-large + dimensions=1536: large 모델의 한국어↔영어 의미 검색 강점을
+    # 유지하면서 저장공간·pgvector HNSW 인덱스 호환성을 확보하는 절충안
+    EMBEDDING_MODEL: str = "text-embedding-3-large"
+    EMBEDDING_DIMENSIONS: int = 1536
+
+    # [RAG-EMBED] 배치 임베딩 처리 설정
+    # 배치 크기: 100개 청크 → OpenAI API 오버헤드 최소화 (RAG_EMBED_SPEC.md)
+    EMBEDDING_BATCH_SIZE: int = 100
+
+    # [RAG-EMBED] API 호출 실패 시 지수 백오프 재시도 횟수 (RAG_EMBED_SPEC.md)
+    EMBEDDING_MAX_RETRIES: int = 3
 
     model_config = {"env_file": env_path, "env_file_encoding": "utf-8"}
 
@@ -73,7 +88,7 @@ class Settings(BaseSettings):
                 host=self.DB_HOST,
                 port=self.DB_PORT,
                 database=self.DB_NAME,
-            ).render_as_string(hide_password=False)
+            ).render_as_string(hide_password=False)  # 실제 연결에 패스워드가 필요하므로 False 유지
             return self
 
         # 2. 옛날 postgres:// 스킴을 표준 postgresql:// 로 정정

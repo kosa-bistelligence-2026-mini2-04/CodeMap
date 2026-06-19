@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import BaseModel, SecretStr, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import get_settings
 from app.core.database import async_session_factory
@@ -268,14 +268,14 @@ def _repo_context(report: dict, readme: str) -> str:
 
 async def _llm_json(system: str, user: str) -> dict | None:
     """OPENAI_API_KEY가 있으면 LLM을 호출해 JSON dict를 반환, 실패/미설정 시 None."""
-    if not settings.OPENAI_API_KEY:
+    if not settings.OPENAI_API_KEY.get_secret_value():
         return None
     try:
         from langchain_openai import ChatOpenAI
 
         llm = ChatOpenAI(
             model=settings.OPENAI_MODEL,
-            api_key=SecretStr(settings.OPENAI_API_KEY),
+            api_key=settings.OPENAI_API_KEY,
             temperature=0.2,
             timeout=_LLM_TIMEOUT_SECONDS,
             max_retries=_LLM_MAX_RETRIES,
@@ -283,10 +283,9 @@ async def _llm_json(system: str, user: str) -> dict | None:
         )
         response = await llm.ainvoke([("system", system), ("user", user)])
         content = str(response.content).strip()
-        if content.startswith("```"):  # 방어적 코드펜스 제거
-            content = content.strip("`")
-            if content[:4].lower() == "json":
-                content = content[4:]
+        import re
+        content = re.sub(r"^```(?:json)?\s*\n?", "", content, flags=re.IGNORECASE)
+        content = re.sub(r"\n?```$", "", content)
         result = json.loads(content)
         # 호출측이 dict.get()을 쓰므로 객체가 아니면 폴백 (모델이 배열 등을 반환한 경우 방어)
         return result if isinstance(result, dict) else None
@@ -391,6 +390,8 @@ async def onboarding_node(state: PipelineState) -> dict:
             {"title": "테스트와 배포 구성 검증", "files": entrypoints[6:9]},
         ]
         report["onboarding_generated_by"] = "heuristic"
+        report.setdefault("first_contributions", [])
+        report.setdefault("risk_areas", [])
         message = "온보딩 경로 생성 완료(휴리스틱)"
 
     await _update_db(

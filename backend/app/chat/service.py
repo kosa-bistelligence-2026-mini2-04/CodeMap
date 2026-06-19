@@ -5,8 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import SecretStr
+
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 
 from app.chat.repository import ChatRepository
 from app.chat.schemas import ChatRequest
@@ -45,7 +46,7 @@ class RepositoryChatService:
         query = request.message
         if request.contextFile:
             query = f"{request.contextFile} {query}"
-        return await __import__("asyncio").to_thread(
+        return await asyncio.to_thread(
             search_repository,
             str(clone_path),
             query,
@@ -59,7 +60,7 @@ class RepositoryChatService:
                 "파일명, 함수명 또는 기능 흐름을 조금 더 구체적으로 알려주시면 실제 소스에서 다시 탐색하겠습니다."
             )
 
-        if self.settings.OPENAI_API_KEY:
+        if self.settings.OPENAI_API_KEY.get_secret_value():
             from langchain_openai import ChatOpenAI
 
             # mode에 따라 실제 모델 분기 적용
@@ -70,7 +71,7 @@ class RepositoryChatService:
             )
             llm = ChatOpenAI(
                 model=model_name,
-                api_key=SecretStr(self.settings.OPENAI_API_KEY),
+                api_key=self.settings.OPENAI_API_KEY,
                 temperature=0.1,
             )
             response = await llm.ainvoke([

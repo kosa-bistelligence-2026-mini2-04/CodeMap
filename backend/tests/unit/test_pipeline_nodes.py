@@ -50,7 +50,10 @@ class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_document_and_onboarding_nodes_enrich_report(self):
         state = pipeline_state(analysis_report={"entrypoints": ["a.py", "b.py", "c.py"]})
-        with patch.object(nodes, "_update_db", AsyncMock()):
+        with (
+            patch.object(nodes, "_update_db", AsyncMock()),
+            patch.object(nodes, "_llm_json", AsyncMock(return_value=None)),
+        ):
             documented = await nodes.doc_gen_node(state)
             onboarded = await nodes.onboarding_node(
                 pipeline_state(analysis_report=documented["analysis_report"])
