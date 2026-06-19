@@ -1,0 +1,34 @@
+### ============================================================================
+### PROJECT-LIST-API-005 | 제한 초과 경고 및 예외 응답 계약
+### Source of truth: Notion HTML export (source-confirmed)
+### Endpoint: POST /api/list/validate (API-002와 같은 요청, 제한 응답에 특화)
+### 관련 기능 ID: PROJECT-LIST-B-203
+### 제한 기준: 파일 수 100개 이하, 파일당 100KB 이하
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+
+### [정상/경고] 저장소 제한 검증
+POST {{baseUrl}}/api/list/validate
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{"repoUrl":"https://github.com/example/codemap","branch":"main"}
+
+### 제한 초과를 경고로 처리하는 경우 — 200 OK
+### {
+###   "code": 200, "message": "success",
+###   "data": {
+###     "isValid": false, "fileCount": 250, "maxFileSizeKb": 180, "totalSizeKb": 15400,
+###     "limit": {"fileCount": 100, "fileSizeKb": 100},
+###     "warningCode": "FILE_COUNT_EXCEEDED",
+###     "warningMessage": "저장소 파일 수가 100개를 초과합니다. 핵심 파일만 선별하여 분석을 진행해야 합니다."
+###   }
+### }
+### warningCode: FILE_COUNT_EXCEEDED | FILE_SIZE_EXCEEDED | REPO_LIMIT_EXCEEDED
+
+### 제한 초과를 차단하는 경우 — 413/422
+### {"code":413,"errorCode":"FILE_LIMIT_EXCEEDED","message":"파일 수 또는 용량 제한을 초과하여 분석을 시작할 수 없습니다.","detail":{"fileCount":250,"maxFileSizeKb":180,"limit":{"fileCount":100,"fileSizeKb":100}}}
+### 구현 결정 필요: 동일 조건을 200 경고로 허용할지 413/422로 차단할지 정책을 하나로 확정한다.
+### 오류: 413 FILE_LIMIT_EXCEEDED, 422 REPO_LIMIT_EXCEEDED, 500 VALIDATION_FAILED

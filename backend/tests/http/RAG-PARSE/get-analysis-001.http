@@ -1,0 +1,50 @@
+# ============================================================
+# API ID  : RAG-PARSE-API-001
+# 기능명  : 분석 결과 전체 조회
+# Method  : GET
+# Endpoint: /api/parse/analysis/{repo_id}
+# Auth    : 필요
+# 관련 기능 ID: RAG-PARSE-B-101, RAG-PARSE-B-203, RAG-PARSE-B-204,
+#   RAG-PARSE-B-205, RAG-PARSE-F-201
+# 상태    : 시작 전
+#
+# Description:
+# 특정 저장소의 코드 파싱 및 구조 분석 결과 전체를 반환한다.
+# 분석이 완료되지 않은 경우 404를 반환한다.
+# ============================================================
+
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repo_id = replace-me-repo_id
+
+### 정상 요청
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}
+Authorization: Bearer {{accessToken}}
+
+# Success Response: 200 OK
+# {
+#   "code": 200,
+#   "message": "success",
+#   "data": {
+#     "repoId": "3f7cc46e-d954-83ab-9f12-013b0c9d2a1e",
+#     "repoName": "CodeMap",
+#     "techStack": ["Python 3.12", "FastAPI", "Next.js 16"],
+#     "entryPoints": ["backend/app/main.py", "frontend/src/app/page.tsx"],
+#     "directoryTree": "CodeMap/\n├── frontend/\n└── backend/",
+#     "fileCount": 87,
+#     "analyzedAt": "2026-06-18T10:00:00Z"
+#   }
+# }
+
+
+### 에러 케이스 - 인증 없음
+GET {{baseUrl}}/api/parse/analysis/{{repo_id}}
+
+# Error Response: 401 Unauthorized
+# { "code": "UNAUTHORIZED", "message": "인증이 필요합니다." }
+
+# 에러 응답 목록:
+# 401 UNAUTHORIZED (인증): 토큰 누락 또는 만료
+# 404 REPO_NOT_FOUND (DB 조회): 저장소 없음
+# 404 PARSE_RESULT_NOT_FOUND (DB 조회): 분석 결과 미생성
+# 500 DATABASE_ERROR (DB 조회): 데이터베이스 조회 실패

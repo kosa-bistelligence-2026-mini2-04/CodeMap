@@ -103,10 +103,6 @@ export function buildSseUrl(jobId: string): string {
   return apiPath(`/repo/analysis/${jobId}/events`);
 }
 
-export function buildListProgressWsUrl(jobId: string): string {
-  return buildWsUrl(`/ws/list/progress/${jobId}`);
-}
-
 /**
  * Build WebSocket URL for real-time progress
  * WS /ws/progress/{jobId}

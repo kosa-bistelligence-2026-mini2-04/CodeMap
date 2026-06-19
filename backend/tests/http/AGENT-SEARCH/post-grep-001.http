@@ -1,0 +1,33 @@
+### ============================================================================
+### AGENT-SEARCH-API-001 | Grep 기반 코드 키워드 검색
+### Markdown source: docs/03_API/AGENT_API_SPEC.md
+### Endpoint: POST /api/search/{repo_id}/grep
+### 관련 기능 ID: AGENT-SEARCH-B-205
+### 상태: 시작 전
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+### [정상] 문자열 검색
+POST {{baseUrl}}/api/search/{{repoId}}/grep
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{"pattern":"def embed_code","isRegex":false,"fileExtensions":[".py"],"maxResults":10}
+
+### 200 OK
+### {"code":200,"message":"success","data":{"pattern":"def embed_code","totalMatches":1,"results":[{"filePath":"backend/app/embed/service.py","lineNumber":12,"lineContent":"def embed_code(...):","context":"..."}]}}
+### maxResults: Integer, 선택, 기본 20
+### context: 매칭 줄 앞뒤 3줄
+
+### [오류] 잘못된 정규식
+POST {{baseUrl}}/api/search/{{repoId}}/grep
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{"pattern":"[unclosed","isRegex":true,"maxResults":20}
+
+### 400 INVALID_PATTERN / 401 UNAUTHORIZED / 404 REPO_NOT_FOUND / 500 GREP_FAILED
+### {"code":400,"message":"정규식 패턴이 올바르지 않습니다.","data":null,"error":{"code":"INVALID_PATTERN","detail":"unclosed character class","field":"pattern","retryable":false}}

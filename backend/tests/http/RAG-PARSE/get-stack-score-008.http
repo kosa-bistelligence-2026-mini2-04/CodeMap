@@ -1,0 +1,19 @@
+### ============================================================================
+### PARSE-ADVANCED-API-002 | 기술 스택 점수화 결과 조회
+### Contract status: 보류 기능의 설계 계약 (Phase 2, 구현 전)
+### Endpoint: GET /api/parse/analysis/{repo_id}/stack-score
+### 관련 기능 ID: RAG-PARSE-B-212
+### 주의: 점수 산식과 등급 경계는 기능 명세에 없으므로 구현 전 확정해야 한다.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+GET {{baseUrl}}/api/parse/analysis/{{repoId}}/stack-score
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+### 200 OK (계약 예시)
+### {"code":200,"message":"success","data":{"repoId":"3f7cc46e-d954-83ab-9f12-013b0c9d2a1e","overallScore":82,"stacks":[{"name":"FastAPI","version":"0.115.0","latestVersion":"0.115.0","score":92,"hasVulnerability":false,"isOutdated":false}]}}
+### 오류: 401 UNAUTHORIZED, 404 REPO_NOT_FOUND, 404 STACK_SCORE_NOT_FOUND,
+### 500 STACK_SCORE_FAILED

@@ -68,6 +68,21 @@ def _message_from_job(job) -> AnalysisProgressMessage:
     )
 
 
+def _is_same_progress_message(
+    left: AnalysisProgressMessage,
+    right: AnalysisProgressMessage,
+) -> bool:
+    """Check whether the DB snapshot and the first broker event are identical."""
+    return (
+        left.jobId == right.jobId
+        and left.status == right.status
+        and left.progress == right.progress
+        and left.currentStep == right.currentStep
+        and left.failedAgent == right.failedAgent
+        and left.errorMessage == right.errorMessage
+    )
+
+
 @ws_router.websocket("/ws/list/progress/{job_id}")
 async def websocket_list_progress(websocket: WebSocket, job_id: str):
     """분석 작업의 진행 상태를 LIST 명세 포맷으로 실시간 전송합니다."""
@@ -102,12 +117,19 @@ async def websocket_list_progress(websocket: WebSocket, job_id: str):
 
         logger.info("LIST 진행률 WebSocket 연결 수립 (job_id=%s)", job_id)
 
+        previously_sent_message = current_message
+
         async for event in event_manager.subscribe(job_id):
             if websocket.client_state != WebSocketState.CONNECTED:
                 logger.info("LIST 진행률 WebSocket 연결 해제 감지 (job_id=%s)", job_id)
                 break
 
             message = _message_from_event(job_uuid, event)
+            if previously_sent_message and _is_same_progress_message(previously_sent_message, message):
+                previously_sent_message = None
+                continue
+            previously_sent_message = None
+
             await websocket.send_text(message.model_dump_json())
 
             if message.status in {"completed", "failed"}:

@@ -1,0 +1,26 @@
+### ============================================================================
+### DOCS-GEN-API-005 | 생성 Markdown DB 저장
+### Contract status: 기능 명세 기반 설계 계약 (구현 전)
+### Endpoint: POST /api/gen/docs/{repo_id}/save
+### 관련 기능 ID: DOCS-GEN-B-205, DOCS-GEN-B-301
+### 목적: 생성 문서의 Markdown 원문과 버전 메타데이터를 영속 저장한다.
+### ============================================================================
+@baseUrl = http://localhost:8000
+@accessToken = replace-me
+@repoId = 3f7cc46e-d954-83ab-9f12-013b0c9d2a1e
+
+POST {{baseUrl}}/api/gen/docs/{{repoId}}/save
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "markdown": "# CodeMap 온보딩 가이드\n\n프로젝트 소개...",
+  "version": 1,
+  "overwrite": false
+}
+
+### 201 Created
+### {"code":201,"message":"created","data":{"documentId":"document-uuid","repoId":"3f7cc46e-d954-83ab-9f12-013b0c9d2a1e","version":1,"savedAt":"2026-06-18T10:00:00Z"}}
+### 오류: 400 INVALID_MARKDOWN, 401 UNAUTHORIZED, 404 REPO_NOT_FOUND,
+###       409 DOCUMENT_VERSION_EXISTS, 500 DATABASE_SAVE_FAILED
