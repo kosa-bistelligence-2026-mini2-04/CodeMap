@@ -25,13 +25,17 @@ from app.list.service import ListserviceDep
 logger = logging.getLogger(__name__)
 
 
-# ===
-# APIRouter 인스턴스 생성
-# ===
 
+
+# ──────────────────────────────────────────────
+# APIRouter 인스턴스 생성 및 라우터 정의
+# ──────────────────────────────────────────────
 router = APIRouter(prefix="/api/list", tags=["Project List"])
 
 
+# ──────────────────────────────────────────────
+# Bearer 인증 토큰 검증 함수
+# ──────────────────────────────────────────────
 def verify_authorization(authorization: Annotated[str | None, Header()] = None) -> None:
     '''명세에 따라 Bearer 인증 헤더가 있는지 확인합니다.'''
     if authorization is None or not authorization.startswith("Bearer ") or not authorization[7:].strip():
@@ -45,10 +49,11 @@ def verify_authorization(authorization: Annotated[str | None, Header()] = None) 
         )
 
 
-# ===
-# API-001: 전체 분석 이력 목록 조회 (GET /api/list/analysis)
-# ===
 
+
+# ──────────────────────────────────────────────
+# API-001: 전체 분석 이력 목록 조회 (GET /api/list/analysis)
+# ──────────────────────────────────────────────
 @router.get(
     "/analysis",
     response_model=AnalysisJobListResponse,
@@ -88,10 +93,11 @@ async def get_analysis_jobs(
             jobs=[AnalysisJobItem.model_validate(job) for job in result.jobs],
         ),
     )
-# ======================================================================
+
+
+# ──────────────────────────────────────────────
 # API-002: 저장소 파일수/용량 사전 검증 (POST /api/list/validate)
-# 사용자가 지정한 GitHub 저장소의 파일 개수 및 총 크기를 사전 검증합니다.
-# ======================================================================
+# ──────────────────────────────────────────────
 @router.post(
     "/validate",
     response_model=ListValidateResponse,

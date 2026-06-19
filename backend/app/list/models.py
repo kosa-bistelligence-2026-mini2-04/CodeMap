@@ -4,6 +4,11 @@ from typing import Optional
 from uuid import UUID
 
 
+
+
+# ──────────────────────────────────────────────
+# AnalysisJobListModel: 분석 작업 목록 조회 도메인 내부 모델
+# ──────────────────────────────────────────────
 @dataclass(frozen=True)
 class AnalysisJobListModel:
     """목록 조회 도메인에서 사용하는 분석 작업 내부 모델입니다."""

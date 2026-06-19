@@ -17,10 +17,11 @@ from app.list.schemas import ListValidateData
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-# ======================================================================
-# fetch_github_api
-# 타임아웃 발생 시 최대 3회 재시도하며 GitHub API를 비동기로 호출합니다.
-# ======================================================================
+
+
+# ──────────────────────────────────────────────
+# fetch_github_api: GitHub API 비동기 호출 (타임아웃 시 최대 3회 재시도)
+# ──────────────────────────────────────────────
 @retry(
     retry=retry_if_exception_type(httpx.TimeoutException),
     stop=stop_after_attempt(3),
@@ -67,18 +68,17 @@ class ListService:
         )
 
 
-    # ======================================================================
-    # validate_repository
-    # GitHub 저장소의 파일 개수 및 총 크기를 사전 검증합니다.
-    # ======================================================================
+
+
+    # ──────────────────────────────────────────────
+    # validate_repository: GitHub 저장소의 파일 개수 및 총 크기 사전 검증
+    # ──────────────────────────────────────────────
     async def validate_repository(self, repo_url: str, branch: Optional[str] = None) -> ListValidateData:
         '''
         GitHub 저장소의 파일 개수 및 총 크기를 사전 검증합니다.
         '''
 
-        # ===
-        # URL 파싱 수행
-        # ===
+        ## URL 파싱 수행
         try:
             parsed = giturlparse.parse(repo_url)
             if not parsed.valid or not parsed.owner or not parsed.repo:
@@ -94,9 +94,7 @@ class ListService:
             headers["Authorization"] = f"token {settings.GITHUB_TOKEN}"
 
         async with httpx.AsyncClient() as client:
-            # ===
-            # 디폴트 브랜치 획득 (branch가 제공되지 않은 경우)
-            # ===
+            ## 디폴트 브랜치 획득 (branch가 제공되지 않은 경우)
             if not branch:
                 repo_info_url = f"https://api.github.com/repos/{owner}/{repo}"
                 try:
@@ -119,9 +117,7 @@ class ListService:
                     error_msg = "깃허브 API 호출 시간 초과(3회 재시도 실패). 네트워크 상태를 확인하시거나 나중에 다시 시도해 주십시오."
                     raise ValidationFailedError(message=error_msg)
 
-            # ===
-            # Git Trees API 재귀 조회
-            # ===
+            ## Git Trees API 재귀 조회
             trees_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
             try:
                 response = await fetch_github_api(client, trees_url, headers)
@@ -146,9 +142,7 @@ class ListService:
                 error_msg = "깃허브 API 호출 시간 초과(3회 재시도 실패). 네트워크 상태를 확인하시거나 나중에 다시 시도해 주십시오."
                 raise ValidationFailedError(message=error_msg)
 
-            # ===
-            # 트리 결과 분석 및 용량 산출
-            # ===
+            ## 트리 결과 분석 및 용량 산출
             ## truncated 결과 처리
             if tree_data.get("truncated") is True:
                 logger.warning("저장소 트리가 초과되어 truncated 됨 (10만개 초과)")
@@ -170,9 +164,7 @@ class ListService:
 
             total_size_kb = round(total_size_bytes / 1024, 2)
 
-            # ===
-            # 제한 조건 판정 (기준: 300개)
-            # ===
+            ## 제한 조건 판정 (기준: 300개)
             if file_count <= 300:
                 return ListValidateData(
                     isValid=True,
@@ -190,6 +182,11 @@ class ListService:
                 )
 
 
+
+
+# ──────────────────────────────────────────────
+# ListService 의존성 주입 함수
+# ──────────────────────────────────────────────
 def get_list_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ListService:
     '''FastAPI 의존성 주입으로 ListService 인스턴스를 생성합니다.'''
     return ListService(db)

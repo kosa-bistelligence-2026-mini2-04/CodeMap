@@ -24,6 +24,11 @@ WS_CLOSE_SERVER_ERROR = 1011
 WS_CLOSE_JOB_NOT_FOUND = 4004
 
 
+
+
+# ──────────────────────────────────────────────
+# _to_api_status: 내부 작업 상태를 LIST 명세의 상태값으로 변환
+# ──────────────────────────────────────────────
 def _to_api_status(status: str | JobStatus) -> str:
     """내부 작업 상태를 LIST 명세의 상태값으로 변환합니다."""
     value = status.value if isinstance(status, JobStatus) else status
@@ -36,12 +41,22 @@ def _to_api_status(status: str | JobStatus) -> str:
     return status_map.get(value, value.lower())
 
 
+
+
+# ──────────────────────────────────────────────
+# _is_failed: 작업이 실패 상태인지 여부 판정
+# ──────────────────────────────────────────────
 def _is_failed(status: str | JobStatus) -> bool:
     """실패 상태인지 확인합니다."""
     value = status.value if isinstance(status, JobStatus) else status
     return value in {JobStatus.FAILED.value, "failed"}
 
 
+
+
+# ──────────────────────────────────────────────
+# _message_from_event: 파이프라인 이벤트를 API-003 메시지로 변환
+# ──────────────────────────────────────────────
 def _message_from_event(job_id: UUID, event: ProgressEvent) -> AnalysisProgressMessage:
     """파이프라인 이벤트를 API-003 WebSocket 메시지로 변환합니다."""
     failed = _is_failed(event.status)
@@ -55,6 +70,11 @@ def _message_from_event(job_id: UUID, event: ProgressEvent) -> AnalysisProgressM
     )
 
 
+
+
+# ──────────────────────────────────────────────
+# _message_from_job: DB의 작업 상태를 API-003 메시지로 변환
+# ──────────────────────────────────────────────
 def _message_from_job(job) -> AnalysisProgressMessage:
     """DB의 현재 작업 상태를 API-003 WebSocket 메시지로 변환합니다."""
     failed = _is_failed(job.status)
@@ -68,6 +88,11 @@ def _message_from_job(job) -> AnalysisProgressMessage:
     )
 
 
+
+
+# ──────────────────────────────────────────────
+# websocket_list_progress: 분석 진행률 실시간 중계 WebSocket 엔드포인트
+# ──────────────────────────────────────────────
 @ws_router.websocket("/ws/list/progress/{job_id}")
 async def websocket_list_progress(websocket: WebSocket, job_id: str):
     """분석 작업의 진행 상태를 LIST 명세 포맷으로 실시간 전송합니다."""

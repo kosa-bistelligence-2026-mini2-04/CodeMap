@@ -5,17 +5,32 @@ from app.list.models import AnalysisJobListModel
 from app.repo.models import AnalysisJob
 
 
+
+
+# ──────────────────────────────────────────────
+# AnalysisJobListRepository: 분석 작업 목록 DB 저장소 클래스
+# ──────────────────────────────────────────────
 class AnalysisJobListRepository:
     """분석 작업 목록 조회에 필요한 DB 접근을 담당합니다."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
 
+
+
+    # ──────────────────────────────────────────────
+    # count_analysis_jobs: 전체 분석 작업 수 카운트
+    # ──────────────────────────────────────────────
     async def count_analysis_jobs(self) -> int:
         """전체 분석 작업 수를 조회합니다."""
         result = await self.db.execute(select(func.count()).select_from(AnalysisJob))
         return result.scalar_one()
 
+
+
+    # ──────────────────────────────────────────────
+    # find_analysis_jobs: 페이지네이션 기반 분석 작업 조회
+    # ──────────────────────────────────────────────
     async def find_analysis_jobs(self, page: int, limit: int) -> list[AnalysisJobListModel]:
         """페이지 번호와 페이지 크기에 맞춰 분석 작업 목록을 조회합니다."""
         offset = (page - 1) * limit
@@ -27,6 +42,11 @@ class AnalysisJobListRepository:
         )
         return [self._to_list_model(job) for job in result.scalars().all()]
 
+
+
+    # ──────────────────────────────────────────────
+    # _to_list_model: DB 엔티티를 리스트 모델로 매핑
+    # ──────────────────────────────────────────────
     def _to_list_model(self, job: AnalysisJob) -> AnalysisJobListModel:
         """DB 엔티티를 목록 API 내부 모델로 변환합니다."""
         is_failed = job.status == "FAILED"
@@ -42,6 +62,11 @@ class AnalysisJobListRepository:
             updated_at=job.updated_at,
         )
 
+
+
+    # ──────────────────────────────────────────────
+    # _to_api_status: DB 상태값을 API 응답 사양 상태값으로 변환
+    # ──────────────────────────────────────────────
     def _to_api_status(self, status: str) -> str:
         """DB 작업 상태를 명세의 응답 상태값으로 변환합니다."""
         status_map = {

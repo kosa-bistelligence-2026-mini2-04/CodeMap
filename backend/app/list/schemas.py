@@ -5,6 +5,11 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
+
+
+# ──────────────────────────────────────────────
+# AnalysisJobItem: 분석 작업 목록의 단일 항목 DTO
+# ──────────────────────────────────────────────
 class AnalysisJobItem(BaseModel):
     """분석 작업 목록의 단일 항목 DTO입니다."""
 
@@ -21,6 +26,11 @@ class AnalysisJobItem(BaseModel):
     updated_at: datetime = Field(alias="updatedAt", description="작업 최종 변경 시각")
 
 
+
+
+# ──────────────────────────────────────────────
+# AnalysisJobListData: 분석 작업 목록 응답의 data DTO
+# ──────────────────────────────────────────────
 class AnalysisJobListData(BaseModel):
     """분석 작업 목록 응답의 data DTO입니다."""
 
@@ -32,6 +42,11 @@ class AnalysisJobListData(BaseModel):
     jobs: list[AnalysisJobItem] = Field(description="분석 작업 목록")
 
 
+
+
+# ──────────────────────────────────────────────
+# AnalysisJobListResponse: PROJECT-LIST-API-001 성공 응답 DTO
+# ──────────────────────────────────────────────
 class AnalysisJobListResponse(BaseModel):
     """PROJECT-LIST-API-001 성공 응답 DTO입니다."""
 
@@ -40,6 +55,11 @@ class AnalysisJobListResponse(BaseModel):
     data: AnalysisJobListData
 
 
+
+
+# ──────────────────────────────────────────────
+# ErrorResponse: PROJECT-LIST-API-001 에러 응답 DTO
+# ──────────────────────────────────────────────
 class ErrorResponse(BaseModel):
     """PROJECT-LIST-API-001 에러 응답 DTO입니다."""
 
@@ -48,6 +68,11 @@ class ErrorResponse(BaseModel):
     message: str = Field(description="에러 메시지")
 
 
+
+
+# ──────────────────────────────────────────────
+# AnalysisProgressMessage: PROJECT-LIST-API-003 WebSocket 메시지 DTO
+# ──────────────────────────────────────────────
 class AnalysisProgressMessage(BaseModel):
     """PROJECT-LIST-API-003 WebSocket 발행 메시지 DTO입니다."""
 
@@ -59,6 +84,11 @@ class AnalysisProgressMessage(BaseModel):
     errorMessage: str | None = Field(default=None, description="실패 사유")
 
 
+
+
+# ──────────────────────────────────────────────
+# ListValidateRequest: 저장소 사전 검증 요청 DTO
+# ──────────────────────────────────────────────
 class ListValidateRequest(BaseModel):
     """저장소 사전 검증 요청 DTO입니다."""
 
@@ -66,6 +96,11 @@ class ListValidateRequest(BaseModel):
     branch: Optional[str] = Field(default=None, description="분석 대상 브랜치")
 
 
+
+
+# ──────────────────────────────────────────────
+# ListValidateData: 저장소 사전 검증 결과 데이터 DTO
+# ──────────────────────────────────────────────
 class ListValidateData(BaseModel):
     """저장소 사전 검증 결과 데이터 DTO입니다."""
 
@@ -77,6 +112,11 @@ class ListValidateData(BaseModel):
     warning_message: Optional[str] = Field(default=None, alias="warningMessage", description="경고 메시지")
 
 
+
+
+# ──────────────────────────────────────────────
+# ListValidateResponse: 저장소 사전 검증 성공 응답 DTO
+# ──────────────────────────────────────────────
 class ListValidateResponse(BaseModel):
     """저장소 사전 검증 응답 DTO입니다."""
 
