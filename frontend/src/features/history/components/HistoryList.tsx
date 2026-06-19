@@ -46,6 +46,25 @@ function toUnixSeconds(value: string): number {
   return Number.isNaN(timestamp) ? Date.now() / 1000 : timestamp / 1000;
 }
 
+/**
+ * 백엔드 status 값을 프론트 STATUS_CONFIG 키(lowercase)로 정규화합니다.
+ * 백엔드 계약은 lowercase이지만, 혹여 DB 내부 값(IN_PROGRESS/COMPLETED/FAILED)이
+ * 그대로 전달되더라도 런타임 에러 없이 처리할 수 있도록 방어합니다.
+ */
+function normalizeStatus(status: string): AnalysisRow["status"] {
+  const STATUS_NORMALIZE: Record<string, AnalysisRow["status"]> = {
+    IN_PROGRESS: "running",
+    COMPLETED: "completed",
+    FAILED: "failed",
+    QUEUED: "queued",
+  };
+  const normalized = STATUS_NORMALIZE[status];
+  const valid = ["queued", "running", "completed", "failed"] as const;
+  if (normalized) return normalized;
+  if ((valid as readonly string[]).includes(status)) return status as AnalysisRow["status"];
+  return "failed"; // 알 수 없는 상태는 failed로 안전하게 처리
+}
+
 export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: HistoryListProps) {
   const [items, setItems] = useState<AnalysisRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,18 +78,21 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
     setError(null);
     try {
       const response = await fetchAnalysisHistory(1, 30);
-      setItems(response.data.jobs.map((job) => ({
-        job_id: job.jobId,
-        source: job.repoUrl.startsWith("https://") ? "github" : "local",
-        path: job.repoUrl,
-        status: job.status,
-        created_at: toUnixSeconds(job.createdAt),
-        completed_at: job.status === "completed" ? toUnixSeconds(job.updatedAt) : null,
-        total_pipeline_ms: null,
-        error_message: job.errorMessage,
-        model_used: null,
-        force_refresh: false,
-      })));
+      setItems(response.data.jobs.map((job) => {
+        const normalizedStatus = normalizeStatus(job.status);
+        return {
+          job_id: job.jobId,
+          source: job.repoUrl.startsWith("https://") ? "github" : "local",
+          path: job.repoUrl,
+          status: normalizedStatus,
+          created_at: toUnixSeconds(job.createdAt),
+          completed_at: normalizedStatus === "completed" ? toUnixSeconds(job.updatedAt) : null,
+          total_pipeline_ms: null,
+          error_message: job.errorMessage,
+          model_used: null,
+          force_refresh: false,
+        };
+      }));
     } catch (requestError) {
       setItems([]);
       setError(requestError instanceof Error ? requestError.message : t.historyList.loadFailed);
