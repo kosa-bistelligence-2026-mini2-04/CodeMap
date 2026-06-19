@@ -157,9 +157,14 @@ async def code_map_node(state: PipelineState) -> dict:
     job_id = state["job_id"]
     await _publish(job_id, PipelineStage.CODE_MAP, JobStatus.IN_PROGRESS, 28, "파일 구조와 기술 스택 분석 중")
     try:
+        # clone_path는 PipelineState에서 Optional[str]이지만 clone_node 완료 후 항상 설정된다.
+        # 타입을 str로 좁히고, 누락 시 명확히 실패시킨다.
+        clone_path = state["clone_path"]
+        if not clone_path:
+            raise RuntimeError("clone_path가 설정되지 않았습니다.")
         report = await asyncio.to_thread(
             scan_repository,
-            state["clone_path"],
+            clone_path,
             state["repo_name"],
         )
         await _update_db(
