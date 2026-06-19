@@ -1,0 +1,38 @@
+# 32KB 블록 크기를 가진 PostgreSQL 17 및 pgvector 커텀 빌드 Dockerfile
+# 공식 postgres:17 이미지의 인프라 설정을 유지하며 실행 엔진만 32KB 버전으로 교체합니다.
+
+# 1단계: 컴파일 빌더 스테이지
+FROM postgres:17 AS builder
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libreadline-dev \
+    zlib1g-dev \
+    git \
+    curl \
+    libssl-dev \
+    libxml2-dev \
+    libxslt-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# PostgreSQL 17 소스 다운로드 및 32KB 블록크기 빌드
+WORKDIR /usr/src/postgresql
+RUN curl -L https://ftp.postgresql.org/pub/source/v17.4/postgresql-17.4.tar.gz | tar xz --strip-components=1
+
+# 공식 이미지 바이너리 경로(/usr/lib/postgresql/17)로 덮어쓰도록 prefix 설정 및 blocksize 지정
+RUN ./configure --prefix=/usr/lib/postgresql/17 --with-ssl=openssl --with-libxml --with-libxslt --with-blocksize=32
+RUN make -j$(nproc) && make install
+
+# pgvector 확장 모듈 소스 빌드 및 설치
+WORKDIR /usr/src/pgvector
+RUN git clone --branch v0.7.0 https://github.com/pgvector/pgvector.git .
+ENV PATH="/usr/lib/postgresql/17/bin:${PATH}"
+RUN make -j$(nproc) && make install
+
+
+# 2단계: 최종 런타임 배포 스테이지
+FROM postgres:17
+
+# 빌더 스테이지에서 32KB 블록 크기로 빌드된 바이너리 및 라이브러리 전체 덮어쓰기 복사
+COPY --from=builder /usr/lib/postgresql/17 /usr/lib/postgresql/17
+COPY --from=builder /usr/share/postgresql/17/extension /usr/share/postgresql/17/extension

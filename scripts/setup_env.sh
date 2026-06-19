@@ -12,7 +12,10 @@ fi
 # 2. 볼륨 생성
 docker volume create postgresql-17-volume
 
-# 3. Docker Run 실행 (사용자 지정 스펙 적용 및 포트 포워딩 -p 5432:5432)
+## 3. Docker Build 및 Run 실행 (32KB pgvector 커스텀 이미지 빌드 후 구동)
+echo "Building custom PostgreSQL 17 (32KB block size) & pgvector image..."
+docker build -t codemap-postgres-32k -f "$(dirname "$0")/Dockerfile.postgres_32k" "$(dirname "$0")"
+
 echo "Starting PostgreSQL 17 pgvector container..."
 docker run --name postgresql-17 \
   -d \
@@ -22,7 +25,7 @@ docker run --name postgresql-17 \
   -e TZ=Asia/Seoul \
   -v postgresql-17-volume:/var/lib/postgresql-17/data \
   --restart always \
-  pgvector/pgvector:pg17 \
+  codemap-postgres-32k \
   postgres -c max_connections=500
 
 # 4. 포트포워딩 및 방화벽 설정 안내

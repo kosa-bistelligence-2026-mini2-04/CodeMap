@@ -4,7 +4,9 @@ version: '3.8'
 services:
   db:
     container_name: postgresql-17
-    image: pgvector/pgvector:pg17
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres_32k
     restart: always
     environment:
       POSTGRES_USER: codemap

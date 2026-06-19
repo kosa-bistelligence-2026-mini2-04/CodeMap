@@ -66,14 +66,21 @@ backend/app/
 
 ## 3. Database Architecture (데이터베이스 구조)
 
-RAG 파이프라인과 메인 서비스의 데이터를 저장하기 위한 초기화 스크립트 및 테이블 뼈대 구조입니다.
+RAG 파이프라인과 메인 서비스의 데이터를 안정적으로 적재하고 관리하기 위해 데이터베이스 DDL 및 권한 설정 스크립트를 실행 주체 및 테이블 단위별로 세분화하여 설계했습니다.
 
 ```text
 database/
-└── init.sql                      # 🗄️ PostgreSQL 테이블 및 pgvector 스키마 초기화 SQL
+├── init.sql                                # 🗄️ psql 환경에서 개별 DDL들을 순차 로드하는 마스터 스크립트
+├── 01_create_user_and_permissions.sql      # 🔑 pgvector 활성화, 서비스 계정 생성 및 기존 테이블 소유권 이전 (관리자 권한)
+├── 02_analysis_jobs.sql                    # 📊 분석 작업 진행 상태 추적 테이블 및 관련 성능 인덱스
+├── 03_source_files.sql                     # 📄 분석 대상 소스 코드 파일 원문 보관 테이블
+├── 04_code_chunks.sql                      # 🧠 임베딩 벡터 저장 테이블 및 HNSW 유사도 검색 인덱스
+├── 05_file_dependencies.sql                # 🔗 파일 간 양방향 import 의존성 그래프 테이블
+├── 06_chat_conversations.sql               # 💬 대화 세션 관리 테이블 및 인덱스
+└── 07_chat_messages.sql                    # ✉️ 대화 메시지 상세 테이블 (예약어 "references" 충돌 우회)
 ```
 
-* **설계 및 초기화 철학**: RAG 파이프라인 구동을 위한 `pgvector` 확장 적용 및 관계형 테이블 설계를 위한 뼈대만 유지합니다. 인위적인 더미 데이터(seed.sql)는 주입하지 않으며, **개발 완료 후 CodeMap 프로젝트 자체를 분석 타겟으로 삼아(Dogfooding) 파이프라인을 직접 테스트하고 실제 데이터를 적재**합니다.
+* **설계 및 초기화 철학**: RAG 파이프라인 구동을 위한 `pgvector` 확장 적용 및 관계형 테이블 설계를 위한 뼈대만 유지합니다. 인위적인 더미 데이터(seed.sql)는 주입하지 않으며, **개발 완료 후 CodeMap 프로젝트 자체를 분석 타겟으로 삼아(Dogfooding) 파이프라인을 직접 테스트하고 실제 데이터를 적재**합니다. 스키마 구성 및 초기화 작업은 안전한 권한 관리를 위해 관리자 영역(01)과 서비스 계정 영역(02~07)으로 명확히 구별하여 설계되었습니다.
 
 ---
 
