@@ -46,3 +46,14 @@ class ErrorResponse(BaseModel):
     code: int = Field(description="HTTP 상태 코드")
     errorCode: str = Field(description="에러 코드")
     message: str = Field(description="에러 메시지")
+
+
+class AnalysisProgressMessage(BaseModel):
+    """PROJECT-LIST-API-003 WebSocket 발행 메시지 DTO입니다."""
+
+    jobId: UUID = Field(description="상태를 추적하는 분석 작업 고유 ID")
+    status: str = Field(description="작업 상태")
+    progress: int = Field(ge=0, le=100, description="작업 진행률")
+    currentStep: str | None = Field(default=None, description="현재 실행 중인 분석 단계명")
+    failedAgent: str | None = Field(default=None, description="실패 단계 또는 실패 에이전트")
+    errorMessage: str | None = Field(default=None, description="실패 사유")
