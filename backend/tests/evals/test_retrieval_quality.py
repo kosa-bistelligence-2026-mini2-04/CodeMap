@@ -13,7 +13,7 @@ CASES_PATH = Path(__file__).with_name("retrieval_cases.jsonl")
 class RetrievalQualityBaselineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.cases = [json.loads(line) for line in CASES_PATH.read_text().splitlines() if line.strip()]
+        cls.cases = [json.loads(line) for line in CASES_PATH.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     def test_fixture_has_multiple_grounded_questions(self):
         self.assertGreaterEqual(len(self.cases), 3)
