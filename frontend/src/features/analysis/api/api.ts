@@ -16,12 +16,10 @@ export function apiPath(path: string): string {
 }
 
 function getAuthorizationHeader(): string {
-  if (typeof window === "undefined") return "Bearer frontend-client";
-  const token = localStorage.getItem("cm-access-token")
-    || localStorage.getItem("access_token")
-    || localStorage.getItem("accessToken")
-    || localStorage.getItem("token")
-    || "frontend-client";
+  // SSR 환경에서는 토큰이 없으므로 빈 Bearer 반환
+  if (typeof window === "undefined") return "Bearer ";
+  // 통일된 토큰 키: cm-access-token (PROJECT-AUTH-F-101)
+  const token = localStorage.getItem("cm-access-token") || "";
   return `Bearer ${token}`;
 }
 

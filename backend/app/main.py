@@ -9,11 +9,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.exceptions import register_exception_handlers
+from app.auth.router import router as auth_router
 from app.list.router import router as list_router
 from app.list.websocket import ws_router as list_ws_router
 from app.repo.router import router as repo_router
 from app.repo.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
+
+# parse_router는 PR #68 머지 후 활성화 (현재 main에서는 빈 파일)
+try:
+    from app.parse.router import router as parse_router
+    _parse_router_available = True
+except ImportError:
+    _parse_router_available = False
 
 # ──────────────────────────────────────────────
 # FastAPI 앱 인스턴스 생성
@@ -56,6 +64,9 @@ def read_root():
 # 도메인별 라우터 등록
 # ──────────────────────────────────────────────
 
+# Auth API (로그인/회원가입/토큰 갱신/로그아웃)
+app.include_router(auth_router)
+
 # Project Repository 분석 관련 REST API (API-001, 003, 005, 007)
 app.include_router(repo_router)
 app.include_router(list_router)
@@ -66,6 +77,10 @@ app.include_router(repo_ws_router)
 
 # Repository-scoped grounded chat and conversation history
 app.include_router(chat_router)
+
+# RAG-PARSE 분석 API (PR #68 머지 후 활성화)
+if _parse_router_available:
+    app.include_router(parse_router)
 
 # TODO: 추후 도메인별 라우터 추가 등록
 # app.include_router(list_router, prefix="/api")

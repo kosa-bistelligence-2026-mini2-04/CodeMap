@@ -154,6 +154,37 @@ class PipelineStartFailedError(CodeMapException):
 
 
 # ──────────────────────────────────────────────
+# PROJECT-AUTH: 인증 관련 예외
+# ──────────────────────────────────────────────
+class UnauthorizedError(CodeMapException):
+    """JWT 토큰 없음 / 만료 / 서명 불일치 (401)"""
+
+    def __init__(self, message: str = "토큰이 누락되었거나 만료되었습니다."):
+        super().__init__(401, "UNAUTHORIZED", message)
+
+
+class InvalidCredentialsError(CodeMapException):
+    """이메일 또는 비밀번호 불일치 (401)"""
+
+    def __init__(self, message: str = "이메일 또는 비밀번호가 올바르지 않습니다."):
+        super().__init__(401, "INVALID_CREDENTIALS", message)
+
+
+class EmailAlreadyExistsError(CodeMapException):
+    """이미 등록된 이메일로 가입 시도 (409)"""
+
+    def __init__(self, message: str = "이미 사용 중인 이메일입니다."):
+        super().__init__(409, "EMAIL_ALREADY_EXISTS", message)
+
+
+class InvalidRefreshTokenError(CodeMapException):
+    """Refresh Token 만료 또는 위조 (401)"""
+
+    def __init__(self, message: str = "Refresh Token이 유효하지 않거나 만료되었습니다."):
+        super().__init__(401, "INVALID_REFRESH_TOKEN", message)
+
+
+# ──────────────────────────────────────────────
 # FastAPI 전역 예외 핸들러 등록 함수
 # ──────────────────────────────────────────────
 def register_exception_handlers(app: FastAPI) -> None:
