@@ -72,7 +72,10 @@ class Settings(BaseSettings):
     # [RAG-EMBED] API 호출 실패 시 지수 백오프 재시도 횟수 (RAG_EMBED_SPEC.md)
     EMBEDDING_MAX_RETRIES: int = 3
 
-    model_config = {"env_file": env_path, "env_file_encoding": "utf-8"}
+    # GitHub API 호출 시 사용할 토큰 (미설정 시 빈 문자열)
+    GITHUB_TOKEN: str = ""
+
+    model_config = {"env_file": env_path, "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @model_validator(mode="after")
     def assemble_db_connection(self) -> "Settings":

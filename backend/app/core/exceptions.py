@@ -84,6 +84,18 @@ class WorkspaceCleanupFailedError(CodeMapException):
 
 
 # ──────────────────────────────────────────────
+# ValidationFailedError
+# ──────────────────────────────────────────────
+class ValidationFailedError(CodeMapException):
+    """
+    GitHub API 호출 중 서브프로세스 또는 기타 에러 발생 시 (500)
+    """
+
+    def __init__(self, message: str = "GitHub API 호출 중 오류가 발생했습니다."):
+        super().__init__(500, "VALIDATION_FAILED", message)
+
+
+# ──────────────────────────────────────────────
 # API-003: 상태 조회 관련 예외
 # ──────────────────────────────────────────────
 class JobNotFoundError(CodeMapException):

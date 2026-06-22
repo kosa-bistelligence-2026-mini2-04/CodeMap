@@ -18,6 +18,8 @@ from app.list.schemas import (
     AnalysisJobListData,
     AnalysisJobListResponse,
     ErrorResponse,
+    PreValidateRequest,
+    PreValidateResponse,
 )
 from app.list.service import ListserviceDep
 
@@ -150,3 +152,32 @@ async def get_analysis_job_detail(
         message="success",
         data=AnalysisJobDetailData.model_validate(result.job),
     )
+
+
+# ──────────────────────────────────────────────
+# API-002: 클론 전 저장소 파일 수 및 용량 사전 검증
+# POST /api/list/validate
+# ──────────────────────────────────────────────
+@router.post(
+    "/validate",
+    response_model=PreValidateResponse,
+    summary="클론 전 저장소 파일 수 및 용량 사전 검증",
+    description="본격적인 Git Clone 및 분석 파이프라인 시작 전에, 대상 저장소의 파일 개수 및 용량이 제한 조건을 준수하는지 검증합니다.",
+    responses={
+        400: {"model": ErrorResponse, "description": "GitHub URL 형식 오류"},
+        401: {"model": ErrorResponse, "description": "인증 토큰 누락 또는 만료"},
+        404: {"model": ErrorResponse, "description": "저장소가 존재하지 않거나 비공개"},
+        500: {"model": ErrorResponse, "description": "GitHub API 호출 중 오류 발생"},
+    },
+)
+async def validate_repository(
+    request: PreValidateRequest,
+    _: Annotated[None, Depends(verify_authorization)],
+    service: ListserviceDep,
+) -> PreValidateResponse:
+    """PROJECT-LIST-API-002 명세의 사전 검증 결과를 반환합니다."""
+    return await service.validate_repository(
+        repo_url=request.repo_url,
+        branch=request.branch,
+    )
+
