@@ -1,15 +1,17 @@
-"""RAG-PARSE B-204: 설정 파일 탐색.
+"""RAG-PARSE B-204/B-205: 설정 파일 탐색 + 실행 방법 추론.
 
-package.json, requirements.txt, Dockerfile 등 의존성·빌드·실행·컨테이너 설정
-파일을 식별해 metadata["is_config"]=True로 태깅한다.
-명세: docs/03_Specifications/02_RAG/spec/RAG_PARSE_SPEC.md (B-204)
+- B-204 tag_config_files: package.json/requirements.txt/Dockerfile 등 설정 파일을
+  식별해 metadata["is_config"]=True로 태깅한다.
+- B-205 extract_run_commands: 설정 파일을 기반으로 설치·실행 명령을 추론한다.
+명세: docs/03_Specifications/02_RAG/spec/RAG_PARSE_SPEC.md (B-204, B-205)
 
-NOTE: 같은 manifest 영역의 B-205(실행 방법 추론, extract_run_commands)·
-B-206(기술 스택 추론, detect_tech_stack)은 단위를 분리해 후속 PR로 이 모듈에 이어서 추가한다.
+NOTE: 같은 manifest 영역의 B-206(기술 스택 추론, detect_tech_stack)은 단위를 분리해
+후속 PR로 이 모듈에 이어서 추가한다.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from app.parse.schemas import ParsedFile
@@ -61,3 +63,77 @@ async def tag_config_files(files: list[ParsedFile]) -> list[ParsedFile]:
         else:
             result.append(node)
     return result
+
+
+# ── B-205: 실행 방법 추론 ───────────────────────────────────────────────
+# lockfile → Node 패키지 매니저 (없으면 npm 기본)
+_PM_BY_LOCKFILE = {
+    "pnpm-lock.yaml": "pnpm",
+    "yarn.lock": "yarn",
+    "package-lock.json": "npm",
+}
+
+
+def _detect_node_pm(names: set[str]) -> str:
+    """lockfile 기준 Node 패키지 매니저 추론 (없으면 npm)."""
+    for lockfile, pm in _PM_BY_LOCKFILE.items():
+        if lockfile in names:
+            return pm
+    return "npm"
+
+
+def _node_run(pm: str, script: str) -> str:
+    """패키지 매니저별 스크립트 실행 명령 ('npm run dev' vs 'pnpm dev' 등)."""
+    if pm == "npm":
+        return "npm start" if script == "start" else f"npm run {script}"
+    return f"{pm} {script}"
+
+
+def _package_scripts(node: ParsedFile) -> dict:
+    """package.json content에서 scripts 객체 추출 (파싱 실패 시 빈 dict)."""
+    try:
+        data = json.loads(node.content or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    scripts = data.get("scripts") if isinstance(data, dict) else None
+    return scripts if isinstance(scripts, dict) else {}
+
+
+async def extract_run_commands(files: list[ParsedFile]) -> list[str]:
+    """설정 파일 기반으로 설치·실행 명령을 추론한다 (RAG-PARSE-B-205).
+
+    package.json(+lockfile)·requirements.txt·pyproject.toml·Dockerfile 등을 보고
+    'npm install'/'npm run dev'/'pip install -r requirements.txt' 같은 명령을 만든다.
+    순수 로직이라 I/O는 없지만 파이프라인 단계 일관성·테스트 계약을 위해 async로 유지한다.
+    """
+    file_nodes = {
+        Path(f.path).name.lower(): f for f in files if f.file_type == "FILE"
+    }
+    names = set(file_nodes)
+    commands: list[str] = []
+
+    # Node/JS — package.json + lockfile로 매니저 추론, scripts에서 실행 명령
+    if "package.json" in names:
+        pm = _detect_node_pm(names)
+        commands.append(f"{pm} install")
+        scripts = _package_scripts(file_nodes["package.json"])
+        for script in ("dev", "start"):
+            if script in scripts:
+                commands.append(_node_run(pm, script))
+                break
+
+    # Python — 의존성 설치
+    if "requirements.txt" in names:
+        commands.append("pip install -r requirements.txt")
+    elif "pyproject.toml" in names:
+        commands.append("pip install .")
+    if "pipfile" in names:
+        commands.append("pipenv install")
+
+    # 컨테이너 — compose 우선, 없으면 Dockerfile 빌드
+    if "docker-compose.yml" in names or "docker-compose.yaml" in names:
+        commands.append("docker compose up")
+    elif "dockerfile" in names:
+        commands.append("docker build -t app .")
+
+    return commands
