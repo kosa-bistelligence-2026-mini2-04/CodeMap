@@ -1,4 +1,5 @@
 import os
+import logging
 from dataclasses import dataclass
 from typing import Annotated, Optional
 from urllib.parse import quote as url_quote
@@ -25,6 +26,8 @@ from app.repo.service import (
     EXCLUDED_FILE_NAMES,
     GITHUB_URL_PATTERN,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -136,8 +139,6 @@ class ListService:
         except CodeMapException:
             raise
         except Exception as exc:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.exception("GitHub 저장소 사전 검증 중 예상치 못한 오류 발생", exc_info=exc)
             raise ValidationFailedError("GitHub 저장소 정보를 가져오는 중 서버 오류가 발생했습니다.") from exc
 
@@ -180,11 +181,12 @@ class ListService:
 
         total_size_kb = (total_size + 1023) // 1024
 
+        if file_count == 0:
+            raise ValidationFailedError("저장소 내에 분석 가능한 파일이 없습니다.")
+
         ## 이슈 #4 수정: warning_message를 먼저 생성하고 is_valid는 단일 소스로 통일
         warning_message = None
-        if file_count == 0:
-            warning_message = "저장소 내에 분석 가능한 파일이 없습니다."
-        elif file_count > 100:
+        if file_count > 100:
             warning_message = "저장소 파일 수가 100개를 초과합니다. 분석 시 가장 핵심이 되는 100개의 파일만 지능적으로 자동 선택되어 분석이 진행됩니다."
         elif any_file_exceeds_100kb:
             warning_message = "100KB를 초과하는 대용량 파일이 존재합니다. 해당 파일은 분석 대상에서 제외되거나 제한적으로 분석될 수 있습니다."

@@ -176,6 +176,27 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RepositoryNotFoundError):
             await self.service.validate_repository("https://github.com/example/nonexistent-repo")
 
+    @patch("httpx.AsyncClient.get")
+    async def test_validate_repository_empty_repo_error(self, mock_get):
+        """분석 가능한 파일 수가 0개일 때 ValidationFailedError 예외를 발생시키는지 검사합니다."""
+        mock_response_tree = MagicMock()
+        mock_response_tree.status_code = 200
+        mock_response_tree.json.return_value = {
+            "truncated": False,
+            "tree": [
+                {"path": "node_modules/express/index.js", "type": "blob", "size": 512},  # 제외됨
+            ]
+        }
+
+        mock_get.side_effect = [mock_response_tree]
+
+        with self.assertRaises(ValidationFailedError) as context:
+            await self.service.validate_repository(
+                repo_url="https://github.com/example/empty-repo",
+                branch="main"
+            )
+        self.assertIn("분석 가능한 파일이 없습니다", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
