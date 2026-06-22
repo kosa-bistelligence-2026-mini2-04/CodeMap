@@ -195,12 +195,14 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         """HTTP 예외 공통 변환 결과를 JSON 응답으로 감싼다."""
         detail = exc.detail
+        headers = getattr(exc, "headers", None)
         if isinstance(detail, dict) and _is_standard_error_response(detail):
-            return JSONResponse(status_code=exc.status_code, content=detail)
+            return JSONResponse(status_code=exc.status_code, content=detail, headers=headers)
 
         return JSONResponse(
             status_code=exc.status_code,
             content=_build_http_exception_response(exc),
+            headers=headers,
         )
 
     @app.exception_handler(RequestValidationError)
@@ -277,11 +279,18 @@ def _build_http_exception_response(exc: HTTPException | StarletteHTTPException) 
     """HTTPException 상세값을 표준 에러 응답 본문으로 변환한다."""
     detail = exc.detail
     if isinstance(detail, dict):
-        error_code = detail.get("error") or _default_error_code(exc.status_code)
+        error_val = detail.get("error")
+        if isinstance(error_val, dict):
+            error_code = error_val.get("code") or _default_error_code(exc.status_code)
+            error_detail = detail.get("detail") or error_val.get("detail")
+            field = detail.get("field") or error_val.get("field")
+            retryable = detail.get("retryable") or error_val.get("retryable")
+        else:
+            error_code = error_val or _default_error_code(exc.status_code)
+            error_detail = detail.get("detail")
+            field = detail.get("field")
+            retryable = detail.get("retryable")
         message = detail.get("message") or _default_error_message(exc.status_code)
-        error_detail = detail.get("detail")
-        field = detail.get("field")
-        retryable = detail.get("retryable")
     else:
         error_code = _default_error_code(exc.status_code)
         message = str(detail) if detail else _default_error_message(exc.status_code)
