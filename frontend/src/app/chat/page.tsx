@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useTheme } from "next-themes";
 import { ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useApp } from "@/common/contexts/AppContext";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { FileTree } from "@/features/chat/components/FileTree";
 import { fetchJobStatus } from "@/features/analysis/api/api";
@@ -12,8 +12,8 @@ import type { WorkspaceReport } from "@/common/types/contracts";
 
 function ChatContent() {
   const searchParams = useSearchParams();
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const { theme } = useApp();
+  const isDark = theme === "dark";
   const repoId = searchParams.get("repo_id") || searchParams.get("job");
   const threadId = searchParams.get("thread");
   const preview = searchParams.get("preview") === "1";
@@ -46,7 +46,7 @@ function ChatContent() {
       <div className="flex min-h-0 flex-1">
         {sidebarOpen && (
           <div className="hidden h-full w-[280px] shrink-0 md:block">
-            <FileTree repoName={repoName} files={report?.files || []} activeFile={activeFile} onFileSelect={setActiveFile} className="border-r-0" />
+            <FileTree repoName={repoName} files={report?.files || []} entrypoints={report?.entrypoints || []} activeFile={activeFile} onFileSelect={setActiveFile} className="border-r-0" />
           </div>
         )}
         <div className="h-full min-w-0 flex-1">

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { WorkspaceReport as WorkspaceReportData } from "@/common/types/contracts";
 import { useApp } from "@/common/contexts/AppContext";
+import { StructureOverview } from "./StructureOverview";
 
 interface WorkspaceReportProps {
   report: WorkspaceReportData;
@@ -62,13 +63,6 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
               </div>
               <h1 className="text-xl font-bold tracking-tight md:text-2xl">{report.repository.name}</h1>
               <p className={`mt-2 text-sm leading-6 ${muted}`}>{report.executive_summary}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[...new Set([report.stats.primary_language, ...report.stack].filter(Boolean))].map((item) => (
-                  <span key={item} className={`rounded-lg border px-2.5 py-1 text-[10px] font-semibold ${isDark ? "border-zinc-700 bg-zinc-950 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
-                    {item}
-                  </span>
-                ))}
-              </div>
             </div>
             <div className={`flex min-w-40 items-center gap-3 rounded-2xl border p-3.5 ${isDark ? "border-zinc-800 bg-zinc-950/60" : "border-zinc-200 bg-zinc-50"}`}>
               <div className="relative flex size-12 items-center justify-center rounded-full bg-emerald-500/10">
@@ -93,6 +87,13 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
           })}
         </div>
       </section>
+
+      <StructureOverview
+        primaryLanguage={report.stats.primary_language}
+        stack={report.stack}
+        entrypoints={report.entrypoints}
+        onFileSelect={onFileSelect}
+      />
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <section className={`rounded-2xl border p-5 shadow-sm ${card}`}>
