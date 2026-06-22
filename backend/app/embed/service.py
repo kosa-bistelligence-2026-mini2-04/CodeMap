@@ -16,6 +16,7 @@ RAG_EMBED_SPEC.md 구현 노트:
   - 타이밍 로그: [단계별 소요시간] 형태로 기록
 """
 
+import asyncio
 import logging
 import time
 from uuid import UUID
@@ -43,8 +44,17 @@ settings = get_settings()
 # 100개 단위 배치 API 호출 + tenacity 지수 백오프
 # ──────────────────────────────────────────────────────────────
 
+# 재시도 대상 예외: OpenAI API 통신 오류(rate limit, 일시 장애)에만 한정한다.
+# 로직 오류(ValueError, KeyError 등)는 재시도 없이 즉시 실패해야 한다.
+try:
+    from openai import APIError as _OpenAIAPIError
+    _RETRYABLE_ERRORS = (_OpenAIAPIError,)
+except ImportError:  # openai 미설치 환경 (CI 등)
+    _RETRYABLE_ERRORS = (Exception,)  # type: ignore[assignment]
+
+
 @retry(
-    retry=retry_if_exception_type(Exception),
+    retry=retry_if_exception_type(_RETRYABLE_ERRORS),
     stop=stop_after_attempt(settings.EMBEDDING_MAX_RETRIES),
     wait=wait_exponential(multiplier=1, min=1, max=8),
     reraise=True,
@@ -55,14 +65,14 @@ async def _embed_batch(texts: list[str]) -> list[list[float]]:
 
     tenacity 데코레이터로 지수 백오프 재시도 적용:
       1회 실패 → 1초, 2회 → 2초, 3회 → 4초 (RAG_EMBED_SPEC.md)
+      재시도 대상: openai.APIError (rate limit, 일시 장애) 한정
+      로직 오류(ValueError 등)는 즉시 reraise한다.
     """
-    import asyncio
-
     from langchain_openai import OpenAIEmbeddings
 
     embedder = OpenAIEmbeddings(
-        model=settings.EMBEDDING_MODEL,          # text-embedding-3-large
-        dimensions=settings.EMBEDDING_DIMENSIONS,  # 1536 (마트료시카 축소)
+        model=settings.EMBEDDING_MODEL,           # text-embedding-3-large
+        dimensions=settings.EMBEDDING_DIMENSIONS, # 1536 (마트료시카 축소)
         api_key=settings.OPENAI_API_KEY.get_secret_value(),
     )
     # LangChain의 aembed_documents는 비동기 배치 임베딩을 지원한다.
