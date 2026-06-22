@@ -9,9 +9,15 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app.core.exceptions import register_exception_handlers
-from app.list.models import AnalysisJobDetailModel, AnalysisJobListModel
+from app.list.models import AnalysisJobDetailModel, AnalysisJobListModel, AnalysisJobStatusUpdateModel
 from app.list.router import router as list_router
-from app.list.service import AnalysisJobDetailResult, AnalysisJobListResult, get_list_service
+from app.list.service import (
+    AnalysisJobDetailResult,
+    AnalysisJobListResult,
+    AnalysisJobStatusUpdateResult,
+    ListService,
+    get_list_service,
+)
 from app.list.websocket import ws_router
 import app.list.websocket as list_websocket
 
@@ -22,9 +28,11 @@ TEST_UPDATED_AT = datetime(2026, 6, 18, 2, 3, 30, tzinfo=timezone.utc)
 
 
 class FakeListService:
-    def __init__(self, *, fail: bool = False, missing_detail: bool = False):
+    def __init__(self, *, fail: bool = False, missing_detail: bool = False, missing_status: bool = False):
         self.fail = fail
         self.missing_detail = missing_detail
+        self.missing_status = missing_status
+        self.status_update_args = None
 
     async def get_analysis_jobs(self, page: int, limit: int) -> AnalysisJobListResult:
         if self.fail:
@@ -65,6 +73,37 @@ class FakeListService:
                 progress=45,
                 message="코드 구조를 분석하는 중입니다.",
                 created_at=TEST_CREATED_AT,
+                updated_at=TEST_UPDATED_AT,
+            )
+        )
+
+    async def update_analysis_job_status(
+        self,
+        job_id: UUID,
+        status: str,
+        current_step: str | None,
+        progress: int,
+        message: str | None,
+        error_message: str | None,
+    ) -> AnalysisJobStatusUpdateResult:
+        if self.fail:
+            raise RuntimeError("database unavailable")
+        self.status_update_args = {
+            "job_id": job_id,
+            "status": status,
+            "current_step": current_step,
+            "progress": progress,
+            "message": message,
+            "error_message": error_message,
+        }
+        if self.missing_status:
+            return AnalysisJobStatusUpdateResult(job=None)
+        return AnalysisJobStatusUpdateResult(
+            job=AnalysisJobStatusUpdateModel(
+                job_id=job_id,
+                status=status,
+                current_step=current_step,
+                progress=progress,
                 updated_at=TEST_UPDATED_AT,
             )
         )
@@ -167,6 +206,170 @@ class ProjectListApi004Tests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json()["error"]["code"], "DATABASE_ERROR")
+
+
+class ProjectListApi006Tests(unittest.TestCase):
+    def test_patch_analysis_status_returns_updated_job_status(self):
+        service = FakeListService()
+        client = create_rest_client(service)
+
+        response = client.patch(
+            f"/api/list/analysis/{TEST_JOB_ID}/status",
+            headers={"Authorization": "Bearer service-token"},
+            json={
+                "status": "failed",
+                "currentStep": "CODE_MAP",
+                "progress": 45,
+                "message": "analysis failed",
+                "errorMessage": "File limit exceeded during parse stage.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["code"], 200)
+        self.assertEqual(body["message"], "success")
+        self.assertEqual(body["data"]["jobId"], str(TEST_JOB_ID))
+        self.assertEqual(body["data"]["status"], "failed")
+        self.assertEqual(body["data"]["currentStep"], "CODE_MAP")
+        self.assertEqual(body["data"]["progress"], 45)
+        self.assertEqual(service.status_update_args["job_id"], TEST_JOB_ID)
+        self.assertEqual(service.status_update_args["error_message"], "File limit exceeded during parse stage.")
+
+    def test_patch_analysis_status_rejects_invalid_job_id(self):
+        client = create_rest_client(FakeListService())
+
+        response = client.patch(
+            "/api/list/analysis/not-a-uuid/status",
+            headers={"Authorization": "Bearer service-token"},
+            json={"status": "running", "progress": 45},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["code"], "INVALID_JOB_ID")
+
+    def test_patch_analysis_status_requires_authorization(self):
+        client = create_rest_client(FakeListService())
+
+        response = client.patch(
+            f"/api/list/analysis/{TEST_JOB_ID}/status",
+            json={"status": "running", "progress": 45},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["error"]["code"], "UNAUTHORIZED")
+
+    def test_patch_analysis_status_rejects_unknown_status(self):
+        client = create_rest_client(FakeListService())
+
+        response = client.patch(
+            f"/api/list/analysis/{TEST_JOB_ID}/status",
+            headers={"Authorization": "Bearer service-token"},
+            json={"status": "paused", "progress": 45},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["code"], "INVALID_STATUS")
+
+    def test_patch_analysis_status_rejects_out_of_range_progress(self):
+        client = create_rest_client(FakeListService())
+
+        response = client.patch(
+            f"/api/list/analysis/{TEST_JOB_ID}/status",
+            headers={"Authorization": "Bearer service-token"},
+            json={"status": "running", "progress": 101},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"]["code"], "INVALID_PROGRESS")
+
+    def test_patch_analysis_status_returns_not_found_for_missing_job(self):
+        client = create_rest_client(FakeListService(missing_status=True))
+
+        response = client.patch(
+            f"/api/list/analysis/{TEST_JOB_ID}/status",
+            headers={"Authorization": "Bearer service-token"},
+            json={"status": "running", "progress": 45},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["error"]["code"], "JOB_NOT_FOUND")
+
+    def test_patch_analysis_status_maps_service_failure_to_database_error(self):
+        client = create_rest_client(FakeListService(fail=True))
+
+        response = client.patch(
+            f"/api/list/analysis/{TEST_JOB_ID}/status",
+            headers={"Authorization": "Bearer service-token"},
+            json={"status": "running", "progress": 45},
+        )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.json()["error"]["code"], "DATABASE_ERROR")
+
+
+class FakeStatusRepository:
+    def __init__(self):
+        self.update_args = None
+
+    async def update_analysis_job_status(
+        self,
+        job_id: UUID,
+        status: str,
+        current_step: str | None,
+        progress: int,
+        message: str | None,
+    ):
+        self.update_args = {
+            "job_id": job_id,
+            "status": status,
+            "current_step": current_step,
+            "progress": progress,
+            "message": message,
+        }
+        return AnalysisJobStatusUpdateModel(
+            job_id=job_id,
+            status=status,
+            current_step=current_step,
+            progress=progress,
+            updated_at=TEST_UPDATED_AT,
+        )
+
+
+class ProjectListStatusServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_update_status_maps_api_status_to_database_status(self):
+        service = ListService(db=None)
+        repository = FakeStatusRepository()
+        service.repository = repository
+
+        result = await service.update_analysis_job_status(
+            job_id=TEST_JOB_ID,
+            status="queued",
+            current_step="CLONE",
+            progress=0,
+            message="cloned",
+            error_message=None,
+        )
+
+        self.assertEqual(repository.update_args["status"], "CLONED")
+        self.assertEqual(result.job.status, "CLONED")
+
+    async def test_update_failed_status_stores_error_message_first(self):
+        service = ListService(db=None)
+        repository = FakeStatusRepository()
+        service.repository = repository
+
+        await service.update_analysis_job_status(
+            job_id=TEST_JOB_ID,
+            status="failed",
+            current_step="CODE_MAP",
+            progress=45,
+            message="user-facing message",
+            error_message="File limit exceeded during parse stage.",
+        )
+
+        self.assertEqual(repository.update_args["status"], "FAILED")
+        self.assertEqual(repository.update_args["message"], "File limit exceeded during parse stage.")
 
 
 @dataclass
