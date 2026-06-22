@@ -12,7 +12,12 @@ pgvector(PostgreSQL)에 배치 upsert한다.
     → chunks가 없는 빈 파일(__init__.py 등)도 노드가 생성되므로
       Dependency FK 제약 위반(ForeignKeyViolation) 없이 import 관계를 저장할 수 있다.
     → Dependency는 FILE 노드들의 ID 간에 관계를 맺는 것이 정석이다.
-  - CHUNK 노드는 FILE 대표 노드 생성 후에 삽입한다.
+
+  - 실제 PostgreSQL upsert 사용 (INSERT ... ON CONFLICT DO UPDATE):
+    → 같은 (job_id, path, chunk_index) 조합으로 파이프라인을 재실행해도
+      IntegrityError 없이 embedding 벡터가 갱신된다.
+    → force_reembed=False 상태에서 재시도·재실행이 안전하다.
+
   - file.file_type은 Enum 또는 str이 모두 올 수 있으므로
     getattr(file.file_type, 'value', file.file_type) 으로 안전하게 처리한다.
 """
@@ -22,6 +27,7 @@ import uuid
 from uuid import UUID
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.embed.models import CodeNode, Dependency
@@ -42,182 +48,199 @@ class EmbedRepository:
         self.db = db
 
     # ──────────────────────────────────────────────────────────
-    # 배치 저장: 파일 대표 노드 + 청크 노드 → code_nodes 테이블 upsert
+    # 배치 upsert: 파일 대표 노드 + 청크 노드 → code_nodes 테이블
     # ──────────────────────────────────────────────────────────
     async def save_to_pgvector(self, job_id: UUID, files: list[ParsedFile]) -> int:
         """
-        임베딩이 완료된 ParsedFile 목록을 pgvector에 배치 저장(upsert)한다.
+        임베딩이 완료된 ParsedFile 목록을 pgvector에 배치 upsert한다.
 
-        저장 순서 (중요):
-          1. 파일당 대표 CodeNode(type="FILE") 1개 먼저 삽입
-             → chunks가 없는 빈 파일도 노드 생성 보장
-             → Dependency FK 참조 시 항상 대상 레코드가 존재함
-          2. 각 파일의 CHUNK 노드들을 100개 단위 배치 삽입
+        PostgreSQL INSERT ... ON CONFLICT DO UPDATE 를 사용하므로
+        동일 (job_id, path, chunk_index) 조합으로 파이프라인을 재실행해도
+        IntegrityError 없이 embedding 벡터가 최신 값으로 갱신된다.
+
+        저장 순서 (FK 참조 순서 유지):
+          1. 파일당 대표 CodeNode(type="FILE", chunk_index=-1) upsert — FILE 노드 보장
+          2. CHUNK CodeNode 100개 단위 배치 upsert
+          3. ParsedFile.imports → FILE 노드 ID 간 Dependency upsert
 
         Args:
             job_id: 분석 작업 ID (AnalysisJob.id)
             files:  임베딩이 채워진 ParsedFile 목록
 
         Returns:
-            저장된 CHUNK CodeNode 행 수 (FILE 대표 노드는 별도 계산)
+            upsert된 CHUNK CodeNode 행 수 (FILE 대표 노드 제외)
         """
-        # ── 1단계: 파일 대표 노드 선 삽입 + path→file_node_id 맵 구성
-        # Dependency 저장 시 source/target을 FILE 노드로 참조하기 위해 맵을 보존한다.
+        # ── 1단계: 파일 대표 노드 upsert + path→id 맵 구성
         file_node_map: dict[str, UUID] = {}  # path → CodeNode.id
 
-        file_nodes: list[CodeNode] = []
+        file_node_rows: list[dict] = []
         for file in files:
-            # file_type은 Enum 인스턴스 또는 직렬화된 str이 모두 올 수 있으므로
-            # getattr로 안전하게 값을 추출한다. (AttributeError 방지)
             file_type_value = getattr(file.file_type, "value", file.file_type)
-
             file_node_id = uuid.uuid4()
             file_node_map[file.path] = file_node_id
-            file_nodes.append(
-                CodeNode(
-                    id=file_node_id,
-                    job_id=job_id,
-                    path=file.path,
-                    type=file_type_value,   # "FILE" or "DIRECTORY"
-                    depth=file.depth,
-                    chunk_index=-1,         # -1: 대표 파일 노드임을 구분
-                    content=None,
-                    summary=file.summary,
-                    embedding=None,         # 파일 대표 노드는 임베딩 없음
-                    file_metadata={"is_file_node": True},
-                    language=file.language,
-                )
-            )
+            file_node_rows.append({
+                "id": file_node_id,
+                "job_id": job_id,
+                "path": file.path,
+                "type": file_type_value,
+                "depth": file.depth,
+                "chunk_index": -1,              # -1: 대표 파일 노드 구분자
+                "content": None,
+                "summary": file.summary,
+                "embedding": None,              # 파일 대표 노드는 임베딩 없음
+                "file_metadata": {"is_file_node": True},
+                "language": file.language,
+            })
 
-        if file_nodes:
-            self.db.add_all(file_nodes)
-            await self.db.flush()
+        if file_node_rows:
+            await self._upsert_nodes(file_node_rows, conflict_update_cols=["summary", "language"])
             logger.info(
-                "[임베딩 저장] job=%s | 파일 대표 노드 %d개 삽입 완료",
-                job_id, len(file_nodes),
+                "[임베딩 저장] job=%s | 파일 대표 노드 %d개 upsert 완료",
+                job_id, len(file_node_rows),
             )
 
-        # ── 2단계: CHUNK 노드 100개 단위 배치 삽입
+        # ── 2단계: CHUNK 노드 100개 단위 배치 upsert
         saved = 0
-        nodes_batch: list[CodeNode] = []
+        chunk_batch: list[dict] = []
 
         for file in files:
             for chunk in (file.chunks or []):
-                metadata = {
-                    "start_line": chunk.start_line,
-                    "end_line": chunk.end_line,
-                    "chunk_type": chunk.chunk_type,
-                    "symbol": chunk.symbol,
-                }
-                node = CodeNode(
-                    id=uuid.uuid4(),
-                    job_id=job_id,
-                    path=file.path,
-                    type="CHUNK",
-                    depth=file.depth,
-                    chunk_index=chunk.chunk_index,
-                    content=chunk.content,
-                    summary=chunk.content,      # 현 단계에서는 원문 = 임베딩 입력
-                    embedding=chunk.embedding,  # generate_embeddings() 후 채워짐
-                    file_metadata=metadata,
-                    language=file.language,
-                )
-                nodes_batch.append(node)
+                chunk_batch.append({
+                    "id": uuid.uuid4(),
+                    "job_id": job_id,
+                    "path": file.path,
+                    "type": "CHUNK",
+                    "depth": file.depth,
+                    "chunk_index": chunk.chunk_index,
+                    "content": chunk.content,
+                    "summary": chunk.content,        # 현 단계에서는 원문 = 임베딩 입력
+                    "embedding": chunk.embedding,    # generate_embeddings() 후 채워짐
+                    "file_metadata": {
+                        "start_line": chunk.start_line,
+                        "end_line": chunk.end_line,
+                        "chunk_type": chunk.chunk_type,
+                        "symbol": chunk.symbol,
+                    },
+                    "language": file.language,
+                })
 
-                # 100개 단위 배치 flush
-                if len(nodes_batch) >= 100:
-                    self.db.add_all(nodes_batch)
-                    await self.db.flush()
-                    saved += len(nodes_batch)
-                    logger.info(
-                        "[임베딩 저장] job=%s | %d개 청크 flush 완료 (누계: %d)",
-                        job_id, len(nodes_batch), saved,
+                if len(chunk_batch) >= 100:
+                    await self._upsert_nodes(
+                        chunk_batch,
+                        conflict_update_cols=["embedding", "content", "summary", "file_metadata"],
                     )
-                    nodes_batch = []
+                    saved += len(chunk_batch)
+                    logger.info(
+                        "[임베딩 저장] job=%s | %d개 청크 upsert 완료 (누계: %d)",
+                        job_id, len(chunk_batch), saved,
+                    )
+                    chunk_batch = []
 
-        # 잔여 배치 처리
-        if nodes_batch:
-            self.db.add_all(nodes_batch)
-            await self.db.flush()
-            saved += len(nodes_batch)
+        if chunk_batch:
+            await self._upsert_nodes(
+                chunk_batch,
+                conflict_update_cols=["embedding", "content", "summary", "file_metadata"],
+            )
+            saved += len(chunk_batch)
             logger.info(
-                "[임베딩 저장] job=%s | 잔여 %d개 청크 flush 완료 (총 %d개 청크)",
-                job_id, len(nodes_batch), saved,
+                "[임베딩 저장] job=%s | 잔여 %d개 청크 upsert 완료 (총 %d개 청크)",
+                job_id, len(chunk_batch), saved,
             )
 
-        # ── 3단계: import 관계(Dependency) 저장
-        # ParsedFile.imports 목록을 FILE 대표 노드 ID 간 관계로 변환한다.
-        await self._save_imports_as_dependencies(job_id, files, file_node_map)
+        # ── 3단계: import 관계(Dependency) upsert
+        await self._upsert_imports(job_id, files, file_node_map)
 
         return saved
 
-    async def _save_imports_as_dependencies(
+    async def _upsert_nodes(
+        self,
+        rows: list[dict],
+        conflict_update_cols: list[str],
+    ) -> None:
+        """
+        code_nodes 테이블에 PostgreSQL upsert를 수행한다.
+
+        충돌 기준: UNIQUE (job_id, path, chunk_index)
+        충돌 시: conflict_update_cols의 컬럼만 최신 값으로 갱신한다.
+        """
+        stmt = pg_insert(CodeNode).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            constraint="uq_code_nodes_job_path_chunk",
+            set_={col: stmt.excluded[col] for col in conflict_update_cols},
+        )
+        await self.db.execute(stmt)
+        await self.db.flush()
+
+    async def _upsert_imports(
         self,
         job_id: UUID,
         files: list[ParsedFile],
         file_node_map: dict[str, UUID],
     ) -> int:
         """
-        ParsedFile.imports 목록을 code_dependencies 테이블에 저장한다.
+        ParsedFile.imports를 code_dependencies 테이블에 upsert한다.
 
-        FILE 대표 노드(type="FILE") 간에 관계를 맺는다.
+        FILE 대표 노드 ID 간에 관계를 맺는다.
         import 대상이 file_node_map에 없는 경우(외부 패키지 등)는 건너뛴다.
-
-        Args:
-            job_id:        분석 작업 ID (로그용)
-            files:         ParsedFile 목록
-            file_node_map: path → CodeNode.id 맵 (FILE 대표 노드)
-
-        Returns:
-            저장된 Dependency 행 수
         """
-        dep_rows: list[Dependency] = []
+        dep_rows: list[dict] = []
         skipped = 0
 
         for file in files:
             source_id = file_node_map.get(file.path)
             if source_id is None:
-                continue  # 대표 노드가 없는 경우는 건너뜀 (방어 코드)
+                continue
 
             for import_path in (file.imports or []):
                 target_id = file_node_map.get(import_path)
                 if target_id is None:
-                    # 저장소 외부 패키지나 아직 파싱되지 않은 파일 → 건너뜀
                     skipped += 1
                     continue
                 if source_id == target_id:
                     continue  # 자기 자신 참조 방지
 
-                dep_rows.append(
-                    Dependency(source_id=source_id, target_id=target_id, relation="import")
-                )
+                dep_rows.append({
+                    "source_id": source_id,
+                    "target_id": target_id,
+                    "relation": "import",
+                })
 
         if dep_rows:
-            self.db.add_all(dep_rows)
+            stmt = pg_insert(Dependency).values(dep_rows)
+            stmt = stmt.on_conflict_do_nothing(
+                index_elements=["source_id", "target_id"],
+            )
+            await self.db.execute(stmt)
             await self.db.flush()
 
         logger.info(
-            "[의존성 저장] job=%s | %d개 Dependency 저장 (외부 참조 %d건 스킵)",
+            "[의존성 저장] job=%s | %d개 Dependency upsert (외부 참조 %d건 스킵)",
             job_id, len(dep_rows), skipped,
         )
         return len(dep_rows)
 
     # ──────────────────────────────────────────────────────────
-    # 기존 임베딩 삭제 (forceReembed=true 시 호출)
+    # 기존 임베딩 삭제 (force_reembed=True 시 호출)
     # ──────────────────────────────────────────────────────────
     async def delete_by_job(self, job_id: UUID) -> int:
         """
         특정 분석 작업의 모든 CodeNode(임베딩)를 삭제한다.
 
-        forceReembed=true 시 service에서 먼저 이 메서드를 호출한 뒤
+        force_reembed=True 시 service에서 먼저 이 메서드를 호출한 뒤
         save_to_pgvector()로 재삽입한다.
-        CASCADE 설정으로 code_dependencies도 연쇄 삭제된다.
+        ON DELETE CASCADE 설정으로 code_dependencies도 연쇄 삭제된다.
+
+        Note: force_reembed=False 재실행 시에도 save_to_pgvector의 upsert가
+              충돌 없이 동작하므로 반드시 이 메서드를 호출할 필요는 없다.
         """
         result = await self.db.execute(
             delete(CodeNode).where(CodeNode.job_id == job_id)
         )
         deleted = result.rowcount
-        logger.info("[임베딩 삭제] job=%s | %d개 CodeNode 삭제 완료 (Dependency 연쇄 삭제 포함)", job_id, deleted)
+        logger.info(
+            "[임베딩 삭제] job=%s | %d개 CodeNode 삭제 완료 (Dependency 연쇄 삭제 포함)",
+            job_id, deleted,
+        )
         return deleted
 
     # ──────────────────────────────────────────────────────────
@@ -231,7 +254,7 @@ class EmbedRepository:
         return result.scalar_one_or_none() is not None
 
     # ──────────────────────────────────────────────────────────
-    # 외부 호출용 의존성 저장 (직접 ID 쌍을 아는 경우)
+    # 외부 호출용 의존성 직접 저장
     # ──────────────────────────────────────────────────────────
     async def save_dependencies(self, deps: list[tuple[UUID, UUID, str]]) -> int:
         """
@@ -239,16 +262,16 @@ class EmbedRepository:
 
         Note: 일반적으로 save_to_pgvector()가 내부적으로 import 관계를 처리하므로
               이 메서드는 외부에서 ID 쌍을 직접 알고 있는 경우에만 사용한다.
-
-        Args:
-            deps: (source_id, target_id, relation) 튜플 목록
         """
+        if not deps:
+            return 0
         rows = [
-            Dependency(source_id=src, target_id=tgt, relation=rel)
+            {"source_id": src, "target_id": tgt, "relation": rel}
             for src, tgt, rel in deps
         ]
-        if rows:
-            self.db.add_all(rows)
-            await self.db.flush()
-        logger.info("[의존성 저장] %d개 Dependency 저장 완료 (직접 호출)", len(rows))
+        stmt = pg_insert(Dependency).values(rows)
+        stmt = stmt.on_conflict_do_nothing(index_elements=["source_id", "target_id"])
+        await self.db.execute(stmt)
+        await self.db.flush()
+        logger.info("[의존성 저장] %d개 Dependency upsert 완료 (직접 호출)", len(rows))
         return len(rows)
