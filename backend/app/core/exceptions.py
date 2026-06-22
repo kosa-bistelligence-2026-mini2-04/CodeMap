@@ -105,6 +105,13 @@ class JobNotFoundError(CodeMapException):
         super().__init__(404, "JOB_NOT_FOUND", message)
 
 
+class ParseResultNotFoundError(CodeMapException):
+    """분석 결과(report_json)가 아직 생성되지 않았을 때 발생 (404)"""
+
+    def __init__(self, message: str = "분석 결과가 아직 생성되지 않았습니다."):
+        super().__init__(404, "PARSE_RESULT_NOT_FOUND", message)
+
+
 class InternalError(CodeMapException):
     """서버 내부 오류 (500)"""
 
