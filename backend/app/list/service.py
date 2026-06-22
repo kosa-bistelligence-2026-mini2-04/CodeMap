@@ -141,7 +141,7 @@ class ListService:
                     is_valid=False,
                     file_count=0,
                     total_size_kb=0,
-                    warning_message="저장소가 너무 커서 GitHub API가 파일 목록을 잉룬(트랰케이트)했습니다. 세부 파일 필터링 없이 전체 분석이 불가하묹니다.",
+                    warning_message="저장소가 너무 커서 GitHub API가 파일 목록을 누락(트렁케이트)했습니다. 세부 파일 필터링 없이 전체 분석이 불가능합니다.",
                 ),
             )
 
