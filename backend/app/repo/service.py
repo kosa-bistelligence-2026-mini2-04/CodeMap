@@ -405,7 +405,9 @@ class AnalysisService:
                 message="저장소 clone 중 오류가 발생했습니다.",
             )
             await self.db.commit()
-            raise CloneFailedError(str(exc) or "저장소 clone 중 오류가 발생했습니다.") from exc
+            # raw git stderr(자격증명 박힌 URL/내부 경로 포함 가능)는 응답에 노출하지 않는다.
+            # 상세는 위 logger.exception에 남고, 사용자에겐 일반 메시지만 반환한다. (#54)
+            raise CloneFailedError("저장소 clone 중 오류가 발생했습니다.") from exc
 
     async def _run_git_clone(
         self,
@@ -417,8 +419,15 @@ class AnalysisService:
         import subprocess
 
         def _do_clone() -> subprocess.CompletedProcess:
+            # branch가 "default"(미입력 센티넬)면 --branch를 빼서 git이 원격 기본 브랜치를
+            # 자동 선택하게 한다. nodes.py clone_node와 동일 가드. positional 앞 "--"로
+            # "-"로 시작하는 url/branch가 옵션으로 해석되는 것을 차단한다. (#54)
+            cmd = ["git", "clone", "--depth", "1"]
+            if branch and branch != "default":
+                cmd += ["--branch", branch]
+            cmd += ["--", repo_url, str(clone_path)]
             proc = subprocess.Popen(
-                ["git", "clone", "--depth", "1", "--branch", branch, repo_url, str(clone_path)],
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
