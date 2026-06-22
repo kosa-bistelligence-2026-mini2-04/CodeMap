@@ -1,17 +1,16 @@
-"""RAG-PARSE B-204/B-205: 설정 파일 탐색 + 실행 방법 추론.
+"""RAG-PARSE B-204/B-205/B-206: 설정 파일 탐색 + 실행 방법·기술 스택 추론.
 
 - B-204 tag_config_files: package.json/requirements.txt/Dockerfile 등 설정 파일을
   식별해 metadata["is_config"]=True로 태깅한다.
 - B-205 extract_run_commands: 설정 파일을 기반으로 설치·실행 명령을 추론한다.
-명세: docs/03_Specifications/02_RAG/spec/RAG_PARSE_SPEC.md (B-204, B-205)
-
-NOTE: 같은 manifest 영역의 B-206(기술 스택 추론, detect_tech_stack)은 단위를 분리해
-후속 PR로 이 모듈에 이어서 추가한다.
+- B-206 detect_tech_stack: 의존성 매니페스트에서 프레임워크·런타임·DB를 추론한다.
+명세: docs/03_Specifications/02_RAG/spec/RAG_PARSE_SPEC.md (B-204, B-205, B-206)
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from app.parse.schemas import ParsedFile
@@ -137,3 +136,86 @@ async def extract_run_commands(files: list[ParsedFile]) -> list[str]:
         commands.append("docker build -t app .")
 
     return commands
+
+
+# ── B-206: 기술 스택 추론 ───────────────────────────────────────────────
+# Node 의존성(package.json) → 기술명
+_NODE_DEP_TO_TECH = {
+    "next": "Next.js", "react": "React", "vue": "Vue", "@angular/core": "Angular",
+    "svelte": "Svelte", "nuxt": "Nuxt", "express": "Express",
+    "@nestjs/core": "NestJS", "typescript": "TypeScript", "vite": "Vite",
+    "tailwindcss": "Tailwind CSS", "prisma": "Prisma",
+}
+# Python 의존성(requirements.txt/pyproject.toml) → 기술명. DB 드라이버도 포함.
+_PY_DEP_TO_TECH = {
+    "fastapi": "FastAPI", "django": "Django", "flask": "Flask",
+    "starlette": "Starlette", "uvicorn": "Uvicorn", "gunicorn": "Gunicorn",
+    "sqlalchemy": "SQLAlchemy", "pydantic": "Pydantic", "langchain": "LangChain",
+    "pandas": "pandas", "numpy": "NumPy", "torch": "PyTorch", "tensorflow": "TensorFlow",
+    # DB 드라이버 → DB
+    "asyncpg": "PostgreSQL", "psycopg": "PostgreSQL", "psycopg2": "PostgreSQL",
+    "pymysql": "MySQL", "mysqlclient": "MySQL", "pymongo": "MongoDB", "redis": "Redis",
+}
+
+
+def _requirements_packages(content: str | None) -> set[str]:
+    """requirements.txt content에서 패키지명 집합 추출 (버전/주석/옵션 제거)."""
+    pkgs: set[str] = set()
+    for raw in (content or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith(("#", "-")):
+            continue
+        # fastapi==0.115.0 / sqlalchemy>=2.0 / pkg[extra]==1.0 → 이름만
+        name = re.split(r"[=<>!~;\[\] ]", line, maxsplit=1)[0].strip().lower()
+        if name:
+            pkgs.add(name)
+    return pkgs
+
+
+def _package_deps(node: ParsedFile) -> set[str]:
+    """package.json content에서 dependencies+devDependencies 키 집합 추출."""
+    try:
+        data = json.loads(node.content or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return set()
+    deps: set[str] = set()
+    if isinstance(data, dict):
+        for key in ("dependencies", "devDependencies"):
+            section = data.get(key)
+            if isinstance(section, dict):
+                deps.update(k.lower() for k in section)
+    return deps
+
+
+async def detect_tech_stack(files: list[ParsedFile]) -> list[str]:
+    """의존성 매니페스트에서 프레임워크·런타임·DB를 추론한다 (RAG-PARSE-B-206).
+
+    package.json(dependencies/devDependencies)·requirements.txt·pyproject.toml의
+    의존성 이름을 알려진 기술명으로 매핑한다. 정렬된 중복 없는 목록을 반환한다.
+    순수 로직이라 async만 유지(I/O 없음) — find_entry_points와 정합.
+    """
+    file_nodes = {
+        Path(f.path).name.lower(): f for f in files if f.file_type == "FILE"
+    }
+    stack: set[str] = set()
+
+    # Node — package.json 의존성
+    if "package.json" in file_nodes:
+        for dep in _package_deps(file_nodes["package.json"]):
+            tech = _NODE_DEP_TO_TECH.get(dep)
+            if tech:
+                stack.add(tech)
+
+    # Python — requirements.txt / pyproject.toml
+    if "requirements.txt" in file_nodes:
+        for pkg in _requirements_packages(file_nodes["requirements.txt"].content):
+            tech = _PY_DEP_TO_TECH.get(pkg)
+            if tech:
+                stack.add(tech)
+    if "pyproject.toml" in file_nodes:
+        content = (file_nodes["pyproject.toml"].content or "").lower()
+        for pkg, tech in _PY_DEP_TO_TECH.items():
+            if re.search(rf"(^|[\"'\s]){re.escape(pkg)}([\"'\s=<>~]|$)", content):
+                stack.add(tech)
+
+    return sorted(stack)
