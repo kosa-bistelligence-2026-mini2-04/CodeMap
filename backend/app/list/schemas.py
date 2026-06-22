@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.schemas import ErrorResponse
+
 
 class AnalysisJobItem(BaseModel):
     """분석 작업 목록의 단일 항목 DTO입니다."""
@@ -64,24 +66,6 @@ class AnalysisJobDetailResponse(BaseModel):
     code: int = Field(default=200, description="HTTP 상태 코드")
     message: str = Field(default="success", description="응답 메시지")
     data: AnalysisJobDetailData
-
-
-class ErrorDetail(BaseModel):
-    """PROJECT-LIST 공통 에러 상세 DTO입니다."""
-
-    code: str = Field(description="도메인 에러 코드")
-    detail: Optional[str] = Field(default=None, description="디버깅용 안전 상세 정보")
-    field: Optional[str] = Field(default=None, description="오류가 발생한 요청 필드")
-    retryable: bool = Field(description="자동 재시도 가능 여부")
-
-
-class ErrorResponse(BaseModel):
-    """PROJECT-LIST 공통 에러 응답 DTO입니다."""
-
-    code: int = Field(description="HTTP 상태 코드")
-    message: str = Field(description="사용자 표시용 에러 메시지")
-    data: None = Field(default=None, description="에러 응답에서는 항상 null")
-    error: ErrorDetail
 
 
 class AnalysisProgressMessage(BaseModel):

@@ -8,6 +8,7 @@ API 명세서에 정의된 에러 코드(INVALID_REPO_URL, REPOSITORY_NOT_FOUND 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 # ──────────────────────────────────────────────
@@ -164,10 +165,23 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(HTTPException)
-    async def http_exception_handler(
+    async def fastapi_http_exception_handler(
         request: Request, exc: HTTPException
     ) -> JSONResponse:
-        """HTTPException 응답을 프로젝트 표준 에러 포맷으로 변환한다."""
+        """FastAPI HTTP 예외를 프로젝트 표준 에러 포맷으로 변환한다."""
+        return _http_exception_to_response(exc)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def starlette_http_exception_handler(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        """Starlette 라우팅 HTTP 예외를 프로젝트 표준 에러 포맷으로 변환한다."""
+        return _http_exception_to_response(exc)
+
+    def _http_exception_to_response(
+        exc: HTTPException | StarletteHTTPException,
+    ) -> JSONResponse:
+        """HTTP 예외 공통 변환 결과를 JSON 응답으로 감싼다."""
         detail = exc.detail
         if isinstance(detail, dict) and _is_standard_error_response(detail):
             return JSONResponse(status_code=exc.status_code, content=detail)
@@ -247,7 +261,7 @@ def _is_standard_error_response(detail: dict) -> bool:
     )
 
 
-def _build_http_exception_response(exc: HTTPException) -> dict:
+def _build_http_exception_response(exc: HTTPException | StarletteHTTPException) -> dict:
     """HTTPException 상세값을 표준 에러 응답 본문으로 변환한다."""
     detail = exc.detail
     if isinstance(detail, dict):
@@ -285,6 +299,7 @@ def _default_error_code(status_code: int) -> str:
         401: "UNAUTHORIZED",
         403: "FORBIDDEN",
         404: "NOT_FOUND",
+        405: "METHOD_NOT_ALLOWED",
         408: "REQUEST_TIMEOUT",
         409: "CONFLICT",
         413: "CONTENT_TOO_LARGE",
@@ -301,6 +316,7 @@ def _default_error_message(status_code: int) -> str:
         401: "인증이 필요합니다.",
         403: "접근 권한이 없습니다.",
         404: "요청한 리소스를 찾을 수 없습니다.",
+        405: "허용되지 않은 HTTP 메서드입니다.",
         408: "요청 처리 시간이 초과되었습니다.",
         409: "요청한 리소스 상태와 충돌이 발생했습니다.",
         413: "요청한 콘텐츠 크기가 제한을 초과했습니다.",
