@@ -13,6 +13,15 @@ pgvector(PostgreSQL)에 배치 upsert한다.
       Dependency FK 제약 위반(ForeignKeyViolation) 없이 import 관계를 저장할 수 있다.
     → Dependency는 FILE 노드들의 ID 간에 관계를 맺는 것이 정석이다.
 
+  - Deterministic UUID (uuid5) 정책:
+    → CodeNode의 id를 uuid5(job_id, "FILE:{path}") 또는 uuid5(job_id, "CHUNK:{path}:{idx}")
+      형태로 결정론적으로 생성한다.
+    → 재실행 시 동일 (job_id, path, chunk_index)에 대해 항상 같은 UUID가 생성된다.
+    → ON CONFLICT 충돌로 기존 row가 유지될 때 DB의 실제 id == file_node_map의 id가
+      항상 일치하므로 _upsert_imports()의 FK 참조가 항상 유효하다.
+    → uuid4(랜덤) 방식은 재실행 시 새 UUID를 생성해 file_node_map과 DB id가
+      불일치하여 Dependency FK 위반이 발생하는 문제를 완전히 차단한다.
+
   - 실제 PostgreSQL upsert 사용 (INSERT ... ON CONFLICT DO UPDATE):
     → 같은 (job_id, path, chunk_index) 조합으로 파이프라인을 재실행해도
       IntegrityError 없이 embedding 벡터가 갱신된다.
@@ -71,12 +80,19 @@ class EmbedRepository:
             upsert된 CHUNK CodeNode 행 수 (FILE 대표 노드 제외)
         """
         # ── 1단계: 파일 대표 노드 upsert + path→id 맵 구성
+        #
+        # [Deterministic UUID 정책]
+        # uuid5(job_id, "FILE:{path}")로 ID를 결정론적으로 생성한다.
+        # 재실행 시 동일 job_id + path에 대해 항상 같은 UUID가 생성되므로
+        # ON CONFLICT 후 DB에 남는 id == file_node_map의 id가 항상 일치한다.
+        # (uuid4 랜덤 방식은 재실행 시 file_node_map의 UUID ≠ DB id → FK 위반 발생)
         file_node_map: dict[str, UUID] = {}  # path → CodeNode.id
 
         file_node_rows: list[dict] = []
         for file in files:
             file_type_value = getattr(file.file_type, "value", file.file_type)
-            file_node_id = uuid.uuid4()
+            # uuid5: 같은 (job_id, path)이면 재실행해도 항상 동일한 UUID 반환
+            file_node_id = uuid.uuid5(job_id, f"FILE:{file.path}")
             file_node_map[file.path] = file_node_id
             file_node_rows.append({
                 "id": file_node_id,
@@ -105,8 +121,12 @@ class EmbedRepository:
 
         for file in files:
             for chunk in (file.chunks or []):
+                # CHUNK 노드도 deterministic UUID: 재실행 시 동일 row를 upsert
+                chunk_node_id = uuid.uuid5(
+                    job_id, f"CHUNK:{file.path}:{chunk.chunk_index}"
+                )
                 chunk_batch.append({
-                    "id": uuid.uuid4(),
+                    "id": chunk_node_id,
                     "job_id": job_id,
                     "path": file.path,
                     "type": "CHUNK",
