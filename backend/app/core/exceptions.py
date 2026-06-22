@@ -5,10 +5,15 @@ API 명세서에 정의된 에러 코드(INVALID_REPO_URL, REPOSITORY_NOT_FOUND 
 커스텀 예외 클래스와 FastAPI 전역 예외 핸들러를 제공한다.
 """
 
+import logging
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = logging.getLogger(__name__)
 
 
 # ──────────────────────────────────────────────
@@ -229,8 +234,6 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: Exception
     ) -> JSONResponse:
         """예상치 못한 예외를 처리하는 폴백 핸들러"""
-        import logging
-        logger = logging.getLogger(__name__)
         logger.exception("Unhandled exception", exc_info=exc)
         return JSONResponse(
             status_code=500,
@@ -280,7 +283,7 @@ def _build_http_exception_response(exc: HTTPException | StarletteHTTPException) 
     detail = exc.detail
     if isinstance(detail, dict):
         error_val = detail.get("error")
-        ## FastAPI의 RequestValidationError 등 일부 커스텀 핸들러 또는 외부 서드파티 라이브러리가
+        ## 외부 라이브러리나 커스텀 미들웨어 등이 HTTPException을 발생시키면서
         ## error 필드를 dict 형태로 내려보내는 특수 예외 상황에 대응하기 위한 방어적 분기 처리
         if isinstance(error_val, dict):
             error_code = error_val.get("code") or _default_error_code(exc.status_code)
