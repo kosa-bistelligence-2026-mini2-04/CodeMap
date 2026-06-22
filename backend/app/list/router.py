@@ -5,11 +5,13 @@
   - API-001: GET /api/list/analysis (전체 분석 이력 목록 조회)
 """
 import logging
+from secrets import compare_digest
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
+from app.core.config import get_settings
 from app.core.exceptions import build_error_response
 from app.list.schemas import (
     AnalysisJobDetailData,
@@ -24,7 +26,7 @@ from app.list.schemas import (
     PreValidateRequest,
     PreValidateResponse,
 )
-from app.list.service import ListserviceDep
+from app.list.service import ListServiceDep
 
 
 logger = logging.getLogger(__name__)
@@ -49,6 +51,31 @@ def verify_authorization(authorization: Annotated[str | None, Header()] = None) 
         )
 
 
+def verify_service_authorization(authorization: Annotated[str | None, Header()] = None) -> None:
+    """내부 서버 간 호출용 서비스 토큰이 설정값과 일치하는지 확인합니다."""
+    if authorization is None or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail=build_error_response(
+                status_code=401,
+                message="내부 서비스 토큰이 누락되었거나 올바르지 않습니다.",
+                error_code="UNAUTHORIZED",
+            ),
+        )
+
+    token = authorization[7:].strip()
+    expected_token = get_settings().SERVICE_TOKEN.strip()
+    if not token or not expected_token or not compare_digest(token, expected_token):
+        raise HTTPException(
+            status_code=401,
+            detail=build_error_response(
+                status_code=401,
+                message="내부 서비스 토큰이 누락되었거나 올바르지 않습니다.",
+                error_code="UNAUTHORIZED",
+            ),
+        )
+
+
 # ──────────────────────────────────────────────
 # API-001: 전체 분석 이력 목록 조회
 # GET /api/list/analysis
@@ -65,7 +92,7 @@ def verify_authorization(authorization: Annotated[str | None, Header()] = None) 
 )
 async def get_analysis_jobs(
     _: Annotated[None, Depends(verify_authorization)],
-    service: ListserviceDep,
+    service: ListServiceDep,
     page: Annotated[int, Query(ge=1, description="조회할 페이지 번호")] = 1,
     limit: Annotated[int, Query(ge=1, description="페이지당 반환할 이력 수")] = 10,
 ) -> AnalysisJobListResponse:
@@ -112,7 +139,7 @@ async def get_analysis_jobs(
 async def get_analysis_job_detail(
     job_id: str,
     _: Annotated[None, Depends(verify_authorization)],
-    service: ListserviceDep,
+    service: ListServiceDep,
 ) -> AnalysisJobDetailResponse:
     """PROJECT-LIST-API-004 명세에 맞춰 분석 작업 상세 응답을 반환합니다."""
     try:
@@ -176,8 +203,8 @@ async def get_analysis_job_detail(
 async def update_analysis_job_status(
     job_id: str,
     request: AnalysisJobStatusUpdateRequest,
-    _: Annotated[None, Depends(verify_authorization)],
-    service: ListserviceDep,
+    _: Annotated[None, Depends(verify_service_authorization)],
+    service: ListServiceDep,
 ) -> AnalysisJobStatusUpdateResponse:
     """PROJECT-LIST-API-006 명세에 맞춰 분석 작업 상태를 저장합니다."""
     try:
@@ -270,7 +297,7 @@ async def update_analysis_job_status(
 async def validate_repository(
     request: PreValidateRequest,
     _: Annotated[None, Depends(verify_authorization)],
-    service: ListserviceDep,
+    service: ListServiceDep,
 ) -> PreValidateResponse:
     """PROJECT-LIST-API-002 명세의 사전 검증 결과를 반환합니다."""
     return await service.validate_repository(

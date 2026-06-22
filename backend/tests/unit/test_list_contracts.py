@@ -259,6 +259,18 @@ class ProjectListApi006Tests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["error"]["code"], "UNAUTHORIZED")
 
+    def test_patch_analysis_status_rejects_wrong_service_token(self):
+        client = create_rest_client(FakeListService())
+
+        response = client.patch(
+            f"/api/list/analysis/{TEST_JOB_ID}/status",
+            headers={"Authorization": "Bearer anything"},
+            json={"status": "running", "progress": 45},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["error"]["code"], "UNAUTHORIZED")
+
     def test_patch_analysis_status_rejects_unknown_status(self):
         client = create_rest_client(FakeListService())
 

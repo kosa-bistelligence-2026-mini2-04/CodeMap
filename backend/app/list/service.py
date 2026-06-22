@@ -267,4 +267,4 @@ def get_list_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ListServic
 
 
 # 의존성 주입 타입 별칭은 파일 하단에 모아 관리합니다.
-ListserviceDep = Annotated[ListService, Depends(get_list_service)]
+ListServiceDep = Annotated[ListService, Depends(get_list_service)]
