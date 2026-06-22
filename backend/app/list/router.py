@@ -17,6 +17,9 @@ from app.list.schemas import (
     AnalysisJobItem,
     AnalysisJobListData,
     AnalysisJobListResponse,
+    AnalysisJobStatusUpdateData,
+    AnalysisJobStatusUpdateRequest,
+    AnalysisJobStatusUpdateResponse,
     ErrorResponse,
 )
 from app.list.service import ListserviceDep
@@ -27,6 +30,8 @@ logger = logging.getLogger(__name__)
 # APIRouter 인스턴스 생성
 # ──────────────────────────────────────────────
 router = APIRouter(prefix="/api/list", tags=["Project List"])
+
+ALLOWED_STATUS_VALUES = {"queued", "running", "completed", "failed"}
 
 
 def verify_authorization(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -149,4 +154,98 @@ async def get_analysis_job_detail(
         code=200,
         message="success",
         data=AnalysisJobDetailData.model_validate(result.job),
+    )
+
+
+# API-006: 분석 job 상태 저장
+# PATCH /api/list/analysis/{job_id}/status
+@router.patch(
+    "/analysis/{job_id}/status",
+    response_model=AnalysisJobStatusUpdateResponse,
+    summary="분석 job 상태 저장",
+    description="파이프라인 내부에서 분석 job 상태, 단계, 진행률, 실패 메시지를 저장합니다.",
+    responses={
+        400: {"model": ErrorResponse, "description": "상태 또는 진행률 검증 오류"},
+        401: {"model": ErrorResponse, "description": "내부 서비스 토큰 누락 또는 만료"},
+        404: {"model": ErrorResponse, "description": "분석 작업 없음"},
+        500: {"model": ErrorResponse, "description": "DB 저장 중 오류"},
+    },
+)
+async def update_analysis_job_status(
+    job_id: str,
+    request: AnalysisJobStatusUpdateRequest,
+    _: Annotated[None, Depends(verify_authorization)],
+    service: ListserviceDep,
+) -> AnalysisJobStatusUpdateResponse:
+    """PROJECT-LIST-API-006 명세에 맞춰 분석 작업 상태를 저장합니다."""
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=build_error_response(
+                status_code=400,
+                message="job_id가 UUID 형식이 아닙니다.",
+                error_code="INVALID_JOB_ID",
+                field="job_id",
+            ),
+        ) from exc
+
+    if request.status not in ALLOWED_STATUS_VALUES:
+        raise HTTPException(
+            status_code=400,
+            detail=build_error_response(
+                status_code=400,
+                message="허용되지 않은 status 값입니다.",
+                error_code="INVALID_STATUS",
+                field="status",
+            ),
+        )
+
+    if request.progress < 0 or request.progress > 100:
+        raise HTTPException(
+            status_code=400,
+            detail=build_error_response(
+                status_code=400,
+                message="progress는 0-100 범위여야 합니다.",
+                error_code="INVALID_PROGRESS",
+                field="progress",
+            ),
+        )
+
+    try:
+        result = await service.update_analysis_job_status(
+            job_id=job_uuid,
+            status=request.status,
+            current_step=request.current_step,
+            progress=request.progress,
+            message=request.message,
+            error_message=request.error_message,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=build_error_response(
+                status_code=500,
+                message="상태 저장 중 오류가 발생했습니다.",
+                error_code="DATABASE_ERROR",
+                retryable=True,
+            ),
+        ) from exc
+
+    if result.job is None:
+        raise HTTPException(
+            status_code=404,
+            detail=build_error_response(
+                status_code=404,
+                message="해당 job_id가 존재하지 않습니다.",
+                error_code="JOB_NOT_FOUND",
+                field="job_id",
+            ),
+        )
+
+    return AnalysisJobStatusUpdateResponse(
+        code=200,
+        message="success",
+        data=AnalysisJobStatusUpdateData.model_validate(result.job),
     )

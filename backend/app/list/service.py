@@ -6,7 +6,11 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.list.models import AnalysisJobDetailModel, AnalysisJobListModel
+from app.list.models import (
+    AnalysisJobDetailModel,
+    AnalysisJobListModel,
+    AnalysisJobStatusUpdateModel,
+)
 from app.list.repository import AnalysisJobListRepository
 
 
@@ -25,6 +29,13 @@ class AnalysisJobDetailResult:
     """라우터가 상세 응답 DTO로 변환하기 전에 사용하는 서비스 결과입니다."""
 
     job: AnalysisJobDetailModel | None
+
+
+@dataclass
+class AnalysisJobStatusUpdateResult:
+    """라우터가 상태 저장 응답 DTO로 변환하기 전에 사용하는 서비스 결과입니다."""
+
+    job: AnalysisJobStatusUpdateModel | None
 
 
 class ListService:
@@ -48,6 +59,37 @@ class ListService:
         """특정 분석 작업의 상세 상태와 메타데이터를 조회합니다."""
         job = await self.repository.find_analysis_job_detail(job_id)
         return AnalysisJobDetailResult(job=job)
+
+    async def update_analysis_job_status(
+        self,
+        job_id: UUID,
+        status: str,
+        current_step: str | None,
+        progress: int,
+        message: str | None,
+        error_message: str | None,
+    ) -> AnalysisJobStatusUpdateResult:
+        """상태 저장 명세에 맞춰 작업 상태와 진행 정보를 저장합니다."""
+        db_status = self._to_db_status(status)
+        stored_message = error_message if status == "failed" and error_message else message
+        job = await self.repository.update_analysis_job_status(
+            job_id=job_id,
+            status=db_status,
+            current_step=current_step,
+            progress=progress,
+            message=stored_message,
+        )
+        return AnalysisJobStatusUpdateResult(job=job)
+
+    def _to_db_status(self, status: str) -> str:
+        """API 상태값을 DB 저장 상태값으로 변환합니다."""
+        status_map = {
+            "queued": "CLONED",
+            "running": "IN_PROGRESS",
+            "completed": "COMPLETED",
+            "failed": "FAILED",
+        }
+        return status_map[status]
 
 
 def get_list_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ListService:
