@@ -13,11 +13,22 @@ from pathlib import Path
 
 from app.parse.schemas import CodeChunk, ParsedFile
 
-# 청킹 대상 코드 확장자 (AST 미지원 언어도 모듈 청크로는 처리)
+# 청킹 대상 코드 확장자 (AST 미지원 언어도 모듈 청크로는 처리).
+# 참고: 이 집합은 directory._ENTRY_EXTS(진입점 후보)보다 넓다 —
+# 청킹/임베딩 대상은 폭넓게, 진입점 후보는 주요 언어로만 좁히기 위함.
 _CODE_EXTS = {
     ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
     ".java", ".go", ".rb", ".rs", ".kt", ".c", ".cc", ".cpp", ".cs",
     ".vue", ".svelte", ".php", ".swift", ".scala", ".dart",
+}
+# 확장자 → 언어명 (RAG-EMBED-B-201: ParsedFile.language 채움, 검색 필터링용)
+_LANG_BY_EXT = {
+    ".py": "Python", ".ts": "TypeScript", ".tsx": "TypeScript",
+    ".js": "JavaScript", ".jsx": "JavaScript", ".mjs": "JavaScript", ".cjs": "JavaScript",
+    ".java": "Java", ".go": "Go", ".rb": "Ruby", ".rs": "Rust", ".kt": "Kotlin",
+    ".c": "C", ".cc": "C++", ".cpp": "C++", ".cs": "C#",
+    ".vue": "Vue", ".svelte": "Svelte", ".php": "PHP", ".swift": "Swift",
+    ".scala": "Scala", ".dart": "Dart",
 }
 
 
@@ -36,7 +47,8 @@ def _chunk_python(content: str) -> list[CodeChunk]:
             chunk_type = "class"
         else:
             continue
-        start = node.lineno
+        # 데코레이터가 있으면 그 첫 줄부터 청크에 포함 (node.lineno는 def/class 줄만 가리킴)
+        start = node.decorator_list[0].lineno if node.decorator_list else node.lineno
         end = getattr(node, "end_lineno", None) or start
         body = "\n".join(lines[start - 1:end])
         chunks.append(
@@ -88,5 +100,10 @@ def _chunk_by_ast_sync(files: list[ParsedFile]) -> list[ParsedFile]:
     result: list[ParsedFile] = []
     for node in files:
         chunks = _chunks_for(node)
-        result.append(node.model_copy(update={"chunks": chunks}) if chunks else node)
+        if not chunks:
+            result.append(node)
+            continue
+        # 청킹 대상(코드 파일)에는 language도 함께 채운다 (확장자 기준, EMBED 필터링용).
+        language = _LANG_BY_EXT.get(Path(node.path).suffix.lower())
+        result.append(node.model_copy(update={"chunks": chunks, "language": language}))
     return result
