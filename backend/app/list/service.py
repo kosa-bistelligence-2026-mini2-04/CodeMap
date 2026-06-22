@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from typing import Annotated, Optional
+from urllib.parse import quote as url_quote
 from uuid import UUID
 
 import httpx
@@ -67,7 +68,7 @@ class ListService:
 
 
     # ──────────────────────────────────────────────
-    # validate_repository
+    # validate_repository 메서드 정의
     # ──────────────────────────────────────────────
     async def validate_repository(
         self,
@@ -91,49 +92,58 @@ class ListService:
             headers["Authorization"] = f"token {settings.GITHUB_TOKEN}"
 
         target_branch = branch
-        if not target_branch:
-            api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
-            try:
-                async with httpx.AsyncClient(timeout=5) as client:
-                    response = await client.get(
-                        api_url,
-                        headers=headers,
-                    )
-                if response.status_code == 404:
-                    raise RepositoryNotFoundError("저장소가 없거나 접근할 수 없습니다.")
-                if response.status_code >= 400:
-                    raise ValidationFailedError(
-                        f"GitHub API 호출 중 오류가 발생했습니다: HTTP {response.status_code}"
-                    )
-                payload = response.json()
-                target_branch = payload.get("default_branch", "main")
-            except RepositoryNotFoundError:
-                raise
-            except CodeMapException:
-                raise
-            except Exception as exc:
-                raise ValidationFailedError(f"GitHub API 호출 중 오류가 발생했습니다: {exc}") from exc
 
-        tree_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/trees/{target_branch}?recursive=1"
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.get(
-                    tree_url,
-                    headers=headers,
+            ## 이슈 #3 수정: AsyncClient를 1개로 통합하여 커넥션 재사용
+            async with httpx.AsyncClient(timeout=10, headers=headers) as client:
+                if not target_branch:
+                    ## default_branch 확인
+                    api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
+                    response = await client.get(api_url)
+                    if response.status_code == 404:
+                        raise RepositoryNotFoundError("저장소가 없거나 접근할 수 없습니다.")
+                    if response.status_code >= 400:
+                        raise ValidationFailedError(
+                            f"GitHub API 호출 중 오류가 발생했습니다: HTTP {response.status_code}"
+                        )
+                    target_branch = response.json().get("default_branch", "main")
+
+                ## 이슈 #별도 제안: 브랜치명 URL encoding (슬래시 등 특수문자 대응)
+                encoded_branch = url_quote(target_branch, safe="")
+                tree_url = (
+                    f"https://api.github.com/repos/{owner}/{repo_name}"
+                    f"/git/trees/{encoded_branch}?recursive=1"
                 )
-            if response.status_code == 404:
+                tree_response = await client.get(tree_url)
+
+            if tree_response.status_code == 404:
                 raise RepositoryNotFoundError("지정한 브랜치 또는 저장소를 찾을 수 없습니다.")
-            if response.status_code >= 400:
+            if tree_response.status_code >= 400:
                 raise ValidationFailedError(
-                    f"GitHub API 호출 중 오류가 발생했습니다: HTTP {response.status_code}"
+                    f"GitHub API 호출 중 오류가 발생했습니다: HTTP {tree_response.status_code}"
                 )
-            payload = response.json()
+            payload = tree_response.json()
         except RepositoryNotFoundError:
             raise
         except CodeMapException:
             raise
         except Exception as exc:
             raise ValidationFailedError(f"GitHub API 호출 중 오류가 발생했습니다: {exc}") from exc
+
+        ## 이슈 #별도 제안: truncated 응답 처리
+        ## GitHub Trees API는 큼 저장소에서 truncated=true를 내립니다.
+        ## 이 경우 실제 파일 수/용량보다 적게 계산되어 isValid=true를 잘못 반환할 수 있습니다.
+        if payload.get("truncated", False):
+            return PreValidateResponse(
+                code=200,
+                message="success",
+                data=PreValidateData(
+                    is_valid=False,
+                    file_count=0,
+                    total_size_kb=0,
+                    warning_message="저장소가 너무 커서 GitHub API가 파일 목록을 잉룬(트랰케이트)했습니다. 세부 파일 필터링 없이 전체 분석이 불가하묹니다.",
+                ),
+            )
 
         tree = payload.get("tree", [])
         file_count = 0
@@ -153,13 +163,14 @@ class ListService:
                     any_file_exceeds_100kb = True
 
         total_size_kb = (total_size + 1023) // 1024
-        is_valid = (file_count <= 100) and (not any_file_exceeds_100kb)
 
+        ## 이슈 #4 수정: warning_message를 먼저 생성하고 is_valid는 단일 소스로 통일
         warning_message = None
         if file_count > 100:
             warning_message = "저장소 파일 수가 100개를 초과합니다. 분석 시 가장 핵심이 되는 100개의 파일만 지능적으로 자동 선택되어 분석이 진행됩니다."
         elif any_file_exceeds_100kb:
             warning_message = "100KB를 초과하는 대용량 파일이 존재합니다. 해당 파일은 분석 대상에서 제외되거나 제한적으로 분석될 수 있습니다."
+        is_valid = warning_message is None
 
         return PreValidateResponse(
             code=200,

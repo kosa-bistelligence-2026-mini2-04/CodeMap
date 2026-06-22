@@ -89,20 +89,22 @@ function AnalyzeWorkspace() {
     setReport(null);
     setShowNewAnalysis(false);
     try {
-      // 1. 저장소 사전 검증 실행 (PROJECT-LIST-API-002)
-      const valResp = await validateRepository({
-        repoUrl: input.path,
-        branch: input.branch,
-      });
+      // 1. 저장소 사전 검증 실행 (PROJECT-LIST-API-002) — GitHub 소스일 때만 수행
+      if (input.source === "github") {
+        const valResp = await validateRepository({
+          repoUrl: input.path,
+          branch: input.branch,
+        });
 
-      if (valResp.data.warningMessage) {
-        const proceed = window.confirm(
-          `${valResp.data.warningMessage}\n\n계속해서 분석을 진행하시겠습니까?`
-        );
-        if (!proceed) {
-          setStatus("idle");
-          setShowNewAnalysis(true);
-          return;
+        if (valResp.data.warningMessage) {
+          const proceed = window.confirm(
+            `${valResp.data.warningMessage}\n\n계속해서 분석을 진행하시겠습니까?`
+          );
+          if (!proceed) {
+            setStatus("idle");
+            setShowNewAnalysis(true);
+            return;
+          }
         }
       }
 

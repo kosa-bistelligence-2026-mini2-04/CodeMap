@@ -63,14 +63,15 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         mock_response_repo.status_code = 200
         mock_response_repo.json.return_value = {"default_branch": "main"}
 
-        # 2. GET /repos/{owner}/{repo}/git/trees/main?recursive=1 응답 모킹
+        ## 2. GET /repos/{owner}/{repo}/git/trees/main?recursive=1 응답 모킹
         mock_response_tree = MagicMock()
         mock_response_tree.status_code = 200
         mock_response_tree.json.return_value = {
+            "truncated": False,
             "tree": [
                 {"path": "src/main.py", "type": "blob", "size": 1024},
                 {"path": "README.md", "type": "blob", "size": 2048},
-                {"path": "node_modules/express/index.js", "type": "blob", "size": 512},  # 제외되어야 함
+                {"path": "node_modules/express/index.js", "type": "blob", "size": 512},  ## 제외되어야 함
             ]
         }
 
@@ -91,28 +92,17 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
     @patch("httpx.AsyncClient.get")
     async def test_validate_repository_file_count_warning(self, mock_get):
         """파일 수가 100개를 초과할 때 warningMessage가 올바르게 설정되는지 확인합니다."""
-        mock_response_repo = MagicMock()
-        mock_response_repo.status_code = 200
-        mock_response_repo.json.return_value = {"default_branch": "main"}
-
-        # 101개의 파일 생성
+        ## branch를 명시하면 tree API 호출 1회만 발생하므로 mock 1개만 설정
         mock_tree = []
         for i in range(101):
             mock_tree.append({"path": f"src/file_{i}.py", "type": "blob", "size": 100})
 
         mock_response_tree = MagicMock()
         mock_response_tree.status_code = 200
-        mock_response_tree.json.return_value = {"tree": mock_tree}
+        mock_response_tree.json.return_value = {"tree": mock_tree, "truncated": False}
 
-        mock_get.side_effect = [mock_response_repo, mock_response_tree]
-
-        res = await self.service.validate_repository(
-            repo_url="https://github.com/example/large-repo",
-            branch="main"  # branch 지정 시 첫 번째 GET 호출 생략
-        )
-
-        # branch 지정했으므로 첫 번째는 tree API 호출임
         mock_get.side_effect = [mock_response_tree]
+
         res = await self.service.validate_repository(
             repo_url="https://github.com/example/large-repo",
             branch="main"
@@ -123,14 +113,16 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.data.file_count, 101)
         self.assertIn("100개를 초과", res.data.warning_message)
 
+
     @patch("httpx.AsyncClient.get")
     async def test_validate_repository_file_size_warning(self, mock_get):
         """100KB를 초과하는 파일이 존재할 때 warningMessage가 올바르게 설정되는지 확인합니다."""
         mock_response_tree = MagicMock()
         mock_response_tree.status_code = 200
         mock_response_tree.json.return_value = {
+            "truncated": False,
             "tree": [
-                {"path": "src/large_file.py", "type": "blob", "size": 102401},  # 100KB 초과
+                {"path": "src/large_file.py", "type": "blob", "size": 102401},  ## 100KB 초과
                 {"path": "src/small_file.py", "type": "blob", "size": 100},
             ]
         }
@@ -146,6 +138,27 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(res.data.is_valid)
         self.assertEqual(res.data.file_count, 2)
         self.assertIn("100KB를 초과하는 대용량 파일", res.data.warning_message)
+
+    @patch("httpx.AsyncClient.get")
+    async def test_validate_repository_truncated(self, mock_get):
+        """GitHub Trees API가 truncated=true를 반환할 때 isValid=false가 내려오는지 확인합니다."""
+        mock_response_tree = MagicMock()
+        mock_response_tree.status_code = 200
+        mock_response_tree.json.return_value = {
+            "truncated": True,
+            "tree": []
+        }
+
+        mock_get.side_effect = [mock_response_tree]
+
+        res = await self.service.validate_repository(
+            repo_url="https://github.com/example/huge-repo",
+            branch="main"
+        )
+
+        self.assertEqual(res.code, 200)
+        self.assertFalse(res.data.is_valid)
+        self.assertIsNotNone(res.data.warning_message)
 
     async def test_validate_repository_invalid_url(self):
         """잘못된 URL 형식에 대해 InvalidRepoUrlError 예외를 발생시키는지 확인합니다."""
