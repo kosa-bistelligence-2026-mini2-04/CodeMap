@@ -144,10 +144,17 @@ async def clone_node(state: PipelineState) -> dict:
             "timings": {**state.get("timings", {}), "clone": elapsed},
         }
     except Exception as exc:
-        logger.exception("Clone failed for job %s", job_id)
+        # 실패 시점까지 소요된 시간도 timings에 누적 (리뷰어 제안 1 반영)
+        # 네트워크 지연 등 실패 전 대기 시간을 "clone_failed"로 구분해 기록한다.
+        elapsed = time.perf_counter() - _t0
+        logger.exception("Clone failed for job %s (%.3f초 경과 후 실패)", job_id, elapsed)
         await _update_db(job_id, status=JobStatus.FAILED.value, message=f"Clone 실패: {exc}")
         await _publish(job_id, PipelineStage.CLONE, JobStatus.FAILED, 0, f"Clone 실패: {exc}")
-        return {"status": JobStatus.FAILED.value, "error": str(exc)}
+        return {
+            "status": JobStatus.FAILED.value,
+            "error": str(exc),
+            "timings": {**state.get("timings", {}), "clone_failed": elapsed},
+        }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -194,10 +201,16 @@ async def code_map_node(state: PipelineState) -> dict:
             "timings": {**state.get("timings", {}), "code_map": elapsed},
         }
     except Exception as exc:
-        logger.exception("Repository scan failed for job %s", job_id)
+        # 실패 시점까지 소요된 시간도 timings에 누적 (리뷰어 제안 1 반영)
+        elapsed = time.perf_counter() - _t0
+        logger.exception("Repository scan failed for job %s (%.3f초 경과 후 실패)", job_id, elapsed)
         await _update_db(job_id, status=JobStatus.FAILED.value, message=f"코드 분석 실패: {exc}")
         await _publish(job_id, PipelineStage.CODE_MAP, JobStatus.FAILED, 21, f"코드 분석 실패: {exc}")
-        return {"status": JobStatus.FAILED.value, "error": str(exc)}
+        return {
+            "status": JobStatus.FAILED.value,
+            "error": str(exc),
+            "timings": {**state.get("timings", {}), "code_map_failed": elapsed},
+        }
 
 
 # ──────────────────────────────────────────────────────────────
