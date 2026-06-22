@@ -15,7 +15,13 @@ class TestExceptionsAndHeaders(unittest.IsolatedAsyncioTestCase):
     """
 
     def test_http_exception_response_preserves_headers(self):
-        """HTTPException 발생 시 WWW-Authenticate 등 헤더가 유실되지 않고 JSONResponse에 전파되는지 확인합니다."""
+        """
+        HTTPException 발생 시 WWW-Authenticate 등 헤더가 유실되지 않고 JSONResponse에 전파되는지 확인합니다.
+
+        [단위 테스트 범위 안내]
+        실제 FastAPI 예외 핸들러 미들웨어 전체 경로를 호출하는 대신, 예외 응답 변환 함수(_build_http_exception_response)의
+        반환값과 headers 추출 처리가 JSONResponse 객체 생성 시 결합되어 헤더가 안전하게 보존되는지를 검증합니다.
+        """
         app = FastAPI()
         register_exception_handlers(app)
 
