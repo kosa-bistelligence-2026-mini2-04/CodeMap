@@ -5,8 +5,10 @@ API 명세서에 정의된 에러 코드(INVALID_REPO_URL, REPOSITORY_NOT_FOUND 
 커스텀 예외 클래스와 FastAPI 전역 예외 핸들러를 제공한다.
 """
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 # ──────────────────────────────────────────────
@@ -155,11 +157,57 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
-            content={
-                "code": exc.status_code,
-                "error": exc.error_code,
-                "message": exc.message,
-            },
+            content=build_error_response(
+                status_code=exc.status_code,
+                message=exc.message,
+                error_code=exc.error_code,
+            ),
+        )
+
+    @app.exception_handler(HTTPException)
+    async def fastapi_http_exception_handler(
+        request: Request, exc: HTTPException
+    ) -> JSONResponse:
+        """FastAPI HTTP 예외를 프로젝트 표준 에러 포맷으로 변환한다."""
+        return _http_exception_to_response(exc)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def starlette_http_exception_handler(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        """Starlette 라우팅 HTTP 예외를 프로젝트 표준 에러 포맷으로 변환한다."""
+        return _http_exception_to_response(exc)
+
+    def _http_exception_to_response(
+        exc: HTTPException | StarletteHTTPException,
+    ) -> JSONResponse:
+        """HTTP 예외 공통 변환 결과를 JSON 응답으로 감싼다."""
+        detail = exc.detail
+        if isinstance(detail, dict) and _is_standard_error_response(detail):
+            return JSONResponse(status_code=exc.status_code, content=detail)
+
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=_build_http_exception_response(exc),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        """요청 검증 오류를 프로젝트 표준 에러 포맷으로 변환한다."""
+        first_error = exc.errors()[0] if exc.errors() else {}
+        field = _format_validation_field(first_error.get("loc"))
+        return JSONResponse(
+            status_code=422,
+            content=build_error_response(
+                status_code=422,
+                message="요청 형식이 올바르지 않습니다.",
+                error_code="INVALID_REQUEST",
+                detail=str(first_error.get("msg")) if first_error else None,
+                field=field,
+                retryable=False,
+            ),
         )
 
     @app.exception_handler(Exception)
@@ -172,9 +220,115 @@ def register_exception_handlers(app: FastAPI) -> None:
         logger.exception("Unhandled exception", exc_info=exc)
         return JSONResponse(
             status_code=500,
-            content={
-                "code": 500,
-                "error": "INTERNAL_ERROR",
-                "message": "서버 내부 오류가 발생했습니다.",
-            },
+            content=build_error_response(
+                status_code=500,
+                message="서버 내부 오류가 발생했습니다.",
+                error_code="INTERNAL_ERROR",
+                retryable=True,
+            ),
         )
+
+
+def build_error_response(
+    status_code: int,
+    message: str,
+    error_code: str,
+    detail: str | None = None,
+    field: str | None = None,
+    retryable: bool | None = None,
+) -> dict:
+    """프로젝트 표준 에러 응답 본문을 생성한다."""
+    return {
+        "code": status_code,
+        "message": message,
+        "data": None,
+        "error": {
+            "code": error_code,
+            "detail": detail,
+            "field": field,
+            "retryable": _default_retryable(status_code) if retryable is None else retryable,
+        },
+    }
+
+
+def _is_standard_error_response(detail: dict) -> bool:
+    """이미 표준 에러 응답 본문인지 확인한다."""
+    return (
+        "code" in detail
+        and "message" in detail
+        and "data" in detail
+        and isinstance(detail.get("error"), dict)
+    )
+
+
+def _build_http_exception_response(exc: HTTPException | StarletteHTTPException) -> dict:
+    """HTTPException 상세값을 표준 에러 응답 본문으로 변환한다."""
+    detail = exc.detail
+    if isinstance(detail, dict):
+        error_code = detail.get("error") or _default_error_code(exc.status_code)
+        message = detail.get("message") or _default_error_message(exc.status_code)
+        error_detail = detail.get("detail")
+        field = detail.get("field")
+        retryable = detail.get("retryable")
+    else:
+        error_code = _default_error_code(exc.status_code)
+        message = str(detail) if detail else _default_error_message(exc.status_code)
+        error_detail = None
+        field = None
+        retryable = None
+
+    return build_error_response(
+        status_code=exc.status_code,
+        message=message,
+        error_code=str(error_code),
+        detail=error_detail,
+        field=field,
+        retryable=retryable,
+    )
+
+
+def _default_retryable(status_code: int) -> bool:
+    """상태 코드에 따른 기본 재시도 가능 여부를 반환한다."""
+    return status_code == 408 or status_code >= 500
+
+
+def _default_error_code(status_code: int) -> str:
+    """상태 코드에 따른 기본 에러 코드를 반환한다."""
+    error_codes = {
+        400: "INVALID_REQUEST",
+        401: "UNAUTHORIZED",
+        403: "FORBIDDEN",
+        404: "NOT_FOUND",
+        405: "METHOD_NOT_ALLOWED",
+        408: "REQUEST_TIMEOUT",
+        409: "CONFLICT",
+        413: "CONTENT_TOO_LARGE",
+        422: "INVALID_REQUEST",
+        500: "INTERNAL_ERROR",
+    }
+    return error_codes.get(status_code, "API_ERROR")
+
+
+def _default_error_message(status_code: int) -> str:
+    """상태 코드에 따른 기본 사용자 메시지를 반환한다."""
+    messages = {
+        400: "유효하지 않은 요청 파라미터입니다.",
+        401: "인증이 필요합니다.",
+        403: "접근 권한이 없습니다.",
+        404: "요청한 리소스를 찾을 수 없습니다.",
+        405: "허용되지 않은 HTTP 메서드입니다.",
+        408: "요청 처리 시간이 초과되었습니다.",
+        409: "요청한 리소스 상태와 충돌이 발생했습니다.",
+        413: "요청한 콘텐츠 크기가 제한을 초과했습니다.",
+        422: "요청 형식이 올바르지 않습니다.",
+        500: "서버 내부 오류가 발생했습니다.",
+    }
+    return messages.get(status_code, "요청 처리 중 오류가 발생했습니다.")
+
+
+def _format_validation_field(location: object) -> str | None:
+    """요청 검증 오류 위치를 클라이언트가 읽기 쉬운 필드명으로 변환한다."""
+    if not isinstance(location, (list, tuple)):
+        return None
+    filtered = [str(item) for item in location if item not in {"body", "query", "path", "header"}]
+    return ".".join(filtered) if filtered else None

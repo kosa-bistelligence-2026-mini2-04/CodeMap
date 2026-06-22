@@ -1,7 +1,9 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.list.models import AnalysisJobListModel
+from uuid import UUID
+
+from app.list.models import AnalysisJobDetailModel, AnalysisJobListModel
 from app.repo.models import AnalysisJob
 
 
@@ -27,6 +29,14 @@ class AnalysisJobListRepository:
         )
         return [self._to_list_model(job) for job in result.scalars().all()]
 
+    async def find_analysis_job_detail(self, job_id: UUID) -> AnalysisJobDetailModel | None:
+        """분석 작업 고유 ID로 상세 정보를 조회합니다."""
+        result = await self.db.execute(select(AnalysisJob).where(AnalysisJob.id == job_id))
+        job = result.scalar_one_or_none()
+        if job is None:
+            return None
+        return self._to_detail_model(job)
+
     def _to_list_model(self, job: AnalysisJob) -> AnalysisJobListModel:
         """DB 엔티티를 목록 API 내부 모델로 변환합니다."""
         is_failed = job.status == "FAILED"
@@ -38,6 +48,22 @@ class AnalysisJobListRepository:
             progress=job.progress,
             failed_agent=job.stage if is_failed else None,
             error_message=job.message if is_failed else None,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
+
+    def _to_detail_model(self, job: AnalysisJob) -> AnalysisJobDetailModel:
+        """DB 엔티티를 상세 조회 API 내부 모델로 변환합니다."""
+        return AnalysisJobDetailModel(
+            job_id=job.id,
+            repo_url=job.repo_url,
+            repo_name=job.repo_name,
+            owner=job.owner,
+            branch=job.branch,
+            status=self._to_api_status(job.status),
+            current_step=job.stage,
+            progress=job.progress,
+            message=job.message,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )

@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.list.models import AnalysisJobListModel
+from app.list.models import AnalysisJobDetailModel, AnalysisJobListModel
 from app.list.repository import AnalysisJobListRepository
 
 
@@ -17,6 +18,13 @@ class AnalysisJobListResult:
     page: int
     limit: int
     jobs: list[AnalysisJobListModel]
+
+
+@dataclass
+class AnalysisJobDetailResult:
+    """라우터가 상세 응답 DTO로 변환하기 전에 사용하는 서비스 결과입니다."""
+
+    job: AnalysisJobDetailModel | None
 
 
 class ListService:
@@ -35,6 +43,11 @@ class ListService:
             limit=limit,
             jobs=jobs,
         )
+
+    async def get_analysis_job_detail(self, job_id: UUID) -> AnalysisJobDetailResult:
+        """특정 분석 작업의 상세 상태와 메타데이터를 조회합니다."""
+        job = await self.repository.find_analysis_job_detail(job_id)
+        return AnalysisJobDetailResult(job=job)
 
 
 def get_list_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ListService:

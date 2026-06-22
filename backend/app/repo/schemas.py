@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.schemas import ErrorResponse
+
 
 # ──────────────────────────────────────────────
 # Enum 정의: 작업 상태
@@ -300,17 +302,3 @@ class PipelineStartResponse(BaseModel):
     data: PipelineStartData
 
 
-# ──────────────────────────────────────────────
-# 공통 에러 응답 DTO
-# ──────────────────────────────────────────────
-class ErrorResponse(BaseModel):
-    """통일된 에러 응답 스키마"""
-    code: int = Field(
-        description="HTTP 상태 코드"
-    )
-    error: str = Field(
-        description="에러 코드 (예: INVALID_REPO_URL)"
-    )
-    message: str = Field(
-        description="에러 메시지"
-    )

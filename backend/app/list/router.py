@@ -6,10 +6,14 @@
 """
 import logging
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
+from app.core.exceptions import build_error_response
 from app.list.schemas import (
+    AnalysisJobDetailData,
+    AnalysisJobDetailResponse,
     AnalysisJobItem,
     AnalysisJobListData,
     AnalysisJobListResponse,
@@ -30,12 +34,13 @@ def verify_authorization(authorization: Annotated[str | None, Header()] = None) 
     if authorization is None or not authorization.startswith("Bearer ") or not authorization[7:].strip():
         raise HTTPException(
             status_code=401,
-            detail={
-                "code": 401,
-                "errorCode": "UNAUTHORIZED",
-                "message": "토큰이 누락되었거나 만료되었습니다.",
-            },
+            detail=build_error_response(
+                status_code=401,
+                message="토큰이 누락되었거나 만료되었습니다.",
+                error_code="UNAUTHORIZED",
+            ),
         )
+
 
 # ──────────────────────────────────────────────
 # API-001: 전체 분석 이력 목록 조회
@@ -63,11 +68,12 @@ async def get_analysis_jobs(
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail={
-                "code": 500,
-                "errorCode": "DATABASE_ERROR",
-                "message": "데이터베이스 조회 중 오류가 발생했습니다.",
-            },
+            detail=build_error_response(
+                status_code=500,
+                message="데이터베이스 조회 중 오류가 발생했습니다.",
+                error_code="DATABASE_ERROR",
+                retryable=True,
+            ),
         ) from exc
 
     return AnalysisJobListResponse(
@@ -79,4 +85,68 @@ async def get_analysis_jobs(
             limit=result.limit,
             jobs=[AnalysisJobItem.model_validate(job) for job in result.jobs],
         ),
+    )
+
+
+# API-004: 분석 이력 상세 조회
+# GET /api/list/analysis/{job_id}
+@router.get(
+    "/analysis/{job_id}",
+    response_model=AnalysisJobDetailResponse,
+    summary="분석 이력 상세 조회",
+    description="목록에서 선택한 분석 job의 상세 상태와 메타데이터를 조회합니다.",
+    responses={
+        400: {"model": ErrorResponse, "description": "job_id UUID 형식 오류"},
+        401: {"model": ErrorResponse, "description": "인증 토큰 누락 또는 만료"},
+        404: {"model": ErrorResponse, "description": "분석 작업 없음"},
+        500: {"model": ErrorResponse, "description": "DB 조회 중 오류"},
+    },
+)
+async def get_analysis_job_detail(
+    job_id: str,
+    _: Annotated[None, Depends(verify_authorization)],
+    service: ListserviceDep,
+) -> AnalysisJobDetailResponse:
+    """PROJECT-LIST-API-004 명세에 맞춰 분석 작업 상세 응답을 반환합니다."""
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=build_error_response(
+                status_code=400,
+                message="job_id가 UUID 형식이 아닙니다.",
+                error_code="INVALID_JOB_ID",
+                field="job_id",
+            ),
+        ) from exc
+
+    try:
+        result = await service.get_analysis_job_detail(job_id=job_uuid)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=build_error_response(
+                status_code=500,
+                message="데이터베이스 조회 중 오류가 발생했습니다.",
+                error_code="DATABASE_ERROR",
+                retryable=True,
+            ),
+        ) from exc
+
+    if result.job is None:
+        raise HTTPException(
+            status_code=404,
+            detail=build_error_response(
+                status_code=404,
+                message="해당 job_id가 존재하지 않습니다.",
+                error_code="JOB_NOT_FOUND",
+                field="job_id",
+            ),
+        )
+
+    return AnalysisJobDetailResponse(
+        code=200,
+        message="success",
+        data=AnalysisJobDetailData.model_validate(result.job),
     )
