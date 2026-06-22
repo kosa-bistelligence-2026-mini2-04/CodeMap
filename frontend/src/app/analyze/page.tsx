@@ -211,7 +211,7 @@ function AnalyzeWorkspace() {
               <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} /></div>
             </div>
           ) : (
-            <FileTree repoName={repoName} files={report.files} activeFile={selectedFile} onFileSelect={setSelectedFile} className="border-r-0" />
+            <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={setSelectedFile} className="border-r-0" />
           )}
         </aside>
 
@@ -291,7 +291,7 @@ function AnalyzeWorkspace() {
                   <div className="mt-3"><HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} /></div>
                 </div>
               ) : (
-                <FileTree repoName={repoName} files={report.files} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setMobileSidebarOpen(false); }} className="border-r-0" />
+                <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setMobileSidebarOpen(false); }} className="border-r-0" />
               )}
             </div>
           </div>

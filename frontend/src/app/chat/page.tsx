@@ -46,7 +46,7 @@ function ChatContent() {
       <div className="flex min-h-0 flex-1">
         {sidebarOpen && (
           <div className="hidden h-full w-[280px] shrink-0 md:block">
-            <FileTree repoName={repoName} files={report?.files || []} activeFile={activeFile} onFileSelect={setActiveFile} className="border-r-0" />
+            <FileTree repoName={repoName} files={report?.files || []} entrypoints={report?.entrypoints || []} activeFile={activeFile} onFileSelect={setActiveFile} className="border-r-0" />
           </div>
         )}
         <div className="h-full min-w-0 flex-1">
