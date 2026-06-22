@@ -330,3 +330,25 @@ export interface CodeReference {
   snippet: string;
   language: string;
 }
+
+
+// ── Pre-clone validation types ────────────────────────────────────────────────
+export interface PreValidateRequest {
+  repoUrl: string;
+  branch?: string;
+}
+
+export interface PreValidateData {
+  isValid: boolean;
+  fileCount: number;
+  totalSizeKb: number;
+  warningMessage: string | null;
+  isTruncated: boolean;
+}
+
+export interface PreValidateResponse {
+  code: number;
+  message: string;
+  data: PreValidateData;
+}
+

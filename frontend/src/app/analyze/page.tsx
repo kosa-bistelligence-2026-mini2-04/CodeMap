@@ -21,7 +21,7 @@ import { WorkspaceReport } from "@/features/analysis/components/WorkspaceReport"
 import { FileTree } from "@/features/chat/components/FileTree";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
-import { fetchJobStatus, startAnalysis } from "@/features/analysis/api/api";
+import { fetchJobStatus, startAnalysis, validateRepository } from "@/features/analysis/api/api";
 import type { JobStatusData, WorkspaceReport as WorkspaceReportData } from "@/common/types/contracts";
 import { useApp } from "@/common/contexts/AppContext";
 
@@ -89,6 +89,35 @@ function AnalyzeWorkspace() {
     setReport(null);
     setShowNewAnalysis(false);
     try {
+      // 1. 저장소 사전 검증 실행 (PROJECT-LIST-API-002) — GitHub 소스일 때만 수행
+      if (input.source === "github") {
+        const valResp = await validateRepository({
+          repoUrl: input.path,
+          branch: input.branch,
+        });
+
+        if (valResp.data.isTruncated) {
+          window.alert(
+            `${valResp.data.warningMessage || "저장소가 너무 커서 분석을 진행할 수 없습니다."}`
+          );
+          setStatus("idle");
+          setShowNewAnalysis(true);
+          return;
+        }
+
+        if (valResp.data.warningMessage) {
+          const proceed = window.confirm(
+            `${valResp.data.warningMessage}\n\n계속해서 분석을 진행하시겠습니까?`
+          );
+          if (!proceed) {
+            setStatus("idle");
+            setShowNewAnalysis(true);
+            return;
+          }
+        }
+      }
+
+      // 2. 분석 작업 시작
       const response = await startAnalysis({
         repoUrl: input.path,
         branch: input.branch,

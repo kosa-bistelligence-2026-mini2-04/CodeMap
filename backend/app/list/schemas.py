@@ -77,3 +77,45 @@ class AnalysisProgressMessage(BaseModel):
     currentStep: str | None = Field(default=None, description="현재 실행 중인 분석 단계명")
     failedAgent: str | None = Field(default=None, description="실패 단계 또는 실패 에이전트")
     errorMessage: str | None = Field(default=None, description="실패 사유")
+
+
+# ──────────────────────────────────────────────
+# PreValidateRequest
+# ──────────────────────────────────────────────
+class PreValidateRequest(BaseModel):
+    """
+    PROJECT-LIST-API-002 요청 DTO
+    """
+
+    repo_url: str = Field(alias="repoUrl", description="검증할 GitHub 저장소 URL")
+    branch: Optional[str] = Field(default=None, description="검증 대상 브랜치. 미입력 시 기본 브랜치 검증")
+
+
+# ──────────────────────────────────────────────
+# PreValidateData
+# ──────────────────────────────────────────────
+class PreValidateData(BaseModel):
+    """
+    PROJECT-LIST-API-002 검증 결과 데이터 DTO
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    is_valid: bool = Field(alias="isValid", description="분석 가능 여부 (제한 조건 이내인 경우 true)")
+    file_count: int = Field(alias="fileCount", description="저장소 내의 대상 파일 수")
+    total_size_kb: int = Field(alias="totalSizeKb", description="저장소 총 용량 (KB)")
+    warning_message: Optional[str] = Field(default=None, alias="warningMessage", description="제한 조건 초과 시 경고 메시지")
+    is_truncated: bool = Field(default=False, alias="isTruncated", description="GitHub Trees API 결과 누락 여부")
+
+
+# ──────────────────────────────────────────────
+# PreValidateResponse
+# ──────────────────────────────────────────────
+class PreValidateResponse(BaseModel):
+    """
+    PROJECT-LIST-API-002 성공 응답 DTO
+    """
+
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="응답 메시지")
+    data: PreValidateData
