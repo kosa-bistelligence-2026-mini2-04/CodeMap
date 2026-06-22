@@ -20,6 +20,7 @@
 ### ③ 예외 테스트 시 `TestClient` 미사용 사유 (#62)
 * **리뷰 지적**: FastAPI `TestClient` 가상 네트워크 환경을 구동하여 실제 라우터와 핸들러 연결부를 직접 테스트해야 함.
 * **기술적 정당성**: 우리가 구현한 예외 가공 로직(`_build_http_exception_response`)은 사이드 이펙트가 없는 순수 함수(Pure Function) 구조입니다. 굳이 무거운 TestClient를 생성하고 가상 네트워크 포트를 열어 테스트하는 통합 레벨 방식은 **단위 테스트의 핵심 가치(격리성 확보 및 수 밀리초 대의 피드백 속도)**를 훼손합니다. 순수한 예외 인스턴스를 직접 입력하여 입출력을 조밀하게 검증하는 현재 방식이 단위 테스트 설계 표준에 부합합니다.
+* **추가 피드백 반영**: 단위 테스트 메소드(`test_http_exception_response_preserves_headers`)의 이름 및 목적과 실제 검증 범위의 혼선을 방지하기 위해, 본 테스트가 핸들러 통과 전체 경로가 아닌 변환 함수의 단위 검증을 목적으로 함을 기술하는 상세 안내 주석(docstring)을 명확하게 보완 조치했습니다.
 
 ### ④ `_is_standard_error_response` 통과 시 `data` 필드 정규화(None) 생략 사유 (#62)
 * **리뷰 지적**: 표준 에러 응답을 그대로 반환하는 처리 흐름에서 `data` 필드가 강제 `None`으로 검증되지 않아 안전하지 않음.
@@ -43,6 +44,7 @@
 * **일부분 import logging 제거**: `general_exception_handler` 내부에 남아있던 `import logging` 구문을 전면 제거했습니다.
 * **모듈 수준 공유**: `exceptions.py` 파일 최상단 헤더에 `import logging` 및 `logger = logging.getLogger(__name__)`를 선언하고, 내부 핸들러에서는 이를 전역 재사용하도록 개선했습니다.
 * **주석 오기 정정**: `_build_http_exception_response` 주석에 존재하던 부정확한 예시(`RequestValidationError` 언급 - 실제로는 전용 validation_handler가 사전 차단함)를 지우고, `OAuth 인증 외부 라이브러리 및 커스텀 미들웨어 예외` 상황으로 문구를 명확히 정정했습니다.
+* **테스트 주석 명세 보완 (`cb5a633`)**: `test_exceptions.py` 내의 헤더 보존 테스트 docstring에 변환 함수의 단위 입출력 검증 영역임을 명확히 문서화했습니다.
 
 ### 2) [service.py](file:///c:/kosa/project/mini2/CodeMap/backend/app/list/service.py) (바이너리 확장자 검사 성능 최적화 완료 - `2d20d19`)
 * **상수(Set) 선언 최상위 이관**: 파일 트리 순회 시 수천 번 호출되는 파일 필터링 헬퍼 함수 `_should_exclude_path` 내부에서 호출 시마다 `binary_extensions = {...}` 가 동적 재할당되어 GC(Garbage Collector) 메모리 부하를 주던 구조를 수정했습니다.
