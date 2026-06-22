@@ -22,13 +22,13 @@ class HttpContractInventoryTests(unittest.TestCase):
         self.assertTrue(self.files)
 
     def test_every_file_has_an_executable_request(self):
-        missing = [str(path.relative_to(HTTP_ROOT)) for path in self.files if not REQUEST_RE.search(path.read_text())]
+        missing = [str(path.relative_to(HTTP_ROOT)) for path in self.files if not REQUEST_RE.search(path.read_text(encoding="utf-8"))]
         self.assertEqual(missing, [])
 
     def test_auth_values_are_safe_placeholders(self):
         unsafe = []
         for path in self.files:
-            for value in TOKEN_RE.findall(path.read_text()):
+            for value in TOKEN_RE.findall(path.read_text(encoding="utf-8")):
                 if not value.strip().startswith("replace-me"):
                     unsafe.append(str(path.relative_to(HTTP_ROOT)))
         self.assertEqual(unsafe, [])
@@ -37,7 +37,7 @@ class HttpContractInventoryTests(unittest.TestCase):
         owners = {}
         duplicates = {}
         for path in self.files:
-            match = PRIMARY_API_ID_RE.search(path.read_text())
+            match = PRIMARY_API_ID_RE.search(path.read_text(encoding="utf-8"))
             self.assertIsNotNone(match, str(path.relative_to(HTTP_ROOT)))
             api_id = match.group(1)
             if api_id in owners and owners[api_id] != path:
