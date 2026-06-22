@@ -105,6 +105,7 @@ class PreValidateData(BaseModel):
     file_count: int = Field(alias="fileCount", description="저장소 내의 대상 파일 수")
     total_size_kb: int = Field(alias="totalSizeKb", description="저장소 총 용량 (KB)")
     warning_message: Optional[str] = Field(default=None, alias="warningMessage", description="제한 조건 초과 시 경고 메시지")
+    is_truncated: bool = Field(default=False, alias="isTruncated", description="GitHub Trees API 결과 누락 여부")
 
 
 # ──────────────────────────────────────────────

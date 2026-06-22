@@ -159,6 +159,7 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.code, 200)
         self.assertFalse(res.data.is_valid)
         self.assertIsNotNone(res.data.warning_message)
+        self.assertTrue(res.data.is_truncated)
 
     async def test_validate_repository_invalid_url(self):
         """잘못된 URL 형식에 대해 InvalidRepoUrlError 예외를 발생시키는지 확인합니다."""

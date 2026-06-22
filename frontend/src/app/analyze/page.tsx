@@ -96,6 +96,15 @@ function AnalyzeWorkspace() {
           branch: input.branch,
         });
 
+        if (valResp.data.isTruncated) {
+          window.alert(
+            `${valResp.data.warningMessage || "저장소가 너무 커서 분석을 진행할 수 없습니다."}`
+          );
+          setStatus("idle");
+          setShowNewAnalysis(true);
+          return;
+        }
+
         if (valResp.data.warningMessage) {
           const proceed = window.confirm(
             `${valResp.data.warningMessage}\n\n계속해서 분석을 진행하시겠습니까?`

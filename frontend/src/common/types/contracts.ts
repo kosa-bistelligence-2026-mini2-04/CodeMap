@@ -343,6 +343,7 @@ export interface PreValidateData {
   fileCount: number;
   totalSizeKb: number;
   warningMessage: string | null;
+  isTruncated: boolean;
 }
 
 export interface PreValidateResponse {
