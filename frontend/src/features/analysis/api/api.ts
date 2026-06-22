@@ -3,6 +3,8 @@ import type {
   AnalyzeRequest,
   AnalyzeResponse,
   JobStatusData,
+  PreValidateRequest,
+  PreValidateResponse,
 } from "@/common/types/contracts";
 
 const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(/\/$/, "");
@@ -114,3 +116,28 @@ export function buildWsUrl(wsPath: string): string {
   const path = wsPath.startsWith("/") ? wsPath : `/${wsPath}`;
   return `${proto}//${host}${BASE_PATH}${path}`;
 }
+
+/**
+ * POST /api/list/validate — 저장소 사전 검증
+ */
+export async function validateRepository(
+  payload: PreValidateRequest,
+): Promise<PreValidateResponse> {
+  const resp = await fetch(apiPath("/list/validate"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: getAuthorizationHeader(),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    // CodeMapException의 JSON 구조인 code, error, message를 적절히 파싱합니다.
+    throw new Error(errData?.message || errData?.error || `저장소 사전 검증에 실패했습니다. (HTTP ${resp.status})`);
+  }
+
+  return await resp.json();
+}
+
