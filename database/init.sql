@@ -56,7 +56,42 @@ CREATE TABLE IF NOT EXISTS file_dependencies (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. 인덱스 설정
+-- ──────────────────────────────────────────────────────────────
+-- RAG EMBED 테이블 (app/embed/models.py 대응, RAG-EMBED-B-201/B-301)
+-- ──────────────────────────────────────────────────────────────
+
+-- 6. RAG 코드 노드 테이블 — 코드 청크 + 임베딩 벡터 통합 저장
+--    source_files/code_chunks 구조를 단일 테이블로 통합한 RAG 전용 엔티티
+--    임베딩 모델: text-embedding-3-large + dimensions=1536 (EMBEDDING_MODEL_DECISION.md)
+CREATE TABLE IF NOT EXISTS code_nodes (
+    id UUID PRIMARY KEY,
+    job_id UUID NOT NULL REFERENCES analysis_jobs(id) ON DELETE CASCADE,  -- 분석 작업 ID
+    path TEXT NOT NULL,                                                     -- 저장소 루트 기준 상대 경로
+    type VARCHAR(20) NOT NULL DEFAULT 'CHUNK',                              -- FILE / DIRECTORY / CHUNK
+    depth INTEGER NOT NULL DEFAULT 0,                                       -- 디렉토리 트리 깊이 (루트=0)
+    chunk_index INTEGER NOT NULL DEFAULT 0,                                 -- 파일 내 청크 순번 (0-based)
+    content TEXT,                                                           -- AST 청킹 원문
+    summary TEXT,                                                           -- 임베딩 입력 텍스트 (요약 또는 원문)
+    embedding vector(1536),                                                 -- OpenAI text-embedding-3-large (dim=1536)
+    file_metadata JSONB,                                                    -- {start_line, end_line, symbol, language, chunk_type}
+    language VARCHAR(50),                                                   -- 프로그래밍 언어 (인덱스 필터링용)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    -- 동일 job·경로·청크 순번 중복 방지
+    CONSTRAINT uq_code_nodes_job_path_chunk UNIQUE (job_id, path, chunk_index)
+);
+
+-- 7. RAG 코드 의존성 관계 테이블 — 파일 간 import 관계 그래프
+--    source_id → target_id : A 파일이 B 파일을 import하는 관계
+CREATE TABLE IF NOT EXISTS code_dependencies (
+    source_id UUID NOT NULL REFERENCES code_nodes(id) ON DELETE CASCADE,  -- import하는 파일의 CodeNode.id
+    target_id UUID NOT NULL REFERENCES code_nodes(id) ON DELETE CASCADE,  -- import되는 파일의 CodeNode.id
+    relation VARCHAR(50) NOT NULL DEFAULT 'import',                        -- 의존 관계 종류 (import / dynamic_import 등)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (source_id, target_id)                                     -- 복합 PK로 중복 관계 삽입 방지
+);
+
+-- 8. 인덱스 설정
 -- 코사인 유사도 검색을 위한 HNSW 인덱스 구축
 -- HNSW 채택 근거: IVFFlat 대비 빠른 빌드 시간, 증분 삽입 지원, 1536차원에서 안정적 성능
 -- 관련 명세: RAG_EMBED_SPEC.md, EMBEDDING_MODEL_DECISION.md
@@ -67,6 +102,16 @@ CREATE INDEX IF NOT EXISTS idx_code_chunks_file_id ON code_chunks (file_id);
 
 -- language 기반 필터링 인덱스 (언어별 코드 청크 검색용)
 CREATE INDEX IF NOT EXISTS idx_code_chunks_language ON code_chunks (language);
+
+-- RAG EMBED: code_nodes 코사인 유사도 검색을 위한 HNSW 인덱스
+-- code_nodes.embedding(vector(1536))에 대해 동일한 HNSW 전략 적용
+CREATE INDEX IF NOT EXISTS idx_code_nodes_embedding ON code_nodes USING hnsw (embedding vector_cosine_ops);
+
+-- RAG EMBED: job_id 기반 코드 노드 조회 인덱스
+CREATE INDEX IF NOT EXISTS idx_code_nodes_job_id ON code_nodes (job_id);
+
+-- RAG EMBED: language 기반 필터링 인덱스 (언어별 검색용)
+CREATE INDEX IF NOT EXISTS idx_code_nodes_language ON code_nodes (language);
 
 -- 분석 작업 상태 조회 성능 향상을 위한 인덱스
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_status ON analysis_jobs (status);
