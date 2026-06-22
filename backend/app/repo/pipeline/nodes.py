@@ -96,7 +96,7 @@ async def clone_node(state: PipelineState) -> dict:
     if os.path.isdir(os.path.join(clone_path, ".git")) or is_local_upload:
         await _publish(job_id, PipelineStage.CLONE, JobStatus.IN_PROGRESS, 20, "기존 저장소 스냅샷 확인")
         elapsed = time.perf_counter() - _t0
-        logger.info("[TIMING] job=%s clone_node=%.3fs (cached)", job_id, elapsed)
+        logger.info("[단계별 소요시간] job=%s | 1.저장소 복제(캐시 적중)=%.3f초", job_id, elapsed)
         return {
             "clone_path": clone_path,
             "current_stage": PipelineStage.CLONE.value,
@@ -126,7 +126,7 @@ async def clone_node(state: PipelineState) -> dict:
             raise RuntimeError(result.stderr.decode(errors="replace").strip() or "git clone failed")
 
         elapsed = time.perf_counter() - _t0
-        logger.info("[TIMING] job=%s clone_node=%.3fs", job_id, elapsed)
+        logger.info("[단계별 소요시간] job=%s | 1.저장소 복제=%.3f초", job_id, elapsed)
         await _update_db(
             job_id,
             status=JobStatus.IN_PROGRESS.value,
@@ -177,7 +177,7 @@ async def code_map_node(state: PipelineState) -> dict:
             state["repo_name"],
         )
         elapsed = time.perf_counter() - _t0
-        logger.info("[TIMING] job=%s code_map_node=%.3fs", job_id, elapsed)
+        logger.info("[단계별 소요시간] job=%s | 2.코드 구조 분석=%.3f초", job_id, elapsed)
         await _update_db(
             job_id,
             status=JobStatus.IN_PROGRESS.value,
@@ -349,7 +349,7 @@ async def doc_gen_node(state: PipelineState) -> dict:
         message = "근거 기반 분석 문서 구성 완료(휴리스틱)"
 
     elapsed = time.perf_counter() - _t0
-    logger.info("[TIMING] job=%s doc_gen_node=%.3fs", job_id, elapsed)
+    logger.info("[단계별 소요시간] job=%s | 3.문서 자동생성(LLM)=%.3f초", job_id, elapsed)
     await _update_db(
         job_id,
         status=JobStatus.IN_PROGRESS.value,
@@ -416,7 +416,7 @@ async def onboarding_node(state: PipelineState) -> dict:
         message = "온보딩 경로 생성 완료(휴리스틱)"
 
     elapsed = time.perf_counter() - _t0
-    logger.info("[TIMING] job=%s onboarding_node=%.3fs", job_id, elapsed)
+    logger.info("[단계별 소요시간] job=%s | 4.온보딩 가이드 생성(LLM)=%.3f초", job_id, elapsed)
     await _update_db(
         job_id,
         status=JobStatus.IN_PROGRESS.value,
@@ -458,8 +458,8 @@ async def report_node(state: PipelineState) -> dict:
     #   [TIMING SUMMARY] job=abc... clone=3.21s code_map=1.05s doc_gen=18.50s
     #                    onboarding=25.00s report=0.01s total=47.77s
     total = sum(timings.values())
-    summary = " ".join(f"{k}={v:.3f}s" for k, v in timings.items())
-    logger.info("[TIMING SUMMARY] job=%s %s total=%.3fs", job_id, summary, total)
+    summary = " | ".join(f"{k}={v:.3f}초" for k, v in timings.items())
+    logger.info("[파이프라인 전체 소요시간 요약] job=%s → %s | 합계=%.3f초", job_id, summary, total)
 
     report["pipeline_timings"] = {k: round(v, 3) for k, v in timings.items()}
     report["pipeline_timings"]["total"] = round(total, 3)
