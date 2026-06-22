@@ -14,8 +14,10 @@
 """
 
 from app.parse.directory import analyze_directory, find_entry_points
+from app.parse.chunking import chunk_by_ast
 
 __all__ = [
     "analyze_directory",
     "find_entry_points",
+    "chunk_by_ast",
 ]
