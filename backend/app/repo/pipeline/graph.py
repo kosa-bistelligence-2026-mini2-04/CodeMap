@@ -14,6 +14,7 @@
 """
 
 import logging
+import time
 
 from langgraph.graph import END, START, StateGraph
 
@@ -153,13 +154,32 @@ class AnalysisPipelineSupervisor:
         Returns:
             최종 파이프라인 상태 (status, progress, error 등)
         """
-        self.logger.info(
-            f"파이프라인 시작 (job_id={initial_state['job_id']})"
-        )
+        job_id = initial_state["job_id"]
+        _t0_total = time.perf_counter()
+        self.logger.info(f"파이프라인 시작 (job_id={job_id})")
+
         # [Sec09 - ainvoke] 비동기 워크플로우 실행
         result = await self.work_flow.ainvoke(initial_state)
+
+        final_status = result.get("status", "UNKNOWN")
         self.logger.info(
-            f"파이프라인 종료 "
-            f"(job_id={initial_state['job_id']}, status={result.get('status')})"
+            f"파이프라인 종료 (job_id={job_id}, status={final_status})"
         )
+
+        # ── 실패 종료 시 누적 타이밍 요약 출력 (리뷰어 제안 2 반영)
+        # 성공 시에는 report_node에서 이미 요약 로그를 출력하므로 실패 시에만 여기서 출력한다.
+        if final_status == "FAILED":
+            timings = result.get("timings", {})
+            if timings:
+                wall_time = time.perf_counter() - _t0_total
+                summary = " | ".join(f"{k}={v:.3f}초" for k, v in timings.items())
+                self.logger.warning(
+                    "[파이프라인 실패 시 소요시간 요약] job=%s → %s | 벽시계=%.3f초",
+                    job_id, summary, wall_time,
+                )
+            else:
+                self.logger.warning(
+                    "[파이프라인 실패 시 소요시간 요약] job=%s → 타이밍 데이터 없음", job_id
+                )
+
         return result

@@ -52,3 +52,7 @@ class PipelineState(TypedDict):
 
     # 오류 메시지 (실패 시 설정)
     error: Optional[str]
+
+    # 파이프라인 단계별 소요 시간 (초, perf_counter 기준)
+    # 예: {"clone": 3.2, "code_map": 1.1, "doc_gen": 4.5, "onboarding": 8.3, "report": 0.6}
+    timings: dict[str, float]

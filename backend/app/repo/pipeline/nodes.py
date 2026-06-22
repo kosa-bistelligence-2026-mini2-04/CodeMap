@@ -25,6 +25,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
@@ -86,6 +87,7 @@ async def clone_node(state: PipelineState) -> dict:
     job_id = state["job_id"]
     clone_path = os.path.join(settings.CLONE_BASE_DIR, job_id, "repo")
     force_refresh = bool(state.get("force_refresh", False))
+    _t0 = time.perf_counter()
 
     if force_refresh and os.path.exists(clone_path):
         shutil.rmtree(os.path.dirname(clone_path), ignore_errors=True)
@@ -93,12 +95,15 @@ async def clone_node(state: PipelineState) -> dict:
     is_local_upload = os.path.isfile(os.path.join(clone_path, ".codemap-upload"))
     if os.path.isdir(os.path.join(clone_path, ".git")) or is_local_upload:
         await _publish(job_id, PipelineStage.CLONE, JobStatus.IN_PROGRESS, 20, "기존 저장소 스냅샷 확인")
+        elapsed = time.perf_counter() - _t0
+        logger.info("[단계별 소요시간] job=%s | 1.저장소 복제(캐시 적중)=%.3f초", job_id, elapsed)
         return {
             "clone_path": clone_path,
             "current_stage": PipelineStage.CLONE.value,
             "progress": 20,
             "status": JobStatus.IN_PROGRESS.value,
             "error": None,
+            "timings": {**state.get("timings", {}), "clone": elapsed},
         }
 
     await _publish(job_id, PipelineStage.CLONE, JobStatus.IN_PROGRESS, 5, "저장소 복제 준비 중")
@@ -120,6 +125,8 @@ async def clone_node(state: PipelineState) -> dict:
         if result.returncode != 0:
             raise RuntimeError(result.stderr.decode(errors="replace").strip() or "git clone failed")
 
+        elapsed = time.perf_counter() - _t0
+        logger.info("[단계별 소요시간] job=%s | 1.저장소 복제=%.3f초", job_id, elapsed)
         await _update_db(
             job_id,
             status=JobStatus.IN_PROGRESS.value,
@@ -134,12 +141,20 @@ async def clone_node(state: PipelineState) -> dict:
             "progress": 20,
             "status": JobStatus.IN_PROGRESS.value,
             "error": None,
+            "timings": {**state.get("timings", {}), "clone": elapsed},
         }
     except Exception as exc:
-        logger.exception("Clone failed for job %s", job_id)
+        # 실패 시점까지 소요된 시간도 timings에 누적 (리뷰어 제안 1 반영)
+        # 네트워크 지연 등 실패 전 대기 시간을 "clone_failed"로 구분해 기록한다.
+        elapsed = time.perf_counter() - _t0
+        logger.exception("Clone failed for job %s (%.3f초 경과 후 실패)", job_id, elapsed)
         await _update_db(job_id, status=JobStatus.FAILED.value, message=f"Clone 실패: {exc}")
         await _publish(job_id, PipelineStage.CLONE, JobStatus.FAILED, 0, f"Clone 실패: {exc}")
-        return {"status": JobStatus.FAILED.value, "error": str(exc)}
+        return {
+            "status": JobStatus.FAILED.value,
+            "error": str(exc),
+            "timings": {**state.get("timings", {}), "clone_failed": elapsed},
+        }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -155,6 +170,7 @@ async def clone_node(state: PipelineState) -> dict:
 # ──────────────────────────────────────────────────────────────
 async def code_map_node(state: PipelineState) -> dict:
     job_id = state["job_id"]
+    _t0 = time.perf_counter()
     await _publish(job_id, PipelineStage.CODE_MAP, JobStatus.IN_PROGRESS, 28, "파일 구조와 기술 스택 분석 중")
     try:
         # clone_path는 PipelineState에서 Optional[str]이지만 clone_node 완료 후 항상 설정된다.
@@ -167,6 +183,8 @@ async def code_map_node(state: PipelineState) -> dict:
             clone_path,
             state["repo_name"],
         )
+        elapsed = time.perf_counter() - _t0
+        logger.info("[단계별 소요시간] job=%s | 2.코드 구조 분석=%.3f초", job_id, elapsed)
         await _update_db(
             job_id,
             status=JobStatus.IN_PROGRESS.value,
@@ -180,12 +198,19 @@ async def code_map_node(state: PipelineState) -> dict:
             "analysis_report": report,
             "current_stage": PipelineStage.CODE_MAP.value,
             "progress": 55,
+            "timings": {**state.get("timings", {}), "code_map": elapsed},
         }
     except Exception as exc:
-        logger.exception("Repository scan failed for job %s", job_id)
+        # 실패 시점까지 소요된 시간도 timings에 누적 (리뷰어 제안 1 반영)
+        elapsed = time.perf_counter() - _t0
+        logger.exception("Repository scan failed for job %s (%.3f초 경과 후 실패)", job_id, elapsed)
         await _update_db(job_id, status=JobStatus.FAILED.value, message=f"코드 분석 실패: {exc}")
         await _publish(job_id, PipelineStage.CODE_MAP, JobStatus.FAILED, 21, f"코드 분석 실패: {exc}")
-        return {"status": JobStatus.FAILED.value, "error": str(exc)}
+        return {
+            "status": JobStatus.FAILED.value,
+            "error": str(exc),
+            "timings": {**state.get("timings", {}), "code_map_failed": elapsed},
+        }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -304,6 +329,7 @@ async def _llm_json(system: str, user: str) -> dict | None:
 # ──────────────────────────────────────────────────────────────
 async def doc_gen_node(state: PipelineState) -> dict:
     job_id = state["job_id"]
+    _t0 = time.perf_counter()
     await _publish(job_id, PipelineStage.DOC_GEN, JobStatus.IN_PROGRESS, 64, "분석 근거와 읽기 순서 구성 중")
     report = dict(state.get("analysis_report") or {})
     entrypoints = list(report.get("entrypoints", []))
@@ -335,6 +361,8 @@ async def doc_gen_node(state: PipelineState) -> dict:
         report["doc_generated_by"] = "heuristic"
         message = "근거 기반 분석 문서 구성 완료(휴리스틱)"
 
+    elapsed = time.perf_counter() - _t0
+    logger.info("[단계별 소요시간] job=%s | 3.문서 자동생성(LLM)=%.3f초", job_id, elapsed)
     await _update_db(
         job_id,
         status=JobStatus.IN_PROGRESS.value,
@@ -343,7 +371,12 @@ async def doc_gen_node(state: PipelineState) -> dict:
         message=message,
         report_json=report,
     )
-    return {"analysis_report": report, "current_stage": PipelineStage.DOC_GEN.value, "progress": 72}
+    return {
+        "analysis_report": report,
+        "current_stage": PipelineStage.DOC_GEN.value,
+        "progress": 72,
+        "timings": {**state.get("timings", {}), "doc_gen": elapsed},
+    }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -356,6 +389,7 @@ async def doc_gen_node(state: PipelineState) -> dict:
 # ──────────────────────────────────────────────────────────────
 async def onboarding_node(state: PipelineState) -> dict:
     job_id = state["job_id"]
+    _t0 = time.perf_counter()
     await _publish(job_id, PipelineStage.ONBOARDING, JobStatus.IN_PROGRESS, 80, "온보딩 경로 생성 중")
     report = dict(state.get("analysis_report") or {})
     entrypoints = list(report.get("entrypoints", []))
@@ -394,6 +428,8 @@ async def onboarding_node(state: PipelineState) -> dict:
         report.setdefault("risk_areas", [])
         message = "온보딩 경로 생성 완료(휴리스틱)"
 
+    elapsed = time.perf_counter() - _t0
+    logger.info("[단계별 소요시간] job=%s | 4.온보딩 가이드 생성(LLM)=%.3f초", job_id, elapsed)
     await _update_db(
         job_id,
         status=JobStatus.IN_PROGRESS.value,
@@ -402,7 +438,12 @@ async def onboarding_node(state: PipelineState) -> dict:
         message=message,
         report_json=report,
     )
-    return {"analysis_report": report, "current_stage": PipelineStage.ONBOARDING.value, "progress": 90}
+    return {
+        "analysis_report": report,
+        "current_stage": PipelineStage.ONBOARDING.value,
+        "progress": 90,
+        "timings": {**state.get("timings", {}), "onboarding": elapsed},
+    }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -414,11 +455,28 @@ async def onboarding_node(state: PipelineState) -> dict:
 # ──────────────────────────────────────────────────────────────
 async def report_node(state: PipelineState) -> dict:
     job_id = state["job_id"]
+    _t0 = time.perf_counter()
     report = dict(state.get("analysis_report") or {})
     report["job_id"] = job_id
     report["status"] = "completed"
     report["completed_at"] = datetime.now(timezone.utc).isoformat()
     report["model_used"] = state.get("model", "auto")
+
+    elapsed = time.perf_counter() - _t0
+    timings = {**state.get("timings", {}), "report": elapsed}
+
+    # ── 파이프라인 전체 타이밍 요약 로그 ──
+    # 어느 단계가 느린지 한눈에 파악하기 위해 분석 완료 시점에 출력한다.
+    # 예시 출력:
+    #   [TIMING SUMMARY] job=abc... clone=3.21s code_map=1.05s doc_gen=18.50s
+    #                    onboarding=25.00s report=0.01s total=47.77s
+    total = sum(timings.values())
+    summary = " | ".join(f"{k}={v:.3f}초" for k, v in timings.items())
+    logger.info("[파이프라인 전체 소요시간 요약] job=%s → %s | 합계=%.3f초", job_id, summary, total)
+
+    report["pipeline_timings"] = {k: round(v, 3) for k, v in timings.items()}
+    report["pipeline_timings"]["total"] = round(total, 3)
+
     await _update_db(
         job_id,
         status=JobStatus.COMPLETED.value,
@@ -434,4 +492,5 @@ async def report_node(state: PipelineState) -> dict:
         "progress": 100,
         "status": JobStatus.COMPLETED.value,
         "error": None,
+        "timings": timings,
     }

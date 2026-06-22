@@ -644,6 +644,7 @@ class AnalysisService:
                 "progress": 0,
                 "status": JobStatus.IN_PROGRESS.value,
                 "error": None,
+                "timings": {},  # 파이프라인 단계별 소요 시간 (초) — 완료 시 [TIMING SUMMARY] 로그에 출력
             }
 
             # [Sec09 - work_flow.ainvoke()] LangGraph 워크플로우 실행
