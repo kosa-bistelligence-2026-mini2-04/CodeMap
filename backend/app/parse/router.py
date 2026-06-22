@@ -55,7 +55,7 @@ async def get_parse_analysis(repo_id: UUID, db: AsyncSession = Depends(get_db)):
     rj = job.report_json
     files = rj.get("files", [])
     
-    config_files = [f["path"] for f in files if isinstance(f, dict) and f.get("metadata") and f["metadata"].get("is_config")]
+    config_files = [f.get("path") for f in files if isinstance(f, dict) and f.get("path") and f.get("metadata") and f["metadata"].get("is_config")]
     tree_text = _build_directory_tree(files, job.repo_name)
     
     tech_stack = rj.get("tech_stack", [])
