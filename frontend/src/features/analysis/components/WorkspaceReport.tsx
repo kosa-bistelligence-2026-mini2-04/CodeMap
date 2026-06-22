@@ -63,7 +63,7 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
               <h1 className="text-xl font-bold tracking-tight md:text-2xl">{report.repository.name}</h1>
               <p className={`mt-2 text-sm leading-6 ${muted}`}>{report.executive_summary}</p>
               <div className="mt-4 flex flex-wrap gap-2">
-                {[report.stats.primary_language, ...report.stack].filter(Boolean).map((item) => (
+                {[...new Set([report.stats.primary_language, ...report.stack].filter(Boolean))].map((item) => (
                   <span key={item} className={`rounded-lg border px-2.5 py-1 text-[10px] font-semibold ${isDark ? "border-zinc-700 bg-zinc-950 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
                     {item}
                   </span>
