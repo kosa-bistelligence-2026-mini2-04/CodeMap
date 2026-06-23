@@ -1,4 +1,5 @@
 import os
+import logging
 from dataclasses import dataclass
 from typing import Annotated, Optional
 from urllib.parse import quote as url_quote
@@ -29,6 +30,8 @@ from app.repo.service import (
     EXCLUDED_FILE_NAMES,
     GITHUB_URL_PATTERN,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -148,7 +151,15 @@ class ListService:
                         raise ValidationFailedError(
                             f"GitHub API 호출 중 오류가 발생했습니다: HTTP {response.status_code}"
                         )
-                    target_branch = response.json().get("default_branch", "main")
+                    try:
+                        repo_info = response.json()
+                        if not isinstance(repo_info, dict):
+                            raise ValidationFailedError("API 응답 형식이 올바르지 않습니다.")
+                        target_branch = repo_info.get("default_branch")
+                        if not target_branch:
+                            raise ValidationFailedError("저장소 정보에서 기본 브랜치(default_branch)를 찾을 수 없습니다.")
+                    except (ValueError, TypeError) as exc:
+                        raise ValidationFailedError(f"저장소 정보 파싱 중 오류가 발생했습니다: {exc}")
 
                 ## 이슈 #별도 제안: 브랜치명 URL encoding (슬래시 등 특수문자 대응)
                 encoded_branch = url_quote(target_branch, safe="")
@@ -170,7 +181,8 @@ class ListService:
         except CodeMapException:
             raise
         except Exception as exc:
-            raise ValidationFailedError(f"GitHub API 호출 중 오류가 발생했습니다: {exc}") from exc
+            logger.exception("GitHub 저장소 사전 검증 중 예상치 못한 오류 발생", exc_info=exc)
+            raise ValidationFailedError("GitHub 저장소 정보를 가져오는 중 서버 오류가 발생했습니다.") from exc
 
         ## 이슈 #별도 제안: truncated 응답 처리
         ## GitHub Trees API는 큼 저장소에서 truncated=true를 내립니다.
@@ -199,13 +211,20 @@ class ListService:
                 if _should_exclude_path(path):
                     continue
 
+                size = item.get("size")
+                if size is None:
+                    # size 정보가 없는 blob(예: 서브모듈)은 파일 수 및 용량 집계에서 제외
+                    continue
+
                 file_count += 1
-                size = item.get("size", 0)
                 total_size += size
                 if size > 100 * 1024:
                     any_file_exceeds_100kb = True
 
         total_size_kb = (total_size + 1023) // 1024
+
+        if file_count == 0:
+            raise ValidationFailedError("저장소 내에 분석 가능한 파일이 없습니다.")
 
         ## 이슈 #4 수정: warning_message를 먼저 생성하고 is_valid는 단일 소스로 통일
         warning_message = None
