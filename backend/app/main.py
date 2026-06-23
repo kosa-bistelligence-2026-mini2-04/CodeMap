@@ -7,8 +7,8 @@ FastAPI 앱 인스턴스를 생성하고, 도메인별 라우터와 미들웨어
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from contextlib import asynccontextmanager
+
 from app.core.exceptions import register_exception_handlers
 from app.core.database import engine, Base
 # Import model classes to ensure they register on Base.metadata

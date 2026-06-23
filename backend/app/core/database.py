@@ -12,11 +12,12 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+import re
+
 # PostgreSQL 비동기 드라이버(asyncpg) 사용을 위한 URL 변환
+# psycopg2 등 다른 드라이버가 지정되었더라도 강제로 asyncpg로 교체하여 엔진 크래시 방지
 db_url_str = settings.DATABASE_URL.get_secret_value() if hasattr(settings.DATABASE_URL, "get_secret_value") else settings.DATABASE_URL
-ASYNC_DATABASE_URL = db_url_str.replace(
-    "postgresql://", "postgresql+asyncpg://"
-)
+ASYNC_DATABASE_URL = re.sub(r"^postgresql(\+[a-zA-Z0-9_]+)?://", "postgresql+asyncpg://", db_url_str)
 
 # 비동기 SQLAlchemy 엔진 생성
 engine = create_async_engine(
@@ -48,7 +49,6 @@ async def get_db() -> AsyncSession:
     async with async_session_factory() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise
