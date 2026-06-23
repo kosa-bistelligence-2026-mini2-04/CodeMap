@@ -136,6 +136,82 @@ export interface WorkspaceReport {
   onboarding_steps?: Array<{ title: string; files: string[] }>;
 }
 
+export interface ParseTechStackItem {
+  name: string;
+  version: string | null;
+  category: string;
+  source: string | null;
+}
+
+export interface ParseEntryPointItem {
+  path: string;
+  type: string | null;
+  reason: string | null;
+}
+
+export interface ParseRunCommands {
+  install: string;
+  run: string;
+  build: string | null;
+}
+
+export interface ParseFileMapItem {
+  path: string;
+  language: string | null;
+  chunkCount: number;
+  imports: string[];
+  importedBy: string[];
+  riskScore: number | null;
+}
+
+export interface ParseHeatmapItem {
+  path: string;
+  score: number;
+}
+
+export interface ParseReadmeData {
+  repoId: string;
+  projectPurpose: string;
+  coreFeatures: string[];
+  targetAudience: string;
+  rawReadme: string;
+}
+
+export interface ParseTreeData {
+  repoId: string;
+  directoryTree: string;
+  entryPoints: ParseEntryPointItem[];
+  configFiles: string[];
+  totalFiles: number;
+}
+
+export interface ParseStackData {
+  repoId: string;
+  techStack: ParseTechStackItem[];
+  runCommands: ParseRunCommands;
+}
+
+export interface ParseCodeMapData {
+  repoId: string;
+  fileMap: ParseFileMapItem[];
+  heatmap: ParseHeatmapItem[];
+}
+
+export interface ParseSummaryData {
+  repoId: string;
+  projectSummary: string;
+  folderSummaries: Array<{ path: string; summary: string }>;
+  fileSummaries: Array<{ path: string; summary: string }>;
+}
+
+export interface ParseDetails {
+  readme: ParseReadmeData;
+  tree: ParseTreeData;
+  stack: ParseStackData;
+  codemap: ParseCodeMapData;
+  summary: ParseSummaryData;
+}
+
 export interface JobStatusData {
   jobId: string;
   repoName: string;
@@ -351,4 +427,3 @@ export interface PreValidateResponse {
   message: string;
   data: PreValidateData;
 }
-
