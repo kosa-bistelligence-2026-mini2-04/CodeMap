@@ -132,6 +132,50 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(commands.install, "pip install -r requirements.txt")
         self.assertEqual(commands.run, "uvicorn app.main:app --reload")
 
+    @unittest.skipUnless(_has("extract_run_command_details"), "extract_run_command_details(B-205) 미구현")
+    async def test_run_command_details_does_not_use_api_router_as_app(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path="app/api.py",
+                file_type="FILE",
+                depth=1,
+                content="from fastapi import APIRouter\nrouter = APIRouter()\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="requirements.txt",
+                file_type="FILE",
+                depth=0,
+                content="fastapi==0.115.0\n",
+            ),
+        ]
+
+        commands = await parse_service.extract_run_command_details(files)
+
+        self.assertEqual(commands.install, "pip install -r requirements.txt")
+        self.assertEqual(commands.run, "")
+
+    @unittest.skipUnless(
+        _has("extract_run_command_details", "extract_run_commands"),
+        "extract_run_command_details/extract_run_commands(B-205) 미구현",
+    )
+    async def test_run_command_details_detects_compose_variant_file(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path="docker-compose.dev.yml",
+                file_type="FILE",
+                depth=0,
+                content="services:\n  app:\n    image: nginx\n",
+            )
+        ]
+
+        details = await parse_service.extract_run_command_details(files)
+        commands = await parse_service.extract_run_commands(files)
+
+        self.assertEqual(details.run, "docker compose up")
+        self.assertEqual(details.build, "docker compose build")
+        self.assertIn("docker compose up", commands)
+        self.assertIn("docker compose build", commands)
+
     @unittest.skipUnless(_has("detect_tech_stack"), "detect_tech_stack(B-206) 미구현")
     async def test_tech_stack_is_detected_from_dependencies(self):
         stack = await parse_service.detect_tech_stack(self.files)

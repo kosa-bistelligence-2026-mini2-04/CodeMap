@@ -106,6 +106,7 @@ _PM_BY_LOCKFILE = {
     "yarn.lock": "yarn",
     "package-lock.json": "npm",
 }
+_FASTAPI_APP_PATTERN = re.compile(r"(?m)^\s*app\s*=\s*FastAPI\s*\(")
 
 
 def _detect_node_pm(names: set[str]) -> str:
@@ -139,12 +140,22 @@ def _module_path(path: str) -> str:
     return Path(path).with_suffix("").as_posix().replace("/", ".")
 
 
+def _has_compose_file(names: set[str]) -> bool:
+    return bool(
+        {"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} & names
+        or any(
+            name.startswith("docker-compose.") and name.endswith((".yml", ".yaml"))
+            for name in names
+        )
+    )
+
+
 def _detect_python_run(files: list[ParsedFile]) -> str:
     for node in files:
         if node.file_type != "FILE" or not node.path.endswith(".py"):
             continue
         content = node.content or ""
-        if "FastAPI(" in content or "APIRouter(" in content:
+        if _FASTAPI_APP_PATTERN.search(content):
             return f"uvicorn {_module_path(node.path)}:app --reload"
     for node in files:
         if node.file_type == "FILE" and Path(node.path).name in {"manage.py"}:
@@ -189,7 +200,7 @@ async def extract_run_command_details(files: list[ParsedFile]) -> RunCommandSet:
     run = run or _detect_python_run(files)
 
     # 컨테이너 — compose 우선, 없으면 Dockerfile 빌드
-    if {"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} & names:
+    if _has_compose_file(names):
         run = run or "docker compose up"
         build = build or "docker compose build"
     elif "dockerfile" in names:
@@ -210,7 +221,7 @@ async def extract_run_commands(files: list[ParsedFile]) -> list[str]:
         commands.append("pip install -r requirements.txt")
     elif "pyproject.toml" in names:
         commands.append("pip install .")
-    if {"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} & names:
+    if _has_compose_file(names):
         commands.extend(["docker compose build", "docker compose up"])
     elif "dockerfile" in names:
         commands.append("docker build -t app .")
