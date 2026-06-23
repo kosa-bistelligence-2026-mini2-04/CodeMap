@@ -7,9 +7,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chat.repository import ChatRepository
-from app.chat.schemas import ChatRequest
+from app.chat.schemas import ChatContextRequest, ChatContextResponse, ChatRequest
 from app.chat.service import RepositoryChatService
+from app.core.auth import get_current_user
 from app.core.database import get_db
+from app.core.schemas import ErrorResponse
 
 
 router = APIRouter(prefix="/api/chat", tags=["Repository Chat"])
@@ -19,8 +21,49 @@ def _event(payload: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
+# ──────────────────────────────────────────────
+# AGENT-CHAT-API-002: 코드 컨텍스트 검색
+# POST /api/chat/{repo_id}/context
+# ──────────────────────────────────────────────
+@router.post(
+    "/{repo_id}/context",
+    response_model=ChatContextResponse,
+    summary="코드 컨텍스트 검색",
+    description="자연어 질문을 기반으로 분석 저장소의 코드 청크를 벡터 유사도 순으로 조회합니다.",
+    responses={
+        401: {"model": ErrorResponse, "description": "인증 토큰 누락 또는 만료"},
+        404: {"model": ErrorResponse, "description": "분석 저장소를 찾을 수 없음"},
+        500: {"model": ErrorResponse, "description": "벡터 검색 실패"},
+    },
+)
+async def get_chat_context(
+    repo_id: UUID,
+    request: ChatContextRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user: dict = Depends(get_current_user),
+) -> ChatContextResponse:
+    """
+    AGENT-CHAT-API-002 명세에 맞춰 질문과 관련된 코드 컨텍스트를 반환합니다.
+
+    인증된 사용자의 요청을 받아 서비스 계층으로 검색 조건을 전달하고,
+    표준 성공 응답 DTO 형태로 결과를 내려줍니다.
+    """
+    service = RepositoryChatService(db)
+    return await service.get_context(repo_id, request)
+
+
+# ──────────────────────────────────────────────
+# AGENT-CHAT-API-001: Repo Chat SSE 스트리밍
+# POST /api/chat/{repo_id}
+# ──────────────────────────────────────────────
 @router.post("/{repo_id}")
 async def chat(repo_id: UUID, request: ChatRequest, db: AsyncSession = Depends(get_db)):
+    """
+    저장소에 대한 자연어 질문을 받아 SSE 스트리밍 답변을 반환합니다.
+
+    현재 구현은 기존 채팅 화면의 이벤트 형식을 유지하며,
+    명세 기준 이벤트 포맷 정리는 이후 순서에서 별도로 진행합니다.
+    """
     service = RepositoryChatService(db)
     try:
         job, thread, mode, references = await service.prepare(repo_id, request)
