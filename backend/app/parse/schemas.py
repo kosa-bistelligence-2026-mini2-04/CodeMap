@@ -117,6 +117,13 @@ class FileMapItem(BaseModel):
     risk_score: int | None = Field(default=None, description="위험도 점수 (0-100)")
 
 
+class HeatmapItem(BaseModel):
+    """복잡도/위험도 히트맵 항목 (RAG-PARSE-API-005)."""
+
+    path: str = Field(description="파일 경로")
+    score: int = Field(default=0, ge=0, le=100, description="복잡도/위험도 점수")
+
+
 class ParseResult(BaseModel):
     """PARSE 파이프라인 최종 산출물 (RAG-PARSE-B-101 응답의 기반)."""
 
@@ -151,6 +158,7 @@ class ParseResult(BaseModel):
         description="폴더 단위 요약 목록",
     )
     file_map: list[FileMapItem] = Field(default_factory=list, description="코드맵 파일 단위 항목")
+    heatmap: list[HeatmapItem] = Field(default_factory=list, description="코드맵 히트맵 항목")
     directory_tree: str | None = Field(default=None, description="폴더 트리 텍스트")
     files: list[ParsedFile] = Field(default_factory=list, description="파싱된 파일/디렉토리 노드")
 

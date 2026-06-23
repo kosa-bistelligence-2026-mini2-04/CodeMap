@@ -10,6 +10,7 @@
   readme    : parse_readme                                  (B-201)
   chunking  : chunk_by_ast                                  (B-207)
   imports   : analyze_imports                               (B-208)
+  codemap   : build_file_map, build_heatmap                  (API-005)
   summary   : build_hierarchical_summary, run_structure_agent (B-209/210)
   run_parse_pipeline : 오케스트레이터                        (통합)
 """
@@ -24,6 +25,7 @@ from app.parse.manifest import (
     detect_tech_stack_details,
 )
 from app.parse.imports import analyze_imports
+from app.parse.codemap import build_file_map, build_heatmap
 from app.parse.readme import parse_readme
 from app.parse.language import analyze_language_composition
 from app.parse.summary import build_hierarchical_summary
@@ -38,6 +40,8 @@ __all__ = [
     "detect_tech_stack",
     "detect_tech_stack_details",
     "analyze_imports",
+    "build_file_map",
+    "build_heatmap",
     "parse_readme",
     "analyze_language_composition",
     "build_hierarchical_summary",

@@ -12,6 +12,7 @@ def build_mock_parse_result():
         CodeChunk,
         EntryPointItem,
         FileMapItem,
+        HeatmapItem,
         LanguageCompositionItem,
         ParseResult,
         ParsedFile,
@@ -51,6 +52,9 @@ def build_mock_parse_result():
         ],
         file_map=[
             FileMapItem(path="backend/app/main.py", language="Python", chunk_count=1),
+        ],
+        heatmap=[
+            HeatmapItem(path="backend/app/main.py", score=12),
         ],
         directory_tree="CodeMap/\n└── backend/",
         files=[

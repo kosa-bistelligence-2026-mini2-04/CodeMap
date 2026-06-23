@@ -26,6 +26,8 @@ FUNCTION_NAMES = {
     "analyze_language_composition",
     "chunk_by_ast",
     "analyze_imports",
+    "build_file_map",
+    "build_heatmap",
     "build_hierarchical_summary",
     "run_structure_agent",
     "run_parse_pipeline",
@@ -330,6 +332,23 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         by_path = {item.path: item for item in analyzed}
         self.assertIn("pkg/c.py", by_path["pkg/a.py"].imports)
         self.assertIn("backend/app/service.py", by_path["pkg/a.py"].imports)
+
+    @unittest.skipUnless(_has("build_file_map", "build_heatmap"), "Code Map 품질 보강 미구현")
+    async def test_file_map_adds_imported_by_and_risk_score(self):
+        chunked = await parse_service.chunk_by_ast(self.files)
+        analyzed = await parse_service.analyze_imports(chunked)
+        tagged = await parse_service.tag_config_files(analyzed)
+
+        file_map = await parse_service.build_file_map(tagged)
+        by_path = {item.path: item for item in file_map}
+
+        self.assertIn("backend/app/main.py", by_path["backend/app/service.py"].imported_by)
+        self.assertGreaterEqual(by_path["backend/app/service.py"].risk_score, 1)
+        self.assertEqual(by_path["backend/app/main.py"].language, "Python")
+
+        heatmap = await parse_service.build_heatmap(tagged)
+        self.assertTrue(heatmap)
+        self.assertGreaterEqual(heatmap[0].score, heatmap[-1].score)
 
     @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
     async def test_missing_readme_returns_none_without_model_call(self):

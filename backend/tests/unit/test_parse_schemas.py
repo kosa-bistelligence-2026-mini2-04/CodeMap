@@ -16,6 +16,7 @@ REQUIRED_SCHEMA_NAMES = {
     "EntryPointItem",
     "FolderSummary",
     "FileMapItem",
+    "HeatmapItem",
     "ParseResult",
     "EmbedRequest",
     "EmbedResult",
