@@ -196,6 +196,34 @@ class InvalidRefreshTokenError(CodeMapException):
         super().__init__(401, "INVALID_REFRESH_TOKEN", message)
 
 
+class TargetFileNotFoundError(CodeMapException):
+    """조회할 대상 파일 또는 디렉토리가 없을 때 발생 (404)"""
+
+    def __init__(self, message: str = "대상 파일 또는 디렉토리를 찾을 수 없습니다."):
+        super().__init__(404, "TARGET_NOT_FOUND", message)
+
+
+class InvalidPathError(CodeMapException):
+    """안전하지 않거나 허용되지 않은 경로 접근 시 발생 (400)"""
+
+    def __init__(self, message: str = "잘못된 경로 접근입니다."):
+        super().__init__(400, "INVALID_PATH", message)
+
+
+class FileTooLargeError(CodeMapException):
+    """조회하려는 파일이 너무 클 때 발생 (413)"""
+
+    def __init__(self, message: str = "파일 크기 제한을 초과했습니다."):
+        super().__init__(413, "FILE_TOO_LARGE", message)
+
+
+class FileReadFailedError(CodeMapException):
+    """파일 조회/파싱 실패 시 발생 (500)"""
+
+    def __init__(self, message: str = "파일을 읽는 중 오류가 발생했습니다."):
+        super().__init__(500, "FILE_READ_FAILED", message)
+
+
 # ──────────────────────────────────────────────
 # FastAPI 전역 예외 핸들러 등록 함수
 # ──────────────────────────────────────────────

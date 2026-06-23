@@ -16,6 +16,7 @@ from app.repo.router import router as repo_router
 from app.repo.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
 from app.parse.router import router as parse_router
+from app.search.router import router as search_router
 
 # ──────────────────────────────────────────────
 # FastAPI 앱 인스턴스 생성
@@ -74,6 +75,9 @@ app.include_router(chat_router)
 
 # RAG-PARSE 분석 API (API-001 등)
 app.include_router(parse_router)
+
+# AGENT-SEARCH 검색 API (API-002)
+app.include_router(search_router, prefix="/api")
 
 # TODO: 추후 도메인별 라우터 추가 등록
 # app.include_router(list_router, prefix="/api")
