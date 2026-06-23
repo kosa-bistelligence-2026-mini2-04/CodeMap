@@ -23,13 +23,21 @@ from app.core.exceptions import (
     ValidationFailedError,
 )
 from app.list.repository import AnalysisJobListRepository
-from app.list.schemas import PreValidateData, PreValidateResponse
+from app.list.schemas import PreValidateData, PreValidateResponse, PreValidateLimit
 from app.repo.service import (
     EXCLUDED_DIRS,
     EXCLUDED_FILE_EXTENSIONS,
     EXCLUDED_FILE_NAMES,
     GITHUB_URL_PATTERN,
 )
+
+BINARY_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".pdf",
+    ".zip", ".tar", ".gz", ".rar", ".7z", ".exe", ".dll",
+    ".so", ".dylib", ".class", ".pyc", ".db", ".sqlite",
+    ".woff", ".woff2", ".ttf", ".eot", ".mp3", ".mp4",
+}
+
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +192,9 @@ class ListService:
             logger.exception("GitHub 저장소 사전 검증 중 예상치 못한 오류 발생", exc_info=exc)
             raise ValidationFailedError("GitHub 저장소 정보를 가져오는 중 서버 오류가 발생했습니다.") from exc
 
+        # API-005 스펙 준수: 제한 기준 설정값 DTO 상시 반환용 기본 인스턴스 생성
+        limit = PreValidateLimit(fileCount=100, fileSizeKb=100)
+
         ## 이슈 #별도 제안: truncated 응답 처리
         ## GitHub Trees API는 큼 저장소에서 truncated=true를 내립니다.
         ## 이 경우 실제 파일 수/용량보다 적게 계산되어 isValid=true를 잘못 반환할 수 있습니다.
@@ -197,12 +208,14 @@ class ListService:
                     total_size_kb=0,
                     warning_message="저장소가 너무 커서 GitHub API가 파일 목록을 누락(truncated)했습니다. 세부 파일 필터링 없이 전체 분석이 불가능합니다.",
                     is_truncated=True,
+                    limit=limit,
                 ),
             )
 
         tree = payload.get("tree", [])
         file_count = 0
         total_size = 0
+        max_file_size = 0
         any_file_exceeds_100kb = False
 
         for item in tree:
@@ -218,20 +231,30 @@ class ListService:
 
                 file_count += 1
                 total_size += size
+                max_file_size = max(max_file_size, size)
                 if size > 100 * 1024:
                     any_file_exceeds_100kb = True
 
         total_size_kb = (total_size + 1023) // 1024
+        max_file_size_kb = (max_file_size + 1023) // 1024 if max_file_size > 0 else 0
 
         if file_count == 0:
             raise ValidationFailedError("저장소 내에 분석 가능한 파일이 없습니다.")
 
         ## 이슈 #4 수정: warning_message를 먼저 생성하고 is_valid는 단일 소스로 통일
         warning_message = None
-        if file_count > 100:
-            warning_message = "저장소 파일 수가 100개를 초과합니다. 분석 시 가장 핵심이 되는 100개의 파일만 지능적으로 자동 선택되어 분석이 진행됩니다."
+        warning_code = None
+
+        if file_count > 100 and any_file_exceeds_100kb:
+            warning_message = "저장소 파일 수와 개별 파일 용량 제한을 모두 초과하였습니다. 핵심 파일만 선별하여 분석을 진행해야 합니다."
+            warning_code = "REPO_LIMIT_EXCEEDED"
+        elif file_count > 100:
+            warning_message = "저장소 파일 수가 100개를 초과합니다. 핵심 파일만 선별하여 분석을 진행해야 합니다."
+            warning_code = "FILE_COUNT_EXCEEDED"
         elif any_file_exceeds_100kb:
             warning_message = "100KB를 초과하는 대용량 파일이 존재합니다. 해당 파일은 분석 대상에서 제외되거나 제한적으로 분석될 수 있습니다."
+            warning_code = "FILE_SIZE_EXCEEDED"
+
         is_valid = warning_message is None
 
         return PreValidateResponse(
@@ -243,6 +266,9 @@ class ListService:
                 total_size_kb=total_size_kb,
                 warning_message=warning_message,
                 is_truncated=False,
+                warning_code=warning_code,
+                max_file_size_kb=max_file_size_kb,
+                limit=limit,
             ),
         )
 
@@ -268,13 +294,7 @@ def _should_exclude_path(path: str) -> bool:
     if ext_lower in EXCLUDED_FILE_EXTENSIONS:
         return True
 
-    binary_extensions = {
-        ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".pdf",
-        ".zip", ".tar", ".gz", ".rar", ".7z", ".exe", ".dll",
-        ".so", ".dylib", ".class", ".pyc", ".db", ".sqlite",
-        ".woff", ".woff2", ".ttf", ".eot", ".mp3", ".mp4",
-    }
-    if ext_lower in binary_extensions:
+    if ext_lower in BINARY_EXTENSIONS:
         return True
 
     return False

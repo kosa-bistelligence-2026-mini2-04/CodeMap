@@ -5,10 +5,15 @@ API 명세서에 정의된 에러 코드(INVALID_REPO_URL, REPOSITORY_NOT_FOUND 
 커스텀 예외 클래스와 FastAPI 전역 예외 핸들러를 제공한다.
 """
 
+import logging
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = logging.getLogger(__name__)
 
 
 # ──────────────────────────────────────────────
@@ -271,8 +276,6 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: Exception
     ) -> JSONResponse:
         """예상치 못한 예외를 처리하는 폴백 핸들러"""
-        import logging
-        logger = logging.getLogger(__name__)
         logger.exception("Unhandled exception", exc_info=exc)
         return JSONResponse(
             status_code=500,
@@ -321,14 +324,32 @@ def _build_http_exception_response(exc: HTTPException | StarletteHTTPException) 
     """HTTPException 상세값을 표준 에러 응답 본문으로 변환한다."""
     detail = exc.detail
     if isinstance(detail, dict):
-        raw_error = detail.get("error")
-        if isinstance(raw_error, dict):
-            error_code = raw_error.get("code") or _default_error_code(exc.status_code)
-            error_detail = raw_error.get("detail") or detail.get("detail")
-            field = raw_error.get("field") or detail.get("field")
-            retryable = raw_error.get("retryable", detail.get("retryable"))
+        error_val = detail.get("error")
+        ## 외부 라이브러리나 커스텀 미들웨어 등이 HTTPException을 발생시키면서
+        ## error 필드를 dict 형태로 내려보내는 특수 예외 상황에 대응하기 위한 방어적 분기 처리
+        if isinstance(error_val, dict):
+            error_code = error_val.get("code") or _default_error_code(exc.status_code)
+            
+            # detail과 error_val의 값을 명시적 존재 여부 및 is not None 기준으로 우선순위 적용
+            error_detail = (
+                detail.get("detail")
+                if detail.get("detail") is not None
+                else error_val.get("detail")
+            )
+            field = (
+                detail.get("field")
+                if detail.get("field") is not None
+                else error_val.get("field")
+            )
+            
+            if "retryable" in detail:
+                retryable = detail.get("retryable")
+            elif "retryable" in error_val:
+                retryable = error_val.get("retryable")
+            else:
+                retryable = None
         else:
-            error_code = raw_error or detail.get("error_code") or _default_error_code(exc.status_code)
+            error_code = error_val or detail.get("error_code") or _default_error_code(exc.status_code)
             error_detail = detail.get("detail")
             field = detail.get("field")
             retryable = detail.get("retryable")

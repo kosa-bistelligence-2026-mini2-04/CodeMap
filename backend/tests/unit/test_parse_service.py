@@ -249,6 +249,22 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(summary, str)
         self.assertTrue(summary.strip())
 
+    @unittest.skipUnless(_has("build_hierarchical_summary"), "build_hierarchical_summary(B-209) 미구현")
+    async def test_hierarchical_summary_fills_files_and_master(self):
+        # 파일 요약(file.summary)이 채워지고, 마스터 요약 문자열이 반환되는지 검증.
+        # 마스터 LLM은 mock(None=휴리스틱 폴백)해 결정성 확보.
+        from app.parse import summary as summary_module
+
+        with patch.object(
+            summary_module, "_master_summary_with_llm", AsyncMock(return_value=None)
+        ):
+            summarized, master = await parse_service.build_hierarchical_summary(self.files)
+
+        by_path = {item.path: item for item in summarized}
+        self.assertTrue((by_path["backend/app/main.py"].summary or "").strip())
+        self.assertIsInstance(master, str)
+        self.assertTrue(master.strip())
+
 
 @unittest.skipUnless(PARSE_READY, "PARSE 파이프라인 진입점이 아직 구현되지 않음")
 class ParsePipelineOrchestrationTests(unittest.IsolatedAsyncioTestCase):
