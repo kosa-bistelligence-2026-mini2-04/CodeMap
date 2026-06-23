@@ -694,7 +694,7 @@ class AnalysisService:
         세션/commit은 기존 백그라운드 패턴과 동일하게 독립 세션으로 처리한다.
         """
         from app.core.database import async_session_factory
-        from app.embed.service import run_embed_pipeline
+        from app.embed.service import embed_ready, run_embed_pipeline
         from app.parse import service as parse_service
         from app.parse.schemas import EmbedRequest
 
@@ -753,7 +753,12 @@ class AnalysisService:
                         ),
                     )
                 saved_chunks = embed_result.saved_chunks
-                index_status = "ready" if saved_chunks > 0 else "empty"
+                # saved_chunks는 upsert된 CHUNK row 수일 뿐, 임베딩 배치 실패 시
+                # embedding=None인 row도 포함된다. 실제 non-null 임베딩 존재 여부로
+                # status를 정해 embed_ready()(벡터 검색 가능 여부)와 항상 일치시킨다.
+                async with async_session_factory() as session:
+                    has_vectors = await embed_ready(session, UUID(job_id))
+                index_status = "ready" if has_vectors else "empty"
             report["rag_index"] = {"status": index_status, "chunks": saved_chunks}
 
             # 4. report_json 갱신 저장 (분석 status는 그대로 보존)
