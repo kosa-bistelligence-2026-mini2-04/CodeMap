@@ -104,12 +104,13 @@ class EmbedRepository:
                 "content": None,
                 "summary": file.summary,
                 "embedding": None,              # 파일 대표 노드는 임베딩 없음
-                "file_metadata": {"is_file_node": True},
+                # parse 단계 metadata(is_config 등)를 보존한 채 파일 노드 표식만 덧붙인다.
+                "file_metadata": {**(file.metadata or {}), "is_file_node": True},
                 "language": file.language,
             })
 
         if file_node_rows:
-            await self._upsert_nodes(file_node_rows, conflict_update_cols=["summary", "language"])
+            await self._upsert_nodes(file_node_rows, conflict_update_cols=["summary", "language", "file_metadata"])
             logger.info(
                 "[임베딩 저장] job=%s | 파일 대표 노드 %d개 upsert 완료",
                 job_id, len(file_node_rows),
@@ -272,6 +273,42 @@ class EmbedRepository:
             select(CodeNode.id).where(CodeNode.job_id == job_id).limit(1)
         )
         return result.scalar_one_or_none() is not None
+
+    # ──────────────────────────────────────────────────────────
+    # 벡터 검색 (RAG 답변용)
+    # ──────────────────────────────────────────────────────────
+    async def has_embeddings(self, job_id: UUID) -> bool:
+        """벡터 검색이 가능한 상태인지 — 임베딩이 채워진 CHUNK 노드가 있는지 확인한다."""
+        result = await self.db.execute(
+            select(CodeNode.id)
+            .where(
+                CodeNode.job_id == job_id,
+                CodeNode.type == "CHUNK",
+                CodeNode.embedding.is_not(None),
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def similarity_search(
+        self, job_id: UUID, query_vector: list[float], k: int = 5
+    ) -> list[tuple[CodeNode, float]]:
+        """job 범위 내 CHUNK 노드를 쿼리 벡터와 코사인 유사도 순으로 k개 반환한다.
+
+        반환: (CodeNode, distance) 튜플 목록. distance가 작을수록 유사하다.
+        """
+        distance = CodeNode.embedding.cosine_distance(query_vector)
+        result = await self.db.execute(
+            select(CodeNode, distance.label("distance"))
+            .where(
+                CodeNode.job_id == job_id,
+                CodeNode.type == "CHUNK",
+                CodeNode.embedding.is_not(None),
+            )
+            .order_by(distance)
+            .limit(k)
+        )
+        return [(row[0], float(row[1])) for row in result.all()]
 
     # ──────────────────────────────────────────────────────────
     # 외부 호출용 의존성 직접 저장
