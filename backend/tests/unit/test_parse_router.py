@@ -69,7 +69,31 @@ class ParseRouterTests(unittest.TestCase):
                         "version": "0.115.0",
                         "category": "framework",
                         "source": "backend/requirements.txt",
-                    }
+                    },
+                    {
+                        "name": "Next.js",
+                        "version": "16.0.0",
+                        "category": "framework",
+                        "source": "frontend/package.json",
+                    },
+                    {
+                        "name": "Python",
+                        "version": "3.12",
+                        "category": "language",
+                        "source": "Dockerfile",
+                    },
+                    {
+                        "name": "PostgreSQL",
+                        "version": "16",
+                        "category": "database",
+                        "source": "docker-compose.yml",
+                    },
+                ],
+                "language_composition": [
+                    {"language": "Config", "lines": 8, "percentage": 57.1},
+                    {"language": "Python", "lines": 2, "percentage": 14.3},
+                    {"language": "TypeScript", "lines": 2, "percentage": 14.3},
+                    {"language": "Markdown", "lines": 2, "percentage": 14.3},
                 ],
                 "run_commands": ["pip install -r requirements.txt", "uvicorn app.main:app"],
                 "run_command_details": {

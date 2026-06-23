@@ -5,8 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.exceptions import ParseResultNotFoundError, RepositoryNotFoundError
-from app.parse.language import analyze_language_composition
-from app.parse.manifest import detect_tech_stack_details
 from app.parse.report import (
     normalize_run_commands,
     report_config_files,
@@ -21,8 +19,8 @@ from app.parse.report import (
     report_master_summary,
     report_readme_summary,
     report_tech_stack,
+    report_tech_stack_details,
 )
-from app.parse.schemas import ParsedFile
 from app.repo.repository import AnalysisJobRepository
 
 
@@ -56,25 +54,7 @@ def _build_directory_tree(files: list[dict], repo_name: str) -> str:
     return "\n".join(tree_lines)
 
 
-def _report_files_to_parsed(files: list[dict]) -> list[ParsedFile]:
-    parsed: list[ParsedFile] = []
-    for item in files:
-        if not isinstance(item, dict) or not item.get("path"):
-            continue
-        try:
-            parsed.append(
-                ParsedFile(
-                    path=item["path"],
-                    file_type=item.get("file_type") or item.get("fileType") or "FILE",
-                    depth=item.get("depth", 0),
-                    content=item.get("content"),
-                    metadata=item.get("metadata"),
-                    language=item.get("language"),
-                )
-            )
-        except (TypeError, ValueError):
-            continue
-    return parsed
+
 
 
 async def _get_report_json(repo_id: UUID, db: AsyncSession) -> tuple[object, dict]:
@@ -164,18 +144,14 @@ async def get_parse_tree(repo_id: UUID, db: AsyncSession = Depends(get_db)):
 @router.get("/{repo_id}/stack")
 async def get_parse_stack(repo_id: UUID, db: AsyncSession = Depends(get_db)):
     job, rj = await _get_report_json(repo_id, db)
-    files = report_files(rj)
-    parsed_files = _report_files_to_parsed(files)
-    tech_stack = await detect_tech_stack_details(parsed_files)
-    language_composition = analyze_language_composition(parsed_files)
 
     return {
         "code": 200,
         "message": "success",
         "data": {
             "repoId": job.id,
-            "techStack": tech_stack,
-            "languageComposition": language_composition,
+            "techStack": report_tech_stack_details(rj),
+            "languageComposition": rj.get("language_composition") or [],
             "runCommands": normalize_run_commands(
                 rj.get("run_command_details") or rj.get("run_commands")
             ).model_dump(),
