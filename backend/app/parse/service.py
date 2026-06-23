@@ -19,6 +19,7 @@ from app.parse.manifest import (
     tag_config_files,
     extract_run_commands,
     detect_tech_stack,
+    detect_tech_stack_details,
 )
 from app.parse.imports import analyze_imports
 from app.parse.readme import parse_readme
@@ -30,6 +31,7 @@ __all__ = [
     "tag_config_files",
     "extract_run_commands",
     "detect_tech_stack",
+    "detect_tech_stack_details",
     "analyze_imports",
     "parse_readme",
 ]

@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.repo.repository import AnalysisJobRepository
 from app.core.exceptions import RepositoryNotFoundError, ParseResultNotFoundError
+from app.parse.manifest import detect_tech_stack_details
+from app.parse.schemas import ParsedFile
 
 
 router = APIRouter(prefix="/api/parse/analysis", tags=["RAG Parse"])
@@ -41,18 +43,66 @@ def _build_directory_tree(files: list[dict], repo_name: str) -> str:
     return "\n".join(tree_lines)
 
 
-@router.get("/{repo_id}")
-async def get_parse_analysis(repo_id: UUID, db: AsyncSession = Depends(get_db)):
+def _report_files_to_parsed(files: list[dict]) -> list[ParsedFile]:
+    parsed: list[ParsedFile] = []
+    for item in files:
+        if not isinstance(item, dict) or not item.get("path"):
+            continue
+        try:
+            parsed.append(
+                ParsedFile(
+                    path=item["path"],
+                    file_type=item.get("file_type") or item.get("fileType") or "FILE",
+                    depth=item.get("depth", 0),
+                    content=item.get("content"),
+                    metadata=item.get("metadata"),
+                )
+            )
+        except (TypeError, ValueError):
+            continue
+    return parsed
+
+
+def _run_commands_response(run_cmds: list[str]) -> dict:
+    build_cmd = next((cmd for cmd in run_cmds if " build" in cmd or cmd.startswith("docker build")), None)
+    return {
+        "install": run_cmds[0] if len(run_cmds) > 0 else "",
+        "run": run_cmds[1] if len(run_cmds) > 1 else "",
+        "build": build_cmd,
+    }
+
+
+async def _get_report_json(repo_id: UUID, db: AsyncSession) -> tuple[AnalysisJobRepository, dict]:
     repo = AnalysisJobRepository(db)
     job = await repo.get_job_by_id(repo_id)
-    
     if not job:
         raise RepositoryNotFoundError()
-    
     if not job.report_json:
         raise ParseResultNotFoundError()
-        
-    rj = job.report_json
+    return job, job.report_json
+
+
+@router.get("/{repo_id}/stack")
+async def get_parse_stack(repo_id: UUID, db: AsyncSession = Depends(get_db)):
+    job, rj = await _get_report_json(repo_id, db)
+    files = rj.get("files", [])
+    parsed_files = _report_files_to_parsed(files if isinstance(files, list) else [])
+    tech_stack = await detect_tech_stack_details(parsed_files)
+
+    return {
+        "code": 200,
+        "message": "success",
+        "data": {
+            "repoId": job.id,
+            "techStack": tech_stack,
+            "runCommands": _run_commands_response(rj.get("run_commands", [])),
+        },
+    }
+
+
+@router.get("/{repo_id}")
+async def get_parse_analysis(repo_id: UUID, db: AsyncSession = Depends(get_db)):
+    job, rj = await _get_report_json(repo_id, db)
     files = rj.get("files", [])
     
     config_files = [f.get("path") for f in files if isinstance(f, dict) and f.get("path") and f.get("metadata") and f["metadata"].get("is_config")]
@@ -60,9 +110,6 @@ async def get_parse_analysis(repo_id: UUID, db: AsyncSession = Depends(get_db)):
     
     tech_stack = rj.get("tech_stack", [])
     run_cmds = rj.get("run_commands", [])
-    
-    install_cmd = run_cmds[0] if len(run_cmds) > 0 else ""
-    run_cmd = run_cmds[1] if len(run_cmds) > 1 else ""
     
     return {
         "code": 200,
@@ -73,10 +120,7 @@ async def get_parse_analysis(repo_id: UUID, db: AsyncSession = Depends(get_db)):
             "techStack": tech_stack,
             "entryPoints": rj.get("entry_points", []),
             "directoryTree": tree_text,
-            "runCommands": {
-                "install": install_cmd,
-                "run": run_cmd
-            },
+            "runCommands": _run_commands_response(run_cmds),
             "configFiles": config_files,
             "readmeSummary": rj.get("readme_summary") or "",
             "files": files,

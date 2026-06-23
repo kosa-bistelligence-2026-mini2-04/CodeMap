@@ -20,6 +20,7 @@ FUNCTION_NAMES = {
     "tag_config_files",
     "extract_run_commands",
     "detect_tech_stack",
+    "detect_tech_stack_details",
     "chunk_by_ast",
     "analyze_imports",
     "build_hierarchical_summary",
@@ -81,6 +82,93 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         stack = await parse_service.detect_tech_stack(self.files)
         self.assertIn("FastAPI", stack)
         self.assertIn("Next.js", stack)
+        self.assertIn("PostgreSQL", stack)
+        self.assertIn("React", stack)
+        self.assertIn("SQLAlchemy", stack)
+        self.assertIn("Python", stack)
+        self.assertIn("Docker", stack)
+        self.assertIn("Docker Compose", stack)
+        self.assertIn("pgvector", stack)
+
+    @unittest.skipUnless(_has("detect_tech_stack_details"), "detect_tech_stack_details(B-206) 미구현")
+    async def test_tech_stack_details_include_source_version_and_category(self):
+        details = await parse_service.detect_tech_stack_details(self.files)
+        by_name = {item["name"]: item for item in details}
+
+        self.assertEqual(by_name["Node.js"]["category"], "runtime")
+        self.assertEqual(by_name["JavaScript"]["category"], "language")
+        self.assertEqual(by_name["FastAPI"]["version"], "0.115.0")
+        self.assertEqual(by_name["FastAPI"]["category"], "framework")
+        self.assertEqual(by_name["FastAPI"]["source"], "requirements.txt")
+        self.assertEqual(by_name["Next.js"]["version"], "16.0.0")
+        self.assertEqual(by_name["Next.js"]["source"], "package.json")
+        self.assertEqual(by_name["Python"]["version"], "3.12")
+        self.assertEqual(by_name["Python"]["source"], "Dockerfile")
+        self.assertEqual(by_name["PostgreSQL"]["version"], "16")
+        self.assertEqual(by_name["PostgreSQL"]["source"], "docker-compose.yml")
+        self.assertEqual(by_name["pgvector"]["category"], "extension")
+
+    @unittest.skipUnless(_has("detect_tech_stack_details"), "detect_tech_stack_details(B-206) 미구현")
+    async def test_tech_stack_details_cover_typescript_flutter_and_llm_fallback(self):
+        from app.parse import manifest as manifest_module
+
+        files = [
+            rag_schemas.ParsedFile(
+                path="package.json",
+                file_type="FILE",
+                depth=0,
+                content='{"dependencies": {"solid-js": "1.9.0"}}',
+            ),
+            rag_schemas.ParsedFile(path="tsconfig.json", file_type="FILE", depth=0, content="{}"),
+            rag_schemas.ParsedFile(
+                path="pubspec.yaml",
+                file_type="FILE",
+                depth=0,
+                content="dependencies:\n  flutter:\n    sdk: flutter\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="Dockerfile",
+                file_type="FILE",
+                depth=0,
+                content="FROM golang:1.22-alpine\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="pyproject.toml",
+                file_type="FILE",
+                depth=0,
+                content='[project]\ndependencies = ["litestar==2.9.0"]\n',
+            ),
+        ]
+        llm_items = [
+            {
+                "name": "SolidJS",
+                "version": "1.9.0",
+                "category": "framework",
+                "source": "package.json",
+            },
+            {
+                "name": "Litestar",
+                "version": "2.9.0",
+                "category": "framework",
+                "source": "pyproject.toml",
+            },
+        ]
+
+        with patch.object(
+            manifest_module,
+            "_classify_unknown_tech_with_llm",
+            AsyncMock(return_value=llm_items),
+        ) as classify:
+            details = await parse_service.detect_tech_stack_details(files)
+
+        classify.assert_awaited_once()
+        by_name = {item["name"]: item for item in details}
+        self.assertEqual(by_name["TypeScript"]["category"], "language")
+        self.assertEqual(by_name["Flutter"]["category"], "framework")
+        self.assertEqual(by_name["Dart"]["category"], "language")
+        self.assertEqual(by_name["Go"]["version"], "1.22")
+        self.assertEqual(by_name["SolidJS"]["source"], "package.json")
+        self.assertEqual(by_name["Litestar"]["source"], "pyproject.toml")
 
     @unittest.skipUnless(_has("chunk_by_ast"), "chunk_by_ast(B-207) 미구현")
     async def test_ast_chunking_keeps_line_and_type_metadata(self):
