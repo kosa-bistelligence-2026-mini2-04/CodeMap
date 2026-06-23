@@ -75,15 +75,24 @@ def _python_imports(path: str, content: str, repo_paths: set[str]) -> list[str]:
         if isinstance(node, ast.Import):
             dotted_names = [alias.name for alias in node.names]
         elif isinstance(node, ast.ImportFrom):
+            # base 모듈 경로 계산 (절대/상대 level 처리)
             if node.level == 0:
-                if node.module:
-                    dotted_names = [node.module]
+                base_parts = node.module.split(".") if node.module else []
             elif node.level - 1 <= len(pkg_parts):
                 # 상대 import: level-1 만큼 디렉토리 상승 후 module 결합
-                base = pkg_parts[: len(pkg_parts) - (node.level - 1)]
-                tail = node.module.split(".") if node.module else []
-                dotted = ".".join(base + tail)
-                dotted_names = [dotted] if dotted else []
+                base_parts = pkg_parts[: len(pkg_parts) - (node.level - 1)]
+                if node.module:
+                    base_parts = base_parts + node.module.split(".")
+            else:
+                base_parts = []
+            # `from pkg import mod` 형태도 잡도록 base + 각 import 이름(모듈일 수 있음)을 후보로.
+            # 예: `from backend.app import service` → backend.app + backend.app.service 둘 다 후보
+            if base_parts:
+                dotted_names.append(".".join(base_parts))
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                dotted_names.append(".".join(base_parts + alias.name.split(".")))
         for dotted in dotted_names:
             resolved = _module_to_path(dotted, repo_paths)
             if resolved and resolved != path and resolved not in found:

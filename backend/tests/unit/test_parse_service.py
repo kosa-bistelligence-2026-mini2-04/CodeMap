@@ -100,6 +100,27 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("backend/app/service.py", by_path["backend/app/main.py"].imports)
         self.assertIn("backend/app/config.py", by_path["backend/app/service.py"].imports)
 
+    @unittest.skipUnless(_has("analyze_imports"), "analyze_imports(B-208) 미구현")
+    async def test_imports_resolve_from_package_import_module(self):
+        # `from pkg import mod` / `from . import mod`(import한 이름이 모듈인 형태)도
+        # 내부 파일로 정규화되어야 한다 (PR #73 리뷰 보완).
+        files = [
+            rag_schemas.ParsedFile(
+                path="pkg/a.py",
+                file_type="FILE",
+                depth=1,
+                content="from . import c\nfrom backend.app import service\n",
+            ),
+            rag_schemas.ParsedFile(path="pkg/c.py", file_type="FILE", depth=1, content="x = 1\n"),
+            rag_schemas.ParsedFile(
+                path="backend/app/service.py", file_type="FILE", depth=2, content="y = 2\n"
+            ),
+        ]
+        analyzed = await parse_service.analyze_imports(files)
+        by_path = {item.path: item for item in analyzed}
+        self.assertIn("pkg/c.py", by_path["pkg/a.py"].imports)
+        self.assertIn("backend/app/service.py", by_path["pkg/a.py"].imports)
+
     @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
     async def test_missing_readme_returns_none_without_model_call(self):
         empty = FIXTURE_REPO / "frontend"
