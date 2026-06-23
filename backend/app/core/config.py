@@ -95,8 +95,8 @@ class Settings(BaseSettings):
     """애플리케이션 환경 설정 클래스"""
 
     # 데이터베이스 상세 접속 정보 (로그인을 위한 계정 정보 포함)
-    DB_USER: str
-    DB_PASSWORD: SecretStr
+    DB_USER: str = ""
+    DB_PASSWORD: SecretStr = SecretStr("")
     DB_HOST: str = "localhost"
     DB_PORT: Optional[int] = 5432
     DB_NAME: str = "codemap_db"

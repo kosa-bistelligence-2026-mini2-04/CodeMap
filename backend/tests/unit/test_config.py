@@ -38,6 +38,19 @@ class TestConfigFallback(unittest.TestCase):
             expected_db_url = "postgresql+asyncpg://test_user:test_password@localhost:5432/codemap_db"
             self.assertEqual(settings.DATABASE_URL.get_secret_value(), expected_db_url)
 
+    def test_settings_accepts_database_url_without_db_detail_fields(self):
+        with patch.dict(
+            os.environ,
+            {"DATABASE_URL": "postgresql://user:pass@localhost:5432/db"},
+            clear=True,
+        ):
+            settings = Settings(_env_file=None)
+
+        self.assertEqual(
+            settings.DATABASE_URL.get_secret_value(),
+            "postgresql://user:pass@localhost:5432/db",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
