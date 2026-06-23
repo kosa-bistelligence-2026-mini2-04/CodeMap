@@ -207,8 +207,12 @@ class ListService:
                 if _should_exclude_path(path):
                     continue
 
+                size = item.get("size")
+                if size is None:
+                    # size 정보가 없는 blob(예: 서브모듈)은 파일 수 및 용량 집계에서 제외
+                    continue
+
                 file_count += 1
-                size = item.get("size", 0)
                 total_size += size
                 max_file_size = max(max_file_size, size)
                 if size > 100 * 1024:

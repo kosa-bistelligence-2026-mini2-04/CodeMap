@@ -198,6 +198,31 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(res.data.warning_message)
         self.assertTrue(res.data.is_truncated)
 
+    @patch("httpx.AsyncClient.get")
+    async def test_validate_repository_submodule_ignored(self, mock_get):
+        """size가 None인 blob(예: 서브모듈)이 파일 수 및 크기 집계에서 제외되는지 확인합니다."""
+        mock_response_tree = MagicMock()
+        mock_response_tree.status_code = 200
+        mock_response_tree.json.return_value = {
+            "truncated": False,
+            "tree": [
+                {"path": "src/main.py", "type": "blob", "size": 1024},
+                {"path": "submodule_ref", "type": "blob", "size": None},  # size가 None인 서브모듈
+            ]
+        }
+
+        mock_get.side_effect = [mock_response_tree]
+
+        res = await self.service.validate_repository(
+            repo_url="https://github.com/example/submodule-repo",
+            branch="main"
+        )
+
+        self.assertEqual(res.code, 200)
+        self.assertTrue(res.data.is_valid)
+        self.assertEqual(res.data.file_count, 1)  # submodule 제외됨
+        self.assertEqual(res.data.total_size_kb, 1)  # 1024 bytes -> 1 KB
+
     async def test_validate_repository_invalid_url(self):
         """잘못된 URL 형식에 대해 InvalidRepoUrlError 예외를 발생시키는지 확인합니다."""
         with self.assertRaises(InvalidRepoUrlError):
