@@ -13,7 +13,8 @@ from app.core.config import get_settings
 settings = get_settings()
 
 # PostgreSQL 비동기 드라이버(asyncpg) 사용을 위한 URL 변환
-ASYNC_DATABASE_URL = settings.DATABASE_URL.replace(
+db_url_str = settings.DATABASE_URL.get_secret_value() if hasattr(settings.DATABASE_URL, "get_secret_value") else settings.DATABASE_URL
+ASYNC_DATABASE_URL = db_url_str.replace(
     "postgresql://", "postgresql+asyncpg://"
 )
 

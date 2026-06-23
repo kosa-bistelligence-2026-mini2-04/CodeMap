@@ -95,14 +95,15 @@ class Settings(BaseSettings):
     """애플리케이션 환경 설정 클래스"""
 
     # 데이터베이스 상세 접속 정보 (로그인을 위한 계정 정보 포함)
-    DB_USER: str = "postgres"
-    DB_PASSWORD: SecretStr = SecretStr("")
+    DB_USER: str
+    DB_PASSWORD: SecretStr
     DB_HOST: str = "localhost"
     DB_PORT: Optional[int] = 5432
     DB_NAME: str = "codemap_db"
 
     # 데이터베이스 연결 URL (PostgreSQL + pgvector)
-    DATABASE_URL: str = ""
+    # SecretStr 선언으로 로그/출력 시 자동 마스킹 (보안 정책 대응)
+    DATABASE_URL: SecretStr = SecretStr("")
 
     # Git 저장소 clone 시 사용할 임시 디렉토리 경로
     CLONE_BASE_DIR: str = ""
@@ -193,10 +194,11 @@ class Settings(BaseSettings):
         self.CLONE_BASE_DIR = self.CLONE_BASE_DIR.replace("\\", "/").rstrip("/")
 
         # 2. DATABASE_URL이 비어있거나 생략된 경우 URL.create()로 동적 조립 (특수문자 이스케이프 대응)
-        if not self.DATABASE_URL or not self.DATABASE_URL.strip():
-            if not self.DB_USER or not self.DB_HOST or not self.DB_NAME:
+        current_db_url = self.DATABASE_URL.get_secret_value() if isinstance(self.DATABASE_URL, SecretStr) else getattr(self, "DATABASE_URL", "")
+        if not current_db_url or not current_db_url.strip():
+            if not getattr(self, "DB_USER", None) or not getattr(self, "DB_HOST", None) or not getattr(self, "DB_NAME", None):
                 raise ValueError("DATABASE_URL 또는 DB 상세 접속 정보(DB_USER, DB_HOST, DB_NAME)가 설정되지 않았습니다.")
-            self.DATABASE_URL = URL.create(
+            raw_url = URL.create(
                 drivername="postgresql+asyncpg",  # 실제 database.py의 asyncpg 드라이버 기준
                 username=self.DB_USER,
                 password=self.DB_PASSWORD.get_secret_value() if isinstance(self.DB_PASSWORD, SecretStr) else self.DB_PASSWORD,
@@ -204,15 +206,17 @@ class Settings(BaseSettings):
                 port=self.DB_PORT,
                 database=self.DB_NAME,
             ).render_as_string(hide_password=False)  # 실제 연결에 패스워드가 필요하므로 False 유지
+            self.DATABASE_URL = SecretStr(raw_url)
             return self
 
         # 3. 옛날 postgres:// 스킴을 표준 postgresql:// 로 정정
-        if self.DATABASE_URL.startswith("postgres://"):
-            self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        if current_db_url.startswith("postgres://"):
+            current_db_url = current_db_url.replace("postgres://", "postgresql://", 1)
+            self.DATABASE_URL = SecretStr(current_db_url)
 
         # 4. SQLAlchemy URL 파서를 통한 주소의 엄밀한 검증 및 에러 조기 감지
         try:
-            parsed_url = make_url(self.DATABASE_URL)
+            parsed_url = make_url(current_db_url)
         except ArgumentError as exc:
             raise ValueError("DATABASE_URL 형식이 올바르지 않습니다.") from exc
 
