@@ -15,11 +15,17 @@
 
 from app.parse.directory import analyze_directory, find_entry_points
 from app.parse.chunking import chunk_by_ast
-from app.parse.manifest import tag_config_files
+from app.parse.manifest import (
+    tag_config_files,
+    extract_run_commands,
+    detect_tech_stack,
+)
 
 __all__ = [
     "analyze_directory",
     "find_entry_points",
     "chunk_by_ast",
     "tag_config_files",
+    "extract_run_commands",
+    "detect_tech_stack",
 ]

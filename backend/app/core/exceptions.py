@@ -110,6 +110,13 @@ class JobNotFoundError(CodeMapException):
         super().__init__(404, "JOB_NOT_FOUND", message)
 
 
+class ParseResultNotFoundError(CodeMapException):
+    """분석 결과(report_json)가 아직 생성되지 않았을 때 발생 (404)"""
+
+    def __init__(self, message: str = "분석 결과가 아직 생성되지 않았습니다."):
+        super().__init__(404, "PARSE_RESULT_NOT_FOUND", message)
+
+
 class InternalError(CodeMapException):
     """서버 내부 오류 (500)"""
 
@@ -202,7 +209,11 @@ def register_exception_handlers(app: FastAPI) -> None:
         detail = exc.detail
         headers = getattr(exc, "headers", None)
         if isinstance(detail, dict) and _is_standard_error_response(detail):
-            return JSONResponse(status_code=exc.status_code, content=detail, headers=headers)
+            return JSONResponse(
+                status_code=exc.status_code,
+                content=detail,
+                headers=headers,
+            )
 
         return JSONResponse(
             status_code=exc.status_code,
@@ -291,7 +302,7 @@ def _build_http_exception_response(exc: HTTPException | StarletteHTTPException) 
             field = detail.get("field") or error_val.get("field")
             retryable = detail.get("retryable") or error_val.get("retryable")
         else:
-            error_code = error_val or _default_error_code(exc.status_code)
+            error_code = error_val or detail.get("error_code") or _default_error_code(exc.status_code)
             error_detail = detail.get("detail")
             field = detail.get("field")
             retryable = detail.get("retryable")

@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     # GitHub API 호출 시 사용할 토큰 (미설정 시 빈 문자열)
     GITHUB_TOKEN: str = ""
 
+    # 내부 서버 간 호출 전용 서비스 토큰
+    SERVICE_TOKEN: str = "service-token"
+
     model_config = {"env_file": env_path, "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @model_validator(mode="after")
