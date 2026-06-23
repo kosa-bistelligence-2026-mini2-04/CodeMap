@@ -4,8 +4,8 @@
 > 최종 합의안 기준 문서입니다. 백엔드 agent 구현, LangGraph State 설계, API 명세 수정 시 본 문서를 기준으로 삼습니다.
 >
 > 관련 시각 자료:
-> - [로직/흐름 다이어그램](../02_Architecture/CODEMAP_MULTIAGENT_LOGIC_DIAGRAM.html)
-> - [발표용 시각화 자료](../02_Architecture/CODEMAP_MULTIAGENT_VISUAL_OVERVIEW.html)
+> - [로직/흐름 다이어그램](../02_Architecture/MULTIAGENT_LOGIC_DIAGRAM.html)
+> - [발표용 시각화 자료](../02_Architecture/MULTIAGENT_VISUAL_OVERVIEW.html)
 
 본 문서는 CodeMap AI의 백엔드 시스템에서 발생할 수 있는 보안/오작동 문제를 해결하기 위한 **멀티에이전트 분리 아키텍처**, 대규모 분석 시 우려되는 지연 시간(Latency)을 해결하기 위한 **비동기 병렬 처리**, 그리고 LLM 릴레이 대화 시 발생하는 정보 유실을 막기 위한 **LangGraph State 공유 및 Decoupled 패턴**을 통합한 최종 합의안 명세서입니다.
 
