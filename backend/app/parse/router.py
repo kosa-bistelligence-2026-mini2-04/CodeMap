@@ -8,6 +8,14 @@ from app.repo.repository import AnalysisJobRepository
 from app.core.exceptions import RepositoryNotFoundError, ParseResultNotFoundError
 from app.parse.language import analyze_language_composition
 from app.parse.manifest import detect_tech_stack_details
+from app.parse.report import (
+    normalize_run_commands,
+    report_config_files,
+    report_entry_points,
+    report_files,
+    report_readme_summary,
+    report_tech_stack,
+)
 from app.parse.schemas import ParsedFile
 
 
@@ -64,15 +72,6 @@ def _report_files_to_parsed(files: list[dict]) -> list[ParsedFile]:
     return parsed
 
 
-def _run_commands_response(run_cmds: list[str]) -> dict:
-    build_cmd = next((cmd for cmd in run_cmds if " build" in cmd or cmd.startswith("docker build")), None)
-    return {
-        "install": run_cmds[0] if len(run_cmds) > 0 else "",
-        "run": run_cmds[1] if len(run_cmds) > 1 else "",
-        "build": build_cmd,
-    }
-
-
 async def _get_report_json(repo_id: UUID, db: AsyncSession) -> tuple[AnalysisJobRepository, dict]:
     repo = AnalysisJobRepository(db)
     job = await repo.get_job_by_id(repo_id)
@@ -86,8 +85,8 @@ async def _get_report_json(repo_id: UUID, db: AsyncSession) -> tuple[AnalysisJob
 @router.get("/{repo_id}/stack")
 async def get_parse_stack(repo_id: UUID, db: AsyncSession = Depends(get_db)):
     job, rj = await _get_report_json(repo_id, db)
-    files = rj.get("files", [])
-    parsed_files = _report_files_to_parsed(files if isinstance(files, list) else [])
+    files = report_files(rj)
+    parsed_files = _report_files_to_parsed(files)
     tech_stack = await detect_tech_stack_details(parsed_files)
     language_composition = analyze_language_composition(parsed_files)
 
@@ -98,7 +97,7 @@ async def get_parse_stack(repo_id: UUID, db: AsyncSession = Depends(get_db)):
             "repoId": job.id,
             "techStack": tech_stack,
             "languageComposition": language_composition,
-            "runCommands": _run_commands_response(rj.get("run_commands", [])),
+            "runCommands": normalize_run_commands(rj.get("run_commands")).model_dump(),
         },
     }
 
@@ -106,13 +105,13 @@ async def get_parse_stack(repo_id: UUID, db: AsyncSession = Depends(get_db)):
 @router.get("/{repo_id}")
 async def get_parse_analysis(repo_id: UUID, db: AsyncSession = Depends(get_db)):
     job, rj = await _get_report_json(repo_id, db)
-    files = rj.get("files", [])
+    files = report_files(rj)
     
-    config_files = [f.get("path") for f in files if isinstance(f, dict) and f.get("path") and f.get("metadata") and f["metadata"].get("is_config")]
+    config_files = report_config_files(files)
     tree_text = _build_directory_tree(files, job.repo_name)
     
-    tech_stack = rj.get("tech_stack", [])
-    run_cmds = rj.get("run_commands", [])
+    tech_stack = report_tech_stack(rj)
+    run_commands = normalize_run_commands(rj.get("run_commands"))
     
     return {
         "code": 200,
@@ -121,11 +120,11 @@ async def get_parse_analysis(repo_id: UUID, db: AsyncSession = Depends(get_db)):
             "repoId": job.id,
             "repoName": job.repo_name,
             "techStack": tech_stack,
-            "entryPoints": rj.get("entry_points", []),
+            "entryPoints": report_entry_points(rj),
             "directoryTree": tree_text,
-            "runCommands": _run_commands_response(run_cmds),
+            "runCommands": run_commands.model_dump(),
             "configFiles": config_files,
-            "readmeSummary": rj.get("readme_summary") or "",
+            "readmeSummary": report_readme_summary(rj),
             "files": files,
             "fileCount": len(files),
             "analyzedAt": job.updated_at.isoformat() if job.updated_at else None
