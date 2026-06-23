@@ -166,6 +166,40 @@ class ParseRouterTests(unittest.TestCase):
         # path 없는 항목은 configFiles에 포함되지 않아야 함
         self.assertNotIn(None, config_files)
 
+    @patch("app.parse.router.AnalysisJobRepository")
+    def test_get_parse_analysis_accepts_legacy_analyzer_report_shape(self, mock_repo_class):
+        """기존 repo.analyzer report_json(stack/entrypoints)도 PARSE API에서 읽을 수 있어야 한다."""
+        mock_job = AnalysisJob(
+            id=self.job_id,
+            repo_name="legacy-repo",
+            owner="test-owner",
+            branch="main",
+            status="COMPLETED",
+            report_json={
+                "repository": {"name": "legacy-repo"},
+                "stack": ["FastAPI", "Next.js"],
+                "entrypoints": ["backend/app/main.py"],
+                "run_commands": {"install": "pnpm install", "run": "pnpm dev", "build": "pnpm build"},
+                "executive_summary": "기존 analyzer report",
+                "files": [
+                    {"path": "backend/app/main.py", "language": "Python"},
+                    {"path": "frontend/package.json", "metadata": {"is_config": True}},
+                ],
+            },
+        )
+        mock_repo_instance = mock_repo_class.return_value
+        mock_repo_instance.get_job_by_id = AsyncMock(return_value=mock_job)
+
+        response = self.client.get(f"/api/parse/analysis/{self.job_id}")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()["data"]
+        self.assertEqual(data["techStack"], ["FastAPI", "Next.js"])
+        self.assertEqual(data["entryPoints"], ["backend/app/main.py"])
+        self.assertEqual(data["runCommands"]["build"], "pnpm build")
+        self.assertEqual(data["readmeSummary"], "기존 analyzer report")
+        self.assertEqual(data["configFiles"], ["frontend/package.json"])
+
 
 if __name__ == "__main__":
     unittest.main()
