@@ -66,6 +66,71 @@ class ParsedFile(BaseModel):
     )
 
 
+class RunCommandSet(BaseModel):
+    """설치/실행/빌드 명령 응답 계약 (RAG-PARSE-B-205/API-001)."""
+
+    install: str = Field(default="", description="의존성 설치 명령어")
+    run: str = Field(default="", description="프로젝트 실행 명령어")
+    build: str | None = Field(default=None, description="빌드 명령어 (없으면 None)")
+
+
+class TechStackItem(BaseModel):
+    """기술 스택 상세 항목 (RAG-PARSE-B-206/API-004)."""
+
+    name: str = Field(description="기술명")
+    version: str | None = Field(default=None, description="탐지된 버전")
+    category: str = Field(default="library", description="language/framework/database/infra 등")
+    source: str | None = Field(default=None, description="탐지 출처 파일 경로")
+
+
+class LanguageCompositionItem(BaseModel):
+    """실제 소스 라인 기준 언어 구성 항목."""
+
+    language: str = Field(description="언어 또는 설정 유형")
+    lines: int = Field(default=0, ge=0, description="해당 언어/유형의 총 라인 수")
+    percentage: float = Field(default=0.0, ge=0.0, description="전체 라인 대비 비율")
+
+
+class EntryPointItem(BaseModel):
+    """진입점 상세 항목 (RAG-PARSE-B-203/API-003)."""
+
+    path: str = Field(description="진입점 파일 경로")
+    type: str | None = Field(default=None, description="backend/frontend/config 등 진입점 유형")
+    reason: str | None = Field(default=None, description="진입점으로 판단한 근거")
+
+
+class FolderSummary(BaseModel):
+    """폴더 단위 요약 항목 (RAG-PARSE-B-209/API-006)."""
+
+    path: str = Field(description="폴더 경로")
+    summary: str = Field(description="폴더 역할 요약")
+
+
+class FileSummary(BaseModel):
+    """파일 단위 요약 항목 (RAG-PARSE-B-209/API-006)."""
+
+    path: str = Field(description="파일 경로")
+    summary: str = Field(description="파일 역할 요약")
+
+
+class FileMapItem(BaseModel):
+    """코드맵 파일 단위 항목 (RAG-PARSE-B-207/208/API-005)."""
+
+    path: str = Field(description="파일 경로")
+    language: str | None = Field(default=None, description="프로그래밍 언어")
+    chunk_count: int = Field(default=0, ge=0, description="AST 청크 수")
+    imports: list[str] = Field(default_factory=list, description="이 파일이 참조하는 파일 경로 목록")
+    imported_by: list[str] = Field(default_factory=list, description="이 파일을 참조하는 파일 경로 목록")
+    risk_score: int | None = Field(default=None, description="위험도 점수 (0-100)")
+
+
+class HeatmapItem(BaseModel):
+    """복잡도/위험도 히트맵 항목 (RAG-PARSE-API-005)."""
+
+    path: str = Field(description="파일 경로")
+    score: int = Field(default=0, ge=0, le=100, description="복잡도/위험도 점수")
+
+
 class ParseResult(BaseModel):
     """PARSE 파이프라인 최종 산출물 (RAG-PARSE-B-101 응답의 기반)."""
 
@@ -75,9 +140,37 @@ class ParseResult(BaseModel):
     branch: str = Field(description="분석 대상 브랜치")
     readme_summary: str | None = Field(default=None, description="README 요약 (RAG-PARSE-B-201)")
     tech_stack: list[str] = Field(default_factory=list, description="탐지된 기술 스택 (RAG-PARSE-B-206)")
+    tech_stack_details: list[TechStackItem] = Field(
+        default_factory=list,
+        description="객체형 기술 스택 상세 항목 (RAG-PARSE-API-004)",
+    )
+    language_composition: list[LanguageCompositionItem] = Field(
+        default_factory=list,
+        description="실제 소스 라인 기준 언어 구성",
+    )
     run_commands: list[str] = Field(default_factory=list, description="실행 명령 (RAG-PARSE-B-205)")
+    run_command_details: RunCommandSet = Field(
+        default_factory=RunCommandSet,
+        description="설치/실행/빌드 명령 구조화 응답",
+    )
     entry_points: list[str] = Field(default_factory=list, description="진입점 경로 (RAG-PARSE-B-203)")
+    entry_point_details: list[EntryPointItem] = Field(
+        default_factory=list,
+        description="진입점 상세 항목 (RAG-PARSE-API-003)",
+    )
+    config_files: list[str] = Field(default_factory=list, description="탐지된 설정 파일 경로 목록")
     master_summary: str | None = Field(default=None, description="프로젝트 전체 요약 (RAG-PARSE-B-209)")
+    folder_summaries: list[FolderSummary] = Field(
+        default_factory=list,
+        description="폴더 단위 요약 목록",
+    )
+    file_summaries: list[FileSummary] = Field(
+        default_factory=list,
+        description="파일 단위 요약 목록",
+    )
+    file_map: list[FileMapItem] = Field(default_factory=list, description="코드맵 파일 단위 항목")
+    heatmap: list[HeatmapItem] = Field(default_factory=list, description="코드맵 히트맵 항목")
+    directory_tree: str | None = Field(default=None, description="폴더 트리 텍스트")
     files: list[ParsedFile] = Field(default_factory=list, description="파싱된 파일/디렉토리 노드")
 
 

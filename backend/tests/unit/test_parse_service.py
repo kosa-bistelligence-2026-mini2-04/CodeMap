@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
@@ -19,12 +20,17 @@ FUNCTION_NAMES = {
     "find_entry_points",
     "tag_config_files",
     "extract_run_commands",
+    "extract_run_command_details",
     "detect_tech_stack",
     "detect_tech_stack_details",
     "analyze_language_composition",
     "chunk_by_ast",
     "analyze_imports",
+    "build_file_map",
+    "build_heatmap",
     "build_hierarchical_summary",
+    "build_file_summaries",
+    "build_folder_summaries",
     "run_structure_agent",
     "run_parse_pipeline",
 }
@@ -72,11 +78,107 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         for path in ("package.json", "requirements.txt", "Dockerfile"):
             self.assertTrue((by_path[path].metadata or {}).get("is_config"))
 
+    @unittest.skipUnless(_has("tag_config_files"), "tag_config_files(B-204) 미구현")
+    async def test_config_files_include_ci_and_infra_configs(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path=".github/workflows/test.yml",
+                file_type="FILE",
+                depth=2,
+                content="name: test\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="infra/main.tf",
+                file_type="FILE",
+                depth=1,
+                content='resource "x" "y" {}\n',
+            ),
+            rag_schemas.ParsedFile(
+                path="docker-compose.dev.yml",
+                file_type="FILE",
+                depth=0,
+                content="services: {}\n",
+            ),
+        ]
+        tagged = await parse_service.tag_config_files(files)
+        self.assertTrue(all((item.metadata or {}).get("is_config") for item in tagged))
+
     @unittest.skipUnless(_has("extract_run_commands"), "extract_run_commands(B-205) 미구현")
     async def test_run_commands_are_extracted_from_known_manifests(self):
         commands = await parse_service.extract_run_commands(self.files)
         self.assertTrue(any("npm run dev" in command for command in commands))
         self.assertTrue(any("pip install" in command for command in commands))
+
+    @unittest.skipUnless(_has("extract_run_command_details"), "extract_run_command_details(B-205) 미구현")
+    async def test_run_command_details_include_install_run_and_build(self):
+        commands = await parse_service.extract_run_command_details(self.files)
+        self.assertEqual(commands.install, "npm install")
+        self.assertEqual(commands.run, "npm run dev")
+        self.assertEqual(commands.build, "docker compose build")
+
+    @unittest.skipUnless(_has("extract_run_command_details"), "extract_run_command_details(B-205) 미구현")
+    async def test_run_command_details_detect_python_entrypoint_without_node(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path="requirements.txt",
+                file_type="FILE",
+                depth=0,
+                content="fastapi==0.115.0\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="app/main.py",
+                file_type="FILE",
+                depth=1,
+                content="from fastapi import FastAPI\napp = FastAPI()\n",
+            ),
+        ]
+        commands = await parse_service.extract_run_command_details(files)
+        self.assertEqual(commands.install, "pip install -r requirements.txt")
+        self.assertEqual(commands.run, "uvicorn app.main:app --reload")
+
+    @unittest.skipUnless(_has("extract_run_command_details"), "extract_run_command_details(B-205) 미구현")
+    async def test_run_command_details_does_not_use_api_router_as_app(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path="app/api.py",
+                file_type="FILE",
+                depth=1,
+                content="from fastapi import APIRouter\nrouter = APIRouter()\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="requirements.txt",
+                file_type="FILE",
+                depth=0,
+                content="fastapi==0.115.0\n",
+            ),
+        ]
+
+        commands = await parse_service.extract_run_command_details(files)
+
+        self.assertEqual(commands.install, "pip install -r requirements.txt")
+        self.assertEqual(commands.run, "")
+
+    @unittest.skipUnless(
+        _has("extract_run_command_details", "extract_run_commands"),
+        "extract_run_command_details/extract_run_commands(B-205) 미구현",
+    )
+    async def test_run_command_details_detects_compose_variant_file(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path="docker-compose.dev.yml",
+                file_type="FILE",
+                depth=0,
+                content="services:\n  app:\n    image: nginx\n",
+            )
+        ]
+
+        details = await parse_service.extract_run_command_details(files)
+        commands = await parse_service.extract_run_commands(files)
+
+        self.assertEqual(details.run, "docker compose up")
+        self.assertEqual(details.build, "docker compose build")
+        self.assertIn("docker compose up", commands)
+        self.assertIn("docker compose build", commands)
 
     @unittest.skipUnless(_has("detect_tech_stack"), "detect_tech_stack(B-206) 미구현")
     async def test_tech_stack_is_detected_from_dependencies(self):
@@ -233,10 +335,40 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("pkg/c.py", by_path["pkg/a.py"].imports)
         self.assertIn("backend/app/service.py", by_path["pkg/a.py"].imports)
 
+    @unittest.skipUnless(_has("build_file_map", "build_heatmap"), "Code Map 품질 보강 미구현")
+    async def test_file_map_adds_imported_by_and_risk_score(self):
+        chunked = await parse_service.chunk_by_ast(self.files)
+        analyzed = await parse_service.analyze_imports(chunked)
+        tagged = await parse_service.tag_config_files(analyzed)
+
+        file_map = await parse_service.build_file_map(tagged)
+        by_path = {item.path: item for item in file_map}
+
+        self.assertIn("backend/app/main.py", by_path["backend/app/service.py"].imported_by)
+        self.assertGreaterEqual(by_path["backend/app/service.py"].risk_score, 1)
+        self.assertEqual(by_path["backend/app/main.py"].language, "Python")
+
+        heatmap = await parse_service.build_heatmap(tagged)
+        self.assertTrue(heatmap)
+        self.assertGreaterEqual(heatmap[0].score, heatmap[-1].score)
+
     @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
     async def test_missing_readme_returns_none_without_model_call(self):
         empty = FIXTURE_REPO / "frontend"
         self.assertIsNone(await parse_service.parse_readme(str(empty)))
+
+    @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
+    async def test_missing_readme_falls_back_to_manifest_summary(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "package.json").write_text(
+                '{"name":"fallback-app","scripts":{"dev":"next dev"},"dependencies":{"next":"16.0.0"}}',
+                encoding="utf-8",
+            )
+            summary = await parse_service.parse_readme(str(root))
+        self.assertIsInstance(summary, str)
+        self.assertIn("README가 없어", summary)
+        self.assertIn("fallback-app", summary)
 
     @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
     async def test_existing_readme_returns_summary(self):
@@ -264,6 +396,29 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue((by_path["backend/app/main.py"].summary or "").strip())
         self.assertIsInstance(master, str)
         self.assertTrue(master.strip())
+
+    @unittest.skipUnless(
+        _has("build_hierarchical_summary", "build_file_summaries", "build_folder_summaries"),
+        "B-209 요약 실사용 유틸리티 미구현",
+    )
+    async def test_hierarchical_summary_fills_file_and_folder_contracts(self):
+        from app.parse import summary as summary_module
+
+        chunked = await parse_service.chunk_by_ast(self.files)
+        with patch.object(
+            summary_module, "_master_summary_with_llm", AsyncMock(return_value=None)
+        ):
+            summarized, master = await parse_service.build_hierarchical_summary(chunked)
+
+        self.assertIn("총", master)
+        main = next(item for item in summarized if item.path == "backend/app/main.py")
+        self.assertIsInstance(main.summary, str)
+        self.assertTrue(main.summary)
+
+        file_summaries = await parse_service.build_file_summaries(summarized)
+        folder_summaries = await parse_service.build_folder_summaries(summarized)
+        self.assertTrue(any(item.path == "backend/app/main.py" for item in file_summaries))
+        self.assertTrue(any(item.path == "backend/app" for item in folder_summaries))
 
 
 @unittest.skipUnless(PARSE_READY, "PARSE 파이프라인 진입점이 아직 구현되지 않음")

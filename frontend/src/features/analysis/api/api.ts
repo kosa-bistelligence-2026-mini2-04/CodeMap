@@ -3,6 +3,12 @@ import type {
   AnalyzeRequest,
   AnalyzeResponse,
   JobStatusData,
+  ParseCodeMapData,
+  ParseDetails,
+  ParseReadmeData,
+  ParseStackData,
+  ParseSummaryData,
+  ParseTreeData,
   PreValidateRequest,
   PreValidateResponse,
 } from "@/common/types/contracts";
@@ -61,6 +67,27 @@ export async function fetchJobStatus(
     throw new Error(`Failed to fetch job status: ${resp.status}`);
   }
   return await resp.json();
+}
+
+async function fetchParseEndpoint<T>(jobId: string, suffix: string): Promise<T> {
+  const resp = await fetch(apiPath(`/parse/analysis/${jobId}${suffix}`));
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch parse detail ${suffix}: ${resp.status}`);
+  }
+  const body = await resp.json();
+  return body.data as T;
+}
+
+export async function fetchParseDetails(jobId: string): Promise<ParseDetails> {
+  const [readme, tree, stack, codemap, summary] = await Promise.all([
+    fetchParseEndpoint<ParseReadmeData>(jobId, "/readme"),
+    fetchParseEndpoint<ParseTreeData>(jobId, "/tree"),
+    fetchParseEndpoint<ParseStackData>(jobId, "/stack"),
+    fetchParseEndpoint<ParseCodeMapData>(jobId, "/codemap"),
+    fetchParseEndpoint<ParseSummaryData>(jobId, "/summary"),
+  ]);
+
+  return { readme, tree, stack, codemap, summary };
 }
 
 export async function fetchAnalysisHistory(
@@ -138,4 +165,3 @@ export async function validateRepository(
 
   return await resp.json();
 }
-

@@ -63,9 +63,67 @@ class ParseRouterTests(unittest.TestCase):
                     },
                 ],
                 "tech_stack": ["Python", "FastAPI"],
+                "tech_stack_details": [
+                    {
+                        "name": "FastAPI",
+                        "version": "0.115.0",
+                        "category": "framework",
+                        "source": "backend/requirements.txt",
+                    },
+                    {
+                        "name": "Next.js",
+                        "version": "16.0.0",
+                        "category": "framework",
+                        "source": "frontend/package.json",
+                    },
+                    {
+                        "name": "Python",
+                        "version": "3.12",
+                        "category": "language",
+                        "source": "Dockerfile",
+                    },
+                    {
+                        "name": "PostgreSQL",
+                        "version": "16",
+                        "category": "database",
+                        "source": "docker-compose.yml",
+                    },
+                ],
+                "language_composition": [
+                    {"language": "Config", "lines": 8, "percentage": 57.1},
+                    {"language": "Python", "lines": 2, "percentage": 14.3},
+                    {"language": "TypeScript", "lines": 2, "percentage": 14.3},
+                    {"language": "Markdown", "lines": 2, "percentage": 14.3},
+                ],
                 "run_commands": ["pip install -r requirements.txt", "uvicorn app.main:app"],
+                "run_command_details": {
+                    "install": "pip install -r requirements.txt",
+                    "run": "uvicorn app.main:app",
+                    "build": None,
+                },
                 "entry_points": ["backend/app/main.py"],
+                "entry_point_details": [
+                    {"path": "backend/app/main.py", "type": "backend", "reason": "FastAPI app"}
+                ],
                 "readme_summary": "Test repo",
+                "master_summary": "테스트 저장소 요약",
+                "folder_summaries": [
+                    {"path": "backend/app", "summary": "FastAPI 앱 폴더"}
+                ],
+                "file_summaries": [
+                    {"path": "backend/app/main.py", "summary": "FastAPI 진입점"}
+                ],
+                "file_map": [
+                    {
+                        "path": "backend/app/main.py",
+                        "language": "Python",
+                        "chunk_count": 1,
+                        "imports": [],
+                        "imported_by": [],
+                        "risk_score": 10,
+                    }
+                ],
+                "heatmap": [{"path": "backend/app/main.py", "score": 10}],
             }
         )
 
@@ -165,6 +223,98 @@ class ParseRouterTests(unittest.TestCase):
         self.assertEqual(config_files, ["backend/requirements.txt"])
         # path 없는 항목은 configFiles에 포함되지 않아야 함
         self.assertNotIn(None, config_files)
+
+    @patch("app.parse.router.AnalysisJobRepository")
+    def test_get_parse_analysis_accepts_legacy_analyzer_report_shape(self, mock_repo_class):
+        """기존 repo.analyzer report_json(stack/entrypoints)도 PARSE API에서 읽을 수 있어야 한다."""
+        mock_job = AnalysisJob(
+            id=self.job_id,
+            repo_name="legacy-repo",
+            owner="test-owner",
+            branch="main",
+            status="COMPLETED",
+            report_json={
+                "repository": {"name": "legacy-repo"},
+                "stack": ["FastAPI", "Next.js"],
+                "entrypoints": ["backend/app/main.py"],
+                "run_commands": {"install": "pnpm install", "run": "pnpm dev", "build": "pnpm build"},
+                "executive_summary": "기존 analyzer report",
+                "files": [
+                    {"path": "backend/app/main.py", "language": "Python"},
+                    {"path": "frontend/package.json", "metadata": {"is_config": True}},
+                ],
+            },
+        )
+        mock_repo_instance = mock_repo_class.return_value
+        mock_repo_instance.get_job_by_id = AsyncMock(return_value=mock_job)
+
+        response = self.client.get(f"/api/parse/analysis/{self.job_id}")
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()["data"]
+        self.assertEqual(data["techStack"], ["FastAPI", "Next.js"])
+        self.assertEqual(data["entryPoints"], ["backend/app/main.py"])
+        self.assertEqual(data["runCommands"]["build"], "pnpm build")
+        self.assertEqual(data["readmeSummary"], "기존 analyzer report")
+        self.assertEqual(data["configFiles"], ["frontend/package.json"])
+
+    @patch("app.parse.router.AnalysisJobRepository")
+    def test_get_parse_readme_endpoint(self, mock_repo_class):
+        mock_repo_class.return_value.get_job_by_id = AsyncMock(return_value=self.mock_job)
+
+        response = self.client.get(f"/api/parse/analysis/{self.job_id}/readme")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["repoId"], str(self.job_id))
+        self.assertEqual(data["projectPurpose"], "Test repo")
+        self.assertEqual(data["rawReadme"], "")
+
+    @patch("app.parse.router.AnalysisJobRepository")
+    def test_get_parse_tree_endpoint(self, mock_repo_class):
+        mock_repo_class.return_value.get_job_by_id = AsyncMock(return_value=self.mock_job)
+
+        response = self.client.get(f"/api/parse/analysis/{self.job_id}/tree")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["entryPoints"][0]["path"], "backend/app/main.py")
+        self.assertIn("backend/requirements.txt", data["configFiles"])
+        self.assertIn("frontend/package.json", data["configFiles"])
+        self.assertIn("Dockerfile", data["configFiles"])
+        self.assertIn("docker-compose.yml", data["configFiles"])
+        self.assertEqual(data["totalFiles"], 7)
+
+    @patch("app.parse.router.AnalysisJobRepository")
+    def test_get_parse_stack_endpoint(self, mock_repo_class):
+        mock_repo_class.return_value.get_job_by_id = AsyncMock(return_value=self.mock_job)
+
+        response = self.client.get(f"/api/parse/analysis/{self.job_id}/stack")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        by_name = {item["name"]: item for item in data["techStack"]}
+        self.assertEqual(by_name["FastAPI"]["name"], "FastAPI")
+        self.assertEqual(data["runCommands"]["run"], "uvicorn app.main:app")
+
+    @patch("app.parse.router.AnalysisJobRepository")
+    def test_get_parse_codemap_endpoint(self, mock_repo_class):
+        mock_repo_class.return_value.get_job_by_id = AsyncMock(return_value=self.mock_job)
+
+        response = self.client.get(f"/api/parse/analysis/{self.job_id}/codemap")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["fileMap"][0]["chunkCount"], 1)
+        self.assertEqual(data["fileMap"][0]["riskScore"], 10)
+        self.assertEqual(data["heatmap"][0]["score"], 10)
+
+    @patch("app.parse.router.AnalysisJobRepository")
+    def test_get_parse_summary_endpoint(self, mock_repo_class):
+        mock_repo_class.return_value.get_job_by_id = AsyncMock(return_value=self.mock_job)
+
+        response = self.client.get(f"/api/parse/analysis/{self.job_id}/summary")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["projectSummary"], "테스트 저장소 요약")
+        self.assertEqual(data["folderSummaries"][0]["path"], "backend/app")
+        self.assertEqual(data["fileSummaries"][0]["summary"], "FastAPI 진입점")
 
 
 if __name__ == "__main__":

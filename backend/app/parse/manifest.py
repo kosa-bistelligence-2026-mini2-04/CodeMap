@@ -16,7 +16,7 @@ import tomllib
 from pathlib import Path
 
 from app.core.config import get_settings
-from app.parse.schemas import ParsedFile
+from app.parse.schemas import ParsedFile, RunCommandSet
 from app.parse.tech_catalog import (
     CATEGORY_GUIDE,
     COMPOSE_IMAGE_TO_TECH,
@@ -42,17 +42,24 @@ _CONFIG_FILE_NAMES = {
     "deno.json", "deno.jsonc",
     "next.config.js", "next.config.mjs", "next.config.ts",
     "vite.config.ts", "vite.config.js",
+    "eslint.config.js", "eslint.config.mjs", "prettier.config.js",
+    "tailwind.config.js", "tailwind.config.ts", "postcss.config.js",
     # Python
     "requirements.txt", "pyproject.toml", "setup.py", "setup.cfg",
-    "pipfile", "pipfile.lock", "poetry.lock", "tox.ini",
+    "pipfile", "pipfile.lock", "poetry.lock", "tox.ini", "ruff.toml",
+    "uv.lock", ".python-version",
     # 컨테이너 / 오케스트레이션
-    "dockerfile", "docker-compose.yml", "docker-compose.yaml", ".dockerignore",
+    "dockerfile", "compose.yml", "compose.yaml",
+    "docker-compose.yml", "docker-compose.yaml", ".dockerignore",
+    "kubernetes.yml", "kubernetes.yaml", "helmfile.yaml",
     # 환경 변수 예시 (실제 .env는 민감파일이라 directory 단계에서 content 제외)
     ".env.example", ".env.sample", ".env.template",
     # 기타 언어 / 빌드
     "go.mod", "go.sum", "cargo.toml", "cargo.lock", "pubspec.yaml", "pubspec.yml",
     "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
+    "analysis_options.yaml",
     "gemfile", "gemfile.lock", "composer.json", "makefile", "cmakelists.txt",
+    "terraform.tf", "terragrunt.hcl",
 }
 
 
@@ -63,6 +70,12 @@ def _is_config_file(path: str) -> bool:
         return True
     # requirements*.txt 변형(requirements-dev.txt 등)도 포함
     if name.startswith("requirements") and name.endswith(".txt"):
+        return True
+    if name.startswith("docker-compose.") and name.endswith((".yml", ".yaml")):
+        return True
+    if path.startswith(".github/workflows/") and name.endswith((".yml", ".yaml")):
+        return True
+    if name.endswith((".tf", ".tfvars")):
         return True
     return False
 
@@ -87,10 +100,13 @@ async def tag_config_files(files: list[ParsedFile]) -> list[ParsedFile]:
 # ── B-205: 실행 방법 추론 ───────────────────────────────────────────────
 # lockfile → Node 패키지 매니저 (없으면 npm 기본)
 _PM_BY_LOCKFILE = {
+    "bun.lockb": "bun",
+    "bun.lock": "bun",
     "pnpm-lock.yaml": "pnpm",
     "yarn.lock": "yarn",
     "package-lock.json": "npm",
 }
+_FASTAPI_APP_PATTERN = re.compile(r"(?m)^\s*app\s*=\s*FastAPI\s*\(")
 
 
 def _detect_node_pm(names: set[str]) -> str:
@@ -103,6 +119,8 @@ def _detect_node_pm(names: set[str]) -> str:
 
 def _node_run(pm: str, script: str) -> str:
     """패키지 매니저별 스크립트 실행 명령 ('npm run dev' vs 'pnpm dev' 등)."""
+    if pm == "bun":
+        return f"bun run {script}"
     if pm == "npm":
         return "npm start" if script == "start" else f"npm run {script}"
     return f"{pm} {script}"
@@ -118,7 +136,34 @@ def _package_scripts(node: ParsedFile) -> dict:
     return scripts if isinstance(scripts, dict) else {}
 
 
-async def extract_run_commands(files: list[ParsedFile]) -> list[str]:
+def _module_path(path: str) -> str:
+    return Path(path).with_suffix("").as_posix().replace("/", ".")
+
+
+def _has_compose_file(names: set[str]) -> bool:
+    return bool(
+        {"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} & names
+        or any(
+            name.startswith("docker-compose.") and name.endswith((".yml", ".yaml"))
+            for name in names
+        )
+    )
+
+
+def _detect_python_run(files: list[ParsedFile]) -> str:
+    for node in files:
+        if node.file_type != "FILE" or not node.path.endswith(".py"):
+            continue
+        content = node.content or ""
+        if _FASTAPI_APP_PATTERN.search(content):
+            return f"uvicorn {_module_path(node.path)}:app --reload"
+    for node in files:
+        if node.file_type == "FILE" and Path(node.path).name in {"manage.py"}:
+            return "python manage.py runserver"
+    return ""
+
+
+async def extract_run_command_details(files: list[ParsedFile]) -> RunCommandSet:
     """설정 파일 기반으로 설치·실행 명령을 추론한다 (RAG-PARSE-B-205).
 
     package.json(+lockfile)·requirements.txt·pyproject.toml·Dockerfile 등을 보고
@@ -129,33 +174,62 @@ async def extract_run_commands(files: list[ParsedFile]) -> list[str]:
         Path(f.path).name.lower(): f for f in files if f.file_type == "FILE"
     }
     names = set(file_nodes)
-    commands: list[str] = []
+    install = ""
+    run = ""
+    build: str | None = None
 
     # Node/JS — package.json + lockfile로 매니저 추론, scripts에서 실행 명령
     if "package.json" in names:
         pm = _detect_node_pm(names)
-        commands.append(f"{pm} install")
+        install = f"{pm} install"
         scripts = _package_scripts(file_nodes["package.json"])
         for script in ("dev", "start"):
             if script in scripts:
-                commands.append(_node_run(pm, script))
+                run = _node_run(pm, script)
                 break
+        if "build" in scripts:
+            build = _node_run(pm, "build")
 
     # Python — 의존성 설치
+    if "requirements.txt" in names:
+        install = install or "pip install -r requirements.txt"
+    elif "pyproject.toml" in names:
+        install = install or "pip install ."
+    if "pipfile" in names:
+        install = install or "pipenv install"
+    run = run or _detect_python_run(files)
+
+    # 컨테이너 — compose 우선, 없으면 Dockerfile 빌드
+    if _has_compose_file(names):
+        run = run or "docker compose up"
+        build = build or "docker compose build"
+    elif "dockerfile" in names:
+        build = build or "docker build -t app ."
+
+    return RunCommandSet(install=install, run=run, build=build)
+
+
+async def extract_run_commands(files: list[ParsedFile]) -> list[str]:
+    """설정 파일 기반 실행 명령을 기존 list[str] 계약으로 반환한다."""
+    details = await extract_run_command_details(files)
+    file_nodes = {
+        Path(f.path).name.lower(): f for f in files if f.file_type == "FILE"
+    }
+    names = set(file_nodes)
+    commands = [details.install, details.run, details.build]
     if "requirements.txt" in names:
         commands.append("pip install -r requirements.txt")
     elif "pyproject.toml" in names:
         commands.append("pip install .")
-    if "pipfile" in names:
-        commands.append("pipenv install")
-
-    # 컨테이너 — compose 우선, 없으면 Dockerfile 빌드
-    if "docker-compose.yml" in names or "docker-compose.yaml" in names:
-        commands.append("docker compose up")
+    if _has_compose_file(names):
+        commands.extend(["docker compose build", "docker compose up"])
     elif "dockerfile" in names:
         commands.append("docker build -t app .")
-
-    return commands
+    deduped: list[str] = []
+    for command in commands:
+        if command and command not in deduped:
+            deduped.append(command)
+    return deduped
 
 
 # ── B-206: 기술 스택 추론 ───────────────────────────────────────────────

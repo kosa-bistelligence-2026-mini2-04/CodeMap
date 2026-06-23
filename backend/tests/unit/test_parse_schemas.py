@@ -10,6 +10,14 @@ except ImportError:
 REQUIRED_SCHEMA_NAMES = {
     "CodeChunk",
     "ParsedFile",
+    "RunCommandSet",
+    "TechStackItem",
+    "LanguageCompositionItem",
+    "EntryPointItem",
+    "FolderSummary",
+    "FileSummary",
+    "FileMapItem",
+    "HeatmapItem",
     "ParseResult",
     "EmbedRequest",
     "EmbedResult",
@@ -56,10 +64,31 @@ class RagSchemaContractTests(unittest.TestCase):
             owner="team",
             branch="main",
             files=[parsed],
+            run_command_details=rag_schemas.RunCommandSet(
+                install="pip install -r requirements.txt",
+                run="uvicorn app.main:app",
+            ),
+            tech_stack_details=[
+                rag_schemas.TechStackItem(
+                    name="FastAPI",
+                    version="0.115.0",
+                    category="framework",
+                    source="requirements.txt",
+                )
+            ],
+            language_composition=[
+                rag_schemas.LanguageCompositionItem(language="Python", lines=1, percentage=100.0)
+            ],
+            entry_point_details=[
+                rag_schemas.EntryPointItem(path="backend/app/main.py", type="backend")
+            ],
         )
         request = rag_schemas.EmbedRequest(job_id=result.job_id, files=result.files)
         self.assertEqual(request.job_id, job_id)
         self.assertEqual(request.files[0].path, "backend/app/main.py")
+        self.assertEqual(result.run_command_details.run, "uvicorn app.main:app")
+        self.assertEqual(result.tech_stack_details[0].name, "FastAPI")
+        self.assertEqual(result.language_composition[0].lines, 1)
 
     def test_embed_result_tracks_partial_failures(self):
         result = rag_schemas.EmbedResult(
