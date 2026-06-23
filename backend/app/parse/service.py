@@ -11,7 +11,8 @@
   chunking  : chunk_by_ast                                  (B-207)
   imports   : analyze_imports                               (B-208)
   codemap   : build_file_map, build_heatmap                  (API-005)
-  summary   : build_hierarchical_summary, run_structure_agent (B-209/210)
+  summary   : build_hierarchical_summary, build_file_summaries,
+              build_folder_summaries, run_structure_agent (B-209/210)
   run_parse_pipeline : 오케스트레이터                        (통합)
 """
 
@@ -28,7 +29,11 @@ from app.parse.imports import analyze_imports
 from app.parse.codemap import build_file_map, build_heatmap
 from app.parse.readme import parse_readme
 from app.parse.language import analyze_language_composition
-from app.parse.summary import build_hierarchical_summary
+from app.parse.summary import (
+    build_file_summaries,
+    build_folder_summaries,
+    build_hierarchical_summary,
+)
 
 __all__ = [
     "analyze_directory",
@@ -44,5 +49,7 @@ __all__ = [
     "build_heatmap",
     "parse_readme",
     "analyze_language_composition",
+    "build_file_summaries",
+    "build_folder_summaries",
     "build_hierarchical_summary",
 ]
