@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.exceptions import register_exception_handlers
+from app.auth.router import router as auth_router
 from app.list.router import router as list_router
 from app.list.websocket import ws_router as list_ws_router
 from app.repo.router import router as repo_router
@@ -56,6 +57,9 @@ def read_root():
 # ──────────────────────────────────────────────
 # 도메인별 라우터 등록
 # ──────────────────────────────────────────────
+
+# Auth API (로그인/회원가입/토큰 갱신/로그아웃)
+app.include_router(auth_router)
 
 # Project Repository 분석 관련 REST API (API-001, 003, 005, 007)
 app.include_router(repo_router)

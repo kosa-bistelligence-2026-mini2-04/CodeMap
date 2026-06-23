@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app.core.exceptions import register_exception_handlers
+from app.core.auth import get_current_user
 from app.list.models import AnalysisJobDetailModel, AnalysisJobListModel, AnalysisJobStatusUpdateModel
 from app.list.router import router as list_router
 from app.list.service import (
@@ -109,11 +110,21 @@ class FakeListService:
         )
 
 
+from fastapi import FastAPI, Request
+from app.core.exceptions import UnauthorizedError
+
+def mock_get_current_user(request: Request):
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer ") or not auth[7:].strip():
+        raise UnauthorizedError()
+    return {"sub": "test-uuid", "email": "test@example.com"}
+
 def create_rest_client(service: FakeListService) -> TestClient:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(list_router)
     app.dependency_overrides[get_list_service] = lambda: service
+    app.dependency_overrides[get_current_user] = mock_get_current_user
     return TestClient(app)
 
 

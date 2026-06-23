@@ -75,6 +75,16 @@ class Settings(BaseSettings):
     # GitHub API 호출 시 사용할 토큰 (미설정 시 빈 문자열)
     GITHUB_TOKEN: str = ""
 
+    # ── [PROJECT-AUTH] JWT 인증 설정 ──────────────────────────────────────────
+    # 서명 키: 운영 환경에서는 반드시 충분히 긴 랜덤 문자열로 교체할 것
+    JWT_SECRET: str = "change-me-in-production-use-long-random-string"
+    # 서명 알고리즘 (HS256 고정)
+    JWT_ALGORITHM: str = "HS256"
+    # Access Token 만료 시간 (분), 기본 60분
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Refresh Token 만료 시간 (일), 기본 7일
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
     # 내부 서버 간 호출 전용 서비스 토큰
     SERVICE_TOKEN: str = "service-token"
 

@@ -81,6 +81,9 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         stack = await parse_service.detect_tech_stack(self.files)
         self.assertIn("FastAPI", stack)
         self.assertIn("Next.js", stack)
+        self.assertIn("PostgreSQL", stack)
+        self.assertIn("React", stack)
+        self.assertIn("SQLAlchemy", stack)
 
     @unittest.skipUnless(_has("chunk_by_ast"), "chunk_by_ast(B-207) 미구현")
     async def test_ast_chunking_keeps_line_and_type_metadata(self):

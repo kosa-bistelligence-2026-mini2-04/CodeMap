@@ -9,9 +9,12 @@ from secrets import compare_digest
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Query, Header
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import get_current_user
 from app.core.config import get_settings
+from app.core.database import get_db
 from app.core.exceptions import build_error_response
 from app.list.schemas import (
     AnalysisJobDetailData,
@@ -27,6 +30,7 @@ from app.list.schemas import (
     PreValidateResponse,
 )
 from app.list.service import ListServiceDep
+from fastapi import HTTPException
 
 
 logger = logging.getLogger(__name__)
@@ -37,18 +41,6 @@ router = APIRouter(prefix="/api/list", tags=["Project List"])
 
 ALLOWED_STATUS_VALUES = {"queued", "running", "completed", "failed"}
 
-
-def verify_authorization(authorization: Annotated[str | None, Header()] = None) -> None:
-    """명세에 따라 Bearer 인증 헤더가 있는지 확인합니다."""
-    if authorization is None or not authorization.startswith("Bearer ") or not authorization[7:].strip():
-        raise HTTPException(
-            status_code=401,
-            detail=build_error_response(
-                status_code=401,
-                message="토큰이 누락되었거나 만료되었습니다.",
-                error_code="UNAUTHORIZED",
-            ),
-        )
 
 
 def verify_service_authorization(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -91,7 +83,7 @@ def verify_service_authorization(authorization: Annotated[str | None, Header()] 
     },
 )
 async def get_analysis_jobs(
-    _: Annotated[None, Depends(verify_authorization)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     service: ListServiceDep,
     page: Annotated[int, Query(ge=1, description="조회할 페이지 번호")] = 1,
     limit: Annotated[int, Query(ge=1, description="페이지당 반환할 이력 수")] = 10,
@@ -138,7 +130,7 @@ async def get_analysis_jobs(
 )
 async def get_analysis_job_detail(
     job_id: str,
-    _: Annotated[None, Depends(verify_authorization)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     service: ListServiceDep,
 ) -> AnalysisJobDetailResponse:
     """PROJECT-LIST-API-004 명세에 맞춰 분석 작업 상세 응답을 반환합니다."""
@@ -296,7 +288,7 @@ async def update_analysis_job_status(
 )
 async def validate_repository(
     request: PreValidateRequest,
-    _: Annotated[None, Depends(verify_authorization)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     service: ListServiceDep,
 ) -> PreValidateResponse:
     """PROJECT-LIST-API-002 명세의 사전 검증 결과를 반환합니다."""
