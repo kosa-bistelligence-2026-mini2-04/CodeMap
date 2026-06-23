@@ -87,6 +87,31 @@ User
 - `chat/service.py`가 LangGraph 실행을 비동기로 예약합니다.
 - 동일 세션 내 연속 질문을 지원하기 위해 `sessionId`를 선택 입력으로 받을 수 있습니다.
 
+**세션 연속성 구현 가이드 (Phase 1)** _(수업 실습: sec06 `agent_history_postgresql.py`)_
+
+동일 세션 내에서 이전 질문/답변 맥락을 이어가는 연속 대화는 LangGraph의 `AsyncPostgresSaver` checkpointer를 활용합니다:
+
+```python
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+# chat/service.py 또는 graph.py에서 graph compile 시 적용
+checkpointer = AsyncPostgresSaver(psycopg_pool)
+await checkpointer.setup()
+compiled_graph = graph.compile(checkpointer=checkpointer)
+
+# run 호출 시 sessionId를 thread_id로 전달
+await compiled_graph.ainvoke(
+    initial_state,
+    config={"configurable": {"thread_id": session_id}}
+)
+```
+
+- `sessionId`가 없으면 새 thread(신규 세션), 있으면 기존 checkpoint에서 이어서 실행
+- Phase 1에서는 세션 내 연속성만 지원하며, 세션 간 장기 기억은 Phase 2에서 구현
+- checkpointer는 `agent_graph/graph.py` compile 단계에서 주입하여 Application Layer와 분리 유지
+
+
+
 **완료 조건**
 
 - run 생성 응답에 `streamUrl`이 포함됩니다.

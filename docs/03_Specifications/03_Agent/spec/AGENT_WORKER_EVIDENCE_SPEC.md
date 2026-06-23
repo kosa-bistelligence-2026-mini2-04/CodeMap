@@ -63,11 +63,32 @@ Worker는 사용자에게 직접 답변하지 않습니다. 답변 문장 생성
 - LLM이 `tool_call` 메시지를 생성하면 worker가 tool을 실행하고 결과를 evidence로 변환
 - `tool_call` 실패 시 재시도 정책: 최대 2회, 실패 시 partial evidence 기록
 
+### State 갱신: `Command(update={})` 패턴
+
+수업 실습(sec07 `tool_state.py`)에서 배운 `Command(update={...})` 패턴을 Worker에 적용합니다.
+Worker가 evidence 결과를 `worker_results`에 append할 때 `Command`를 반환하여 State를 직접 갱신합니다.
+
+```python
+from langgraph.types import Command
+
+# Worker 노드 반환값 예시
+return Command(
+    update={
+        "worker_results": [evidence],  # Annotated[list, add] reducer가 자동 병합
+        "events": [worker_event],
+    }
+)
+```
+
+- Code Worker와 LLM Worker 모두 `Command(update={"worker_results": [evidence]})` 형태로 반환
+- `worker_results`의 `Annotated[list, add]` reducer가 fan-in 시 병렬 결과를 자동 병합
+- `Command.goto` 없이 `update`만 사용하면 기본 Edge 흐름을 유지하면서 State 갱신 가능
+
 ### Tool 시그니처 요약
 
 | Tool | 파일 | 입력 | 출력 |
 | --- | --- | --- | --- |
-| `search` | `tools/search.py` | query, top_k, filters | list[SearchResult] |
+| `search` | `tools/search.py` | query, top_k, filters, mode, scope | list[SearchResult] |
 | `dir` | `tools/dir.py` | path, depth, exclude_patterns | DirTree |
 | `grep` | `tools/grep.py` | pattern, paths, is_regex, max_results | list[GrepMatch] |
 | `read` | `tools/read.py` | path, line_start, line_end | FileContent |
@@ -95,6 +116,8 @@ Worker는 사용자에게 직접 답변하지 않습니다. 답변 문장 생성
 | `search_hints` | Array\<String\> | Supervisor가 제안한 키워드, 동의어, alias 목록 |
 | `allowed_paths` | Array\<String\> | Route Node가 검증한 탐색 허용 경로 |
 | `embedding_config` | Object | 사용할 임베딩 모델/차원 설정 (`EMBEDDING_MODEL_DECISION.md` 참조) |
+| `search_scope` | String | 검색 단위: `chunk`(기본), `file`, `directory` |
+| `search_mode` | String | 검색 전략: `semantic`(기본), `hybrid` |
 
 **구현 노트**
 
@@ -105,17 +128,41 @@ Worker는 사용자에게 직접 답변하지 않습니다. 답변 문장 생성
 - snippet을 과도하게 요약하지 않고 원본 evidence shape로 반환
 - 검색 결과가 부족할 경우 query 변형 재시도 가능 (최대 2회)
 
+**Hybrid Search 전략** _(레퍼런스: CodeRAG, Deep-RAG 프로젝트)_
+
+검색 품질 향상을 위해 두 가지 검색 모드를 지원합니다:
+
+| 모드 | 방식 | 적용 기준 |
+| --- | --- | --- |
+| `semantic` (기본) | pgvector cosine similarity 기반 | 자연어 질문, 개념 검색 |
+| `hybrid` | semantic + keyword(pg_trgm/BM25) → RRF(Reciprocal Rank Fusion) 결합 | `search_hints`에 정확한 심볼/함수명이 있을 때 자동 선택 |
+
+Hybrid 모드 선택 기준: Supervisor의 `access_plan.searchHints`에 식별자 형식(camelCase, snake_case)이 포함되면 Search Worker가 `hybrid` 모드로 자동 전환합니다.
+
+**계층적 검색 Scope** _(레퍼런스: RepoMind, Codebase Onboarding 프로젝트 + 아키텍처 합의 AGENTIC_RAG_ARCHITECTURE.md)_
+
+RAG DB에 저장된 계층적 벡터(chunk → file → directory 요약)를 활용하여 검색 단위를 동적으로 선택합니다:
+
+| scope | 대상 벡터 | 적합한 질문 유형 |
+| --- | --- | --- |
+| `chunk` (기본) | 코드 청크 단위 벡터 | 특정 함수/로직 위치 파악 |
+| `file` | 파일 단위 LLM 요약 벡터 | 특정 기능을 담당하는 파일 파악 |
+| `directory` | 디렉토리 단위 LLM 요약 벡터 | 아키텍처/모듈 구조 파악 |
+
 **search tool 호출 인터페이스**
 
 ```python
 search_tool.invoke({
     "query": str,           # rewritten_query 또는 변형 query
     "top_k": int,           # 검색 결과 상위 N건 (기본 10)
+    "mode": str,            # "semantic" | "hybrid" (기본 "semantic")
+    "scope": str,           # "chunk" | "file" | "directory" (기본 "chunk")
     "filters": {
         "paths": list[str], # allowed_paths 기반 필터
         "languages": list[str]  # 선택적 언어 필터
     }
 }) -> list[SearchResult]
+```
 ```
 
 `SearchResult` shape:
@@ -243,6 +290,13 @@ Worker 결과를 중복 제거하고, 파일 경로/라인/점수/근거 타입 
 | rank | score, worker priority, path relevance 기준 정렬 |
 | trim | token budget에 맞게 snippet 축약 |
 | compact | Final Answer 입력용 `compact_context` 생성 |
+
+**Phase 1/2 Re-ranking 전략** _(레퍼런스: Deep-RAG 프로젝트)_
+
+| Phase | rank 방식 | 설명 |
+| --- | --- | --- |
+| Phase 1 | Deterministic scoring | score(벡터 유사도) × worker_priority × path_relevance 가중합으로 정렬. LLM 미사용, 빠름 |
+| Phase 2 | LLM-based re-ranking | `compact_context` 생성 전 cross-encoder 또는 경량 LLM으로 최종 relevance 재판정. 정밀도 향상 |
 
 **완료 조건**
 
