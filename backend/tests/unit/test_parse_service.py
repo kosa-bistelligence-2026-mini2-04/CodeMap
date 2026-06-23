@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
@@ -19,6 +20,7 @@ FUNCTION_NAMES = {
     "find_entry_points",
     "tag_config_files",
     "extract_run_commands",
+    "extract_run_command_details",
     "detect_tech_stack",
     "detect_tech_stack_details",
     "analyze_language_composition",
@@ -72,11 +74,63 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         for path in ("package.json", "requirements.txt", "Dockerfile"):
             self.assertTrue((by_path[path].metadata or {}).get("is_config"))
 
+    @unittest.skipUnless(_has("tag_config_files"), "tag_config_files(B-204) 미구현")
+    async def test_config_files_include_ci_and_infra_configs(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path=".github/workflows/test.yml",
+                file_type="FILE",
+                depth=2,
+                content="name: test\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="infra/main.tf",
+                file_type="FILE",
+                depth=1,
+                content='resource "x" "y" {}\n',
+            ),
+            rag_schemas.ParsedFile(
+                path="docker-compose.dev.yml",
+                file_type="FILE",
+                depth=0,
+                content="services: {}\n",
+            ),
+        ]
+        tagged = await parse_service.tag_config_files(files)
+        self.assertTrue(all((item.metadata or {}).get("is_config") for item in tagged))
+
     @unittest.skipUnless(_has("extract_run_commands"), "extract_run_commands(B-205) 미구현")
     async def test_run_commands_are_extracted_from_known_manifests(self):
         commands = await parse_service.extract_run_commands(self.files)
         self.assertTrue(any("npm run dev" in command for command in commands))
         self.assertTrue(any("pip install" in command for command in commands))
+
+    @unittest.skipUnless(_has("extract_run_command_details"), "extract_run_command_details(B-205) 미구현")
+    async def test_run_command_details_include_install_run_and_build(self):
+        commands = await parse_service.extract_run_command_details(self.files)
+        self.assertEqual(commands.install, "npm install")
+        self.assertEqual(commands.run, "npm run dev")
+        self.assertEqual(commands.build, "docker compose build")
+
+    @unittest.skipUnless(_has("extract_run_command_details"), "extract_run_command_details(B-205) 미구현")
+    async def test_run_command_details_detect_python_entrypoint_without_node(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path="requirements.txt",
+                file_type="FILE",
+                depth=0,
+                content="fastapi==0.115.0\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="app/main.py",
+                file_type="FILE",
+                depth=1,
+                content="from fastapi import FastAPI\napp = FastAPI()\n",
+            ),
+        ]
+        commands = await parse_service.extract_run_command_details(files)
+        self.assertEqual(commands.install, "pip install -r requirements.txt")
+        self.assertEqual(commands.run, "uvicorn app.main:app --reload")
 
     @unittest.skipUnless(_has("detect_tech_stack"), "detect_tech_stack(B-206) 미구현")
     async def test_tech_stack_is_detected_from_dependencies(self):
@@ -237,6 +291,19 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_readme_returns_none_without_model_call(self):
         empty = FIXTURE_REPO / "frontend"
         self.assertIsNone(await parse_service.parse_readme(str(empty)))
+
+    @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
+    async def test_missing_readme_falls_back_to_manifest_summary(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "package.json").write_text(
+                '{"name":"fallback-app","scripts":{"dev":"next dev"},"dependencies":{"next":"16.0.0"}}',
+                encoding="utf-8",
+            )
+            summary = await parse_service.parse_readme(str(root))
+        self.assertIsInstance(summary, str)
+        self.assertIn("README가 없어", summary)
+        self.assertIn("fallback-app", summary)
 
     @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
     async def test_existing_readme_returns_summary(self):
