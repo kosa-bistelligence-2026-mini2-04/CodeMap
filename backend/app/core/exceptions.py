@@ -298,9 +298,25 @@ def _build_http_exception_response(exc: HTTPException | StarletteHTTPException) 
         ## error 필드를 dict 형태로 내려보내는 특수 예외 상황에 대응하기 위한 방어적 분기 처리
         if isinstance(error_val, dict):
             error_code = error_val.get("code") or _default_error_code(exc.status_code)
-            error_detail = detail.get("detail") or error_val.get("detail")
-            field = detail.get("field") or error_val.get("field")
-            retryable = detail.get("retryable") or error_val.get("retryable")
+            
+            # detail과 error_val의 값을 명시적 존재 여부 및 is not None 기준으로 우선순위 적용
+            error_detail = (
+                detail.get("detail")
+                if detail.get("detail") is not None
+                else error_val.get("detail")
+            )
+            field = (
+                detail.get("field")
+                if detail.get("field") is not None
+                else error_val.get("field")
+            )
+            
+            if "retryable" in detail:
+                retryable = detail.get("retryable")
+            elif "retryable" in error_val:
+                retryable = error_val.get("retryable")
+            else:
+                retryable = None
         else:
             error_code = error_val or detail.get("error_code") or _default_error_code(exc.status_code)
             error_detail = detail.get("detail")

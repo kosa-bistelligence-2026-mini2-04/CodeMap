@@ -86,6 +86,23 @@ class TestExceptionsAndHeaders(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(content["message"], "저장소가 존재하지 않습니다.")
         self.assertEqual(content["error"]["code"], "REPOSITORY_NOT_FOUND")
 
+    def test_build_http_exception_response_preserves_retryable_false_for_500(self):
+        """status_code=500인 HTTPException에 retryable=False가 입력되었을 때 최종 응답에서도 False로 보존되는지 확인합니다."""
+        exc = HTTPException(
+            status_code=500,
+            detail={
+                "message": "외부 미들웨어 오류",
+                "error": {
+                    "code": "NON_RETRYABLE_EXTERNAL_ERROR",
+                    "retryable": False,
+                }
+            }
+        )
+
+        content = _build_http_exception_response(exc)
+
+        self.assertFalse(content["error"]["retryable"])
+
 
 if __name__ == "__main__":
     unittest.main()
