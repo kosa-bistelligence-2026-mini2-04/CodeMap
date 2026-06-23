@@ -34,3 +34,14 @@ class AnalysisJobDetailModel:
     message: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass(frozen=True)
+class AnalysisJobStatusUpdateModel:
+    """상태 저장 도메인에서 사용하는 분석 작업 내부 모델입니다."""
+
+    job_id: UUID
+    status: str
+    current_step: Optional[str]
+    progress: int
+    updated_at: datetime

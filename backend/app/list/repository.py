@@ -1,9 +1,14 @@
+from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import UUID
 
-from app.list.models import AnalysisJobDetailModel, AnalysisJobListModel
+from app.list.models import (
+    AnalysisJobDetailModel,
+    AnalysisJobListModel,
+    AnalysisJobStatusUpdateModel,
+)
 from app.repo.models import AnalysisJob
 
 
@@ -37,6 +42,30 @@ class AnalysisJobListRepository:
             return None
         return self._to_detail_model(job)
 
+    async def update_analysis_job_status(
+        self,
+        job_id: UUID,
+        status: str,
+        current_step: str | None,
+        progress: int,
+        message: str | None,
+    ) -> AnalysisJobStatusUpdateModel | None:
+        """분석 작업 상태와 진행 정보를 저장합니다."""
+        result = await self.db.execute(select(AnalysisJob).where(AnalysisJob.id == job_id))
+        job = result.scalar_one_or_none()
+        if job is None:
+            return None
+
+        job.status = status
+        job.stage = current_step
+        job.progress = progress
+        job.message = message
+        job.updated_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(job)
+        return self._to_status_update_model(job)
+
     def _to_list_model(self, job: AnalysisJob) -> AnalysisJobListModel:
         """DB 엔티티를 목록 API 내부 모델로 변환합니다."""
         is_failed = job.status == "FAILED"
@@ -68,9 +97,20 @@ class AnalysisJobListRepository:
             updated_at=job.updated_at,
         )
 
+    def _to_status_update_model(self, job: AnalysisJob) -> AnalysisJobStatusUpdateModel:
+        """DB 엔티티를 상태 저장 API 내부 모델로 변환합니다."""
+        return AnalysisJobStatusUpdateModel(
+            job_id=job.id,
+            status=self._to_api_status(job.status),
+            current_step=job.stage,
+            progress=job.progress,
+            updated_at=job.updated_at,
+        )
+
     def _to_api_status(self, status: str) -> str:
         """DB 작업 상태를 명세의 응답 상태값으로 변환합니다."""
         status_map = {
+            "CLONED": "queued",
             "IN_PROGRESS": "running",
             "COMPLETED": "completed",
             "FAILED": "failed",

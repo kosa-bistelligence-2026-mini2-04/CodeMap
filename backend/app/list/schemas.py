@@ -68,6 +68,36 @@ class AnalysisJobDetailResponse(BaseModel):
     data: AnalysisJobDetailData
 
 
+class AnalysisJobStatusUpdateRequest(BaseModel):
+    """PROJECT-LIST-API-006 상태 저장 요청 DTO입니다."""
+
+    status: str = Field(description="저장할 작업 상태")
+    current_step: Optional[str] = Field(default=None, alias="currentStep", description="현재 분석 단계")
+    progress: int = Field(description="작업 진행률")
+    message: Optional[str] = Field(default=None, description="사용자 표시용 진행 메시지")
+    error_message: Optional[str] = Field(default=None, alias="errorMessage", description="실패 시 저장할 오류 메시지")
+
+
+class AnalysisJobStatusUpdateData(BaseModel):
+    """분석 작업 상태 저장 응답의 data DTO입니다."""
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    job_id: UUID = Field(alias="jobId", description="분석 작업 고유 ID")
+    status: str = Field(description="저장된 작업 상태")
+    current_step: Optional[str] = Field(default=None, alias="currentStep", description="저장된 분석 단계")
+    progress: int = Field(description="저장된 진행률")
+    updated_at: datetime = Field(alias="updatedAt", description="상태 수정 시각")
+
+
+class AnalysisJobStatusUpdateResponse(BaseModel):
+    """PROJECT-LIST-API-006 성공 응답 DTO입니다."""
+
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="응답 메시지")
+    data: AnalysisJobStatusUpdateData
+
+
 class AnalysisProgressMessage(BaseModel):
     """PROJECT-LIST-API-003 WebSocket 발행 메시지 DTO입니다."""
 
