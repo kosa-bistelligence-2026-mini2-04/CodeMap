@@ -197,6 +197,67 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
             )
         self.assertIn("분석 가능한 파일이 없습니다", str(context.exception))
 
+    @patch("httpx.AsyncClient.get")
+    async def test_validate_repository_default_branch_invalid_type(self, mock_get):
+        """저장소 정보 API 응답 형식이 dict가 아닐 때 ValidationFailedError 예외를 발생시키는지 검사합니다."""
+        mock_response_repo = MagicMock()
+        mock_response_repo.status_code = 200
+        mock_response_repo.json.return_value = ["not", "a", "dict"]
+
+        mock_get.side_effect = [mock_response_repo]
+
+        with self.assertRaises(ValidationFailedError) as context:
+            await self.service.validate_repository(
+                repo_url="https://github.com/example/target-repo",
+                branch=None
+            )
+        self.assertIn("API 응답 형식이 올바르지 않습니다", str(context.exception))
+
+    @patch("httpx.AsyncClient.get")
+    async def test_validate_repository_default_branch_missing(self, mock_get):
+        """응답에 default_branch 키가 누락되었을 때 ValidationFailedError 예외를 발생시키는지 검사합니다."""
+        mock_response_repo = MagicMock()
+        mock_response_repo.status_code = 200
+        mock_response_repo.json.return_value = {"other_key": "value"}
+
+        mock_get.side_effect = [mock_response_repo]
+
+        with self.assertRaises(ValidationFailedError) as context:
+            await self.service.validate_repository(
+                repo_url="https://github.com/example/target-repo",
+                branch=None
+            )
+        self.assertIn("기본 브랜치(default_branch)를 찾을 수 없습니다", str(context.exception))
+
+    @patch("httpx.AsyncClient.get")
+    async def test_validate_repository_default_branch_empty(self, mock_get):
+        """default_branch 값이 None이거나 빈 문자열일 때 ValidationFailedError 예외를 발생시키는지 검사합니다."""
+        # 1. default_branch가 None인 경우
+        mock_response_repo1 = MagicMock()
+        mock_response_repo1.status_code = 200
+        mock_response_repo1.json.return_value = {"default_branch": None}
+
+        # 2. default_branch가 빈 문자열인 경우
+        mock_response_repo2 = MagicMock()
+        mock_response_repo2.status_code = 200
+        mock_response_repo2.json.return_value = {"default_branch": ""}
+
+        mock_get.side_effect = [mock_response_repo1, mock_response_repo2]
+
+        with self.assertRaises(ValidationFailedError) as context:
+            await self.service.validate_repository(
+                repo_url="https://github.com/example/target-repo",
+                branch=None
+            )
+        self.assertIn("기본 브랜치(default_branch)를 찾을 수 없습니다", str(context.exception))
+
+        with self.assertRaises(ValidationFailedError) as context:
+            await self.service.validate_repository(
+                repo_url="https://github.com/example/target-repo",
+                branch=None
+            )
+        self.assertIn("기본 브랜치(default_branch)를 찾을 수 없습니다", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
