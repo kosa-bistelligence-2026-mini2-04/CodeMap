@@ -126,6 +126,17 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         empty = FIXTURE_REPO / "frontend"
         self.assertIsNone(await parse_service.parse_readme(str(empty)))
 
+    @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
+    async def test_existing_readme_returns_summary(self):
+        # README가 있으면 비어있지 않은 요약을 반환. LLM 응답 문구에 의존하지 않도록
+        # _summarize_with_llm을 None으로 mock(휴리스틱 폴백 고정)해 결정성 확보. (#74 리뷰 보완)
+        from app.parse import readme as readme_module
+
+        with patch.object(readme_module, "_summarize_with_llm", AsyncMock(return_value=None)):
+            summary = await parse_service.parse_readme(str(FIXTURE_REPO))
+        self.assertIsInstance(summary, str)
+        self.assertTrue(summary.strip())
+
 
 @unittest.skipUnless(PARSE_READY, "PARSE 파이프라인 진입점이 아직 구현되지 않음")
 class ParsePipelineOrchestrationTests(unittest.IsolatedAsyncioTestCase):
