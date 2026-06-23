@@ -95,19 +95,19 @@ class Settings(BaseSettings):
     """애플리케이션 환경 설정 클래스"""
 
     # 데이터베이스 상세 접속 정보 (로그인을 위한 계정 정보 포함)
-    DB_USER: str = ""
+    DB_USER: str = "postgres"
     DB_PASSWORD: SecretStr = SecretStr("")
-    DB_HOST: str = ""
-    DB_PORT: Optional[int] = None
-    DB_NAME: str = ""
+    DB_HOST: str = "localhost"
+    DB_PORT: Optional[int] = 5432
+    DB_NAME: str = "codemap_db"
 
     # 데이터베이스 연결 URL (PostgreSQL + pgvector)
     DATABASE_URL: str = ""
 
     # Git 저장소 clone 시 사용할 임시 디렉토리 경로
     CLONE_BASE_DIR: str = ""
-    CLONE_BASE_DIR_WINDOWS: str = ""
-    CLONE_BASE_DIR_UNIX: str = ""
+    CLONE_BASE_DIR_WINDOWS: str = "C:/temp/codemap/jobs"
+    CLONE_BASE_DIR_UNIX: str = "/tmp/codemap/jobs"
 
     # Clone 제한 시간 (초)
     CLONE_TIMEOUT_SECONDS: int = 300
