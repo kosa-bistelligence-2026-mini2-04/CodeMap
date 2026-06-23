@@ -1,0 +1,54 @@
+name: CodeMap Backend Deploy (CI/CD)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ── 가상환경 의존성 설치 및 백엔드 스모크 테스트 실행 (필요 시 활성화)
+      - name: Install dependencies
+        run: |
+          cd backend
+          python -m venv venv
+          ./venv/bin/pip install -r requirements.txt
+
+      # ── 깃허브 Secrets 보관소 값과 자동 생성 GITHUB_TOKEN을 시스템 환경 변수로 안전 주입
+      - name: Run Deploy / Build Tasks
+        env:
+          # 1. 데이터베이스 접속 정보 주입
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+
+          # 2. 파일 분석 임시 저장소 환경별 분기 주입
+          CLONE_BASE_DIR_WINDOWS: ${{ secrets.CLONE_BASE_DIR_WINDOWS }}
+          CLONE_BASE_DIR_UNIX: ${{ secrets.CLONE_BASE_DIR_UNIX }}
+          CLONE_TIMEOUT_SECONDS: ${{ secrets.CLONE_TIMEOUT_SECONDS }}
+          MAX_FILE_COUNT: ${{ secrets.MAX_FILE_COUNT }}
+          MAX_REPO_SIZE_MB: ${{ secrets.MAX_REPO_SIZE_MB }}
+
+          # 3. 외부 API 및 자동 토큰 바인딩 주입
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # 수동 입력 대신 깃허브가 기동 시 자동 생성해 주는 토큰을 바인딩하여 사용
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # 4. 배포용 디버그 플래그 비활성화 설정
+          DEBUG: "false"
+
+        run: |
+          echo "GitHub 웹 Secrets 및 자동 발급 토큰을 성공적으로 시스템 환경 변수(env)에 인젝션했습니다."
+          # 실제 가상머신 기동 또는 Docker 이미지 빌드/운영서버 전송(scp) 등의 명령어가 여기에 포함됩니다.
+          # 예: docker build -t codemap-backend .

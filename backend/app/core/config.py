@@ -7,6 +7,12 @@ DATABASE_URL, CLONE_BASE_DIR, OPENAI_API_KEY 등 핵심 설정값을 .env 파일
 """
 
 import os
+import re
+import json
+import subprocess
+import urllib.request
+import urllib.error
+from typing import Optional
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
@@ -19,21 +25,89 @@ backend_dir = os.path.dirname(os.path.dirname(current_dir))  # backend
 env_path = os.path.join(backend_dir, ".env")
 
 
+# ──────────────────────────────────────────────
+# GitHub API 기반 Actions Variables 동적 조회 함수
+# ──────────────────────────────────────────────
+def fetch_github_variables() -> None:
+    """
+    환경 변수에 GITHUB_TOKEN 및 명시적인 연동 활성화 플래그(FETCH_REMOTE_VARS=true)가 존재하는 경우,
+    GitHub 저장소 Actions Variables API를 호출하여 정의된 비민감 환경 변수들을 os.environ에 백필(Backfill)합니다.
+    """
+    fetch_vars = os.environ.get("FETCH_REMOTE_VARS", "").lower() == "true"
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not fetch_vars or not token:
+        return
+
+    owner, repo = "", ""
+    try:
+        # 로컬 git 설정에서 원격 저장소 주소 획득 시도
+        git_url = subprocess.check_output(
+            ["git", "remote", "get-url", "origin"],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8").strip()
+    except Exception:
+        # Git 명령이 불가능하거나 실패한 경우 CI 환경 변수(GITHUB_REPOSITORY) 등 조회
+        git_url = os.environ.get("GITHUB_REPOSITORY", "")
+        if not git_url:
+            return
+        owner_repo = git_url.split("/")
+        if len(owner_repo) == 2:
+            owner, repo = owner_repo
+    else:
+        # URL 형태 파싱 (https://github.com/owner/repo.git 또는 git@github.com:owner/repo.git)
+        match = re.search(r"github\.com[:/]([^/]+)/([^/.]+)(?:\.git)?", git_url)
+        if match:
+            owner, repo = match.group(1), match.group(2)
+
+    if not owner or not repo:
+        return
+
+    # GitHub Actions Variables API 엔드포인트 호출
+    url = f"https://api.github.com/repos/{owner}/{repo}/actions/variables"
+    req = urllib.request.Request(url)
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Accept", "application/vnd.github+json")
+    req.add_header("X-GitHub-Api-Version", "2022-11-28")
+    req.add_header("User-Agent", "CodeMap-Backend-Config")
+
+    try:
+        with urllib.request.urlopen(req, timeout=5) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            variables = res_data.get("variables", [])
+            for var in variables:
+                name = var.get("name")
+                value = var.get("value")
+                # 환경 변수 및 .env 파일 등에 아직 설정되지 않은 빈 설정 항목만 동적으로 주입
+                if name and value is not None and name not in os.environ:
+                    os.environ[name] = str(value)
+    except urllib.error.URLError as e:
+        # API 오류(권한 만료, 403, 404 등) 발생 시 실행 중단 없이 경고 메시지 출력 후 조용히 계속 진행
+        print(f"[Warning] GITHUB_TOKEN을 이용한 GitHub Actions Variables 백필 실패: {e}")
+
+
+# ──────────────────────────────────────────────
+# Pydantic Settings 초기화 전 원격 변수 동기화 실행
+# ──────────────────────────────────────────────
+fetch_github_variables()
+
+
 class Settings(BaseSettings):
     """애플리케이션 환경 설정 클래스"""
 
     # 데이터베이스 상세 접속 정보 (로그인을 위한 계정 정보 포함)
-    DB_USER: str = "codemap_service"
-    DB_PASSWORD: str = "codemap"
+    DB_USER: str = "postgres"
+    DB_PASSWORD: SecretStr = SecretStr("")
     DB_HOST: str = "localhost"
-    DB_PORT: int = 5432
-    DB_NAME: str = "codemap"
+    DB_PORT: Optional[int] = 5432
+    DB_NAME: str = "codemap_db"
 
     # 데이터베이스 연결 URL (PostgreSQL + pgvector)
     DATABASE_URL: str = ""
 
     # Git 저장소 clone 시 사용할 임시 디렉토리 경로
-    CLONE_BASE_DIR: str = "/tmp/codemap/jobs"
+    CLONE_BASE_DIR: str = ""
+    CLONE_BASE_DIR_WINDOWS: str = "C:/temp/codemap/jobs"
+    CLONE_BASE_DIR_UNIX: str = "/tmp/codemap/jobs"
 
     # Clone 제한 시간 (초)
     CLONE_TIMEOUT_SECONDS: int = 300
@@ -88,27 +162,55 @@ class Settings(BaseSettings):
     # 내부 서버 간 호출 전용 서비스 토큰
     SERVICE_TOKEN: str = "service-token"
 
-    model_config = {"env_file": env_path, "env_file_encoding": "utf-8", "extra": "ignore"}
+    model_config = {
+        "env_file": env_path,
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+        "env_file_ignore_missing": True
+    }
 
+
+    # ──────────────────────────────────────────────
+    # 데이터베이스 연결 정보 및 복사 디렉토리 조립
+    # ──────────────────────────────────────────────
     @model_validator(mode="after")
     def assemble_db_connection(self) -> "Settings":
-        # 1. DATABASE_URL이 비어있거나 생략된 경우 URL.create()로 동적 조립 (특수문자 이스케이프 대응)
+        """
+        DATABASE_URL 및 CLONE_BASE_DIR 설정값 동적 조립 및 정합성 검증
+        """
+        # 1. CLONE_BASE_DIR이 비어있거나 생략된 경우 OS 플랫폼별 지정 환경 변수 경로로 자동 조립
+        if not self.CLONE_BASE_DIR or not self.CLONE_BASE_DIR.strip():
+            if os.name == "nt":
+                if not self.CLONE_BASE_DIR_WINDOWS or not self.CLONE_BASE_DIR_WINDOWS.strip():
+                    raise ValueError("Windows 환경을 위한 CLONE_BASE_DIR_WINDOWS 설정이 누락되었습니다.")
+                self.CLONE_BASE_DIR = self.CLONE_BASE_DIR_WINDOWS.strip()
+            else:
+                if not self.CLONE_BASE_DIR_UNIX or not self.CLONE_BASE_DIR_UNIX.strip():
+                    raise ValueError("Unix/Linux 환경을 위한 CLONE_BASE_DIR_UNIX 설정이 누락되었습니다.")
+                self.CLONE_BASE_DIR = self.CLONE_BASE_DIR_UNIX.strip()
+
+        # CLONE_BASE_DIR 경로 정규화 (역슬래시를 슬래시로 통일하고 말미 구분자 제거)
+        self.CLONE_BASE_DIR = self.CLONE_BASE_DIR.replace("\\", "/").rstrip("/")
+
+        # 2. DATABASE_URL이 비어있거나 생략된 경우 URL.create()로 동적 조립 (특수문자 이스케이프 대응)
         if not self.DATABASE_URL or not self.DATABASE_URL.strip():
+            if not self.DB_USER or not self.DB_HOST or not self.DB_NAME:
+                raise ValueError("DATABASE_URL 또는 DB 상세 접속 정보(DB_USER, DB_HOST, DB_NAME)가 설정되지 않았습니다.")
             self.DATABASE_URL = URL.create(
                 drivername="postgresql+asyncpg",  # 실제 database.py의 asyncpg 드라이버 기준
                 username=self.DB_USER,
-                password=self.DB_PASSWORD,
+                password=self.DB_PASSWORD.get_secret_value() if isinstance(self.DB_PASSWORD, SecretStr) else self.DB_PASSWORD,
                 host=self.DB_HOST,
                 port=self.DB_PORT,
                 database=self.DB_NAME,
             ).render_as_string(hide_password=False)  # 실제 연결에 패스워드가 필요하므로 False 유지
             return self
 
-        # 2. 옛날 postgres:// 스킴을 표준 postgresql:// 로 정정
+        # 3. 옛날 postgres:// 스킴을 표준 postgresql:// 로 정정
         if self.DATABASE_URL.startswith("postgres://"):
             self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-        # 3. SQLAlchemy URL 파서를 통한 주소의 엄밀한 검증 및 에러 조기 감지
+        # 4. SQLAlchemy URL 파서를 통한 주소의 엄밀한 검증 및 에러 조기 감지
         try:
             parsed_url = make_url(self.DATABASE_URL)
         except ArgumentError as exc:

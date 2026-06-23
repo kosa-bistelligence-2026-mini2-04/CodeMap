@@ -53,8 +53,95 @@ source venv/bin/activate
 
 # 4. 필수 라이브러리 설치
 pip install -r requirements.txt
+```
+
+### 1.1. 환경 변수(.env) 설정
+
+> [!NOTE]
+> **안전한 로컬/CI 환경용 기본값(Fallback) 탑재**: 본 백엔드 설정(`config.py`)은 로컬 개발 환경 및 CI 테스트 빌드가 편리하도록 보안상 문제가 없는 안전한 기본 개발용 로컬 폴백값을 기본 제공합니다. 따라서 로컬 기동 및 단순 단위 테스트 구동 목적이라면 별도의 `.env` 파일 구성이 없는 기동 시점에도 에러(ValueError)를 발생시키지 않고 기본 동작(테스트 통과 및 서버 초기 설정 완료)을 지원합니다.
+> - `DB_USER`: `"postgres"`, `DB_HOST`: `"localhost"`, `DB_PORT`: `5432`, `DB_NAME`: `"codemap_db"`
+> - `CLONE_BASE_DIR`을 비워둘 경우 OS(Windows/Unix)를 자동 인식하여 `C:/temp/codemap/jobs` 또는 `/tmp/codemap/jobs`로 매핑됩니다.
+
+> [!CAUTION]
+> - **보안 권장 사항 및 실제 연동**: 로컬 튜토리얼용 기본값 외에 실제 데이터베이스 접속 정보, OpenAI API Key, GitHub Token(Rate Limit 방지용 PAT) 등을 사용해 전체 비즈니스 파이프라인을 온전하게 구동하기 위해서는 **반드시 `.env` 파일에 개발자 개인의 세팅 정보를 기록하여 사용해야 합니다.** 아래 스크립트를 사용해 편리하게 초기 템플릿 환경을 구성하십시오.
+
+#### ⚙️ 로컬 환경 변수 온보딩 및 구동 흐름도
+
+```mermaid
+graph TD
+    Start([프로젝트 클론 & 환경 세팅]) --> CheckEnv{".env 파일 존재 여부"}
+    
+    CheckEnv -- "없음 (최초 온보딩)" --> LoadFallback["안전한 기본 개발용 로컬값으로 폴백 로드"]
+    LoadFallback --> Restart["uvicorn 구동 또는 pytest 빌드 성공"]
+    Restart --> ExecScript["가이드: 'python setup_env.py' 로 로컬 템플릿 생성 권장"]
+    
+    ExecScript --> CheckGlobalToken{"시스템 전역 환경 변수에<br>GITHUB_TOKEN 존재 여부"}
+    CheckGlobalToken -- "존재함" --> GenerateInject[".env 생성 시 전역 토큰 자동 주입"]
+    CheckGlobalToken -- "없음" --> GenerateEmpty[".env 생성 시 GITHUB_TOKEN='' 빈 값 처리"]
+    
+    GenerateInject --> EditEnv["개발자가 .env 열어 DB 비밀번호 및 외부 API Key 입력"]
+    GenerateEmpty --> EditEnv
+    EditEnv --> RestartEnv["로컬 세팅값을 반영한 서버 및 테스트 구동 완료"]
+    
+    CheckEnv -- "존재함" --> LoadConfig["config.py에서 환경 변수 로드"]
+    LoadConfig --> Validate["Settings model_validator 검증"]
+    Validate --> CheckValid{"필수 설정 누락 또는 오류 여부"}
+    CheckValid -- "누락/오류 발견" --> Crash["ValueError 발생 (구동 차단)"]
+    CheckValid -- "검증 통과 (정상)" --> Launch([FastAPI 서버 기동 uvicorn & pytest 통과])
+```
+
+> [!NOTE]
+> **전역 GITHUB_TOKEN 자동 연동 및 특이 케이스 배제**: `setup_env.py` 실행 시 시스템 환경 변수에 이미 GITHUB_TOKEN이 지정되어 있다면 해당 값을 감지하여 `.env` 생성 시 자동으로 주입(백필)해 줍니다. 단, 로컬에 다른 필수 설정(DB 접속 정보 등)이 전혀 없는데 오직 `GITHUB_TOKEN`만 시스템 환경 변수나 기존 파일에 단독으로 선언되어 있는 특이 케이스는 실질적인 정상 개발 환경으로 보지 않으며 본 구동 흐름 및 스크립트 분기에서 별도로 고려하지 않습니다. 이러한 특이 상태에서는 기존 파일을 정리한 후 스크립트를 재실행해야 합니다.
+
+현재 백엔드 코드(`config.py`)는 로컬 구동 시 안전한 기본값으로 폴백되도록 설계되어 있습니다. 다만, 보안성 극대화 및 실제 외부 연동(데이터베이스 접속, OpenAI API 등), 그리고 개인 환경 설정을 위해서는 백엔드 디렉토리 하위에 `.env` 파일을 구성해 주시는 것이 권장됩니다.
+
+#### 🛠️ 자동 생성 스크립트를 통한 구성
+백엔드 폴더(`backend/`) 내에 제공되는 `setup_env.py` 스크립트를 실행하면 튜토리얼용 기본값과 필수 키 뼈대가 포함된 `.env` 파일이 자동으로 생성됩니다.
+```bash
+# 가상환경이 활성화된 상태에서 실행
+python setup_env.py
+```
+
+#### 📍 로컬용 `.env` 파일 구성 템플릿 (`backend/.env`)
+```env
+# 1. 데이터베이스 접속 상세 정보 (로컬 튜토리얼용 설정)
+DB_USER=postgres
+DB_PASSWORD=""
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=codemap_db
+
+# 2. 데이터베이스 연결 URL (DATABASE_URL 생략 시 위 접속 정보들로 동적 조립됨)
+DATABASE_URL=
+
+# 3. 임시 파일 다운로드 경로 (비워두면 아래의 OS별 설정값이 자동 로드됨)
+CLONE_BASE_DIR=
+CLONE_BASE_DIR_WINDOWS=C:/temp/codemap/jobs
+CLONE_BASE_DIR_UNIX=/tmp/codemap/jobs
+
+# 4. 외부 서비스 API 키 설정
+OPENAI_API_KEY=""
+OPENAI_MODEL=gpt-4o-mini
+GITHUB_TOKEN=""
+
+# 5. 애플리케이션 실행 모드
+DEBUG=True
+
+# 6. RAG 임베딩 설정 (기본 임베딩 스펙 정의)
+EMBEDDING_MODEL=text-embedding-3-large
+EMBEDDING_DIMENSIONS=1536
+EMBEDDING_BATCH_SIZE=100
+EMBEDDING_MAX_RETRIES=3
+
+```
+
+> [!IMPORTANT]
+> - `CLONE_BASE_DIR` 값을 비워두면(`""`), 구동 중인 OS 환경을 스스로 판별하여 Windows인 경우 `CLONE_BASE_DIR_WINDOWS` 값을, Unix/Linux인 경우 `CLONE_BASE_DIR_UNIX` 값을 자동으로 채워 구동합니다.
+> - **커스텀 경로 설정 가이드**: 기본 로컬/테스트 구동 시에는 안전한 로컬 기본값으로 동작합니다. 단, 운영 환경이나 특정 목적에 따라 다른 클론 임시 경로를 사용하고 싶다면, 해당 OS에 맞는 `CLONE_BASE_DIR_WINDOWS` 혹은 `CLONE_BASE_DIR_UNIX`를 `.env` 파일에 명시적으로 설정하여 오버라이드할 수 있습니다.
+> - `DB_PASSWORD`, `GITHUB_TOKEN`, `OPENAI_API_KEY`와 같은 보안 필수값은 스크립트를 통해 생성된 후 반드시 개발자 본인의 로컬 환경 세팅값으로 알맞게 편집해 채우셔야 합니다. GITHUB_TOKEN은 GitHub API의 Rate Limit을 예방하기 위해 발급 후 입력을 강력 권장합니다.
 
 # 5. FastAPI 서버 실행 (HTTPS 적용)
+```bash
 uvicorn app.main:app --reload --ssl-keyfile certs/localhost-key.pem --ssl-certfile certs/localhost.pem
 ```
 > 정상 실행 시 `https://localhost:8000` 으로 서버가 열립니다.
