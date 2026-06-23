@@ -106,6 +106,13 @@ class FolderSummary(BaseModel):
     summary: str = Field(description="폴더 역할 요약")
 
 
+class FileSummary(BaseModel):
+    """파일 단위 요약 항목 (RAG-PARSE-B-209/API-006)."""
+
+    path: str = Field(description="파일 경로")
+    summary: str = Field(description="파일 역할 요약")
+
+
 class FileMapItem(BaseModel):
     """코드맵 파일 단위 항목 (RAG-PARSE-B-207/208/API-005)."""
 
@@ -156,6 +163,10 @@ class ParseResult(BaseModel):
     folder_summaries: list[FolderSummary] = Field(
         default_factory=list,
         description="폴더 단위 요약 목록",
+    )
+    file_summaries: list[FileSummary] = Field(
+        default_factory=list,
+        description="파일 단위 요약 목록",
     )
     file_map: list[FileMapItem] = Field(default_factory=list, description="코드맵 파일 단위 항목")
     heatmap: list[HeatmapItem] = Field(default_factory=list, description="코드맵 히트맵 항목")

@@ -29,6 +29,8 @@ FUNCTION_NAMES = {
     "build_file_map",
     "build_heatmap",
     "build_hierarchical_summary",
+    "build_file_summaries",
+    "build_folder_summaries",
     "run_structure_agent",
     "run_parse_pipeline",
 }
@@ -394,6 +396,29 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue((by_path["backend/app/main.py"].summary or "").strip())
         self.assertIsInstance(master, str)
         self.assertTrue(master.strip())
+
+    @unittest.skipUnless(
+        _has("build_hierarchical_summary", "build_file_summaries", "build_folder_summaries"),
+        "B-209 요약 실사용 유틸리티 미구현",
+    )
+    async def test_hierarchical_summary_fills_file_and_folder_contracts(self):
+        from app.parse import summary as summary_module
+
+        chunked = await parse_service.chunk_by_ast(self.files)
+        with patch.object(
+            summary_module, "_master_summary_with_llm", AsyncMock(return_value=None)
+        ):
+            summarized, master = await parse_service.build_hierarchical_summary(chunked)
+
+        self.assertIn("총", master)
+        main = next(item for item in summarized if item.path == "backend/app/main.py")
+        self.assertIsInstance(main.summary, str)
+        self.assertTrue(main.summary)
+
+        file_summaries = await parse_service.build_file_summaries(summarized)
+        folder_summaries = await parse_service.build_folder_summaries(summarized)
+        self.assertTrue(any(item.path == "backend/app/main.py" for item in file_summaries))
+        self.assertTrue(any(item.path == "backend/app" for item in folder_summaries))
 
 
 @unittest.skipUnless(PARSE_READY, "PARSE 파이프라인 진입점이 아직 구현되지 않음")

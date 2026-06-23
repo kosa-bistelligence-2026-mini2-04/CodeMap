@@ -15,6 +15,7 @@ REQUIRED_SCHEMA_NAMES = {
     "LanguageCompositionItem",
     "EntryPointItem",
     "FolderSummary",
+    "FileSummary",
     "FileMapItem",
     "HeatmapItem",
     "ParseResult",
