@@ -137,7 +137,7 @@ EMBEDDING_MAX_RETRIES=3
 
 > [!IMPORTANT]
 > - `CLONE_BASE_DIR` 값을 비워두면(`""`), 구동 중인 OS 환경을 스스로 판별하여 Windows인 경우 `CLONE_BASE_DIR_WINDOWS` 값을, Unix/Linux인 경우 `CLONE_BASE_DIR_UNIX` 값을 자동으로 채워 구동합니다.
-> - **필수 경로 및 환경 설정 검증**: 로컬 개발/테스트 구동 시 반드시 환경별 `CLONE_BASE_DIR_WINDOWS` 또는 `CLONE_BASE_DIR_UNIX`가 `.env` 파일 내에 정의되어 있어야 합니다. 정의되지 않은 채 서버를 기동하거나 테스트를 수행할 경우 즉시 `ValueError` 예외가 발생하므로 주의하시기 바랍니다.
+> - **커스텀 경로 설정 가이드**: 기본 로컬/테스트 구동 시에는 안전한 로컬 기본값으로 동작합니다. 단, 운영 환경이나 특정 목적에 따라 다른 클론 임시 경로를 사용하고 싶다면, 해당 OS에 맞는 `CLONE_BASE_DIR_WINDOWS` 혹은 `CLONE_BASE_DIR_UNIX`를 `.env` 파일에 명시적으로 설정하여 오버라이드할 수 있습니다.
 > - `DB_PASSWORD`, `GITHUB_TOKEN`, `OPENAI_API_KEY`와 같은 보안 필수값은 스크립트를 통해 생성된 후 반드시 개발자 본인의 로컬 환경 세팅값으로 알맞게 편집해 채우셔야 합니다. GITHUB_TOKEN은 GitHub API의 Rate Limit을 예방하기 위해 발급 후 입력을 강력 권장합니다.
 
 # 5. FastAPI 서버 실행 (HTTPS 적용)
