@@ -39,10 +39,10 @@ export default function SignUpPage() {
     try {
       // 1. 회원가입 API 호출
       await register({ email, password });
-      
+
       // 2. 가입 성공 시 자동 로그인 시도
       await login({ email, password });
-      
+
       // 3. 성공 상태 표시 후 이동
       setIsSuccess(true);
       setTimeout(() => {

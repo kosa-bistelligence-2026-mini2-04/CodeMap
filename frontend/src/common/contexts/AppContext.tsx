@@ -46,7 +46,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const savedLocale = (localStorage.getItem("cm-locale") as Locale) ?? "en";
       setTheme(savedTheme);
       setLocale(savedLocale);
-      
+
       // Restore Auth Session
       const { useAuthStore } = await import("@/features/auth/store/useAuthStore");
       useAuthStore.getState().restoreSession();
