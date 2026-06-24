@@ -92,9 +92,12 @@
 에이전트/외부 시스템이 `{tool_name, arguments}` 표준 JSON Job으로 도구를 호출하는 MCP I/O 인터페이스. 구현: `app/tool/service.py::CodeMapToolService.execute_job`.
 
 ### 2. 입/출력 규격
+- **요청 계약**: `POST /tools/execute`는 `{tool_name, arguments}`(+`job_id`, `run_id`)를 **단일 JSON body**로 수신한다 — 전용 Pydantic 요청 스키마로 받으며, 개별 필드를 쿼리 파라미터로 분산 수신하지 않는다(외부 MCP가 JSON 객체 하나로 전송 시 `422` 방지).
 - **`execute_job(job_id, run_id, tool_name, arguments)`** — `tool_name` 분기: `vector_search` | `file_read` | `dir_scan` | `grep_scan` (미지원 시 `ValueError`)
 - **반환 DTO**: `{evidence_id, job_id, status("success"|"failed"), path, line_start, line_end, snippet, score, metadata}`
 - **현황**: 인터페이스·DTO·분기 라우팅은 설계 확정. 각 `_execute_*` 내부는 현재 **더미 응답**이며, B-201/B-202의 실제 워커·하이브리드 검색에 연결하는 작업은 **구현 예정**.
 
 ### 3. 완료 조건
-- (Phase 2) `execute_job`이 B-201 워커/B-202 하이브리드 검색 실구현을 호출해 동일 `WorkerResult` 규격으로 반환해야 한다.
+- **실구현 연결 전에는 `status:"success"`를 반환하지 않는다** — 라우터를 미등록하거나 `501 Not Implemented`/`failed`로 명확히 응답하여, 호출자가 더미 응답을 실제 근거로 오인하지 않도록 한다.
+- 요청은 단일 JSON body(Pydantic 스키마)로만 수신한다.
+- (Phase 2) `execute_job`이 B-201 워커/B-202 하이브리드 검색 실구현을 호출해 동일 `WorkerResult` 규격으로 반환하고, 그때부터만 `success`를 반환한다.
