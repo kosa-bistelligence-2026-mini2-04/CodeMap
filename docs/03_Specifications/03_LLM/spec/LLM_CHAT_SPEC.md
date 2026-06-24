@@ -46,6 +46,7 @@ User
 -> POST /api/chat/{repo_id}/runs
 -> chat/router.py
 -> chat/service.py
+-> agent/service.py (CodeMapAgentService)
 -> agent/graph.py
 -> CodeMapState 반환
 -> chat/final_answer_agent.py
@@ -58,8 +59,9 @@ User
 | 계층 | 책임 | 산출물 |
 | --- | --- | --- |
 | `chat/router.py` | HTTP 요청/응답, path/body 검증, SSE endpoint 노출 | run 생성 응답, stream 응답 |
-| `chat/service.py` | run/session 상태 저장, LangGraph 호출, 이벤트 큐 관리 | run state, stream URL |
-| `agent/graph.py` | Supervisor/Route/Worker/Evidence 실행 | `CodeMapState` |
+| `chat/service.py` | run/session 상태 저장, CodeMapAgentService 위임 호출, 이벤트 큐 관리 | run state, stream URL |
+| `agent/service.py` | 에이전트 실행 루프 제어, 14개 Thought Trace 이벤트 스트리밍 | 실행 상태 및 이벤트 스트림 |
+| `agent/graph.py` | Planner/Evaluator/Worker 실행 | `CodeMapState` |
 | `chat/final_answer_agent.py` | 원본 근거 기반 최종 답변 생성 | answer delta, final answer |
 | frontend chat UI | run 생성, 단계 상태 표시, evidence 패널, 답변 렌더링 | 사용자 화면 |
 

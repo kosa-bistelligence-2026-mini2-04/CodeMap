@@ -45,13 +45,16 @@ backend/app/
 ├── infra/                # ⚙️ 애플리케이션 인프라 (Config, Database, Auth)
 ├── common/               # 📋 도메인 간 공통 계약 (Exceptions, Schemas)
 ├── util/                 # 🛠️ 순수 유틸리티 함수
-├── agent/                # 🤖 LLM 멀티에이전트 도메인 (LangGraph, MCP)
-│   ├── agents/           #    Supervisor, Final Answer 에이전트
-│   ├── nodes/            #    Route Node, Evidence Aggregator
-│   ├── workers/          #    MCP 기반 Worker (search, dir, grep, read)
-│   └── tools/            #    검색 도구 (Hybrid Search, RRF)
+├── agent/                # 🤖 LLM 멀티에이전트 도메인 (LangGraph)
+│   ├── agents/           #    계획수립(Planner), 평가(Evaluator) 에이전트
+│   ├── nodes/            #    LangGraph 실행 노드
+│   ├── workers/          #    에이전트 내부 실행 Worker
+│   └── tools/            #    내부 검색 도구 (Hybrid Search, RRF)
+├── tool/                 # 🔧 독립 도구 도메인 (RAG/파일/Grep 실행 MCP I/O)
 ├── auth/                 # 🔐 인증 도메인
-├── chat/                 # 💬 채팅 대화 도메인
+├── chat/                 # 💬 채팅 대화 도메인 (Final Answer 생성 및 스트리밍)
+│   ├── final_answer_agent.py # 최종 답변 정제 에이전트
+│   └── ...
 ├── embed/                # 🧠 임베딩 처리 도메인
 ├── gen/                  # ✨ 문서 생성 도메인
 ├── graph/                # 📊 그래프 구조 도메인
