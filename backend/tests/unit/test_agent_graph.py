@@ -204,7 +204,8 @@ class TestGraphExecution(unittest.IsolatedAsyncioTestCase):
                 "rewritten_query": "test"
             }
             
-        # 노드 덮어쓰기 (langgraph에서 가능)
+        # 최신 LangGraph는 같은 이름의 노드 재등록을 허용하지 않는다.
+        builder.nodes.pop("supervisor_agent", None)
         builder.add_node("supervisor_agent", dummy_supervisor)
         builder.set_entry_point("supervisor_agent")
         

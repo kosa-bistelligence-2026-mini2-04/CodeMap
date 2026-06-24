@@ -55,6 +55,7 @@ def evidence_aggregator(state: CodeMapState) -> dict:
     # token budget 내로 compact_context 구성
     snippets: list[dict] = []
     total_chars = 0
+    budget_exceeded = False
 
     for file_path, items in sorted(grouped.items()):
         for item in items:
@@ -64,7 +65,9 @@ def evidence_aggregator(state: CodeMapState) -> dict:
                 available = _TOKEN_BUDGET - total_chars
                 if available > 100:
                     snippet = snippet[:available] + "\n... (budget 초과로 잘림)"
+                    budget_exceeded = True
                 else:
+                    budget_exceeded = True
                     break
             snippets.append({
                 "file": file_path,
@@ -73,23 +76,31 @@ def evidence_aggregator(state: CodeMapState) -> dict:
                 "snippet": snippet,
             })
             total_chars += len(snippet)
+            if budget_exceeded:
+                break
+        if budget_exceeded:
+            break
 
     # 파일 경로 없는 결과 (search 결과 등) 추가
-    for item in no_path:
-        snippet = item.get("snippet", "")
-        if total_chars + len(snippet) > _TOKEN_BUDGET:
-            available = _TOKEN_BUDGET - total_chars
-            if available > 100:
-                snippet = snippet[:available] + "\n... (budget 초과로 잘림)"
-            else:
+    if not budget_exceeded:
+        for item in no_path:
+            snippet = item.get("snippet", "")
+            if total_chars + len(snippet) > _TOKEN_BUDGET:
+                available = _TOKEN_BUDGET - total_chars
+                if available > 100:
+                    snippet = snippet[:available] + "\n... (budget 초과로 잘림)"
+                    budget_exceeded = True
+                else:
+                    break
+            snippets.append({
+                "file": None,
+                "worker": item.get("worker"),
+                "query": item.get("query"),
+                "snippet": snippet,
+            })
+            total_chars += len(snippet)
+            if budget_exceeded:
                 break
-        snippets.append({
-            "file": None,
-            "worker": item.get("worker"),
-            "query": item.get("query"),
-            "snippet": snippet,
-        })
-        total_chars += len(snippet)
 
     compact_context = {
         "total_results": len(raw_results),
