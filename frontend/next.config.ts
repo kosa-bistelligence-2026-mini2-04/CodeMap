@@ -20,10 +20,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  allowedDevOrigins: ['192.168.5.52'],
-  turbopack: {
-    root: __dirname,
-  },
+  // allowedDevOrigins: ['192.168.5.52'],
 };
 
 export default nextConfig;
