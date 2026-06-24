@@ -83,6 +83,7 @@
   .data-line { stroke: #9333EA; stroke-width: 2px; fill: none; stroke-dasharray: 6 4; animation: dashMove 1s linear infinite; }
   .stream-line { stroke: #10B981; stroke-width: 2px; fill: none; stroke-dasharray: 6 4; animation: dashMove 1s linear infinite; }
 
+
   .worker-card { cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
   .worker-card:hover { opacity: 0.8; }
   .worker-card:active { transform: scale(0.98); }
@@ -98,6 +99,7 @@
     CodeMap AI<br>
     <span style="font-size: 15px; color: #64748B; font-weight: 600;">Decoupled Multi-Agent Architecture</span>
   </h2>
+
 
   <div class="info-panel" id="info-panel">
     <strong>💡 "색상과 분리된 역할을 확인하세요!"</strong>
@@ -134,7 +136,15 @@
 </div>
 
 <div class="arch-wrap">
-<svg width="100%" viewBox="0 0 900 860" role="img">
+<!-- 
+  레이아웃 변경 설명:
+  - 기존 State Box: x=650, width=200  → 오른쪽 끝: 650+200=850
+  - 새 State Box: x=750, width=210   → 오른쪽 끝: 750+210=960
+  - viewBox 가로폭: 900 → 1020 으로 확장
+  - 이에 맞춰 모든 데이터 흐름 선(보라색 점선)의 도착점 조정
+  - "Graph Execution Complete" 텍스트 위치도 조정
+-->
+<svg width="100%" viewBox="0 0 1020 860" role="img">
 
   <defs>
     <marker id="arr-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -149,50 +159,51 @@
   </defs>
 
   <!-- ================= BACKGROUNDS ================= -->
-  <!-- Application Layer Boundary (Optional visual cue) -->
-  <rect x="20" y="80" width="860" height="110" rx="16" fill="#F0F9FF" fill-opacity="0.5" stroke="#BAE6FD" stroke-dasharray="4 4"/>
+<!-- Application Layer Boundary -->
+  <rect x="20" y="80" width="980" height="110" rx="16" fill="#F0F9FF" fill-opacity="0.5" stroke="#BAE6FD" stroke-dasharray="4 4"/>
   <text x="40" y="105" font-size="13" font-weight="700" fill="#0284C7">Application Layer (API / Streaming)</text>
 
   <!-- LangGraph Boundary -->
-  <rect x="20" y="220" width="860" height="560" rx="16" fill="#F8FAFC" stroke="#CBD5E1" stroke-dasharray="8 4"/>
+  <rect x="20" y="220" width="980" height="560" rx="16" fill="#F8FAFC" stroke="#CBD5E1" stroke-dasharray="8 4"/>
   <text x="40" y="245" font-size="14" font-weight="700" fill="#64748B">LangGraph Execution Environment: backend/app/agent_graph/</text>
 
-  <!-- State Box -->
+  <!-- ================= STATE BOX (이동: x=650→750, width 유지) ================= -->
   <g class="worker-card" onclick="showInfo('state')">
-    <rect x="650" y="250" width="200" height="500" rx="12" class="state-card"/>
-    <text x="750" y="280" text-anchor="middle" font-size="15" font-weight="700" fill="#15803D">💾 CodeMapState</text>
-    <text x="750" y="300" text-anchor="middle" font-size="12" fill="#16A34A">Shared Memory (공유 상태)</text>
+    <rect x="750" y="250" width="210" height="500" rx="12" class="state-card"/>
+    <text x="855" y="280" text-anchor="middle" font-size="15" font-weight="700" fill="#15803D">💾 CodeMapState</text>
+    <text x="855" y="300" text-anchor="middle" font-size="12" fill="#16A34A">Shared Memory (공유 상태)</text>
+    
+    <rect x="763" y="320" width="184" height="415" rx="8" fill="#FFF" stroke="#86EFAC"/>
+    
+    <text x="774" y="350" font-size="12" font-weight="700" fill="#374151">user_query:</text>
+    <text x="774" y="370" font-size="11" fill="#6B7280">"로그인 어딧음?"</text>
+    
+    <text x="774" y="410" font-size="12" font-weight="700" fill="#374151">rewritten_query:</text>
+    <text x="774" y="430" font-size="11" fill="#6B7280">"login, authentication"</text>
+    
+    <text x="774" y="470" font-size="12" font-weight="700" fill="#374151">access_plan:</text>
+    <text x="774" y="490" font-size="11" fill="#6B7280">[dir, search, read]</text>
+    
+    <text x="774" y="540" font-size="13" font-weight="700" fill="#059669">worker_results:</text>
+    <text x="774" y="560" font-size="11" fill="#059669">[{ raw_code_1 },</text>
+    <text x="774" y="575" font-size="11" fill="#059669"> { raw_code_2 }]</text>
 
-    <rect x="665" y="320" width="170" height="410" rx="8" fill="#FFF" stroke="#86EFAC"/>
+    <!-- 원본 데이터 배지 — worker_results 아래, compact_context 위로 명확히 분리 -->
+    <rect x="767" y="592" width="177" height="26" rx="4" fill="#FEF2F2"/>
+    <text x="855" y="609" text-anchor="middle" font-size="10" font-weight="700" fill="#DC2626">※ 원본 데이터 요약 없이 병합</text>
 
-    <text x="675" y="350" font-size="12" font-weight="700" fill="#374151">user_query:</text>
-    <text x="675" y="370" font-size="11" fill="#6B7280">"로그인 어딧음?"</text>
+    <text x="774" y="645" font-size="13" font-weight="700" fill="#059669">compact_context:</text>
+    <text x="774" y="665" font-size="11" fill="#059669">Evidence Aggregator output</text>
 
-    <text x="675" y="410" font-size="12" font-weight="700" fill="#374151">rewritten_query:</text>
-    <text x="675" y="430" font-size="11" fill="#6B7280">"login, authentication"</text>
-
-    <text x="675" y="470" font-size="12" font-weight="700" fill="#374151">access_plan:</text>
-    <text x="675" y="490" font-size="11" fill="#6B7280">[dir, search, read]</text>
-
-    <text x="675" y="540" font-size="13" font-weight="700" fill="#059669">worker_results:</text>
-    <text x="675" y="560" font-size="11" fill="#059669">[{ raw_code_1 },</text>
-    <text x="675" y="575" font-size="11" fill="#059669"> { raw_code_2 }]</text>
-
-    <text x="675" y="650" font-size="13" font-weight="700" fill="#059669">compact_context:</text>
-    <text x="675" y="670" font-size="11" fill="#059669">Evidence Aggregator output</text>
-
-    <rect x="670" y="600" width="160" height="30" rx="4" fill="#FEF2F2"/>
-    <text x="750" y="619" text-anchor="middle" font-size="10" font-weight="700" fill="#DC2626">※ 원본 데이터 요약 없이 병합</text>
   </g>
 
 
   <!-- ================= CONTROL FLOW LINES ================= -->
   <!-- 1. User -> Chat -->
   <line x1="350" y1="60" x2="350" y2="120" class="flow-line" marker-end="url(#arr-slate)"/>
-
-  <!-- 2. Chat -> Supervisor -->
+<!-- 2. Chat -> Supervisor -->
   <line x1="350" y1="180" x2="350" y2="280" class="flow-line" marker-end="url(#arr-slate)"/>
-
+  
   <!-- 3. Supervisor -> Route Node -->
   <line x1="350" y1="340" x2="350" y2="420" class="flow-line" marker-end="url(#arr-slate)"/>
 
@@ -202,10 +213,11 @@
   <path d="M 350 480 L 350 520 L 340 520 L 340 560" class="flow-line" marker-end="url(#arr-slate)"/>
   <path d="M 350 480 L 350 520 L 460 520 L 460 560" class="flow-line" marker-end="url(#arr-slate)"/>
 
-  <!-- 5. State -> Chat (Graph Finish Return) -->
+<!-- 5. State -> Chat (Graph Finish Return) -->
   <!-- Line goes from top of State Box back to chat/service -->
   <path d="M 750 250 L 750 150 L 450 150" class="flow-line" marker-end="url(#arr-slate)"/>
   <text x="600" y="140" font-size="12" font-weight="700" fill="#334155">Graph Execution Complete (Return State)</text>
+
 
   <!-- 6. Chat -> Final Answer Agent -->
   <line x1="250" y1="150" x2="210" y2="150" class="flow-line" marker-end="url(#arr-slate)"/>
@@ -216,22 +228,22 @@
 
 
   <!-- ================= STATE DATA FLOW LINES (Purple) ================= -->
-  <!-- Supervisor -> State -->
-  <path d="M 450 310 L 650 310" class="data-line" marker-end="url(#arr-purple)"/>
-  <text x="550" y="300" text-anchor="middle" font-size="13" fill="#7E22CE" font-weight="700">✍️ Write: Plan & Rewrite</text>
+<!-- Supervisor -> State (x=750 시작) -->
+  <path d="M 450 310 L 750 310" class="data-line" marker-end="url(#arr-purple)"/>
+  <text x="600" y="298" text-anchor="middle" font-size="13" fill="#7E22CE" font-weight="700">✍️ Write: Plan &amp; Rewrite</text>
 
-  <!-- State -> Route Node -->
-  <path d="M 650 450 L 450 450" class="data-line" marker-end="url(#arr-purple)"/>
-  <text x="550" y="440" text-anchor="middle" font-size="13" fill="#7E22CE" font-weight="700">👁️ Read: Plan (For Validation)</text>
+  <!-- State -> Route Node (x=750 시작) -->
+  <path d="M 750 450 L 450 450" class="data-line" marker-end="url(#arr-purple)"/>
+  <text x="600" y="438" text-anchor="middle" font-size="13" fill="#7E22CE" font-weight="700">👁️ Read: Plan (For Validation)</text>
 
-  <!-- Workers -> State -->
-  <path d="M 510 590 L 650 590" class="data-line" marker-end="url(#arr-purple)"/>
-  <text x="580" y="580" text-anchor="middle" font-size="13" fill="#7E22CE" font-weight="700">✍️ Write: RAW Results</text>
-  <text x="580" y="615" text-anchor="middle" font-size="11" fill="#9333EA">** Route Node 패스하고 다이렉트 기록</text>
+  <!-- Workers -> State (x=750 시작) -->
+  <path d="M 510 590 L 750 590" class="data-line" marker-end="url(#arr-purple)"/>
+  <text x="630" y="578" text-anchor="middle" font-size="13" fill="#7E22CE" font-weight="700">✍️ Write: RAW Results</text>
+  <text x="630" y="612" text-anchor="middle" font-size="11" fill="#9333EA">** Route Node 패스하고 다이렉트 기록</text>
 
-  <!-- Evidence Aggregator -> State -->
-  <path d="M 450 675 L 650 675" class="data-line" marker-end="url(#arr-purple)"/>
-  <text x="550" y="665" text-anchor="middle" font-size="12" fill="#7E22CE" font-weight="700">✍️ Write: compact_context</text>
+  <!-- Evidence Aggregator -> State (x=750 시작) -->
+  <path d="M 450 675 L 750 675" class="data-line" marker-end="url(#arr-purple)"/>
+  <text x="600" y="663" text-anchor="middle" font-size="12" fill="#7E22CE" font-weight="700">✍️ Write: compact_context</text>
 
 
   <!-- ================= NODES ================= -->
@@ -318,13 +330,14 @@
   </g>
   <!-- Supervisor to State -->
   <g class="step-badge worker-card" style="animation-delay:0.2s" onclick="showInfo('step3')">
-    <circle cx="550" cy="310" r="12" fill="#2563EB"/>
-    <text x="550" y="310" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF" dy="4">3</text>
+<circle cx="600" cy="310" r="12" fill="#2563EB"/>
+    <text x="600" y="310" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF" dy="4">3</text>
   </g>
   <!-- State to Route Node -->
   <g class="step-badge worker-card" style="animation-delay:0.3s" onclick="showInfo('step4')">
-    <circle cx="550" cy="450" r="12" fill="#2563EB"/>
-    <text x="550" y="450" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF" dy="4">4</text>
+    <circle cx="600" cy="450" r="12" fill="#2563EB"/>
+    <text x="600" y="450" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF" dy="4">4</text>
+
   </g>
   <!-- Route Node to Workers -->
   <g class="step-badge worker-card" style="animation-delay:0.4s" onclick="showInfo('step5')">
@@ -333,13 +346,14 @@
   </g>
   <!-- Workers to State -->
   <g class="step-badge worker-card" style="animation-delay:0.5s" onclick="showInfo('step6')">
-    <circle cx="580" cy="590" r="12" fill="#2563EB"/>
-    <text x="580" y="590" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF" dy="4">6</text>
+<circle cx="630" cy="590" r="12" fill="#2563EB"/>
+    <text x="630" y="590" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF" dy="4">6</text>
   </g>
   <!-- State return to Chat -->
   <g class="step-badge worker-card" style="animation-delay:0.6s" onclick="showInfo('step7')">
-    <circle cx="600" cy="150" r="12" fill="#2563EB"/>
-    <text x="600" y="150" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF" dy="4">7</text>
+    <circle cx="660" cy="150" r="12" fill="#2563EB"/>
+    <text x="660" y="150" text-anchor="middle" font-size="12" font-weight="700" fill="#FFF" dy="4">7</text>
+
   </g>
   <!-- Chat to Final Answer -->
   <g class="step-badge worker-card" style="animation-delay:0.7s" onclick="showInfo('step8')">
@@ -360,8 +374,7 @@ const INFO = {
   user:       { title:'👤 사용자 (User)', body:'자연어로 코딩 관련 질문을 던집니다. 마지막에 SSE를 통해 타이핑되듯 응답을 받습니다.' },
   chat:       { title:'⚙️ app/chat/service', body:'<strong>[일반 코드] API 프레젠테이션 계층</strong>. LangGraph 실행을 시작시키고, 결과가 돌아오면 Final Answer Agent를 호출하여 UI와 연결합니다.' },
   final:      { title:'🧠 Final Answer Agent', body:'<strong>[LLM 에이전트] 요약 및 스트리밍 전담</strong>. LangGraph 밖의 <code>chat/final_answer_agent.py</code>에 위치합니다. State에 쌓인 원본 근거와 compact_context를 기반으로 사용자에게 답변을 스트리밍합니다.' },
-
-  supervisor: { title:'🧠 Supervisor Agent', body:'<strong>[LLM 에이전트] 지능형 계획 수립자</strong>. 사용자의 질문 의도를 파악하고, 오타를 문맥에 맞게 교정한 뒤(Query Rewrite), 접근 계획을 세웁니다.' },
+supervisor: { title:'🧠 Supervisor Agent', body:'<strong>[LLM 에이전트] 지능형 계획 수립자</strong>. 사용자의 질문 의도를 파악하고, 오타를 문맥에 맞게 교정한 뒤(Query Rewrite), 접근 계획을 세웁니다.' },
   orchestrator: { title:'⚙️ Route Node', body:'<strong>[일반 코드] 결정론적 보안 통제자</strong>. LLM이 아닙니다! Supervisor의 계획을 건네받아 보안/권한을 엄격하게 검증하고, Worker들을 병렬로 라우팅하는 역할만 수행합니다.' },
 
   worker_search: { title:'🧠 Search Worker', body:'<strong>[LLM 에이전트] 시맨틱 검색 전담</strong>. 오타나 모호한 질문이라도 의미(Semantic)를 파악해 Vector DB에서 유사 코드를 찾아냅니다.' },
@@ -370,6 +383,7 @@ const INFO = {
   worker_read: { title:'📄 Read Worker', body:'<strong>[일반 코드] Code Wrapper</strong>. 지정된 파일의 실제 내용을 읽어옵니다.' },
   worker_reasoning: { title:'🧠 Code Reasoning Worker', body:'<strong>[선택형 LLM Worker]</strong>. Read Worker가 수집한 코드 조각을 더 깊게 해석해야 할 때만 실행합니다. MVP에서는 선택 기능으로 두고, 고도화 단계에서 확장합니다.' },
   evidence: { title:'⚙️ Evidence Aggregator Node', body:'<strong>[일반 코드] 근거 정리 노드</strong>. worker_results의 중복을 제거하고 파일 경로/라인/근거를 정리한 뒤 token budget에 맞는 compact_context를 만듭니다.' },
+
 
   state:      { title:'💾 CodeMapState', body:'<strong>LangGraph 공유 상태 (메모리)</strong>. <code>user_query</code>, <code>rewritten_query</code>, <code>access_plan</code>, <code>worker_results</code>, <code>compact_context</code>를 중앙에 저장해 LLM 릴레이 요약으로 인한 정보 유실을 막습니다.' },
 
@@ -390,14 +404,14 @@ function showInfo(key) {
   if (!d) return;
   const panel = document.getElementById('info-panel');
   panel.innerHTML = `<strong style="font-size:16px;">${d.title}</strong><span style="color:#475569;line-height:1.6;display:inline-block;margin-top:6px;font-size:14.5px;">${d.body}</span>`;
-
-  panel.style.borderColor = '#1E293B';
+panel.style.borderColor = '#1E293B';
   panel.style.backgroundColor = '#F8FAFC';
   panel.style.transform = 'scale(1.02)';
-
-  setTimeout(() => {
-    panel.style.borderColor = '#E2E8F0';
+  
+  setTimeout(() => { 
+    panel.style.borderColor = '#E2E8F0'; 
     panel.style.backgroundColor = '#FFFFFF';
+
     panel.style.transform = 'scale(1)';
   }, 300);
 }
