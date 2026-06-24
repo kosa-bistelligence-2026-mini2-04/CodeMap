@@ -1,8 +1,8 @@
-# AGENT Run Management API 명세서
+# LLM Run Management API 명세서
 
-> **도메인**: AGENT | **범위**: Status / Cancel / Evidence | **최종 업데이트**: 2026-06-23
+> **도메인**: LLM | **범위**: Status / Cancel / Evidence | **최종 업데이트**: 2026-06-23
 
-## AGENT-CHAT-API-003 Agent Run 상태 및 State 요약 조회
+## LLM-CHAT-API-003 Agent Run 상태 및 State 요약 조회
 
 ### 기본 정보
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-CHAT-B-204`, `AGENT-GRAPH-B-201`, `AGENT-CORE-B-203` |
+| 관련 기능 ID | `LLM-CHAT-B-204`, `LLM-GRAPH-B-201`, `LLM-OPS-B-203` |
 | 목적 | 실행 상태, node별 소요 시간, State 요약, 최종 답변 상태 조회 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -77,7 +77,7 @@
 
 ---
 
-## AGENT-CHAT-API-004 Agent Run 취소
+## LLM-CHAT-API-004 Agent Run 취소
 
 ### 기본 정보
 
@@ -85,7 +85,7 @@
 | --- | --- |
 | Endpoint | `POST /api/chat/{repo_id}/runs/{run_id}/cancel` |
 | Method | POST |
-| 관련 기능 ID | `AGENT-CHAT-B-204`, `AGENT-CORE-B-202`, `AGENT-CORE-B-204` |
+| 관련 기능 ID | `LLM-CHAT-B-204`, `LLM-OPS-B-202`, `LLM-OPS-B-204` |
 | 목적 | 실행 중인 LangGraph/worker run을 취소하고 SSE에 `cancelled` 이벤트 발행 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -105,12 +105,12 @@
 
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | --- | --- | --- | --- |
-| 404 | `AGENT_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
-| 409 | `AGENT_RUN_ALREADY_FINISHED` | 상태 검증 | 이미 completed/failed/cancelled 상태 |
+| 404 | `LLM_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
+| 409 | `LLM_RUN_ALREADY_FINISHED` | 상태 검증 | 이미 completed/failed/cancelled 상태 |
 
 ---
 
-## AGENT-CHAT-API-005 Agent 근거 조회
+## LLM-CHAT-API-005 Agent 근거 조회
 
 ### 기본 정보
 
@@ -118,7 +118,7 @@
 | --- | --- |
 | Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}/evidence` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-WORKER-B-201` ~ `AGENT-WORKER-B-205`, `AGENT-EVIDENCE-B-201` |
+| 관련 기능 ID | `LLM-WORKER-B-201` ~ `LLM-WORKER-B-205`, `LLM-EVIDENCE-B-201` |
 | 목적 | Worker가 `CodeMapState.worker_results`에 기록한 raw evidence와 compact context 조회 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -154,5 +154,5 @@
 
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | --- | --- | --- | --- |
-| 404 | `AGENT_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
+| 404 | `LLM_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
 | 404 | `AGENT_EVIDENCE_NOT_FOUND` | evidence 조회 | State에 evidence가 없음 |

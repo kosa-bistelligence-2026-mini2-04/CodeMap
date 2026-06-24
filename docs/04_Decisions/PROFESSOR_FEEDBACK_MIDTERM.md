@@ -227,9 +227,9 @@ WHERE type = 'DIRECTORY' AND job_id = :job_id AND path = :dir_path;
 
 | 적용 포인트 | 방향 | 기능 ID (안) |
 |---|---|---|
-| **분석 프리셋 저장** | "신입 온보딩 모드" / "보안 감사 모드" 등 | `AGENT-CHAT-F-207` |
-| **답변 스타일 커스텀** | Final Answer Agent 프롬프트 파라미터 사용자 설정 | `AGENT-CHAT-B-205` |
-| **질문 템플릿 저장** | 자주 쓰는 질문 즐겨찾기 | `AGENT-CHAT-F-208` |
+| **분석 프리셋 저장** | "신입 온보딩 모드" / "보안 감사 모드" 등 | `LLM-CHAT-F-207` |
+| **답변 스타일 커스텀** | Final Answer Agent 프롬프트 파라미터 사용자 설정 | `LLM-CHAT-B-205` |
+| **질문 템플릿 저장** | 자주 쓰는 질문 즐겨찾기 | `LLM-CHAT-F-208` |
 
 ### 파이프라인 시각화 — 별도 탭 구성
 

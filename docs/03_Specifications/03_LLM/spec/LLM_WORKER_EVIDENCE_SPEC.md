@@ -1,14 +1,14 @@
-# AGENT WORKER EVIDENCE 기능 명세서
+# LLM WORKER EVIDENCE 기능 명세서
 
-> **도메인**: AGENT | **모듈**: AGENT-WORKER / AGENT-EVIDENCE | **최종 업데이트**: 2026-06-23
+> **도메인**: LLM | **모듈**: LLM-WORKER / LLM-EVIDENCE | **최종 업데이트**: 2026-06-23
 
 ## 범위
 
-이 문서는 코드 근거를 수집하는 worker와, 수집된 근거를 Final Answer Agent가 사용할 수 있도록 정리하는 Evidence Aggregator를 정의합니다. 기존 `AGENT-SEARCH`의 자가 교정 탐색 개념은 단일 agent 루프가 아니라 worker 분리 구조로 대체합니다.
+이 문서는 코드 근거를 수집하는 worker와, 수집된 근거를 Final Answer Agent가 사용할 수 있도록 정리하는 Evidence Aggregator를 정의합니다. 기존 `LLM-SEARCH`의 자가 교정 탐색 개념은 단일 agent 루프가 아니라 worker 분리 구조로 대체합니다.
 
 | 구분 | 기준 |
 | --- | --- |
-| 구현 위치 | `backend/app/agent_graph/workers/`, `backend/app/agent_graph/tools/`, `backend/app/agent_graph/nodes/evidence_node.py` |
+| 구현 위치 | `backend/app/agent/workers/`, `backend/app/agent/tools/`, `backend/app/agent/nodes/evidence_node.py` |
 | 원본 근거 저장 | `CodeMapState.worker_results` |
 | 답변용 압축 근거 | `CodeMapState.compact_context` |
 | 외부 노출 | evidence 조회 API에서 metadata 중심으로 노출 |
@@ -19,14 +19,14 @@
 
 | 기능 ID | 기능명 | 계층 | Phase |
 | --- | --- | --- | --- |
-| AGENT-WORKER-B-201 | Search Worker Agent | Backend | Phase 1 |
-| AGENT-WORKER-B-202 | Dir Worker | Backend | Phase 1 |
-| AGENT-WORKER-B-203 | Grep Worker | Backend | Phase 1 |
-| AGENT-WORKER-B-204 | Read Worker | Backend | Phase 1 |
-| AGENT-WORKER-B-205 | Code Reasoning Worker | Backend | Phase 1 선택 |
-| AGENT-EVIDENCE-B-201 | Evidence Aggregator Node | Backend | Phase 1 |
-| AGENT-WORKER-B-206 | 허용된 외부 도구 worker 확장 | Backend | Phase 2 |
-| AGENT-WORKER-B-207 | Code Reasoning Worker 고도화 | Backend | Phase 2 |
+| LLM-WORKER-B-201 | Search Worker Agent | Backend | Phase 1 |
+| LLM-WORKER-B-202 | Dir Worker | Backend | Phase 1 |
+| LLM-WORKER-B-203 | Grep Worker | Backend | Phase 1 |
+| LLM-WORKER-B-204 | Read Worker | Backend | Phase 1 |
+| LLM-WORKER-B-205 | Code Reasoning Worker | Backend | Phase 1 선택 |
+| LLM-EVIDENCE-B-201 | Evidence Aggregator Node | Backend | Phase 1 |
+| LLM-WORKER-B-206 | 허용된 외부 도구 worker 확장 | Backend | Phase 2 |
+| LLM-WORKER-B-207 | Code Reasoning Worker 고도화 | Backend | Phase 2 |
 
 ---
 
@@ -55,7 +55,7 @@ Worker는 사용자에게 직접 답변하지 않습니다. 답변 문장 생성
 
 - tool wrapper 함수를 직접 호출 (LLM `tool_call` 불필요)
 - 패턴: `result = tool_fn(validated_args)` → evidence shape 변환 → `worker_results` append
-- tool은 `agent_graph/tools/` 디렉토리에 순수 함수로 정의
+- tool은 `agent/tools/` 디렉토리에 순수 함수로 정의
 
 ### LLM Worker (Search, Reasoning)
 
@@ -95,14 +95,14 @@ return Command(
 
 ---
 
-## AGENT-WORKER-B-201: Search Worker Agent
+## LLM-WORKER-B-201: Search Worker Agent
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
 | 모듈명 | WORKER |
 | 성격 | LLM Agent (`tool_call` 기반) |
-| 구현 위치 | `agent_graph/workers/search_worker.py` |
+| 구현 위치 | `agent/workers/search_worker.py` |
 
 **설명**
 
@@ -122,7 +122,7 @@ return Command(
 **구현 노트**
 
 - LLM을 활용한 query rewrite: 한국어 오타 교정, 축약 표현 확장, 코드 관련 동의어(login → signin, auth, authentication 등) 생성
-- search tool (`agent_graph/tools/search.py`) 호출을 통해 pgvector 기반 semantic/hybrid search 실행
+- search tool (`agent/tools/search.py`) 호출을 통해 pgvector 기반 semantic/hybrid search 실행
 - embedding 모델과 dimension은 `EMBEDDING_MODEL_DECISION.md` 문서 기준 적용
 - 검색 결과는 score 기준 정렬 후 상위 N건을 evidence로 변환
 - snippet을 과도하게 요약하지 않고 원본 evidence shape로 반환
@@ -179,18 +179,18 @@ search_tool.invoke({
 **완료 조건**
 
 - search tool 호출 결과를 evidence shape로 변환하여 `worker_results`에 append
-- 검색 실패 시 빈 결과를 evidence로 기록하고 `AGENT_WORKER_FAILED`를 발생시키지 않음 (검색 결과 없음은 실패가 아님)
+- 검색 실패 시 빈 결과를 evidence로 기록하고 `LLM_WORKER_FAILED`를 발생시키지 않음 (검색 결과 없음은 실패가 아님)
 - query rewrite 이력을 metadata에 포함
 
 ---
 
-## AGENT-WORKER-B-202: Dir Worker
+## LLM-WORKER-B-202: Dir Worker
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
 | 모듈명 | WORKER |
-| 구현 위치 | `agent_graph/workers/dir_worker.py` |
+| 구현 위치 | `agent/workers/dir_worker.py` |
 
 **설명**
 
@@ -206,13 +206,13 @@ Route Node가 허용한 경로 안에서 디렉토리 구조를 탐색합니다.
 
 ---
 
-## AGENT-WORKER-B-203: Grep Worker
+## LLM-WORKER-B-203: Grep Worker
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
 | 모듈명 | WORKER |
-| 구현 위치 | `agent_graph/workers/grep_worker.py` |
+| 구현 위치 | `agent/workers/grep_worker.py` |
 
 **설명**
 
@@ -222,17 +222,17 @@ Route Node가 허용한 경로 안에서 디렉토리 구조를 탐색합니다.
 
 - 정규식은 안전한 timeout과 결과 수 제한을 적용합니다.
 - binary, generated, dependency directory는 기본 제외합니다.
-- pattern 오류는 `AGENT_WORKER_FAILED` 또는 worker-level validation error로 기록합니다.
+- pattern 오류는 `LLM_WORKER_FAILED` 또는 worker-level validation error로 기록합니다.
 
 ---
 
-## AGENT-WORKER-B-204: Read Worker
+## LLM-WORKER-B-204: Read Worker
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
 | 모듈명 | WORKER |
-| 구현 위치 | `agent_graph/workers/read_worker.py` |
+| 구현 위치 | `agent/workers/read_worker.py` |
 
 **설명**
 
@@ -249,7 +249,7 @@ Route Node가 허용한 후보 파일만 읽어 raw snippet과 line range를 반
 
 ---
 
-## AGENT-WORKER-B-205: Code Reasoning Worker
+## LLM-WORKER-B-205: Code Reasoning Worker
 
 | 항목 | 내용 |
 | --- | --- |
@@ -269,13 +269,13 @@ Route Node가 허용한 후보 파일만 읽어 raw snippet과 line range를 반
 
 ---
 
-## AGENT-EVIDENCE-B-201: Evidence Aggregator Node
+## LLM-EVIDENCE-B-201: Evidence Aggregator Node
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
 | 모듈명 | EVIDENCE |
-| 구현 위치 | `agent_graph/nodes/evidence_node.py` |
+| 구현 위치 | `agent/nodes/evidence_node.py` |
 
 **설명**
 
@@ -308,10 +308,10 @@ Worker 결과를 중복 제거하고, 파일 경로/라인/점수/근거 타입 
 
 ## Phase 2 확장
 
-### AGENT-WORKER-B-206: 허용된 외부 도구 worker 확장
+### LLM-WORKER-B-206: 허용된 외부 도구 worker 확장
 
 GitHub issue, docs, webhook 등 외부 도구는 allowlist 기반 worker로만 확장합니다. 외부 write action은 사용자 확인을 요구합니다.
 
-### AGENT-WORKER-B-207: Code Reasoning Worker 고도화
+### LLM-WORKER-B-207: Code Reasoning Worker 고도화
 
 보안 분석, architecture reasoning, data flow tracing 등 고비용 추론을 별도 reasoning run으로 분리합니다.

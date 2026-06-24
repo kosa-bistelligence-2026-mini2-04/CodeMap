@@ -1,14 +1,14 @@
-# AGENT CORE 기능 명세서
+# LLM OPS 기능 명세서
 
-> **도메인**: AGENT | **모듈**: AGENT-CORE | **최종 업데이트**: 2026-06-23
+> **도메인**: LLM | **모듈**: LLM-OPS | **최종 업데이트**: 2026-06-23
 
 ## 범위
 
-`AGENT-CORE`는 멀티에이전트 실행 전반에서 공통으로 사용하는 이벤트, 상태, 실패 처리, 실행 시간 측정, cleanup 정책을 정의합니다. 특정 LLM prompt나 파일 검색 전략이 아니라 run lifecycle을 안정적으로 관리하는 공통 계약입니다.
+`LLM-OPS`는 멀티에이전트 실행 전반에서 공통으로 사용하는 이벤트, 상태, 실패 처리, 실행 시간 측정, cleanup 정책 및 MCP tool lifecycle 관리를 정의합니다. 특정 LLM prompt나 파일 검색 전략이 아니라 run lifecycle과 MCP tool 호출 흐름을 안정적으로 관리하는 공통 계약입니다. Workers는 MCP tool로서 LLM에 의해 호출되며, 이 모듈은 해당 tool 호출의 생명주기를 관장합니다.
 
 | 구분 | 기준 |
 | --- | --- |
-| 적용 계층 | `chat/`, `agent_graph/`, frontend run UI |
+| 적용 계층 | `chat/`, `agent/`, frontend run UI |
 | 주요 상태 | `queued`, `running`, `streaming`, `completed`, `failed`, `cancelled` |
 | 주요 이벤트 | `graph_started`, `supervisor_plan`, `route_validated`, `worker_result`, `answer_delta`, `completed`, `failed` |
 | 비책임 | Supervisor prompt, Route Node 보안 정책 세부 구현, Worker 검색 알고리즘 |
@@ -19,23 +19,23 @@
 
 | 기능 ID | 기능명 | 계층 | Phase |
 | --- | --- | --- | --- |
-| AGENT-CORE-B-201 | agent 시작/완료 이벤트 발행 | Backend | Phase 1 |
-| AGENT-CORE-B-202 | completed/failed 후 cleanup | Backend | Phase 1 |
-| AGENT-CORE-B-203 | agent 실행 시간 측정 | Backend | Phase 1 |
-| AGENT-CORE-B-204 | agent 실패 처리 | Backend | Phase 1 |
-| AGENT-CORE-F-201 | ReportJsonResponse 필드 확정 | Frontend | Phase 1 |
-| AGENT-CORE-B-205 | Error Recovery 시나리오 Decision Tree | Backend | Phase 2 |
+| LLM-OPS-B-201 | agent 시작/완료 이벤트 발행 | Backend | Phase 1 |
+| LLM-OPS-B-202 | completed/failed 후 cleanup | Backend | Phase 1 |
+| LLM-OPS-B-203 | agent 실행 시간 측정 | Backend | Phase 1 |
+| LLM-OPS-B-204 | agent 실패 처리 | Backend | Phase 1 |
+| LLM-OPS-F-201 | ReportJsonResponse 필드 확정 | Frontend | Phase 1 |
+| LLM-OPS-B-205 | Error Recovery 시나리오 Decision Tree | Backend | Phase 2 |
 
 ---
 
 ## Phase 1
 
-### AGENT-CORE-B-201: agent 시작/완료 이벤트 발행
+### LLM-OPS-B-201: agent 시작/완료 이벤트 발행
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
-| 모듈명 | CORE |
+| 모듈명 | OPS |
 
 **설명**
 
@@ -46,11 +46,11 @@ Agent run의 주요 전이를 이벤트로 발행합니다. 이벤트는 SSE 스
 | 이벤트 | 발행 주체 | 설명 |
 | --- | --- | --- |
 | `graph_started` | `chat/service.py` | LangGraph 실행 시작 |
-| `supervisor_plan` | `agent_graph/agents/supervisor_agent.py` | worker 선택 및 접근 계획 생성 |
-| `route_validated` | `agent_graph/nodes/route_node.py` | 계획 schema와 path allowlist 검증 완료 |
+| `supervisor_plan` | `agent/agents/supervisor_agent.py` | worker 선택 및 접근 계획 생성 |
+| `route_validated` | `agent/nodes/route_node.py` | 계획 schema와 path allowlist 검증 완료 |
 | `worker_started` | 각 worker wrapper | worker 실행 시작 |
 | `worker_result` | 각 worker wrapper | 원본 근거가 `worker_results`에 append됨 |
-| `evidence_compacted` | `agent_graph/nodes/evidence_node.py` | evidence 압축 완료 |
+| `evidence_compacted` | `agent/nodes/evidence_node.py` | evidence 압축 완료 |
 | `answer_delta` | `chat/final_answer_agent.py` | 최종 답변 토큰 조각 |
 | `completed` | `chat/service.py` | 정상 종료 |
 | `failed` | `chat/service.py` | 실패 종료 |
@@ -62,12 +62,12 @@ Agent run의 주요 전이를 이벤트로 발행합니다. 이벤트는 SSE 스
 - `failed`, `cancelled`, `completed`는 terminal event입니다.
 - terminal event 이후 동일 run에 추가 이벤트를 발행하지 않습니다.
 
-### AGENT-CORE-B-202: completed/failed 후 cleanup
+### LLM-OPS-B-202: completed/failed 후 cleanup
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
-| 모듈명 | CORE |
+| 모듈명 | OPS |
 
 **설명**
 
@@ -83,12 +83,12 @@ Final event 이후 event queue, cancel token, 임시 compact context, worker tas
 | raw snippet cache | 정책에 따라 TTL 적용 |
 | run summary | 상태 조회와 감사용으로 보존 |
 
-### AGENT-CORE-B-203: agent 실행 시간 측정
+### LLM-OPS-B-203: agent 실행 시간 측정
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
-| 모듈명 | CORE |
+| 모듈명 | OPS |
 
 **설명**
 
@@ -108,12 +108,12 @@ Final event 이후 event queue, cancel token, 임시 compact context, worker tas
 | `durations.final_answer` | 최종 답변 생성 시간 |
 | `elapsedSeconds` | run 전체 체감 시간 |
 
-### AGENT-CORE-B-204: agent 실패 처리
+### LLM-OPS-B-204: agent 실패 처리
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
-| 모듈명 | CORE |
+| 모듈명 | OPS |
 
 **설명**
 
@@ -125,10 +125,10 @@ Final event 이후 event queue, cancel token, 임시 compact context, worker tas
 | --- | --- |
 | `INVALID_CHAT_REQUEST` | 질문, 옵션, path 입력 검증 실패 |
 | `REPO_NOT_ANALYZED` | agent 실행 전 repo 분석/인덱싱 미완료 |
-| `AGENT_RUN_CREATE_FAILED` | run 생성 실패 |
+| `LLM_RUN_CREATE_FAILED` | run 생성 실패 |
 | `AGENT_STREAM_FAILED` | SSE stream 초기화/전송 실패 |
 | `AGENT_ROUTE_BLOCKED` | Route Node가 위험 path 또는 worker 계획 차단 |
-| `AGENT_WORKER_FAILED` | worker 실행 실패 |
+| `LLM_WORKER_FAILED` | worker 실행 실패 |
 | `AGENT_EVIDENCE_NOT_FOUND` | 답변 가능한 evidence 없음 |
 | `AGENT_REASONING_FAILED` | Code Reasoning Worker 실행 실패 |
 
@@ -138,12 +138,12 @@ Final event 이후 event queue, cancel token, 임시 compact context, worker tas
 - 사용자에게는 안전한 메시지를 반환하고 내부 stack trace는 노출하지 않습니다.
 - path traversal, secret file 접근 시도는 `failed`가 아니라 policy block으로 분류할 수 있습니다.
 
-### AGENT-CORE-F-201: ReportJsonResponse 필드 확정
+### LLM-OPS-F-201: ReportJsonResponse 필드 확정
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Frontend |
-| 모듈명 | CORE |
+| 모듈명 | OPS |
 
 **설명**
 
@@ -204,12 +204,12 @@ streaming
 
 ## Phase 2
 
-### AGENT-CORE-B-205: Error Recovery 시나리오 Decision Tree
+### LLM-OPS-B-205: Error Recovery 시나리오 Decision Tree
 
 | 항목 | 내용 |
 | --- | --- |
 | 분류 | Backend |
-| 모듈명 | CORE |
+| 모듈명 | OPS |
 
 **설명**
 
@@ -221,7 +221,7 @@ _(레퍼런스: Cicada, ChatRepos AI 프로젝트)_
 ```text
 실패 발생
 └── Supervisor 실패?
-│   ├── YES → [AGENT_RUN_FAILED] 터미널 이벤트, partial evidence 0건
+│   ├── YES → [LLM_RUN_FAILED] 터미널 이벤트, partial evidence 0건
 │   └── NO  → 다음 단계
 └── Route Node 보안 로직 차단?
     ├── YES → [AGENT_ROUTE_BLOCKED] 로그 남기고 무해한 메시지만 사용자에게
@@ -230,7 +230,7 @@ _(레퍼런스: Cicada, ChatRepos AI 프로젝트)_
         │   ├── partial evidence 있음?
         │   │   ├── YES → [PARTIAL_EVIDENCE_CONTINUE] Evidence Aggregator 진입
         │   │   └── NO  → [AGENT_EVIDENCE_NOT_FOUND] 다음
-        │   └── 모든 Worker 실패 → [AGENT_WORKER_FAILED] 다음
+        │   └── 모든 Worker 실패 → [LLM_WORKER_FAILED] 다음
         └── Evidence Aggregator 실패?
             ├── YES → [AGENT_EVIDENCE_NOT_FOUND] raw evidence metadata는 보존
             └── NO  → Final Answer Agent 실패?
@@ -242,10 +242,10 @@ _(레퍼런스: Cicada, ChatRepos AI 프로젝트)_
 
 | 시나리오 | 정책 코드 | 사용자 메시지 | partial evidence 반환 |
 | --- | --- | --- | --- |
-| Supervisor 실패 | `AGENT_RUN_FAILED` | "요청 처리 중 오류가 발생했습니다" | ✕ |
+| Supervisor 실패 | `LLM_RUN_FAILED` | "요청 처리 중 오류가 발생했습니다" | ✕ |
 | Route Node 보안 차단 | `AGENT_ROUTE_BLOCKED` | "사용 정책에 의해 접근이 제한되었습니다" | ✕ |
 | 일부 Worker 실패 + partial evidence 있음 | `PARTIAL_EVIDENCE_CONTINUE` | "일부 검색을 완료하지 못했으나 찾은 근거로 답변합니다" | ● |
-| 모든 Worker 실패 | `AGENT_WORKER_FAILED` | "코드를 검색하는 중 문제가 발생했습니다" | ✕ |
+| 모든 Worker 실패 | `LLM_WORKER_FAILED` | "코드를 검색하는 중 문제가 발생했습니다" | ✕ |
 | Evidence 없음 | `AGENT_EVIDENCE_NOT_FOUND` | "관련 코드를 찾지 못했습니다" | raw metadata ○ |
 | Final Answer 실패 | `AGENT_STREAM_FAILED` | "답변 생성 중 오류가 발생했습니다" | partial ○ |
 

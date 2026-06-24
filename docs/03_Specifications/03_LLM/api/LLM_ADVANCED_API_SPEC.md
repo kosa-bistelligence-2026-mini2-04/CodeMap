@@ -1,8 +1,8 @@
-# AGENT Advanced API 명세서
+# LLM Advanced API 명세서
 
-> **도메인**: AGENT | **범위**: Memory / Allowed Tools / Reasoning Extension | **최종 업데이트**: 2026-06-23
+> **도메인**: LLM | **범위**: Memory / Allowed Tools / Reasoning Extension | **최종 업데이트**: 2026-06-23
 
-## AGENT-ADVANCED-API-001 에이전트 장기 기억 조회
+## LLM-ADVANCED-API-001 에이전트 장기 기억 조회
 
 ### 기본 정보
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | Endpoint | `GET /api/chat/{repo_id}/memory` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-MEMORY-B-201` |
+| 관련 기능 ID | `LLM-MEMORY-B-201` |
 | 목적 | 이전 대화 세션에서 에이전트가 학습한 장기 기억 컨텍스트 조회 |
 | 상태 | Phase 2 / 보류 |
 
@@ -29,7 +29,7 @@
 
 ---
 
-## AGENT-ADVANCED-API-002 허용 외부 도구 Worker 목록 조회
+## LLM-ADVANCED-API-002 허용 외부 도구 Worker 목록 조회
 
 ### 기본 정보
 
@@ -37,7 +37,7 @@
 | --- | --- |
 | Endpoint | `GET /api/chat/{repo_id}/tools/allowed` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-WORKER-B-206` |
+| 관련 기능 ID | `LLM-WORKER-B-206` |
 | 목적 | Phase 2에서 확장 가능한 외부 도구 worker allowlist와 권한 범위 조회 |
 | 상태 | Phase 2 / 보류 |
 
@@ -78,7 +78,7 @@
 
 ---
 
-## AGENT-ADVANCED-API-003 Code Reasoning Worker 고도화 실행 요청
+## LLM-ADVANCED-API-003 Code Reasoning Worker 고도화 실행 요청
 
 ### 기본 정보
 
@@ -86,7 +86,7 @@
 | --- | --- |
 | Endpoint | `POST /api/chat/{repo_id}/runs/{run_id}/reasoning` |
 | Method | POST |
-| 관련 기능 ID | `AGENT-WORKER-B-205`, `AGENT-WORKER-B-207` |
+| 관련 기능 ID | `LLM-WORKER-B-205`, `LLM-WORKER-B-207` |
 | 목적 | 기존 run의 State evidence를 기반으로 추가 Code Reasoning Worker 실행 |
 | 상태 | Phase 2 / 보류 |
 
@@ -114,6 +114,6 @@
 
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | --- | --- | --- | --- |
-| 404 | `AGENT_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
+| 404 | `LLM_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
 | 409 | `AGENT_EVIDENCE_NOT_READY` | 사전 검증 | reasoning에 필요한 evidence 미준비 |
 | 500 | `AGENT_REASONING_FAILED` | worker 실행 | Code Reasoning Worker 실행 실패 |

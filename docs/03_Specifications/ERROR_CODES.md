@@ -93,7 +93,7 @@
 | 422 | `PARSE_NOT_COMPLETED` | 사전 검증 | 파싱이 완료되지 않은 상태에서 임베딩 요청 |
 | 500 | `EMBEDDING_FAILED` | 임베딩 처리 | OpenAI API 호출 또는 벡터 저장 중 오류 |
 
-## 8. AGENT-CHAT-RUN-API (멀티에이전트 Q&A)
+## 8. LLM-CHAT-RUN-API (멀티에이전트 Q&A)
 `POST /api/chat/{repo_id}/runs` 및 연관 엔드포인트
 
 | HTTP Status | Error Code | 발생 시점 | 설명 |
@@ -107,7 +107,7 @@
 | 500 | `AGENT_RUN_CREATE_FAILED` | Run 생성 | LangGraph 초기화 및 Run 생성 실패 |
 | 500 | `AGENT_STREAM_FAILED` | 스트리밍 | SSE 연결 또는 결과 스트리밍 중 오류 |
 
-## 9. AGENT-WORKER-INTERNAL-ERRORS (내부 에러)
+## 9. LLM-WORKER-INTERNAL-ERRORS (내부 에러)
 *이 에러들은 REST 응답이 아닌 State 내부에 기록되며 Error Recovery에 사용됩니다.*
 
 | 발생 도구 | Error Code | 설명 |
@@ -171,7 +171,7 @@
 | 500 | `RISK_ANALYSIS_FAILED` | 위험 분석 | 위험 신호 분석 실패 |
 | 500 | `STACK_SCORE_FAILED` | 점수 계산 | 기술 스택 점수화 실패 |
 
-## 15. AGENT-ADVANCED / DOCS-UTIL API (Phase 2)
+## 15. LLM-ADVANCED / DOCS-UTIL API (Phase 2)
 
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | :--- | :--- | :--- | :--- |

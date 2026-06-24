@@ -1,8 +1,8 @@
-# AGENT Chat Run API 명세서
+# LLM Chat Run API 명세서
 
-> **도메인**: AGENT | **범위**: Run Create / SSE Stream | **최종 업데이트**: 2026-06-23
+> **도메인**: LLM | **범위**: Run Create / SSE Stream | **최종 업데이트**: 2026-06-23
 
-## AGENT-CHAT-API-001 멀티에이전트 채팅 실행 요청
+## LLM-CHAT-API-001 멀티에이전트 채팅 실행 요청
 
 ### 기본 정보
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | Endpoint | `POST /api/chat/{repo_id}/runs` |
 | Method | POST |
-| 관련 기능 ID | `AGENT-CHAT-B-101`, `AGENT-CHAT-B-201`, `AGENT-GRAPH-B-201`, `AGENT-SUPERVISOR-B-201` |
+| 관련 기능 ID | `LLM-CHAT-B-101`, `LLM-CHAT-B-201`, `LLM-GRAPH-B-201`, `LLM-SUPERVISOR-B-201` |
 | 목적 | 사용자 질문을 받아 LangGraph 멀티에이전트 run을 생성하고 SSE stream URL을 반환 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -90,11 +90,11 @@ Authorization: Bearer {access_token}
 | 401 | `UNAUTHORIZED` | 인증 검증 | 토큰 누락 또는 만료 |
 | 404 | `REPO_NOT_FOUND` | repo 조회 | 저장소 없음 |
 | 409 | `REPO_NOT_ANALYZED` | 사전 검증 | 분석/임베딩 미완료 |
-| 500 | `AGENT_RUN_CREATE_FAILED` | run 생성 | run 생성 실패 |
+| 500 | `LLM_RUN_CREATE_FAILED` | run 생성 | run 생성 실패 |
 
 ---
 
-## AGENT-CHAT-API-002 멀티에이전트 SSE 스트림
+## LLM-CHAT-API-002 멀티에이전트 SSE 스트림
 
 ### 기본 정보
 
@@ -102,7 +102,7 @@ Authorization: Bearer {access_token}
 | --- | --- |
 | Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}/stream` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-CHAT-B-203`, `AGENT-CORE-B-201`, `AGENT-CORE-B-202`, `AGENT-CORE-B-204` |
+| 관련 기능 ID | `LLM-CHAT-B-203`, `LLM-OPS-B-201`, `LLM-OPS-B-202`, `LLM-OPS-B-204` |
 | 목적 | LangGraph 실행 과정과 Final Answer 토큰을 SSE로 실시간 전달 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -153,7 +153,7 @@ sequenceDiagram
     participant FE as Frontend
     participant Router as chat/router.py
     participant Service as chat/service.py
-    participant Graph as agent_graph/graph.py
+    participant Graph as agent/graph.py
     participant FA as final_answer_agent.py
 
     User->>FE: 질문 입력
@@ -203,7 +203,7 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant Service as chat/service.py
-    participant Graph as agent_graph/graph.py
+    participant Graph as agent/graph.py
     participant FA as final_answer_agent.py
     actor FE as Frontend
 
@@ -224,5 +224,5 @@ sequenceDiagram
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | --- | --- | --- | --- |
 | 401 | `UNAUTHORIZED` | 인증 검증 | 토큰 누락 또는 만료 |
-| 404 | `AGENT_RUN_NOT_FOUND` | run 조회 | run 없음 |
+| 404 | `LLM_RUN_NOT_FOUND` | run 조회 | run 없음 |
 | 500 | `AGENT_STREAM_FAILED` | stream 처리 | stream 초기화 또는 전송 실패 |

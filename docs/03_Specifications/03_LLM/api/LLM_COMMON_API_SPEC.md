@@ -1,6 +1,6 @@
-# AGENT 공통 API 명세서
+# LLM 공통 API 명세서
 
-> **도메인**: AGENT | **범위**: Common Contract | **최종 업데이트**: 2026-06-23
+> **도메인**: LLM | **범위**: Common Contract | **최종 업데이트**: 2026-06-23
 
 ## 공통 응답 형식
 
@@ -77,12 +77,12 @@
 | `REPO_NOT_FOUND` | 404 | 저장소 없음 |
 | `INVALID_CHAT_REQUEST` | 400 | 질문 또는 옵션 검증 실패 |
 | `REPO_NOT_ANALYZED` | 409 | 저장소 분석/인덱싱 미완료 |
-| `AGENT_RUN_CREATE_FAILED` | 500 | agent run 생성 실패 |
-| `AGENT_RUN_NOT_FOUND` | 404 | agent run 없음 |
-| `AGENT_RUN_ALREADY_FINISHED` | 409 | 이미 종료된 run에 대한 불가능한 요청 |
+| `LLM_RUN_CREATE_FAILED` | 500 | agent run 생성 실패 |
+| `LLM_RUN_NOT_FOUND` | 404 | agent run 없음 |
+| `LLM_RUN_ALREADY_FINISHED` | 409 | 이미 종료된 run에 대한 불가능한 요청 |
 | `AGENT_STREAM_FAILED` | 500 | SSE stream 처리 실패 |
 | `AGENT_ROUTE_BLOCKED` | 403 | Route Node 보안 정책 차단 |
-| `AGENT_WORKER_FAILED` | 500 | worker 실행 실패 |
+| `LLM_WORKER_FAILED` | 500 | worker 실행 실패 |
 | `AGENT_EVIDENCE_NOT_FOUND` | 404 | evidence 없음 |
 | `AGENT_EVIDENCE_NOT_READY` | 409 | reasoning에 필요한 evidence 미준비 |
 | `AGENT_TOOL_POLICY_FAILED` | 500 | 외부 도구 정책 조회 실패 |

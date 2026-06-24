@@ -126,7 +126,7 @@ CodeMap/backend/app/
 │   ├── service.py              # LangGraph 엔진 비동기 호출 및 SSE 이벤트 제어 로직
 │   └── final_answer_agent.py   # Final Answer Agent: State 원본 기반 최종 응답 생성
 │
-├── agent_graph/                # 2. LangGraph Layer: State, Nodes, Agents, Workers
+├── agent/                # 2. LangGraph Layer: State, Nodes, Agents, Workers
 │   ├── __init__.py
 │   ├── state.py                # CodeMapState 공유 상태 정의
 │   ├── graph.py                # LangGraph Workflow 정의부 (Node, Edge, StateGraph)

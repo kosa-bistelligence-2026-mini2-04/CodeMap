@@ -1,6 +1,6 @@
-# AGENT SUPERVISOR ROUTE 기능 명세서
+# LLM SUPERVISOR ROUTE 기능 명세서
 
-> **도메인**: AGENT | **모듈**: AGENT-SUPERVISOR / AGENT-ROUTE | **최종 업데이트**: 2026-06-23
+> **도메인**: LLM | **모듈**: LLM-SUPERVISOR / LLM-ROUTE | **최종 업데이트**: 2026-06-23
 
 ## 범위
 
@@ -8,7 +8,7 @@
 
 | 구분 | Supervisor Agent | Route Node |
 | --- | --- | --- |
-| 구현 위치 | `agent_graph/agents/supervisor_agent.py` | `agent_graph/nodes/route_node.py` |
+| 구현 위치 | `agent/agents/supervisor_agent.py` | `agent/nodes/route_node.py` |
 | 성격 | LLM agent | deterministic code node |
 | 책임 | 의도 분석, query rewrite, worker 후보 선택 | schema 검증, path allowlist, traversal 차단, worker fan-out |
 | 도구 접근 | 직접 파일 I/O 없음 | 직접 LLM 추론 없음 |
@@ -19,14 +19,14 @@
 
 | 기능 ID | 기능명 | 계층 | Phase |
 | --- | --- | --- | --- |
-| AGENT-SUPERVISOR-B-201 | Supervisor Agent 계획 수립 | Backend | Phase 1 |
-| AGENT-ROUTE-B-201 | Route Node plan 검증 | Backend | Phase 1 |
-| AGENT-ROUTE-B-202 | 경로 보안 및 traversal 차단 | Backend | Phase 1 |
-| AGENT-ROUTE-B-203 | Worker 비동기 병렬 라우팅 | Backend | Phase 1 |
+| LLM-SUPERVISOR-B-201 | Supervisor Agent 계획 수립 | Backend | Phase 1 |
+| LLM-ROUTE-B-201 | Route Node plan 검증 | Backend | Phase 1 |
+| LLM-ROUTE-B-202 | 경로 보안 및 traversal 차단 | Backend | Phase 1 |
+| LLM-ROUTE-B-203 | Worker 비동기 병렬 라우팅 | Backend | Phase 1 |
 
 ---
 
-## AGENT-SUPERVISOR-B-201: Supervisor Agent 계획 수립
+## LLM-SUPERVISOR-B-201: Supervisor Agent 계획 수립
 
 | 항목 | 내용 |
 | --- | --- |
@@ -88,7 +88,7 @@
   "rewrittenQuery": "database connection configuration 데이터베이스 연결 설정",
   "intent": "explain_flow",
   "selectedWorkers": ["search", "grep", "read"],
-  "allowedPaths": ["backend/app/core", "backend/app/db"],
+  "allowedPaths": ["backend/app/infra", "backend/app/db"],
   "blockedPatterns": [".env", "*.pem", "alembic/versions"],
   "riskLevel": "sensitive",
   "searchHints": ["database", "connection", "pool", "session", "engine"],
@@ -115,7 +115,7 @@
 
 ---
 
-## AGENT-ROUTE-B-201: Route Node plan 검증
+## LLM-ROUTE-B-201: Route Node plan 검증
 
 | 항목 | 내용 |
 | --- | --- |
@@ -147,7 +147,7 @@ Supervisor가 만든 plan을 deterministic code로 검증합니다. 이 node는 
 
 ---
 
-## AGENT-ROUTE-B-202: 경로 보안 및 traversal 차단
+## LLM-ROUTE-B-202: 경로 보안 및 traversal 차단
 
 | 항목 | 내용 |
 | --- | --- |
@@ -177,7 +177,7 @@ Supervisor가 만든 plan을 deterministic code로 검증합니다. 이 node는 
 
 ---
 
-## AGENT-ROUTE-B-203: Worker 비동기 병렬 라우팅
+## LLM-ROUTE-B-203: Worker 비동기 병렬 라우팅
 
 | 항목 | 내용 |
 | --- | --- |

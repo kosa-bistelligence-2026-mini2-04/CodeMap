@@ -387,17 +387,17 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 
 > [!IMPORTANT]
 > 아래 AGENT API는 최신 합의된 LangGraph State 공유형 멀티에이전트 구조를 기준으로 합니다. `Route Node`는 LLM agent가 아니라 deterministic code node이며, 보안 검증과 병렬 worker routing을 담당합니다.
-> 구현 위치 기준으로 `Final Answer Agent`는 `chat/final_answer_agent.py`에 두고, Supervisor/Route/Workers/Evidence node는 `agent_graph/` 아래에 둡니다.
+> 구현 위치 기준으로 `Final Answer Agent`는 `chat/final_answer_agent.py`에 두고, Supervisor/Route/Workers/Evidence node는 `agent/` 아래에 둡니다.
 
-> 관련 기능 ID: `AGENT-CHAT-B-101`, `AGENT-CHAT-B-201` ~ `AGENT-CHAT-B-204`, `AGENT-GRAPH-B-201` ~ `AGENT-GRAPH-B-202`, `AGENT-SUPERVISOR-B-201`, `AGENT-ROUTE-B-201` ~ `AGENT-ROUTE-B-203`, `AGENT-WORKER-B-201` ~ `AGENT-WORKER-B-205`, `AGENT-EVIDENCE-B-201`
+> 관련 기능 ID: `LLM-CHAT-B-101`, `LLM-CHAT-B-201` ~ `LLM-CHAT-B-204`, `LLM-GRAPH-B-201` ~ `LLM-GRAPH-B-202`, `LLM-SUPERVISOR-B-201`, `LLM-ROUTE-B-201` ~ `LLM-ROUTE-B-203`, `LLM-WORKER-B-201` ~ `LLM-WORKER-B-205`, `LLM-EVIDENCE-B-201`
 
 ### AGENT 공통 State 및 역할 계약
 
 | 구분 | 명세 |
 | :--- | :--- |
-| 구현 기준 구조 | `backend/app/chat/` + `backend/app/agent_graph/` |
+| 구현 기준 구조 | `backend/app/chat/` + `backend/app/agent/` |
 | `Final Answer Agent` 위치 | `chat/final_answer_agent.py` |
-| LangGraph 데이터 수집 계층 | `agent_graph/state.py`, `graph.py`, `agents/`, `nodes/`, `tools/`, `workers/` |
+| LangGraph 데이터 수집 계층 | `agent/state.py`, `graph.py`, `agents/`, `nodes/`, `tools/`, `workers/` |
 | LLM agent | `Supervisor Agent`, `Search Worker Agent`, `Code Reasoning Worker`(선택), `Final Answer Agent` |
 | 일반 코드 node/wrapper | `Route Node`, `Evidence Aggregator Node`, `Dir Worker`, `Grep Worker`, `Read Worker` |
 | `CodeMapState` 핵심 필드 | `user_query`, `rewritten_query`, `access_plan`, `security_result`, `worker_results`, `compact_context`, `final_answer` |
@@ -405,7 +405,7 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 
 ---
 
-### AGENT-CHAT-API-001 멀티에이전트 채팅 실행 요청
+### LLM-CHAT-API-001 멀티에이전트 채팅 실행 요청
 
 #### 기본 정보
 
@@ -413,7 +413,7 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 | :--- | :--- |
 | Endpoint | `POST /api/chat/{repo_id}/runs` |
 | Method | POST |
-| 관련 기능 ID | `AGENT-CHAT-B-101`, `AGENT-CHAT-B-201`, `AGENT-GRAPH-B-201`, `AGENT-SUPERVISOR-B-201` |
+| 관련 기능 ID | `LLM-CHAT-B-101`, `LLM-CHAT-B-201`, `LLM-GRAPH-B-201`, `LLM-SUPERVISOR-B-201` |
 | 목적 | 사용자 질문을 받아 LangGraph 멀티에이전트 실행 run을 생성하고 SSE stream URL을 반환 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -489,7 +489,7 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 
 ---
 
-### AGENT-CHAT-API-002 멀티에이전트 SSE 스트림
+### LLM-CHAT-API-002 멀티에이전트 SSE 스트림
 
 #### 기본 정보
 
@@ -497,7 +497,7 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 | :--- | :--- |
 | Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}/stream` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-CHAT-B-203`, `AGENT-CORE-B-201`, `AGENT-CORE-B-202`, `AGENT-CORE-B-204` |
+| 관련 기능 ID | `LLM-CHAT-B-203`, `LLM-OPS-B-201`, `LLM-OPS-B-202`, `LLM-OPS-B-204` |
 | 목적 | LangGraph 실행 과정과 Final Answer 토큰을 SSE로 실시간 전달 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -554,7 +554,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 
 ---
 
-### AGENT-CHAT-API-003 Agent Run 상태 및 State 요약 조회
+### LLM-CHAT-API-003 Agent Run 상태 및 State 요약 조회
 
 #### 기본 정보
 
@@ -562,7 +562,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 | :--- | :--- |
 | Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-CHAT-B-204`, `AGENT-GRAPH-B-201`, `AGENT-CORE-B-203` |
+| 관련 기능 ID | `LLM-CHAT-B-204`, `LLM-GRAPH-B-201`, `LLM-OPS-B-203` |
 | 목적 | 실행 상태, node별 소요 시간, State 요약, 최종 답변 상태 조회 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -629,7 +629,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 
 ---
 
-### AGENT-CHAT-API-004 Agent Run 취소
+### LLM-CHAT-API-004 Agent Run 취소
 
 #### 기본 정보
 
@@ -637,7 +637,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 | :--- | :--- |
 | Endpoint | `POST /api/chat/{repo_id}/runs/{run_id}/cancel` |
 | Method | POST |
-| 관련 기능 ID | `AGENT-CHAT-B-204`, `AGENT-CORE-B-202`, `AGENT-CORE-B-204` |
+| 관련 기능 ID | `LLM-CHAT-B-204`, `LLM-OPS-B-202`, `LLM-OPS-B-204` |
 | 목적 | 실행 중인 LangGraph/worker run을 취소하고 SSE에 cancelled 이벤트 발행 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -662,7 +662,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 
 ---
 
-### AGENT-CHAT-API-005 Agent 근거 조회
+### LLM-CHAT-API-005 Agent 근거 조회
 
 #### 기본 정보
 
@@ -670,7 +670,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 | :--- | :--- |
 | Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}/evidence` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-WORKER-B-201` ~ `AGENT-WORKER-B-205`, `AGENT-EVIDENCE-B-201` |
+| 관련 기능 ID | `LLM-WORKER-B-201` ~ `LLM-WORKER-B-205`, `LLM-EVIDENCE-B-201` |
 | 목적 | Worker가 `CodeMapState.worker_results`에 직접 기록한 raw evidence와 compact context 조회 |
 | 상태 | 설계 확정 / 구현 예정 |
 
@@ -713,11 +713,11 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 
 ## AGENT 고도화 확장 API 명세서
 
-> 관련 기능 ID: `AGENT-MEMORY-B-201`, `AGENT-WORKER-B-206`, `AGENT-WORKER-B-207`
+> 관련 기능 ID: `LLM-MEMORY-B-201`, `LLM-WORKER-B-206`, `LLM-WORKER-B-207`
 
 ---
 
-### AGENT-ADVANCED-API-001 에이전트 장기 기억 조회
+### LLM-ADVANCED-API-001 에이전트 장기 기억 조회
 
 #### 기본 정보
 
@@ -725,7 +725,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 | :--- | :--- |
 | Endpoint | `GET /api/chat/{repo_id}/memory` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-MEMORY-B-201` |
+| 관련 기능 ID | `LLM-MEMORY-B-201` |
 | 목적 | 이전 대화 세션에서 에이전트가 학습한 장기 기억 컨텍스트 조회 |
 | 상태 | 시작 전 (Phase 2) |
 
@@ -767,7 +767,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 
 ---
 
-### AGENT-ADVANCED-API-002 허용 외부 도구 Worker 목록 조회
+### LLM-ADVANCED-API-002 허용 외부 도구 Worker 목록 조회
 
 #### 기본 정보
 
@@ -775,7 +775,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 | :--- | :--- |
 | Endpoint | `GET /api/chat/{repo_id}/tools/allowed` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-WORKER-B-206` |
+| 관련 기능 ID | `LLM-WORKER-B-206` |
 | 목적 | Phase 2에서 확장 가능한 외부 도구 worker allowlist와 권한 범위 조회 |
 | 상태 | 시작 전 (Phase 2) |
 
@@ -825,7 +825,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 
 ---
 
-### AGENT-ADVANCED-API-003 Code Reasoning Worker 고도화 실행 요청
+### LLM-ADVANCED-API-003 Code Reasoning Worker 고도화 실행 요청
 
 #### 기본 정보
 
@@ -833,7 +833,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
 | :--- | :--- |
 | Endpoint | `POST /api/chat/{repo_id}/runs/{run_id}/reasoning` |
 | Method | POST |
-| 관련 기능 ID | `AGENT-WORKER-B-205`, `AGENT-WORKER-B-207` |
+| 관련 기능 ID | `LLM-WORKER-B-205`, `LLM-WORKER-B-207` |
 | 목적 | 기존 run의 State evidence를 기반으로 선택형 Code Reasoning Worker 또는 고도화 reasoning worker를 실행 |
 | 상태 | 시작 전 (Phase 2) |
 
