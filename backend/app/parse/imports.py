@@ -55,12 +55,30 @@ def _analyze_imports_sync(files: list[ParsedFile]) -> list[ParsedFile]:
 
 
 def _module_to_path(dotted: str, repo_paths: set[str]) -> str | None:
-    """dotted 모듈명(a.b.c)을 저장소 파일 경로(a/b/c.py 또는 a/b/c/__init__.py)로 해석."""
+    """dotted 모듈명(a.b.c)을 저장소 파일 경로(a/b/c.py 또는 a/b/c/__init__.py)로 해석.
+
+    1) 정확 일치 — 저장소 루트 == 패키지 루트인 일반적 경우.
+    2) 접미사 일치 — 모노레포처럼 패키지 루트가 하위 디렉토리(backend/ 등)에 있어
+       절대 import(`app.x`)가 실제로는 `backend/app/x.py`로 저장된 경우를 해석한다 (#101).
+       외부 단일 모듈(os·json 등) 오탐을 피하려 **다중 세그먼트(점 포함)에만** 적용하고,
+       후보로 끝나는 저장소 파일 중 가장 얕은(루트에 가까운) 경로를 택해 결정성을 둔다.
+    """
     base = dotted.replace(".", "/")
-    for cand in (f"{base}.py", f"{base}/__init__.py"):
+    candidates = (f"{base}.py", f"{base}/__init__.py")
+    # 1) 정확 일치
+    for cand in candidates:
         if cand in repo_paths:
             return cand
-    return None
+    # 2) 접미사 일치 (다중 세그먼트만)
+    if "/" not in base:
+        return None
+    best: str | None = None
+    for cand in candidates:
+        suffix = "/" + cand
+        for p in repo_paths:
+            if p.endswith(suffix) and (best is None or p.count("/") < best.count("/")):
+                best = p
+    return best
 
 
 def _python_imports(path: str, content: str, repo_paths: set[str]) -> list[str]:
