@@ -126,9 +126,10 @@ async def generate_embeddings(files: list[ParsedFile]) -> list[ParsedFile]:
 
         try:
             if not api_key:
-                # API 키 없음 → 빈 벡터 (개발/테스트 환경)
-                vectors = [[] for _ in texts]
-                logger.debug("[임베딩 생성] OPENAI_API_KEY 미설정 → 빈 벡터로 처리")
+                # API 키 없음(개발/CI): 빈 리스트([])는 Vector(1536) 컬럼 저장 시 차원 불일치를
+                # 일으키므로 None(컬럼 nullable)으로 둔다. 임베딩 없는 청크로 추적된다.
+                vectors = [None for _ in texts]
+                logger.debug("[임베딩 생성] OPENAI_API_KEY 미설정 → 임베딩 None 처리")
             else:
                 vectors = await _embed_batch(texts)
 
@@ -251,3 +252,50 @@ async def run_embed_pipeline(db: AsyncSession, request: EmbedRequest) -> EmbedRe
         saved_chunks=saved_chunks,
         failed_paths=failed_paths,
     )
+
+
+# ──────────────────────────────────────────────────────────────
+# RAG 검색: 벡터 유사도 기반 코드 청크 검색 (답변용)
+#
+# 팀 orchestrator search 도구(mcp_tools/search.py)와 chat 폴백 분기가 호출하는 계약.
+# 임베딩 인덱스가 준비됐으면 vector_search로, 아니면 호출측이 키워드 검색으로 폴백한다.
+# ──────────────────────────────────────────────────────────────
+
+async def embed_ready(db: AsyncSession, repo_id: UUID) -> bool:
+    """해당 저장소의 임베딩 인덱스가 검색 가능한 상태인지 확인한다.
+
+    채팅/오케스트레이터가 "벡터 검색 ↔ 키워드 폴백" 분기에 사용한다.
+    """
+    return await EmbedRepository(db).has_embeddings(repo_id)
+
+
+async def vector_search(
+    db: AsyncSession, repo_id: UUID, query: str, k: int = 5
+) -> list[dict]:
+    """질문을 임베딩해 pgvector에서 관련 코드 청크를 유사도 순으로 검색한다.
+
+    반환: [{"file", "line", "snippet", "score"}] 목록.
+      - score = 1 - 코사인거리 (높을수록 유사)
+    API 키 미설정이거나 인덱스가 비어 있으면 빈 목록을 반환한다(호출측이 폴백).
+    """
+    if not query or not query.strip():
+        return []
+    if not settings.OPENAI_API_KEY.get_secret_value():
+        return []
+
+    vectors = await _embed_batch([query])
+    if not vectors or not vectors[0]:
+        return []
+    query_vector = vectors[0]
+
+    rows = await EmbedRepository(db).similarity_search(repo_id, query_vector, k)
+    results: list[dict] = []
+    for node, distance in rows:
+        meta = node.file_metadata or {}
+        results.append({
+            "file": node.path,
+            "line": meta.get("start_line", 1),
+            "snippet": node.content or "",
+            "score": round(1.0 - distance, 4),
+        })
+    return results

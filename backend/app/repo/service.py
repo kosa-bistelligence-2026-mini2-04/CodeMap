@@ -550,6 +550,10 @@ class AnalysisService:
             progress=21,
             message="분석 파이프라인을 시작합니다.",
         )
+        # get_db() finalizer의 자동 commit이 PR #96에서 제거됐으므로 명시적으로 commit.
+        # BackgroundTask가 실행되기 전 IN_PROGRESS 상태가 DB에 반드시 저장돼야
+        # 독립 세션으로 동작하는 파이프라인이 올바른 상태를 조회할 수 있다.
+        await self.db.commit()
 
         # [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 재시작
         #    응답이 전송되고 DB 커밋이 완료된 후 실행되도록 BackgroundTasks에 등록한다.
@@ -651,6 +655,12 @@ class AnalysisService:
             supervisor = AnalysisPipelineSupervisor()
             await supervisor.run(initial_state)
 
+            # 분석(그래프) 완료 후, 같은 백그라운드에서 RAG 정밀 파싱(청킹·코드맵)을
+            # report_json에 병합하고 청크를 임베딩해 pgvector에 적재한다.
+            # 분석은 이미 COMPLETED로 보고되어 사용자 응답을 막지 않으며,
+            # 이 단계의 실패는 _run_parse_and_embed 내부에서 흡수한다(분석 결과 영향 없음).
+            await self._run_parse_and_embed(job_id)
+
         except Exception as exc:
             logger.exception("파이프라인 실행 실패 (job_id=%s)", job_id)
 
@@ -672,6 +682,106 @@ class AnalysisService:
                 progress=0,
                 message=f"파이프라인 실행 실패: {exc}",
             )
+
+    # ──────────────────────────────────────────
+    # RAG 인덱싱: 분석 완료 후 정밀 파싱 + 임베딩 (백그라운드 연속 실행)
+    # ──────────────────────────────────────────
+    async def _run_parse_and_embed(self, job_id: str) -> None:
+        """분석(LangGraph) 완료 후 RAG 정밀 파싱·임베딩을 이어서 실행한다.
+
+        - run_parse_pipeline: 청킹·계층 요약·코드맵 등 canonical 산출물을 만들어
+          report_json에 병합한다(상세 조회 API가 실데이터를 받도록, 기존 키는 보존).
+        - run_embed_pipeline: 청크를 임베딩해 pgvector에 적재한다(OPENAI_API_KEY 있을 때만).
+
+        분석 완료(COMPLETED)는 이미 보고되었으므로 사용자 응답을 막지 않으며,
+        이 단계의 실패는 분석 결과에 영향을 주지 않도록 내부에서 흡수한다.
+        세션/commit은 기존 백그라운드 패턴과 동일하게 독립 세션으로 처리한다.
+        """
+        from app.core.database import async_session_factory
+        from app.embed.service import embed_ready, run_embed_pipeline
+        from app.parse import service as parse_service
+        from app.parse.schemas import EmbedRequest
+
+        settings = get_settings()
+        clone_path = os.path.join(settings.CLONE_BASE_DIR, job_id, "repo")
+
+        try:
+            # 1. 분석 메타 조회 — 성공(COMPLETED) 건만 인덱싱한다.
+            async with async_session_factory() as session:
+                repo = AnalysisJobRepository(session)
+                job = await repo.get_job_by_id(UUID(job_id))
+                if not job:
+                    return
+                if job.status != JobStatus.COMPLETED.value:
+                    logger.info(
+                        "[RAG 인덱싱] 분석 미완료(status=%s), 건너뜀 (job=%s)",
+                        job.status, job_id,
+                    )
+                    return
+                owner, repo_name, branch = job.owner, job.repo_name, job.branch
+                force_refresh = bool(job.force_refresh)
+                report = dict(job.report_json or {})
+                current_status = job.status
+
+            if not os.path.isdir(clone_path):
+                logger.warning("[RAG 인덱싱] clone 경로 없음, 건너뜀 (job=%s)", job_id)
+                return
+
+            # 2. 정밀 파싱 → report_json에 canonical 결과 병합 (additive: 기존 키 보존)
+            result = await parse_service.run_parse_pipeline(
+                job_id=UUID(job_id),
+                repo_name=repo_name,
+                owner=owner,
+                branch=branch,
+                clone_path=clone_path,
+            )
+            parse_data = result.model_dump(mode="json")
+            for key in (
+                "tech_stack_details", "language_composition", "entry_point_details",
+                "run_command_details", "config_files", "master_summary",
+                "folder_summaries", "file_summaries", "file_map", "heatmap",
+                "directory_tree", "files",
+            ):
+                report[key] = parse_data[key]
+
+            # 3. 임베딩 → pgvector (API 키 있을 때만; 없으면 파스 결과만 반영)
+            index_status, saved_chunks = "skipped", 0
+            if settings.OPENAI_API_KEY.get_secret_value():
+                async with async_session_factory() as session:
+                    embed_result = await run_embed_pipeline(
+                        session,
+                        EmbedRequest(
+                            job_id=UUID(job_id),
+                            files=result.files,
+                            force_reembed=force_refresh,
+                        ),
+                    )
+                saved_chunks = embed_result.saved_chunks
+                # saved_chunks는 upsert된 CHUNK row 수일 뿐, 임베딩 배치 실패 시
+                # embedding=None인 row도 포함된다. 실제 non-null 임베딩 존재 여부로
+                # status를 정해 embed_ready()(벡터 검색 가능 여부)와 항상 일치시킨다.
+                async with async_session_factory() as session:
+                    has_vectors = await embed_ready(session, UUID(job_id))
+                index_status = "ready" if has_vectors else "empty"
+            report["rag_index"] = {"status": index_status, "chunks": saved_chunks}
+
+            # 4. report_json 갱신 저장 (분석 status는 그대로 보존)
+            async with async_session_factory() as session:
+                repo = AnalysisJobRepository(session)
+                await repo.update_job_status(
+                    job_id=UUID(job_id),
+                    status=current_status,
+                    report_json=report,
+                )
+                await session.commit()
+
+            logger.info(
+                "[RAG 인덱싱] 완료 job=%s | status=%s 청크=%d",
+                job_id, index_status, saved_chunks,
+            )
+        except Exception as exc:
+            # RAG 인덱싱 실패는 분석 결과에 영향을 주지 않는다(분석은 이미 완료).
+            logger.exception("[RAG 인덱싱] 실패 (분석 결과 영향 없음) job=%s: %s", job_id, exc)
 
     # ──────────────────────────────────────────
     # 이벤트 발행 헬퍼
