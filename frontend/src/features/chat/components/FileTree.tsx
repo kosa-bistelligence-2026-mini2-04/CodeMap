@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { FixedSizeList as List } from "react-window";
 import { AutoSizer } from "react-virtualized-auto-sizer";
 import {
@@ -38,6 +38,16 @@ type FlatNode = {
 
 const FILE_ITEM_HEIGHT = 28;
 
+type RowData = {
+  flatNodes: FlatNode[];
+  entrypointPaths: Set<string>;
+  activeFile?: string | null;
+  isDark: boolean;
+  expandedPaths: Set<string>;
+  toggleDirectory: (path: string) => void;
+  onFileSelect?: (file: string) => void;
+};
+
 function flattenTree(nodes: FileTreeNode[], depth: number, expanded: Set<string>): FlatNode[] {
   let result: FlatNode[] = [];
   for (const node of nodes) {
@@ -62,7 +72,7 @@ function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[] {
   });
 }
 
-function Row({ index, style, data }: { index: number; style: CSSProperties; data: any }) {
+function Row({ index, style, data }: { index: number; style: CSSProperties; data: RowData }) {
   const {
     flatNodes,
     entrypointPaths,
@@ -222,11 +232,9 @@ export function FileTree({
           <div className="px-2 py-8 text-center text-[10px] leading-5 text-zinc-600">
             {files.length === 0 ? "분석이 완료되면 실제 파일 구조가 여기에 표시됩니다." : "일치하는 파일이 없습니다."}
           </div>
-        ) : (() => {
-          const Sizer = AutoSizer as any;
-          return (
-          <Sizer>
-            {({ height, width }: { height: number; width: number }) => (
+        ) : (
+          <AutoSizer
+            renderProp={({ height, width }) => (
               <List
                 height={height || 400}
                 itemCount={flatNodes.length}
@@ -246,9 +254,8 @@ export function FileTree({
                 {Row}
               </List>
             )}
-          </Sizer>
-          );
-        })()}
+          />
+        )}
       </div>
       <div className={`border-t px-3 py-2 text-[9px] text-zinc-600 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
         {files.length ? `${files.length.toLocaleString()} files indexed` : "No snapshot loaded"}

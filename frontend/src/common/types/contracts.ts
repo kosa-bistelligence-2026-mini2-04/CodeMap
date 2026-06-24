@@ -129,7 +129,7 @@ export interface WorkspaceReport {
   health_score: number;
   executive_summary: string;
   rag_index?: {
-    status: 'ready' | 'empty' | 'skipped' | 'failed';
+    status: 'pending' | 'in_progress' | 'ready' | 'empty' | 'skipped' | 'failed';
     chunks: number;
   };
   key_strengths: string[];
