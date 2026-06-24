@@ -61,14 +61,14 @@ async def chat(repo_id: UUID, request: ChatRequest, db: AsyncSession = Depends(g
             yield _event({"type": "references", "references": references})
             await service.persist_answer(thread, answer, mode, references)
             yield _event({"type": "done"})
+        except asyncio.CancelledError:
+            await db.rollback()
+            raise
         except Exception as exc:
-            # 스트리밍 중 오류 발생 시 에러 이벤트 전송 후 정리
             import logging
             logging.getLogger(__name__).exception("SSE stream failed for repo %s", repo_id)
             yield _event({"type": "error", "message": "답변 생성 중 오류가 발생했습니다. 다시 시도해주세요."})
-            # 답변이 생성되지 않았으면 user 메시지도 롤백
-            if answer is None:
-                await db.rollback()
+            await db.rollback()
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
