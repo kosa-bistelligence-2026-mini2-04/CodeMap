@@ -14,7 +14,7 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from app.agent_graph.state import AccessPlanItem, CodeMapState
+from app.agent.state import AccessPlanItem, CodeMapState
 from app.infra.config import get_settings
 
 logger = logging.getLogger(__name__)

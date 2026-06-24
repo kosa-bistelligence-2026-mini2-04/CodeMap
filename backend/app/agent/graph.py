@@ -16,11 +16,11 @@ from __future__ import annotations
 
 from langgraph.graph import StateGraph, END
 
-from app.agent_graph.state import CodeMapState
-from app.agent_graph.agents.supervisor_agent import supervisor_node
-from app.agent_graph.nodes.route_node import route_node
-from app.agent_graph.nodes.evidence_aggregator import evidence_aggregator
-from app.agent_graph.workers.workers import (
+from app.agent.state import CodeMapState
+from app.agent.agents.supervisor_agent import supervisor_node
+from app.agent.nodes.route_node import route_node
+from app.agent.nodes.evidence_aggregator import evidence_aggregator
+from app.agent.workers.workers import (
     search_worker,
     dir_worker,
     grep_worker,
@@ -52,7 +52,7 @@ def build_graph() -> StateGraph:
 
     # Route Node → Workers (Send API가 동적으로 처리 — conditional edge 사용)
     # route_node가 반환한 dict를 통해 상태 업데이트 후 fanout_to_workers 실행
-    from app.agent_graph.nodes.route_node import fanout_to_workers
+    from app.agent.nodes.route_node import fanout_to_workers
     builder.add_conditional_edges("route_node", fanout_to_workers, ["search_worker", "dir_worker", "grep_worker", "read_worker", "evidence_aggregator"])
 
     # Workers → Evidence Aggregator (fan-in)

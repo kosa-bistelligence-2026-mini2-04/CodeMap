@@ -17,7 +17,7 @@ class TestRRFScore(unittest.TestCase):
     """rrf.rrf_score 단위 테스트."""
 
     def _rrf(self, sem, bm, k=60):
-        from app.agent_graph.search.rrf import rrf_score
+        from app.agent.tools.rrf import rrf_score
         return rrf_score(sem, bm, k)
 
     def test_both_ranks(self):
@@ -67,7 +67,7 @@ class TestBM25Rank(unittest.TestCase):
     """rrf.bm25_rank 단위 테스트."""
 
     def _rank(self, corpus, query, top_n=3):
-        from app.agent_graph.search.rrf import bm25_rank
+        from app.agent.tools.rrf import bm25_rank
         return bm25_rank(corpus, query, top_n)
 
     def test_relevant_document_ranked_higher(self):
@@ -108,7 +108,7 @@ class TestBM25Rank(unittest.TestCase):
         import sys as _sys
         # rrf 모듈을 강제 리로드하여 rank_bm25 없는 상황 시뮬레이션
         # (rank_bm25가 실제로 없는 환경이면 이미 통과)
-        from app.agent_graph.search.rrf import bm25_rank
+        from app.agent.tools.rrf import bm25_rank
         # rank_bm25 없는 경우 bm25_rank는 빈 리스트 반환 (ImportError 처리됨)
         # 설치된 경우에도 테스트는 통과해야 함
         result = bm25_rank(["hello world"], "hello", top_n=1)
@@ -121,7 +121,7 @@ class TestRRFFusion(unittest.TestCase):
 
     def test_rrf_orders_correctly(self):
         """양쪽 모두 1위인 결과(C)가 최종 1위여야 함."""
-        from app.agent_graph.search.rrf import rrf_score
+        from app.agent.tools.rrf import rrf_score
 
         candidates = [
             {"id": "A", "sem_rank": 1, "bm_rank": 5},
@@ -137,7 +137,7 @@ class TestRRFFusion(unittest.TestCase):
 
     def test_missing_bm25_uses_semantic_only(self):
         """BM25 없는 결과도 시맨틱 점수만으로 순위 매김."""
-        from app.agent_graph.search.rrf import rrf_score
+        from app.agent.tools.rrf import rrf_score
 
         score_with = rrf_score(1, 1)
         score_without = rrf_score(1, None)
@@ -146,7 +146,7 @@ class TestRRFFusion(unittest.TestCase):
 
     def test_additive_fusion_beats_individual(self):
         """RRF가 개별 랭커보다 항상 나쁘지 않음."""
-        from app.agent_graph.search.rrf import rrf_score
+        from app.agent.tools.rrf import rrf_score
 
         # 시맨틱 2위 + BM25 2위 조합
         fused = rrf_score(2, 2)

@@ -12,7 +12,7 @@ Hybrid Search: pgvector 시맨틱 검색 + BM25 키워드 검색 → RRF(Recipro
   - 모두 실패 → 빈 리스트 반환 (caller에서 키워드 검색 폴백)
 
 외부 의존성(sqlalchemy, openai)은 모두 lazy import로 처리합니다.
-순수 함수(rrf_score, bm25_rank)는 app.agent_graph.search.rrf에서 임포트합니다.
+순수 함수(rrf_score, bm25_rank)는 app.agent.tools.rrf에서 임포트합니다.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from app.agent_graph.search.rrf import bm25_rank as _bm25_rank, rrf_score as _rrf_score
+from app.agent.tools.rrf import bm25_rank as _bm25_rank, rrf_score as _rrf_score
 
 logger = logging.getLogger(__name__)
 

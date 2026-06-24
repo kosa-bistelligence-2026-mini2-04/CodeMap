@@ -15,7 +15,7 @@ os.path.exists()로 이미 Clone된 경우를 감지한다.
   [Sec08 - RAG Agent]
     kosa-langchain-practice/langchain/api/sec08_rag/agent_rag.py
     pgvector Tool을 Agent에 연결하는 패턴 참고
-    현재 대화형 Agent 검색은 app.agent_graph.search.hybrid_search에서 별도 제공한다.
+    현재 대화형 Agent 검색은 app.agent.tools.hybrid_search에서 별도 제공한다.
 """
 
 from __future__ import annotations

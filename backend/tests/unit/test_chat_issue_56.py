@@ -47,7 +47,7 @@ async def _async_value(value):
 
 class TestChatAnswerSafety(unittest.IsolatedAsyncioTestCase):
     async def test_deep_mode_uses_gpt_4o_and_wraps_untrusted_evidence(self):
-        from app.agent_graph.agents.final_answer_agent import stream_final_answer
+        from app.agent.agents.final_answer_agent import stream_final_answer
 
         captured: dict = {}
 
@@ -83,7 +83,7 @@ class TestChatAnswerSafety(unittest.IsolatedAsyncioTestCase):
         }
         try:
             with patch(
-                "app.agent_graph.agents.final_answer_agent.get_settings",
+                "app.agent.agents.final_answer_agent.get_settings",
                 return_value=_FakeSettings(),
             ):
                 events = [

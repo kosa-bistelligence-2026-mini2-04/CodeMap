@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 
-from app.agent_graph.state import CodeMapState, WorkerResult
+from app.agent.state import CodeMapState, WorkerResult
 
 logger = logging.getLogger(__name__)
 

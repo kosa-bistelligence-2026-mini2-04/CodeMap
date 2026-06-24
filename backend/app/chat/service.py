@@ -52,7 +52,7 @@ class RepositoryChatService:
             await self.db.flush()
         return job, thread, request.mode, str(clone_path)
 
-    async def run_agent_graph(
+    async def run_agent(
         self,
         repo_id: UUID,
         user_query: str,
@@ -67,8 +67,8 @@ class RepositoryChatService:
           - compact_context: Evidence Aggregator가 생성한 token budget 내 근거 묶음
         """
         try:
-            from app.agent_graph.graph import compiled_graph
-            from app.agent_graph.state import CodeMapState
+            from app.agent.graph import compiled_graph
+            from app.agent.state import CodeMapState
 
             initial_state: CodeMapState = {
                 "user_query": user_query,
@@ -89,7 +89,7 @@ class RepositoryChatService:
             # LangGraph invoke (비동기)
             final_state = await compiled_graph.ainvoke(initial_state)
             logger.info(
-                "[ChatService] agent_graph 실행 완료 — worker_results=%d",
+                "[ChatService] agent 실행 완료 — worker_results=%d",
                 len(final_state.get("worker_results", [])),
             )
             return {
@@ -100,7 +100,7 @@ class RepositoryChatService:
         except Exception as exc:
             # LangGraph 실패 시 기존 키워드 검색으로 폴백
             logger.warning(
-                "[ChatService] agent_graph 실패, 키워드 검색 폴백: %s", exc
+                "[ChatService] agent 실패, 키워드 검색 폴백: %s", exc
             )
             return await self._keyword_search_fallback(user_query, clone_path, mode)
 
@@ -148,15 +148,15 @@ class RepositoryChatService:
             },
         }
 
-    async def run_agent_graph_stream(
+    async def run_agent_stream(
         self,
         repo_id: UUID,
         user_query: str,
         clone_path: str,
         run_id: str,
     ) -> AsyncIterator[dict]:
-        from app.agent_graph.graph import compiled_graph
-        from app.agent_graph.state import CodeMapState
+        from app.agent.graph import compiled_graph
+        from app.agent.state import CodeMapState
 
         initial_state: CodeMapState = {
             "user_query": user_query,
@@ -207,7 +207,7 @@ class RepositoryChatService:
 
         router에서 json.dumps() 후 SSE 포맷으로 전송합니다.
         """
-        from app.agent_graph.agents.final_answer_agent import stream_final_answer
+        from app.agent.agents.final_answer_agent import stream_final_answer
 
         return stream_final_answer(
             repo_name=repo_name,

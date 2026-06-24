@@ -128,7 +128,7 @@ async def chat_legacy_endpoint(
             yield _event({"type": "thread", "threadId": str(thread.id)})
             yield _event({"type": "status", "phase": "searching"})
 
-            async for event in service.run_agent_graph_stream(
+            async for event in service.run_agent_stream(
                 repo_id,
                 run_request.question,
                 clone_path,
@@ -197,7 +197,7 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
 
             compact_context = {}
             # Graph Stream
-            async for event in service.run_agent_graph_stream(repo_id, request.question, clone_path, run_id):
+            async for event in service.run_agent_stream(repo_id, request.question, clone_path, run_id):
                 if event.get("type") == "internal_state":
                     compact_context = event["compact_context"]
                     worker_results = event["worker_results"]

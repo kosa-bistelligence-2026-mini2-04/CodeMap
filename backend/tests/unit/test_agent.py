@@ -1,5 +1,5 @@
 """
-Unit tests for agent_graph — Route Node 보안 로직 및 State 스키마 검증.
+Unit tests for agent — Route Node 보안 로직 및 State 스키마 검증.
 
 LLM 호출 없이 실행 가능한 결정론적 로직만 테스트합니다.
 """
@@ -20,7 +20,7 @@ class TestCodeMapState(unittest.TestCase):
     """CodeMapState TypedDict 스키마 검증."""
 
     def test_state_instantiation(self):
-        from app.agent_graph.state import CodeMapState, WorkerResult, AccessPlanItem
+        from app.agent.state import CodeMapState, WorkerResult, AccessPlanItem
         state: CodeMapState = {
             "user_query": "로그인 코드 어디에 있어?",
             "repo_id": "test-repo",
@@ -36,7 +36,7 @@ class TestCodeMapState(unittest.TestCase):
         self.assertIsNone(state["final_answer"])
 
     def test_worker_result_structure(self):
-        from app.agent_graph.state import WorkerResult
+        from app.agent.state import WorkerResult
         r = WorkerResult(
             id="ev_123",
             path="app/auth/service.py",
@@ -54,7 +54,7 @@ class TestRouteNodeSecurity(unittest.TestCase):
     """Route Node 보안 로직 단위 테스트."""
 
     def _is_safe(self, path):
-        from app.agent_graph.nodes.route_node import _is_safe_path
+        from app.agent.nodes.route_node import _is_safe_path
         return _is_safe_path(path)
 
     def test_safe_paths(self):
@@ -83,7 +83,7 @@ class TestRouteNodeSecurity(unittest.TestCase):
 
     def test_route_node_returns_security_result(self):
         """route_node가 보안 검증된 dict를 반환하는지 검증."""
-        from app.agent_graph.nodes.route_node import route_node, fanout_to_workers
+        from app.agent.nodes.route_node import route_node, fanout_to_workers
 
         state = {
             "user_query": "test",
@@ -124,8 +124,8 @@ class TestEvidenceAggregator(unittest.TestCase):
     """Evidence Aggregator 중복 제거 및 budget 제한 검증."""
 
     def test_deduplication(self):
-        from app.agent_graph.nodes.evidence_aggregator import _deduplicate
-        from app.agent_graph.state import WorkerResult
+        from app.agent.nodes.evidence_aggregator import _deduplicate
+        from app.agent.state import WorkerResult
 
         r1 = WorkerResult(id="1", path="a.py", lineStart=1, lineEnd=2, score=None, snippet="same content", metadata={"worker":"search"})
         r2 = WorkerResult(id="2", path="a.py", lineStart=1, lineEnd=2, score=None, snippet="same content", metadata={"worker":"grep"})  # 중복
@@ -135,8 +135,8 @@ class TestEvidenceAggregator(unittest.TestCase):
         self.assertEqual(len(result), 2)  # r2는 중복 제거
 
     def test_aggregator_builds_compact_context(self):
-        from app.agent_graph.nodes.evidence_aggregator import evidence_aggregator
-        from app.agent_graph.state import WorkerResult
+        from app.agent.nodes.evidence_aggregator import evidence_aggregator
+        from app.agent.state import WorkerResult
 
         state = {
             "user_query": "test",
