@@ -25,7 +25,13 @@ class RepositoryChatService:
         self.job_repository = AnalysisJobRepository(db)
         self.settings = get_settings()
 
-    async def prepare(self, repo_id: UUID, request: ChatRunRequest):
+    async def prepare(
+        self,
+        repo_id: UUID,
+        request: ChatRunRequest,
+        *,
+        commit_user_message: bool = True,
+    ):
         """스레드 생성, 사용자 메시지 저장 후 job/thread/mode를 반환."""
         job = await self.job_repository.get_job_by_id(repo_id)
         if not job:
@@ -40,7 +46,10 @@ class RepositoryChatService:
             request.question.strip().replace("\n", " ")[:72],
         )
         await self.chat_repository.add_message(thread, "user", request.question, request.mode)
-        await self.db.commit()
+        if commit_user_message:
+            await self.db.commit()
+        else:
+            await self.db.flush()
         return job, thread, request.mode, str(clone_path)
 
     async def run_agent_graph(
@@ -167,13 +176,13 @@ class RepositoryChatService:
 
         compact_context = {}
         worker_results = []
-        
+
         async for output in compiled_graph.astream(initial_state):
             for node_name, state_update in output.items():
                 if "events" in state_update:
                     for event in state_update["events"]:
                         yield event
-                
+
                 if "compact_context" in state_update:
                     compact_context = state_update["compact_context"]
                 if "worker_results" in state_update:

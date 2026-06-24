@@ -110,7 +110,11 @@ async def chat_legacy_endpoint(
     service = RepositoryChatService(db)
     run_request = request.to_run_request()
     try:
-        job, thread, mode, clone_path = await service.prepare(repo_id, run_request)
+        job, thread, mode, clone_path = await service.prepare(
+            repo_id,
+            run_request,
+            commit_user_message=False,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409 if "준비" in str(exc) else 404, detail=str(exc)) from exc
 
@@ -159,9 +163,8 @@ async def chat_legacy_endpoint(
             yield _event({"type": "done"})
         except Exception as exc:
             logger.exception("[ChatRouter] legacy SSE stream 오류 run=%s", run_id)
+            await db.rollback()
             yield _event({"type": "error", "error": str(exc)})
-            if not accumulated_answer:
-                await db.rollback()
 
     return StreamingResponse(
         stream(),
