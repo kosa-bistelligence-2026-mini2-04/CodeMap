@@ -14,7 +14,8 @@ os.path.exists()로 이미 Clone된 경우를 감지한다.
     Agent 생성 및 ainvoke() 실행 패턴 참고
   [Sec08 - RAG Agent]
     kosa-langchain-practice/langchain/api/sec08_rag/agent_rag.py
-    pgvector Tool을 Agent에 연결하는 패턴 참고 (향후 연동 예정)
+    pgvector Tool을 Agent에 연결하는 패턴 참고
+    현재 대화형 Agent 검색은 app.agent_graph.search.hybrid_search에서 별도 제공한다.
 """
 
 from __future__ import annotations
@@ -173,7 +174,7 @@ async def clone_node(state: PipelineState) -> dict:
 #
 # [Sec08 - RAG Agent]
 # kosa-langchain-practice/langchain/api/sec08_rag/agent_rag.py 참고
-# 추후 pgvector similarity_search Tool을 Agent에 연결하여 분석 정확도를 높인다.
+# pgvector 기반 similarity search는 대화형 Agent Graph의 Hybrid Search worker에서 수행한다.
 # ──────────────────────────────────────────────────────────────
 async def code_map_node(state: PipelineState) -> dict:
     job_id = state["job_id"]

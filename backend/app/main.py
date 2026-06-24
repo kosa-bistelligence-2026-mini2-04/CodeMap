@@ -75,7 +75,7 @@ app = FastAPI(
 # ──────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: 운영 환경에서 특정 도메인만 허용하도록 수정
+    allow_origins=["*"],  # [보안] 운영 환경(Phase 2) 배포 시 환경변수를 통해 특정 도메인만 허용하도록 변경 필요
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -118,5 +118,3 @@ app.include_router(chat_router)
 # RAG-PARSE 분석 API (API-001 등)
 app.include_router(parse_router)
 
-# TODO: 추후 도메인별 라우터 추가 등록
-# app.include_router(list_router, prefix="/api")
