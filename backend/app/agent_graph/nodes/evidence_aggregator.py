@@ -21,11 +21,11 @@ _TOKEN_BUDGET = 12_000   # 대략 글자 수 기준 (1 token ≈ 4 chars)
 
 
 def _deduplicate(results: list[WorkerResult]) -> list[WorkerResult]:
-    """동일 파일 + 동일 content의 중복 결과 제거."""
+    """동일 파일 + 동일 snippet의 중복 결과 제거."""
     seen: set[tuple] = set()
     deduped: list[WorkerResult] = []
     for r in results:
-        key = (r.get("file_path"), r.get("content", "")[:200])
+        key = (r.get("path"), r.get("snippet", "")[:200])
         if key not in seen:
             seen.add(key)
             deduped.append(r)
@@ -47,8 +47,8 @@ def evidence_aggregator(state: CodeMapState) -> dict:
     grouped: dict[str, list[WorkerResult]] = defaultdict(list)
     no_path: list[WorkerResult] = []
     for r in deduped:
-        if r.get("file_path"):
-            grouped[r["file_path"]].append(r)
+        if r.get("path"):
+            grouped[r["path"]].append(r)
         else:
             no_path.append(r)
 
@@ -58,38 +58,38 @@ def evidence_aggregator(state: CodeMapState) -> dict:
 
     for file_path, items in sorted(grouped.items()):
         for item in items:
-            content = item.get("content", "")
-            if total_chars + len(content) > _TOKEN_BUDGET:
+            snippet = item.get("snippet", "")
+            if total_chars + len(snippet) > _TOKEN_BUDGET:
                 # 남은 budget만큼 잘라서 포함
                 available = _TOKEN_BUDGET - total_chars
                 if available > 100:
-                    content = content[:available] + "\n... (budget 초과로 잘림)"
+                    snippet = snippet[:available] + "\n... (budget 초과로 잘림)"
                 else:
                     break
             snippets.append({
                 "file": file_path,
                 "worker": item.get("worker"),
                 "query": item.get("query"),
-                "content": content,
+                "snippet": snippet,
             })
-            total_chars += len(content)
+            total_chars += len(snippet)
 
     # 파일 경로 없는 결과 (search 결과 등) 추가
     for item in no_path:
-        content = item.get("content", "")
-        if total_chars + len(content) > _TOKEN_BUDGET:
+        snippet = item.get("snippet", "")
+        if total_chars + len(snippet) > _TOKEN_BUDGET:
             available = _TOKEN_BUDGET - total_chars
             if available > 100:
-                content = content[:available] + "\n... (budget 초과로 잘림)"
+                snippet = snippet[:available] + "\n... (budget 초과로 잘림)"
             else:
                 break
         snippets.append({
             "file": None,
             "worker": item.get("worker"),
             "query": item.get("query"),
-            "content": content,
+            "snippet": snippet,
         })
-        total_chars += len(content)
+        total_chars += len(snippet)
 
     compact_context = {
         "total_results": len(raw_results),

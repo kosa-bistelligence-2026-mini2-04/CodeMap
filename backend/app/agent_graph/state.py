@@ -12,13 +12,18 @@ from typing import Annotated, TypedDict
 import operator
 
 
-class WorkerResult(TypedDict):
+class WorkerResult(TypedDict, total=False):
     """단일 Worker가 수집한 원본 결과."""
+    id: str              # 결과 ID (ex: uuid)
     worker: str          # "search" | "dir" | "grep" | "read"
     tool: str            # 실행한 도구명
     query: str           # 사용한 검색/탐색 쿼리
-    content: str         # 도구 실행 결과 (raw, 요약 없음)
-    file_path: str | None  # 해당 파일 경로 (있는 경우)
+    path: str | None     # 해당 파일 경로
+    lineStart: int | None
+    lineEnd: int | None
+    score: float | None  # 시맨틱 검색 시 유사도 등
+    snippet: str         # 결과 내용 (content)
+    metadata: dict | None
 
 
 class AccessPlanItem(TypedDict):
@@ -42,6 +47,12 @@ class CodeMapState(TypedDict):
     worker_results는 Annotated[list, operator.add]로 선언하여
     병렬 Worker들이 Send API로 결과를 자동 병합(fan-in)합니다.
     """
+    # ── 공통 / 메타데이터 ──────────────────────────────
+    run_id: str                       # 실행 ID
+    events: list                      # 상태 변경/감사 로그
+    durations: dict                   # 각 노드/단계별 소요 시간
+    errors: list                      # 실행 중 발생한 오류 목록
+
     # ── 입력 ──────────────────────────────────────────
     user_query: str                   # 사용자 원본 질문
     repo_id: str                      # 분석 대상 저장소 ID

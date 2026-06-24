@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from app.agent_graph.state import AccessPlanItem, CodeMapState, SecurityResult
 
@@ -36,32 +36,46 @@ _ALLOWED_EXTENSIONS = {
 }
 
 
-def _is_safe_path(path: str | None) -> bool:
+def _is_safe_path(path: str | None, clone_root: str = "") -> bool:
     """Path Traversal 공격 및 민감 파일 접근 차단."""
     if path is None:
         return True  # search 도구는 path 없음 → 안전
-    # 절대 경로 또는 상위 디렉토리 탐색 차단
-    if path.startswith("/") or ".." in PurePosixPath(path).parts:
-        return False
+        
     # 민감 파일 패턴 차단
     if _SENSITIVE_PATTERNS.search(path):
         return False
+
+    # 절대 경로 또는 상위 디렉토리 탐색 차단 & symlink 우회 방지
+    if clone_root:
+        try:
+            target = Path(clone_root) / path
+            # resolve() 후 clone_root 내에 위치하는지 검증
+            if not target.resolve().is_relative_to(Path(clone_root).resolve()):
+                return False
+        except Exception:
+            return False
+    else:
+        # clone_root가 제공되지 않은 경우 단순 문자열 기반 차단
+        if path.startswith("/") or ".." in PurePosixPath(path).parts:
+            return False
+            
     return True
 
 
-def route_node(state: CodeMapState) -> list[Send]:
+def route_node(state: CodeMapState) -> dict:
     """
     Route Node.
 
-    access_plan을 검증 후 승인된 각 항목을 해당 Worker 노드로 Send합니다.
-    병렬 fan-out: 모든 Worker가 동시에 실행됩니다.
+    access_plan을 검증 후 승인된 계획을 State에 반영합니다.
+    (실제 라우팅은 graph.py의 조건부 엣지에서 수행)
     """
     plan: list[AccessPlanItem] = state.get("access_plan", [])
+    clone_path = state.get("clone_path", "")
     approved: list[AccessPlanItem] = []
     rejected: list[AccessPlanItem] = []
 
     for item in plan:
-        if _is_safe_path(item.get("path")):
+        if _is_safe_path(item.get("path"), clone_root=clone_path):
             approved.append(item)
         else:
             logger.warning(
@@ -75,18 +89,4 @@ def route_node(state: CodeMapState) -> list[Send]:
         len(approved), len(rejected),
     )
 
-    # Send API로 Worker 병렬 실행
-    # 각 Worker 노드는 개별 plan 항목을 받아 독립 실행됩니다.
-    from langgraph.types import Send  # lazy import — langgraph 없는 환경에서도 보안 로직 테스트 가능
-    sends: list[Send] = []
-    for item in approved:
-        tool = item.get("tool", "search")
-        node_name = f"{tool}_worker"
-        sends.append(Send(node_name, {**state, "_plan_item": item}))
-
-    if not sends:
-        # 승인된 계획이 없으면 evidence_aggregator로 바로 진행
-        logger.warning("[RouteNode] 승인된 plan 없음 — evidence_aggregator로 직행")
-        sends.append(Send("evidence_aggregator", state))
-
-    return sends
+    return {"security_result": {"approved": approved, "rejected": rejected}}
