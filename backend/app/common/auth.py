@@ -5,7 +5,7 @@ FastAPI Depends()로 주입 가능한 get_current_user 함수와
 JWT 생성/검증 헬퍼를 제공한다.
 
 보호된 엔드포인트에서 사용법:
-    from app.core.auth import get_current_user
+    from app.common.auth import get_current_user
     from app.auth.schemas import TokenData
 
     @router.get("/protected")
@@ -19,8 +19,8 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
-from app.core.config import get_settings
-from app.core.exceptions import UnauthorizedError
+from app.common.config import get_settings
+from app.common.exceptions import UnauthorizedError
 
 settings = get_settings()
 

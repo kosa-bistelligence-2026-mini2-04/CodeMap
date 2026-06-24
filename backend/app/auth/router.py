@@ -21,8 +21,8 @@ from app.auth.schemas import (
     RegisterResponse,
 )
 from app.auth.service import AuthService
-from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.common.auth import get_current_user
+from app.common.database import get_db
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 

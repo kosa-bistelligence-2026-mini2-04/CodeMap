@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from app.core.exceptions import (
+from app.common.exceptions import (
     register_exception_handlers,
     _build_http_exception_response,
 )

@@ -47,7 +47,7 @@ class AuthRegisterTests(unittest.TestCase):
     @patch("app.auth.router.AuthService")
     def test_register_email_already_exists(self, mock_service_class):
         """중복 이메일 가입 → 409 EMAIL_ALREADY_EXISTS"""
-        from app.core.exceptions import EmailAlreadyExistsError
+        from app.common.exceptions import EmailAlreadyExistsError
 
         mock_svc = mock_service_class.return_value
         mock_svc.register = AsyncMock(side_effect=EmailAlreadyExistsError())
@@ -104,7 +104,7 @@ class AuthLoginTests(unittest.TestCase):
     @patch("app.auth.router.AuthService")
     def test_login_invalid_credentials(self, mock_service_class):
         """잘못된 비밀번호 → 401 INVALID_CREDENTIALS"""
-        from app.core.exceptions import InvalidCredentialsError
+        from app.common.exceptions import InvalidCredentialsError
 
         mock_svc = mock_service_class.return_value
         mock_svc.login = AsyncMock(side_effect=InvalidCredentialsError())
@@ -150,7 +150,7 @@ class AuthRefreshTests(unittest.TestCase):
     @patch("app.auth.router.AuthService")
     def test_refresh_invalid_token(self, mock_service_class):
         """만료/위조된 Refresh Token → 401 INVALID_REFRESH_TOKEN"""
-        from app.core.exceptions import InvalidRefreshTokenError
+        from app.common.exceptions import InvalidRefreshTokenError
 
         mock_svc = mock_service_class.return_value
         mock_svc.refresh = AsyncMock(side_effect=InvalidRefreshTokenError())

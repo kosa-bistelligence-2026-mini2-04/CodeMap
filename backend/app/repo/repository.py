@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AlreadyInProgressError
+from app.common.exceptions import AlreadyInProgressError
 
 from app.repo.models import AnalysisJob
 from app.repo.schemas import JobStatus

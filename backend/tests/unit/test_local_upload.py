@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import UploadFile
 
-from app.core.exceptions import CodeMapException
+from app.common.exceptions import CodeMapException
 from app.repo.local_upload import normalize_upload_path, save_local_upload
 
 

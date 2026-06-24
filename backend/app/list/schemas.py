@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.schemas import ErrorResponse
+from app.common.schemas import ErrorResponse
 
 
 class AnalysisJobItem(BaseModel):

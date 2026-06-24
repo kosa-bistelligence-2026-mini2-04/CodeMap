@@ -9,8 +9,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.core.exceptions import register_exception_handlers
-from app.core.database import engine, Base
+from app.common.exceptions import register_exception_handlers
+from app.common.database import engine, Base
 from sqlalchemy import text
 
 # Import model classes to ensure they register on Base.metadata

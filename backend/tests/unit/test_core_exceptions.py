@@ -3,7 +3,7 @@ import unittest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app.core.exceptions import build_error_response, register_exception_handlers
+from app.common.exceptions import build_error_response, register_exception_handlers
 
 
 class CoreExceptionHandlerTests(unittest.TestCase):

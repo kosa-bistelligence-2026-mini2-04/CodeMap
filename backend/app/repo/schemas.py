@@ -12,7 +12,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.core.schemas import ErrorResponse
+from app.common.schemas import ErrorResponse
 
 
 # ──────────────────────────────────────────────
