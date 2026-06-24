@@ -145,10 +145,9 @@ WHERE type = 'DIRECTORY' AND job_id = :job_id AND path = :dir_path;
 
 ### 공백 E (유지): `report_json` JSONB 집중
 
-연관 이슈: **#92** (`ParseResult` → `report_json` 저장 연결 자체가 아직 누락됨)
-
-> [!TIP]
-> 분리(정규화)보다 **Issue #92 저장 연결 작업 먼저 완료** 후 분리 여부 결정이 현실적입니다.
+> [!NOTE]
+> **Issue #92는 PR #99(2026-06-23 main 머지)에서 해결 완료**됐습니다. `repo/service.py`의 `_run_parse_and_embed`에서 `run_parse_pipeline` 결과를 `report_json`에 병합하는 연결이 구현됐으며, `embed_ready` / `vector_search` 계약도 함께 추가됐습니다.
+> `report_json` 구조 정규화(분리) 여부는 실데이터 운용 후 별도 판단 예정입니다.
 
 ---
 
@@ -163,7 +162,7 @@ WHERE type = 'DIRECTORY' AND job_id = :job_id AND path = :dir_path;
 |---|---|---|---|
 | **#101** | `code_dependencies` 과소 적재 + 레거시 테이블 정리 | 🔴 높음 | `init.sql` DROP + RAG-PARSE-B-208 보강 |
 | **#93** | 파일 `lines`/`size` 메타데이터 추가 | 🔴 높음 | 공백 B — `code_nodes` FILE 노드 확장 |
-| **#92** | `ParseResult` → `report_json` 저장 연결 누락 | 🔴 높음 | 공백 E 선행 과제 |
+| ~~**#92**~~ | ~~`ParseResult` → `report_json` 저장 연결 누락~~ | ✅ **PR #99에서 해결 (main 머지 완료)** | `repo/service.py` `_run_parse_and_embed` 구현 |
 | **#94** | Risk Score 오탐 개선 | 🟡 중간 | guard 도메인 명세 보강 |
 | **#103** | 다수 job_id 시 벡터검색 효율 (스케일) | 🟢 낮음 | Phase 2 후순위 |
 
@@ -185,7 +184,7 @@ WHERE type = 'DIRECTORY' AND job_id = :job_id AND path = :dir_path;
 - [ ] `init.sql` 레거시 테이블 정리 — `source_files`, `code_chunks`, `file_dependencies` DROP (Issue #101)
 - [ ] `code_nodes` JSONB 인덱스 추가 — `file_metadata->>'symbol'` (공백 A 핵심)
 - [ ] `code_nodes` FILE 타입에 `file_role`, `is_entry_point` 추가 (공백 B)
-- [ ] Issue #92 저장 연결 작업 — `ParseResult` → `report_json`
+- [x] ~~Issue #92 저장 연결 작업~~ — PR #99에서 해결 완료
 
 ### 중기 반영 (다음 스프린트)
 
