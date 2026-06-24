@@ -104,7 +104,7 @@ function AnalyzeWorkspace() {
           }
         }
         const ragStatus = nextJob.report?.rag_index?.status;
-        if (!ragStatus) {
+        if (ragStatus === "pending" || ragStatus === "in_progress") {
           setStatus("running"); // 백그라운드 임베딩 대기
         } else {
           setStatus("completed");
@@ -305,7 +305,7 @@ function AnalyzeWorkspace() {
             <div className="mx-auto flex min-h-full max-w-xl items-center justify-center"><div className="w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center"><AlertTriangle className="mx-auto size-6 text-red-400" /><h2 className={`mt-3 text-sm font-bold ${isDark ? "" : "text-zinc-800"}`}>{isKo ? "분석을 완료하지 못했습니다" : "Analysis failed"}</h2><p className="mt-2 text-xs leading-5 text-zinc-500">{error}</p><button onClick={() => setShowNewAnalysis(true)} className={`mt-5 rounded-lg px-3 py-2 text-[11px] font-bold ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>{isKo ? "입력 확인하기" : "Check input"}</button></div></div>
           )}
 
-          {status === "completed" && report && ragIndexStatus !== "ready" && ragIndexStatus && (
+          {status === "completed" && report && ragIndexStatus !== "ready" && ragIndexStatus && ragIndexStatus !== "pending" && ragIndexStatus !== "in_progress" && (
             <div className={`mx-4 mt-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11px] ${
               ragIndexStatus === "failed"
                 ? "border-red-500/20 bg-red-500/5 text-red-400"
@@ -315,6 +315,8 @@ function AnalyzeWorkspace() {
               <span>
                 {ragIndexStatus === "failed"
                   ? (isKo ? "AI 벡터 인덱싱 실패 — 키워드 검색으로 대화가 가능합니다." : "AI vector indexing failed — keyword-based chat is available.")
+                  : ragIndexStatus === "empty"
+                  ? (isKo ? "벡터화할 유효한 코드가 없습니다 — 키워드 검색으로 대화가 가능합니다." : "No valid code to vectorize — keyword-based chat is available.")
                   : (isKo ? "AI 벡터 인덱싱 생략됨 (API 키 미설정) — 키워드 검색으로 대화가 가능합니다." : "AI vector indexing skipped (no API key) — keyword-based chat is available.")}
               </span>
             </div>
