@@ -1,18 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Sun, Moon, User, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Sun, Moon, LogOut } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const isHome = pathname === "/";
   const { theme, locale, toggleTheme, toggleLocale, t } = useApp();
   const { user, isLoggedIn, logout } = useAuthStore();
 
   const isDark = theme === "dark";
+
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+  };
 
   // Toggle button style — adapts to current theme
   const toggleBtnClass =
@@ -69,7 +75,7 @@ export function Navbar() {
               {user?.email?.split('@')[0]}
             </span>
             <button
-              onClick={() => logout()}
+              onClick={handleLogout}
               className={
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm " +
                 (isDark
@@ -173,19 +179,19 @@ export function Navbar() {
           {/* User Section */}
           <div className="flex items-center gap-2 ml-2 pl-2 border-l border-zinc-200 dark:border-zinc-800">
             {isLoggedIn ? (
-              <button
-                onClick={() => logout()}
-                className={
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all " +
-                  (isDark
-                    ? "bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700 hover:text-white"
-                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-black")
-                }
-                title="Sign out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline-block">Sign out</span>
-              </button>
+            <button
+              onClick={handleLogout}
+              className={
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all " +
+                (isDark
+                  ? "bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-black")
+              }
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline-block">Sign out</span>
+            </button>
             ) : (
               <>
                 <Link

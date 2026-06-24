@@ -48,8 +48,9 @@ export default function SignUpPage() {
       setTimeout(() => {
         router.push("/analyze");
       }, 1000);
-    } catch (err: any) {
-      setError(err.message || "Failed to create an account. Please try again.");
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to create an account. Please try again.";
+      setError(errorMsg);
       setIsLoading(false);
     }
   };

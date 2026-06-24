@@ -26,8 +26,9 @@ export default function SignInPage() {
     try {
       await login({ email, password });
       router.push("/analyze"); // 로그인 성공 시 프로젝트 분석 페이지로
-    } catch (err: any) {
-      setError(err.message || "Failed to sign in. Please check your credentials.");
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to sign in. Please check your credentials.";
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +145,7 @@ export default function SignInPage() {
             isDark ? "text-zinc-400" : "text-zinc-500"
           }`}
         >
-          Don't have an account?{" "}
+          {"Don't have an account?"}{" "}
           <Link
             href="/signup"
             className={`font-semibold hover:underline ${
