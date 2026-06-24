@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { ChevronDown, Github, RefreshCw, SlidersHorizontal, Sparkles, AlertTriangle, Info } from "lucide-react";
+import { ChevronDown, Github, RefreshCw, SlidersHorizontal, Sparkles, Info } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
 
 export type RepoSource = "local" | "github";
