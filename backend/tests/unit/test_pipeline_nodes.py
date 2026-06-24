@@ -70,3 +70,50 @@ class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], JobStatus.COMPLETED.value)
         self.assertEqual(result["progress"], 100)
         self.assertEqual(result["analysis_report"]["model_used"], "auto")
+
+    # ── 회귀 테스트: doc_gen / onboarding 예외 시 DB·SSE 종료 상태 기록 ──────────────────
+    # PR #112 리뷰 blocker — 두 노드의 except 블록이 _update_db·_publish를 호출하지 않아
+    # 클라이언트가 IN_PROGRESS에서 무한 대기하는 버그를 막기 위한 테스트.
+
+    async def test_doc_gen_node_failure_publishes_failed_event(self):
+        """doc_gen_node 내부 예외 발생 시 FAILED 이벤트가 DB·SSE에 기록되어야 한다."""
+        with (
+            patch.object(nodes, "_update_db", AsyncMock()) as mock_update,
+            patch.object(nodes, "_publish", AsyncMock()) as mock_publish,
+            patch.object(nodes, "_llm_json", AsyncMock(side_effect=RuntimeError("boom"))),
+        ):
+            result = await nodes.doc_gen_node(pipeline_state(analysis_report={"entrypoints": []}))
+
+        self.assertEqual(result["status"], JobStatus.FAILED.value)
+        self.assertEqual(result["current_stage"], PipelineStage.DOC_GEN.value)
+        self.assertIsNotNone(result["error"])
+
+        # DB가 FAILED로 갱신되었는지 검증
+        update_kwargs = mock_update.call_args.kwargs
+        self.assertEqual(update_kwargs["status"], JobStatus.FAILED.value)
+        self.assertEqual(update_kwargs["stage"], PipelineStage.DOC_GEN.value)
+
+        # SSE FAILED 이벤트가 발행되었는지 검증
+        publish_args = mock_publish.call_args.args
+        self.assertIs(publish_args[2], JobStatus.FAILED)
+
+    async def test_onboarding_node_failure_publishes_failed_event(self):
+        """onboarding_node 내부 예외 발생 시 FAILED 이벤트가 DB·SSE에 기록되어야 한다."""
+        with (
+            patch.object(nodes, "_update_db", AsyncMock()) as mock_update,
+            patch.object(nodes, "_publish", AsyncMock()) as mock_publish,
+            patch.object(nodes, "_llm_json", AsyncMock(side_effect=RuntimeError("boom"))),
+        ):
+            result = await nodes.onboarding_node(pipeline_state(analysis_report={"entrypoints": []}))
+
+        self.assertEqual(result["status"], JobStatus.FAILED.value)
+        self.assertEqual(result["current_stage"], PipelineStage.ONBOARDING.value)
+
+        # DB가 FAILED로 갱신되었는지 검증
+        update_kwargs = mock_update.call_args.kwargs
+        self.assertEqual(update_kwargs["status"], JobStatus.FAILED.value)
+        self.assertEqual(update_kwargs["stage"], PipelineStage.ONBOARDING.value)
+
+        # SSE FAILED 이벤트가 발행되었는지 검증
+        publish_args = mock_publish.call_args.args
+        self.assertIs(publish_args[2], JobStatus.FAILED)

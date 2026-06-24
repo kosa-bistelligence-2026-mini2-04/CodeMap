@@ -653,7 +653,19 @@ class AnalysisService:
 
             # [Sec09 - work_flow.ainvoke()] LangGraph 워크플로우 실행
             supervisor = AnalysisPipelineSupervisor()
-            await supervisor.run(initial_state)
+            final_state = await supervisor.run(initial_state)
+
+            # 노드 내부에서 예외를 삼키고 FAILED 상태를 반환한 경우
+            # (doc_gen / onboarding 등) _update_db·_publish는 이미 해당 노드에서 완료되므로
+            # 후속 RAG 파싱을 건너뛰고 조기 종료한다.
+            if final_state and final_state.get("status") == JobStatus.FAILED.value:
+                logger.warning(
+                    "파이프라인 FAILED 상태로 종료 — RAG 인덱싱 건너술 (job=%s stage=%s error=%s)",
+                    job_id,
+                    final_state.get("current_stage"),
+                    final_state.get("error"),
+                )
+                return
 
             # 분석(그래프) 완료 후, 같은 백그라운드에서 RAG 정밀 파싱(청킹·코드맵)을
             # report_json에 병합하고 청크를 임베딩해 pgvector에 적재한다.

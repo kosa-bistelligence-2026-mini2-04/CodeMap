@@ -390,6 +390,16 @@ async def doc_gen_node(state: PipelineState) -> dict:
     except Exception as exc:
         elapsed = time.perf_counter() - _t0
         logger.exception("doc_gen failed for job %s (%.3f초 경과 후 실패)", job_id, elapsed)
+        # clone_node / code_map_node 패턴과 동일하게 FAILED 상태를 DB·SSE에 즉시 기록한다.
+        # 예외를 삼켜 그래프가 정상 반환되더라도 클라이언트가 종료 이벤트를 받을 수 있게 한다.
+        await _update_db(
+            job_id,
+            status=JobStatus.FAILED.value,
+            stage=PipelineStage.DOC_GEN.value,
+            progress=state.get("progress", 64),
+            message=f"문서 생성 실패: {exc}",
+        )
+        await _publish(job_id, PipelineStage.DOC_GEN, JobStatus.FAILED, state.get("progress", 64), f"문서 생성 실패: {exc}")
         return {
             "current_stage": PipelineStage.DOC_GEN.value,
             "progress": state.get("progress", 64),
@@ -470,6 +480,15 @@ async def onboarding_node(state: PipelineState) -> dict:
     except Exception as exc:
         elapsed = time.perf_counter() - _t0
         logger.exception("onboarding failed for job %s (%.3f초 경과 후 실패)", job_id, elapsed)
+        # clone_node / code_map_node 패턴과 동일하게 FAILED 상태를 DB·SSE에 즉시 기록한다.
+        await _update_db(
+            job_id,
+            status=JobStatus.FAILED.value,
+            stage=PipelineStage.ONBOARDING.value,
+            progress=state.get("progress", 80),
+            message=f"온보딩 가이드 생성 실패: {exc}",
+        )
+        await _publish(job_id, PipelineStage.ONBOARDING, JobStatus.FAILED, state.get("progress", 80), f"온보딩 가이드 생성 실패: {exc}")
         return {
             "current_stage": PipelineStage.ONBOARDING.value,
             "progress": state.get("progress", 80),
