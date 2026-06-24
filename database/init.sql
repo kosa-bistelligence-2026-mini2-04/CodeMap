@@ -92,8 +92,8 @@ CREATE TABLE IF NOT EXISTS code_dependencies (
 );
 
 -- 8. 인덱스 설정
--- 코사인 유사도 검색을 위한 HNSW 인덱스 구축
--- HNSW 채택 근거: IVFFlat 대비 빠른 빌드 시간, 증분 삽입 지원, 1536차원에서 안정적 성능
+-- 코사인 유사도 검색을 위한 HNSW 인덱스 구축 (이슈 #103 대응)
+-- HNSW 채택 근거: IVFFlat 대비 빠른 빌드 시간, 증분 삽입 지원, 1536차원에서 안정적 성능 및 다수 job_id 검색 효율 극대화
 -- 관련 명세: RAG_EMBED_SPEC.md, EMBEDDING_MODEL_DECISION.md
 CREATE INDEX IF NOT EXISTS code_chunks_vector_idx ON code_chunks USING hnsw (embedding_vector vector_cosine_ops);
 

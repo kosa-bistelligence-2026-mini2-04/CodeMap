@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import func, select
+from sqlalchemy.orm import defer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import UUID
@@ -28,6 +29,7 @@ class AnalysisJobListRepository:
         offset = (page - 1) * limit
         result = await self.db.execute(
             select(AnalysisJob)
+            .options(defer(AnalysisJob.report_json))
             .order_by(AnalysisJob.created_at.desc())
             .offset(offset)
             .limit(limit)

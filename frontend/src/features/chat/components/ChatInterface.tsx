@@ -102,19 +102,22 @@ export function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamPhase]);
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(event.target.value);
-    event.target.style.height = "auto";
-    event.target.style.height = `${Math.min(event.target.scrollHeight, compact ? 112 : 160)}px`;
-  };
+
+
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
 
   const handleSend = useCallback(async (text?: string) => {
     const content = (text || input).trim();
     if (!content || isStreaming || !repoId) return;
     const userMessage: ChatMessage = {
-      id: crypto.randomUUID(), role: "user", content, timestamp: Date.now(), mode,
+      id: generateId(), role: "user", content, timestamp: Date.now(), mode,
     };
-    const assistantId = crypto.randomUUID();
+    const assistantId = generateId();
     setMessages((current) => [...current, userMessage, {
       id: assistantId, role: "assistant", content: "", timestamp: Date.now(), mode,
     }]);

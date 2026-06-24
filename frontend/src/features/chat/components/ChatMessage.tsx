@@ -2,12 +2,13 @@
 
 import { memo, useState } from "react";
 import { motion } from "framer-motion";
-import { Bot, User, Copy, Check, ChevronRight, BrainCircuit, FileCode2 } from "lucide-react";
+import { Bot, User, Copy, Check, FileCode2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage as ChatMessageType } from "@/features/chat/api/chatApi";
 import { useApp } from "@/common/contexts/AppContext";
 import { MermaidViewer } from "./MermaidViewer";
+import { AgentExplorationTimeline } from "./AgentExplorationTimeline";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -70,21 +71,10 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
           <div className="flex flex-col gap-3">
             {/* Agent Exploration Steps */}
             {message.explorationSteps && message.explorationSteps.length > 0 && (
-              <details className="group/details">
-                <summary className="flex items-center gap-2 cursor-pointer list-none text-xs font-medium text-zinc-400 hover:text-zinc-300 transition-colors mb-1 select-none">
-                  <BrainCircuit className="w-3.5 h-3.5" />
-                  <span>에이전트 탐색 과정 ({message.explorationSteps.length})</span>
-                  <ChevronRight className="w-3.5 h-3.5 transition-transform group-open/details:rotate-90 ml-auto" />
-                </summary>
-                <div className="pl-5 pr-2 py-2 mt-2 mb-4 border-l border-zinc-700/50 flex flex-col gap-2 text-xs text-zinc-500">
-                  {message.explorationSteps.map((step) => (
-                    <div key={step} className="flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 shrink-0 mt-1.5" />
-                      <span>{step}</span>
-                    </div>
-                  ))}
-                </div>
-              </details>
+              <AgentExplorationTimeline 
+                steps={message.explorationSteps} 
+                isStreaming={isStreaming || false} 
+              />
             )}
 
             <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">

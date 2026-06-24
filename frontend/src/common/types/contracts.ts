@@ -128,6 +128,10 @@ export interface WorkspaceReport {
   files: WorkspaceFile[];
   health_score: number;
   executive_summary: string;
+  rag_index?: {
+    status: 'ready' | 'empty' | 'skipped' | 'failed';
+    chunks: number;
+  };
   key_strengths: string[];
   key_risks: string[];
   recommendations: Recommendation[];

@@ -14,11 +14,13 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: `${backendUrl}/api/:path*`,
       },
+      {
+        source: "/ws/:path*",
+        destination: `${backendUrl}/ws/:path*`,
+      },
     ];
   },
-  turbopack: {
-    root: __dirname,
-  },
+  allowedDevOrigins: ['192.168.5.52'],
 };
 
 export default nextConfig;

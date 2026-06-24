@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, CSSProperties } from "react";
+import { FixedSizeList as List } from "react-window";
+import { AutoSizer } from "react-virtualized-auto-sizer";
 import {
   ChevronRight,
   FileCode2,
@@ -29,15 +31,22 @@ interface FileTreeProps {
   className?: string;
 }
 
-interface TreeNodesProps {
-  nodes: FileTreeNode[];
+type FlatNode = {
+  node: FileTreeNode;
   depth: number;
-  expandedPaths: Set<string>;
-  entrypointPaths: Set<string>;
-  activeFile?: string | null;
-  isDark: boolean;
-  onDirectoryToggle: (path: string) => void;
-  onFileSelect?: (file: string) => void;
+};
+
+const FILE_ITEM_HEIGHT = 28;
+
+function flattenTree(nodes: FileTreeNode[], depth: number, expanded: Set<string>): FlatNode[] {
+  let result: FlatNode[] = [];
+  for (const node of nodes) {
+    result.push({ node, depth });
+    if (node.type === "directory" && expanded.has(node.path)) {
+      result = result.concat(flattenTree(node.children, depth + 1, expanded));
+    }
+  }
+  return result;
 }
 
 function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[] {
@@ -53,97 +62,82 @@ function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[] {
   });
 }
 
-function TreeNodes({
-  nodes,
-  depth,
-  expandedPaths,
-  entrypointPaths,
-  activeFile,
-  isDark,
-  onDirectoryToggle,
-  onFileSelect,
-}: TreeNodesProps) {
+function Row({ index, style, data }: { index: number; style: CSSProperties; data: any }) {
+  const {
+    flatNodes,
+    entrypointPaths,
+    activeFile,
+    isDark,
+    expandedPaths,
+    toggleDirectory,
+    onFileSelect,
+  } = data;
+  const flatNode = flatNodes[index] as FlatNode;
+  const { node, depth } = flatNode;
+
+  if (node.type === "directory") {
+    const isExpanded = expandedPaths.has(node.path);
+    const FolderIcon = isExpanded ? FolderOpen : Folder;
+
+    return (
+      <div style={style} className="flex items-center">
+        <button
+          type="button"
+          onClick={() => toggleDirectory(node.path)}
+          aria-expanded={isExpanded}
+          className={`flex w-full items-center gap-1 rounded px-1.5 py-1 text-left transition ${
+            isDark
+              ? "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+              : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+          }`}
+          style={{ paddingLeft: `${depth * 12 + 6}px` }}
+        >
+          <ChevronRight className={`size-3 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+          <FolderIcon className={`size-3.5 shrink-0 ${isExpanded ? "text-blue-400" : "text-zinc-500"}`} />
+          <span className="min-w-0 flex-1 truncate font-mono text-[10px]">{node.name}</span>
+        </button>
+      </div>
+    );
+  }
+
+  const file = node.file;
+  const isEntrypoint = entrypointPaths.has(node.path);
+  const Icon = isEntrypoint
+    ? Play
+    : file?.kind === "test"
+      ? TestTube2
+      : file?.language === "JSON"
+        ? FileJson2
+        : FileCode2;
+
   return (
-    <ul className={depth === 0 ? "space-y-0.5" : ""}>
-      {nodes.map((node) => {
-        if (node.type === "directory") {
-          const isExpanded = expandedPaths.has(node.path);
-          const FolderIcon = isExpanded ? FolderOpen : Folder;
-
-          return (
-            <li key={node.path}>
-              <button
-                type="button"
-                onClick={() => onDirectoryToggle(node.path)}
-                aria-expanded={isExpanded}
-                className={`flex w-full items-center gap-1 rounded px-1.5 py-1 text-left transition ${
-                  isDark
-                    ? "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-                    : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
-                }`}
-                style={{ paddingLeft: `${depth * 12 + 6}px` }}
-              >
-                <ChevronRight className={`size-3 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                <FolderIcon className={`size-3.5 shrink-0 ${isExpanded ? "text-blue-400" : "text-zinc-500"}`} />
-                <span className="min-w-0 flex-1 truncate font-mono text-[10px]">{node.name}</span>
-              </button>
-              {isExpanded && (
-                <TreeNodes
-                  nodes={node.children}
-                  depth={depth + 1}
-                  expandedPaths={expandedPaths}
-                  entrypointPaths={entrypointPaths}
-                  activeFile={activeFile}
-                  isDark={isDark}
-                  onDirectoryToggle={onDirectoryToggle}
-                  onFileSelect={onFileSelect}
-                />
-              )}
-            </li>
-          );
-        }
-
-        const file = node.file;
-        const isEntrypoint = entrypointPaths.has(node.path);
-        const Icon = isEntrypoint
-          ? Play
-          : file?.kind === "test"
-            ? TestTube2
-            : file?.language === "JSON"
-              ? FileJson2
-              : FileCode2;
-
-        return (
-          <li key={node.path}>
-            <button
-              type="button"
-              onClick={() => onFileSelect?.(node.path)}
-              aria-current={activeFile === node.path ? "true" : undefined}
-              title={node.path}
-              className={`group flex w-full items-center gap-2 rounded px-2 py-1.5 transition ${
-                activeFile === node.path
-                  ? isDark
-                    ? "bg-blue-500/10 text-blue-400"
-                    : "bg-blue-50 text-blue-600"
-                  : isDark
-                    ? "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-                    : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
-              }`}
-              style={{ paddingLeft: `${depth * 12 + 21}px` }}
-            >
-              <Icon className={`size-3.5 shrink-0 ${isEntrypoint ? "fill-emerald-400/15 text-emerald-400" : ""}`} />
-              <span className="min-w-0 flex-1 truncate font-mono text-[10px]">{node.name}</span>
-              {isEntrypoint && (
-                <span className="rounded bg-emerald-500/10 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-emerald-400">
-                  entry
-                </span>
-              )}
-              <span className="text-[8px] text-zinc-700">{file?.lines}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+    <div style={style} className="flex items-center">
+      <button
+        type="button"
+        onClick={() => onFileSelect?.(node.path)}
+        aria-current={activeFile === node.path ? "true" : undefined}
+        title={node.path}
+        className={`group flex w-full items-center gap-2 rounded px-2 py-1.5 transition ${
+          activeFile === node.path
+            ? isDark
+              ? "bg-blue-500/10 text-blue-400"
+              : "bg-blue-50 text-blue-600"
+            : isDark
+              ? "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+              : "text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+        }`}
+        style={{ paddingLeft: `${depth * 12 + 21}px` }}
+      >
+        <Icon className={`size-3.5 shrink-0 ${isEntrypoint ? "fill-emerald-400/15 text-emerald-400" : ""}`} />
+        <span className="min-w-0 flex-1 truncate font-mono text-[10px]">{node.name}</span>
+        {isEntrypoint && (
+          <span className="rounded bg-emerald-500/10 px-1 py-0.5 text-[7px] font-bold uppercase tracking-wide text-emerald-400">
+            entry
+          </span>
+        )}
+        <span className="text-[8px] text-zinc-700">{file?.lines}</span>
+      </button>
+    </div>
   );
 }
 
@@ -196,6 +190,10 @@ export function FileTree({
     return searchPaths;
   }, [expandedPaths, filteredTree, normalizedQuery]);
 
+  const flatNodes = useMemo(() => {
+    return flattenTree(filteredTree, 0, visibleExpandedPaths);
+  }, [filteredTree, visibleExpandedPaths]);
+
   const toggleDirectory = (path: string) => {
     setDirectoryStates((current) => ({
       ...current,
@@ -219,23 +217,38 @@ export function FileTree({
           />
         </label>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 py-2">
-        {filteredTree.length === 0 ? (
+      <div className="flex-1 overflow-hidden px-2 py-2">
+        {flatNodes.length === 0 ? (
           <div className="px-2 py-8 text-center text-[10px] leading-5 text-zinc-600">
             {files.length === 0 ? "분석이 완료되면 실제 파일 구조가 여기에 표시됩니다." : "일치하는 파일이 없습니다."}
           </div>
-        ) : (
-          <TreeNodes
-            nodes={filteredTree}
-            depth={0}
-            expandedPaths={visibleExpandedPaths}
-            entrypointPaths={entrypointPaths}
-            activeFile={activeFile}
-            isDark={isDark}
-            onDirectoryToggle={toggleDirectory}
-            onFileSelect={onFileSelect}
-          />
-        )}
+        ) : (() => {
+          const Sizer = AutoSizer as any;
+          return (
+          <Sizer>
+            {({ height, width }: { height: number; width: number }) => (
+              <List
+                height={height || 400}
+                itemCount={flatNodes.length}
+                itemSize={FILE_ITEM_HEIGHT}
+                width={width || 250}
+                itemData={{
+                  flatNodes,
+                  entrypointPaths,
+                  activeFile,
+                  isDark,
+                  expandedPaths: visibleExpandedPaths,
+                  toggleDirectory,
+                  onFileSelect,
+                }}
+                className="scroll-smooth"
+              >
+                {Row}
+              </List>
+            )}
+          </Sizer>
+          );
+        })()}
       </div>
       <div className={`border-t px-3 py-2 text-[9px] text-zinc-600 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
         {files.length ? `${files.length.toLocaleString()} files indexed` : "No snapshot loaded"}

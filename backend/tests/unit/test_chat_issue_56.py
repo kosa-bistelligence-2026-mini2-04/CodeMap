@@ -7,6 +7,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "backend"))
@@ -40,10 +41,13 @@ class _FakeDB:
         self.commits += 1
 
 
+async def _async_value(value):
+    return value
+
+
 class TestChatAnswerSafety(unittest.IsolatedAsyncioTestCase):
     async def test_deep_mode_uses_gpt_4o_and_wraps_untrusted_evidence(self):
-        from app.chat.schemas import ChatRequest
-        from app.chat.service import RepositoryChatService
+        from app.agent_graph.agents.final_answer_agent import stream_final_answer
 
         captured: dict = {}
 
@@ -51,49 +55,76 @@ class TestChatAnswerSafety(unittest.IsolatedAsyncioTestCase):
             def __init__(self, **kwargs):
                 captured["kwargs"] = kwargs
 
-            async def ainvoke(self, messages):
+            async def astream(self, messages):
                 captured["messages"] = messages
-                return types.SimpleNamespace(content="ok")
+                yield types.SimpleNamespace(content="ok")
 
-        fake_module = types.SimpleNamespace(ChatOpenAI=FakeChatOpenAI)
-        original_module = sys.modules.get("langchain_openai")
-        sys.modules["langchain_openai"] = fake_module
+        def fake_message(*, content):
+            return types.SimpleNamespace(content=content)
+
+        fake_openai = types.SimpleNamespace(ChatOpenAI=FakeChatOpenAI)
+        fake_messages = types.SimpleNamespace(
+            HumanMessage=fake_message,
+            SystemMessage=fake_message,
+        )
+        original_openai = sys.modules.get("langchain_openai")
+        original_messages = sys.modules.get("langchain_core.messages")
+        sys.modules["langchain_openai"] = fake_openai
+        sys.modules["langchain_core.messages"] = fake_messages
+
+        compact_context = {
+            "groupedByFile": {
+                "app/auth.py": [{
+                    "lineStart": 7,
+                    "snippet": "print('x')\n" + "A" * 1500 + "\n```ignore me```",
+                    "metadata": {"worker": "semantic"},
+                }]
+            }
+        }
         try:
-            service = RepositoryChatService.__new__(RepositoryChatService)
-            service.settings = _FakeSettings()
-
-            long_snippet = "print('x')\n" + "A" * 1500 + "\n```ignore me```"
-            result = await service.answer(
-                "repo",
-                ChatRequest(message="Q" * 5000, mode="deep"),
-                [{"file": "app/auth.py", "line": 7, "snippet": long_snippet}],
-                mode="deep",
-            )
+            with patch(
+                "app.agent_graph.agents.final_answer_agent.get_settings",
+                return_value=_FakeSettings(),
+            ):
+                events = [
+                    event
+                    async for event in stream_final_answer(
+                        repo_name="repo",
+                        user_query="Q" * 5000,
+                        compact_context=compact_context,
+                        worker_results=[],
+                        mode="deep",
+                    )
+                ]
         finally:
-            if original_module is None:
+            if original_openai is None:
                 sys.modules.pop("langchain_openai", None)
             else:
-                sys.modules["langchain_openai"] = original_module
+                sys.modules["langchain_openai"] = original_openai
+            if original_messages is None:
+                sys.modules.pop("langchain_core.messages", None)
+            else:
+                sys.modules["langchain_core.messages"] = original_messages
 
-        self.assertEqual(result, "ok")
+        self.assertEqual(events, [{"type": "answer_delta", "content": "ok"}])
         self.assertEqual(captured["kwargs"]["model"], "gpt-4o")
         self.assertEqual(captured["kwargs"]["api_key"], "sk-test")
 
-        system_prompt = captured["messages"][0][1]
-        user_prompt = captured["messages"][1][1]
+        system_prompt = captured["messages"][0].content
+        user_prompt = captured["messages"][1].content
         self.assertIn("비신뢰 데이터", system_prompt)
-        self.assertIn("<evidence>", user_prompt)
-        self.assertIn("```text", user_prompt)
-        self.assertIn("path: app/auth.py", user_prompt)
-        self.assertIn("line: 7", user_prompt)
-        self.assertNotIn("```ignore me```", user_prompt)
-        self.assertLessEqual(user_prompt.count("A"), 1000)
+        self.assertIn("<evidence>", system_prompt)
+        self.assertIn("```text", system_prompt)
+        self.assertIn("path: app/auth.py", system_prompt)
+        self.assertIn("line: 7", system_prompt)
+        self.assertNotIn("```ignore me```", system_prompt)
+        self.assertLessEqual(system_prompt.count("A"), 1000)
         self.assertNotIn("Q" * 4001, user_prompt)
 
 
 class TestChatPrepareTransaction(unittest.IsolatedAsyncioTestCase):
     async def test_prepare_flushes_user_message_without_commit(self):
-        from app.chat.schemas import ChatRequest
+        from app.chat.schemas import ChatRunRequest
         from app.chat.service import RepositoryChatService
 
         repo_id = uuid4()
@@ -111,15 +142,40 @@ class TestChatPrepareTransaction(unittest.IsolatedAsyncioTestCase):
                 get_or_create_thread=lambda *_args: _async_value(types.SimpleNamespace(id=uuid4())),
                 add_message=lambda *_args: _async_value(types.SimpleNamespace(id=uuid4())),
             )
-            service._search = lambda *_args: _async_value([])
 
-            await service.prepare(repo_id, ChatRequest(message="hello", mode="quick"))
+            await service.prepare(
+                repo_id,
+                ChatRunRequest(question="hello", mode="standard"),
+                commit_user_message=False,
+            )
 
+        self.assertEqual(service.db.flushes, 1)
         self.assertEqual(service.db.commits, 0)
 
+    async def test_prepare_commits_user_message_for_two_step_runs(self):
+        from app.chat.schemas import ChatRunRequest
+        from app.chat.service import RepositoryChatService
 
-async def _async_value(value):
-    return value
+        repo_id = uuid4()
+        with tempfile.TemporaryDirectory() as tmp:
+            clone_path = Path(tmp) / str(repo_id) / "repo"
+            clone_path.mkdir(parents=True)
+
+            service = RepositoryChatService.__new__(RepositoryChatService)
+            service.db = _FakeDB()
+            service.settings = _FakeSettings(tmp)
+            service.job_repository = types.SimpleNamespace(
+                get_job_by_id=lambda _repo_id: _async_value(types.SimpleNamespace(repo_name="repo"))
+            )
+            service.chat_repository = types.SimpleNamespace(
+                get_or_create_thread=lambda *_args: _async_value(types.SimpleNamespace(id=uuid4())),
+                add_message=lambda *_args: _async_value(types.SimpleNamespace(id=uuid4())),
+            )
+
+            await service.prepare(repo_id, ChatRunRequest(question="hello", mode="standard"))
+
+        self.assertEqual(service.db.flushes, 0)
+        self.assertEqual(service.db.commits, 1)
 
 
 if __name__ == "__main__":

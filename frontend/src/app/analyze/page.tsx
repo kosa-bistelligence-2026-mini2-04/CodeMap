@@ -103,7 +103,12 @@ function AnalyzeWorkspace() {
             setReport(nextJob.report);
           }
         }
-        setStatus("completed");
+        const ragStatus = nextJob.report?.rag_index?.status;
+        if (ragStatus === "pending" || ragStatus === "in_progress") {
+          setStatus("running"); // 백그라운드 임베딩 대기
+        } else {
+          setStatus("completed");
+        }
       } else if (nextJob.status === "FAILED") {
         setStatus("failed");
         setError(nextJob.statusMessage || "분석에 실패했습니다.");
@@ -217,7 +222,11 @@ function AnalyzeWorkspace() {
 
   const repoName = report?.repository.name || job?.repoName || "새 프로젝트";
   const progress = preview ? 100 : job?.progress || 0;
-  const chatRepoId = report || status === "completed" ? jobId : null;
+  // RAG 인덱스 상태: 'ready' | 'failed' | 'skipped' | 'empty' | undefined
+  const ragIndexStatus = job?.report?.rag_index?.status as string | undefined;
+  // chatRepoId: 분석(COMPLETED) 완료 시 활성화. 현재 chat은 키워드 검색 기반으로 임베딩 없이도 동작.
+  // ragIndexStatus === 'ready' 일 때는 벡터 검색까지 지원, 그 외에는 키워드 폴백으로 안내.
+  const chatRepoId = status === "completed" ? jobId : null;
   const fullChatUrl = preview
     ? "/chat?repo_id=preview-codemap&preview=1"
     : `/chat?repo_id=${jobId || ""}${threadId ? `&thread=${threadId}` : ""}`;
@@ -285,7 +294,7 @@ function AnalyzeWorkspace() {
           {status === "running" && (
             <div className="mx-auto flex min-h-full max-w-2xl items-center justify-center">
               <div className={`w-full rounded-2xl border p-6 shadow-xl ${isDark ? "border-zinc-800 bg-zinc-900/55" : "border-zinc-200 bg-white"}`}>
-                <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10"><LoaderCircle className="size-5 animate-spin text-blue-400" /></div><div><h2 className="text-sm font-bold">{job?.statusMessage || (isKo ? "저장소 분석 준비 중" : "Preparing analysis")}</h2><p className="mt-1 text-[10px] text-zinc-500">{isKo ? "실제 저장소를 복제하고 구조적 근거를 수집하고 있습니다." : "Cloning repository and indexing context."}</p></div><span className="ml-auto font-mono text-xs font-bold text-blue-400">{progress}%</span></div>
+                <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10"><LoaderCircle className="size-5 animate-spin text-blue-400" /></div><div><h2 className="text-sm font-bold">{job?.status === "COMPLETED" && !job?.report?.rag_index?.status ? (isKo ? "코드 벡터화 진행 중..." : "Vectorizing code context...") : (job?.statusMessage || (isKo ? "저장소 분석 준비 중" : "Preparing analysis"))}</h2><p className="mt-1 text-[10px] text-zinc-500">{job?.status === "COMPLETED" && !job?.report?.rag_index?.status ? (isKo ? "효과적인 RAG 채팅을 위해 분석 결과를 벡터 스토어에 적재하고 있습니다." : "Indexing analysis results to vector store for effective RAG chat.") : (isKo ? "실제 저장소를 복제하고 구조적 근거를 수집하고 있습니다." : "Cloning repository and indexing context.")}</p></div><span className="ml-auto font-mono text-xs font-bold text-blue-400">{progress}%</span></div>
                 <div className={`mt-5 h-1.5 overflow-hidden rounded-full ${isDark ? "bg-zinc-800" : "bg-zinc-100"}`}><div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-500" style={{ width: `${Math.max(4, progress)}%` }} /></div>
                 <div className="mt-5 grid grid-cols-4 gap-2 text-center text-[9px] font-semibold text-zinc-500">{["Clone", "Code map", "Guide", "Report"].map((step, index) => <div key={step} className={progress >= [5, 28, 72, 95][index] ? "text-blue-400" : ""}>{step}</div>)}</div>
               </div>
@@ -294,6 +303,23 @@ function AnalyzeWorkspace() {
 
           {status === "failed" && (
             <div className="mx-auto flex min-h-full max-w-xl items-center justify-center"><div className="w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center"><AlertTriangle className="mx-auto size-6 text-red-400" /><h2 className={`mt-3 text-sm font-bold ${isDark ? "" : "text-zinc-800"}`}>{isKo ? "분석을 완료하지 못했습니다" : "Analysis failed"}</h2><p className="mt-2 text-xs leading-5 text-zinc-500">{error}</p><button onClick={() => setShowNewAnalysis(true)} className={`mt-5 rounded-lg px-3 py-2 text-[11px] font-bold ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>{isKo ? "입력 확인하기" : "Check input"}</button></div></div>
+          )}
+
+          {status === "completed" && report && ragIndexStatus !== "ready" && ragIndexStatus && ragIndexStatus !== "pending" && ragIndexStatus !== "in_progress" && (
+            <div className={`mx-4 mt-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11px] ${
+              ragIndexStatus === "failed"
+                ? "border-red-500/20 bg-red-500/5 text-red-400"
+                : "border-yellow-500/20 bg-yellow-500/5 text-yellow-500"
+            }`}>
+              <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+              <span>
+                {ragIndexStatus === "failed"
+                  ? (isKo ? "AI 벡터 인덱싱 실패 — 키워드 검색으로 대화가 가능합니다." : "AI vector indexing failed — keyword-based chat is available.")
+                  : ragIndexStatus === "empty"
+                  ? (isKo ? "벡터화할 유효한 코드가 없습니다 — 키워드 검색으로 대화가 가능합니다." : "No valid code to vectorize — keyword-based chat is available.")
+                  : (isKo ? "AI 벡터 인덱싱 생략됨 (API 키 미설정) — 키워드 검색으로 대화가 가능합니다." : "AI vector indexing skipped (no API key) — keyword-based chat is available.")}
+              </span>
+            </div>
           )}
 
           {status === "completed" && report && <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={setSelectedFile} />}

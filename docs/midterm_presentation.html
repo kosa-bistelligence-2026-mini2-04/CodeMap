@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeMap — AI 코드베이스 온보딩 도우미 | 중간발표</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #f8f9fc;
+      --bg2:        #eef1f8;
+      --surface:    rgba(255,255,255,0.75);
+      --surface2:   rgba(255,255,255,0.95);
+      --border:     rgba(99,102,241,0.10);
+      --border2:    rgba(99,102,241,0.18);
+
+      --cyan:   #0284c7;
+      --blue:   #4f46e5;
+      --purple: #7c3aed;
+      --green:  #059669;
+      --orange: #ea580c;
+      --pink:   #db2777;
+
+      --grad-main:   linear-gradient(135deg, #4f46e5, #7c3aed, #0284c7);
+      --grad-card:   linear-gradient(135deg, rgba(79,70,229,0.07), rgba(124,58,237,0.05));
+      --grad-green:  linear-gradient(135deg, rgba(5,150,105,0.07), rgba(2,132,199,0.05));
+      --grad-orange: linear-gradient(135deg, rgba(234,88,12,0.07), rgba(219,39,119,0.05));
+
+      --text-primary:   #0f172a;
+      --text-secondary: #475569;
+      --text-muted:     #94a3b8;
+
+      --font: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+      --slide-w: 1440px;
+      --slide-h: 810px;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #e8ecf5;
+      font-family: var(--font);
+      overflow: hidden;
+    }
+
+    /* ── Deck & Navigation ── */
+    #deck {
+      width: 100vw; height: 100vh;
+      position: relative;
+    }
+
+    .slide {
+      position: absolute;
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+      transform: translateX(60px);
+      transition: opacity .55s cubic-bezier(.22,1,.36,1),
+                  transform .55s cubic-bezier(.22,1,.36,1);
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+    .slide.exit {
+      opacity: 0;
+      transform: translateX(-60px);
+    }
+
+    /* ── Slide inner (scaled to viewport) ── */
+    .slide-inner {
+      position: relative;
+      width: var(--slide-w);
+      height: var(--slide-h);
+      padding: 64px 80px;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    /* Auto-scale to fit viewport */
+    @media (max-aspect-ratio: 16/9) {
+      .slide-inner { transform-origin: center center; }
+    }
+
+    /* ── Global background ── */
+    .slide-inner::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 800px 600px at 10% 20%, rgba(79,70,229,.06) 0%, transparent 70%),
+        radial-gradient(ellipse 600px 500px at 90% 80%, rgba(124,58,237,.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Slide grid dot texture ── */
+    .slide-inner::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle, rgba(99,102,241,.12) 1px, transparent 1px);
+      background-size: 36px 36px;
+      pointer-events: none;
+    }
+
+    /* ── Shared components ── */
+    .slide-content { position: relative; z-index: 1; width: 100%; height: 100%; }
+
+    .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--cyan);
+      padding: 4px 12px;
+      border: 1px solid rgba(56,189,248,.3);
+      border-radius: 100px;
+      background: rgba(56,189,248,.06);
+      margin-bottom: 20px;
+    }
+
+    .h1 {
+      font-size: 72px; font-weight: 900; line-height: 1.0;
+      letter-spacing: -3px;
+      background: var(--grad-main);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .h2 {
+      font-size: 48px; font-weight: 800; line-height: 1.1;
+      letter-spacing: -2px;
+      background: var(--grad-main);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .h3 {
+      font-size: 22px; font-weight: 600;
+      color: var(--text-primary);
+    }
+    .sub {
+      font-size: 16px; font-weight: 400;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+    .lead {
+      font-size: 20px; font-weight: 500;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    .glass {
+      background: rgba(255,255,255,0.65);
+      border: 1px solid rgba(99,102,241,0.12);
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 2px 12px rgba(79,70,229,.06), 0 1px 3px rgba(0,0,0,.04);
+    }
+    .glass-strong {
+      background: #ffffff;
+      border: 1px solid rgba(99,102,241,0.16);
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(79,70,229,.08), 0 1px 4px rgba(0,0,0,.05);
+    }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px;
+      background: #f1f3fb;
+      border: 1px solid rgba(79,70,229,.18);
+      border-radius: 100px;
+      font-size: 13px; font-weight: 600;
+      color: var(--text-primary);
+    }
+    .chip.cyan  { background: #e0f2fe; border-color: rgba(2,132,199,.3);  color: #0369a1; }
+    .chip.blue  { background: #ede9fe; border-color: rgba(79,70,229,.3);  color: #4f46e5; }
+    .chip.purple{ background: #f5f3ff; border-color: rgba(124,58,237,.3); color: #6d28d9; }
+    .chip.green { background: #d1fae5; border-color: rgba(5,150,105,.3);  color: #047857; }
+    .chip.orange{ background: #fff7ed; border-color: rgba(234,88,12,.3);  color: #c2410c; }
+
+    em { font-style: normal; color: var(--blue); font-weight: 600; }
+    code {
+      font-family: var(--mono);
+      font-size: .85em;
+      background: #ede9fe;
+      border: 1px solid rgba(79,70,229,.25);
+      border-radius: 5px;
+      padding: 1px 7px;
+      color: #4f46e5;
+    }
+
+    /* ── Navigation ── */
+    #nav {
+      position: fixed;
+      bottom: 32px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; align-items: center; gap: 16px;
+      z-index: 999;
+      padding: 10px 20px;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(79,70,229,.18);
+      border-radius: 100px;
+      box-shadow: 0 8px 32px rgba(79,70,229,.12), 0 2px 8px rgba(0,0,0,.06);
+    }
+    .nav-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(79,70,229,.2);
+      background: #f5f3ff;
+      color: var(--blue);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      transition: background .2s, transform .15s;
+    }
+    .nav-btn:hover { background: #ede9fe; transform: scale(1.08); }
+    #slide-counter {
+      font-size: 13px; font-weight: 600;
+      color: var(--text-secondary);
+      min-width: 52px; text-align: center;
+    }
+    .dot-nav { display: flex; gap: 6px; }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+    .dot.active { background: var(--blue); transform: scale(1.4); }
+
+    /* ── Decorative elements ── */
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+    }
+    .orb-1 { width: 500px; height: 500px; top: -150px; right: -100px; background: rgba(124,58,237,.07); }
+    .orb-2 { width: 400px; height: 400px; bottom: -100px; left: -80px; background: rgba(79,70,229,.06); }
+
+    /* ── Divider line ── */
+    .divider {
+      width: 60px; height: 3px;
+      background: var(--grad-main);
+      border-radius: 2px;
+      margin: 20px 0;
+    }
+
+    /* ── Numbered list ── */
+    .num-list { display: flex; flex-direction: column; gap: 16px; }
+    .num-item { display: flex; align-items: flex-start; gap: 16px; }
+    .num-badge {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      background: var(--grad-main);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff;
+    }
+
+    /* ── Feature card ── */
+    .feat-card {
+      padding: 28px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .feat-icon { font-size: 28px; }
+    .feat-title { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+    .feat-desc { font-size: 14px; font-weight: 400; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── Three-column grid ── */
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    .two-col   { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+    /* ── Agent flow ── */
+    .flow-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .flow-box {
+      padding: 14px 20px;
+      border-radius: 14px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .flow-box .fb-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+    .flow-box .fb-sub   { font-size: 11px; font-weight: 500; color: #64748b; }
+    .flow-box.llm {
+      background: #fff7ed;
+      border: 1px solid rgba(234,88,12,.25);
+    }
+    .flow-box.code {
+      background: #eff6ff;
+      border: 1px solid rgba(37,99,235,.2);
+    }
+    .flow-box.out {
+      background: #ecfdf5;
+      border: 1px solid rgba(5,150,105,.25);
+    }
+    .flow-arrow {
+      color: var(--text-muted); font-size: 20px; flex-shrink: 0;
+    }
+
+    /* ── Workers grid ── */
+    .worker-row {
+      display: flex; gap: 10px; justify-content: center;
+    }
+    .worker-pill {
+      padding: 10px 16px; border-radius: 12px;
+      font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    /* ── DB Strategy ── */
+    .strategy-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 20px 22px;
+    }
+    .strategy-num {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      background: var(--grad-main);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+    }
+    .strategy-title { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 3px; }
+    .strategy-desc  { font-size: 13px; color: #475569; line-height: 1.55; }
+
+    /* ── Model Cards ── */
+    .model-card {
+      padding: 24px 26px;
+    }
+    .model-name { font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    .model-role { font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+    .model-desc { font-size: 13px; color: #475569; line-height: 1.6; }
+
+    /* ── Phase badge ── */
+    .phase-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      padding: 4px 12px; border-radius: 100px;
+    }
+    .phase-badge.p1 { color: #047857; border: 1px solid rgba(5,150,105,.3); background: #d1fae5; }
+    .phase-badge.p2 { color: #4f46e5; border: 1px solid rgba(79,70,229,.3); background: #ede9fe; }
+
+    /* ── Thank-you slide ── */
+    .centered-full {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%;
+      text-align: center;
+      gap: 24px;
+    }
+
+    /* ── Slide-specific overrides ── */
+
+    /* Slide 1 — Title */
+    #s1 .slide-inner { background: var(--bg); }
+    #s1 .layout {
+      display: flex; align-items: center;
+      height: 100%;
+      gap: 80px;
+    }
+    #s1 .left { flex: 1; }
+    #s1 .right {
+      width: 380px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    #s1 .info-card {
+      padding: 20px 24px;
+      border-radius: 16px;
+    }
+    #s1 .info-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+    #s1 .info-value { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+
+    /* Slide 5 — Agent Flow */
+    #s5 .flow-layout {
+      display: flex; align-items: center; gap: 40px;
+      height: calc(100% - 80px);
+    }
+    #s5 .flow-pipeline {
+      display: flex; flex-direction: column; gap: 12px;
+      flex: 1;
+    }
+
+    /* progress bar for phase 1 */
+    .progress-bar-wrap { height: 4px; border-radius: 2px; background: var(--surface2); overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 2px; background: var(--grad-main); }
+
+    /* tech row */
+    .tech-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  </style>
+</head>
+<body>
+
+<div id="deck">
+
+  <!-- ═══════════ SLIDE 1 — TITLE ═══════════ -->
+  <div class="slide active" id="s1">
+    <div class="slide-inner">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="slide-content">
+        <div class="layout">
+          <div class="left">
+            <div class="tag">🎓 AI Engineering · 2026 중간발표</div>
+            <div class="h1">Code<span style="color:#7c3aed">Map</span></div>
+            <div style="margin-top:12px;">
+              <span class="h3" style="font-weight:400; color: var(--text-secondary);">AI 코드베이스 온보딩 도우미</span>
+            </div>
+            <div class="divider" style="margin:28px 0;"></div>
+            <p class="lead">GitHub 저장소 URL 하나로<br>
+            신입 개발자용 온보딩 가이드를<br>
+            <em>자동 생성</em>하는 멀티에이전트 LLM 웹앱</p>
+            <div class="tech-row" style="margin-top:32px;">
+              <span class="chip cyan">FastAPI · Python 3.12</span>
+              <span class="chip blue">React 19 · Next.js 16</span>
+              <span class="chip purple">LangGraph</span>
+              <span class="chip green">pgvector</span>
+              <span class="chip orange">GPT-4o</span>
+            </div>
+          </div>
+          <div class="right">
+            <div class="info-card glass-strong">
+              <div class="info-label">프로젝트명</div>
+              <div class="info-value">CodeMap</div>
+            </div>
+            <div class="info-card glass-strong">
+              <div class="info-label">타깃 사용자</div>
+              <div class="info-value">신입 개발자 · 오픈소스 기여자<br>팀 프로젝트 협업 개발자</div>
+            </div>
+            <div class="info-card glass-strong">
+              <div class="info-label">핵심 기술</div>
+              <div class="info-value">Agentic RAG + LangGraph<br>Tree-Based Semantic Search</div>
+            </div>
+            <div class="info-card glass-strong">
+              <div class="info-label">아키텍처</div>
+              <div class="info-value">DDD 기반 Monorepo<br>FSD (Frontend) · 3-Tier (Backend)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 2 — PROBLEM ═══════════ -->
+  <div class="slide" id="s2">
+    <div class="slide-inner">
+      <div class="orb orb-1" style="background: rgba(234,88,12,.06);"></div>
+      <div class="slide-content">
+        <div class="tag">🔍 Problem Definition</div>
+        <div class="h2">왜 CodeMap이 필요한가?</div>
+        <p class="lead" style="margin-top:12px;">낯선 코드베이스에 합류하는 개발자의 가장 큰 페인 포인트</p>
+        <div class="divider"></div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:8px;">
+          <div class="glass num-item" style="padding:28px; gap:18px; align-items:flex-start;">
+            <div class="num-badge">1</div>
+            <div>
+              <div style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">온보딩 장벽</div>
+              <div class="sub"><code>README.md</code> 만으로는 전체 의존성 및 설계 흐름을 유추하기 어렵습니다. 새 팀에서 "어디서부터 봐야 하는지"를 아무도 알려주지 않습니다.</div>
+            </div>
+          </div>
+          <div class="glass num-item" style="padding:28px; gap:18px; align-items:flex-start;">
+            <div class="num-badge" style="background: linear-gradient(135deg,#ea580c,#db2777);">2</div>
+            <div>
+              <div style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">막대한 시간 소모</div>
+              <div class="sub">엔트리포인트 탐색 → 로컬 환경 구동 → 핵심 비즈니스 로직 파악까지 수 시간에서 수 일이 소요됩니다.</div>
+            </div>
+          </div>
+          <div class="glass num-item" style="padding:28px; gap:18px; align-items:flex-start;">
+            <div class="num-badge" style="background: linear-gradient(135deg,#059669,#0284c7);">3</div>
+            <div>
+              <div style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">기존 챗봇의 한계</div>
+              <div class="sub">단순 코드 Q&A 챗봇은 조각난 코드 스니펫만 반환합니다. 프로젝트 전체의 큰 그림(Architecture)을 통합 제공하지 못합니다.</div>
+            </div>
+          </div>
+          <div class="glass num-item" style="padding:28px; gap:18px; align-items:flex-start;">
+            <div class="num-badge" style="background: linear-gradient(135deg,#a855f7,#6366f1);">💡</div>
+            <div>
+              <div style="font-size:17px; font-weight:700; color:var(--cyan); margin-bottom:8px;">CodeMap의 해결책</div>
+              <div class="sub">단순 질의응답을 넘어, 코드베이스 분석 + RAG 파이프라인을 융합한 <em>온보딩 마스터 리포트 자동 생성</em>.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 3 — CORE FEATURES ═══════════ -->
+  <div class="slide" id="s3">
+    <div class="slide-inner">
+      <div class="orb orb-2" style="background:rgba(5,150,105,.05);"></div>
+      <div class="slide-content">
+        <div class="tag">⚡ Core Features</div>
+        <div class="h2">핵심 기능 5가지</div>
+        <div class="divider"></div>
+
+        <div class="three-col" style="margin-top: 4px;">
+          <div class="glass feat-card">
+            <div class="feat-icon">🔗</div>
+            <div class="feat-title">원클릭 저장소 연동</div>
+            <div class="feat-desc">GitHub URL만 입력하면 서버가 실시간으로 소스코드를 복제하고 <em>지능형 노이즈 필터링</em>(node_modules, build 등 자동 제외)을 수행합니다.</div>
+          </div>
+          <div class="glass feat-card">
+            <div class="feat-icon">🗺️</div>
+            <div class="feat-title">구조 요약 & 읽기 순서</div>
+            <div class="feat-desc">의존성 분석으로 가장 먼저 읽어야 할 <em>핵심 엔트리포인트 10개</em>를 식별하고 최적 읽기 순서를 제시합니다.</div>
+          </div>
+          <div class="glass feat-card">
+            <div class="feat-icon">🤖</div>
+            <div class="feat-title">자율 탐색 AI 챗봇</div>
+            <div class="feat-desc">LangGraph 기반 멀티에이전트로 자연어 질문을 분석하고, <em>출처 파일명 + 줄 번호</em>를 동반한 정밀 답변을 스트리밍합니다.</div>
+          </div>
+          <div class="glass feat-card">
+            <div class="feat-icon">📚</div>
+            <div class="feat-title">온보딩 가이드북 생성</div>
+            <div class="feat-desc">Map-Reduce 요약으로 파일 → 폴더 → 마스터 리포트 순서로 <em>계층형 상향식(Bottom-up) 문서화</em>를 자동 수행합니다.</div>
+          </div>
+          <div class="glass feat-card">
+            <div class="feat-icon">🔐</div>
+            <div class="feat-title">보안 & 민감정보 마스킹</div>
+            <div class="feat-desc">API 키, 토큰, 비밀번호 패턴을 탐지하여 온보딩 리포트 생성 전 원문 노출을 <em>자동 차단</em>합니다.</div>
+          </div>
+          <div class="glass feat-card">
+            <div class="feat-icon">⚡</div>
+            <div class="feat-title">로컬 실행 가이드 추론</div>
+            <div class="feat-desc"><code>package.json</code>, <code>requirements.txt</code>, <code>docker-compose.yml</code>을 분석해 패키지 설치 및 구동 명령어를 <em>자동 추론</em>합니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 4 — ARCHITECTURE ═══════════ -->
+  <div class="slide" id="s4">
+    <div class="slide-inner">
+      <div class="orb orb-1" style="background:rgba(79,70,229,.06);"></div>
+      <div class="slide-content">
+        <div class="tag">🏛️ System Architecture</div>
+        <div class="h2">도메인 주도 설계 (DDD) 모노레포</div>
+        <div class="divider"></div>
+
+        <div class="three-col" style="margin-top:8px; height: calc(100% - 170px);">
+          <!-- Frontend -->
+          <div class="glass-strong" style="border-radius:20px; padding:28px; border-color:rgba(56,189,248,.2);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">
+              <div style="width:36px;height:36px;border-radius:10px;background:#e0f2fe;border:1px solid rgba(2,132,199,.3);display:flex;align-items:center;justify-content:center;font-size:18px;">⚛️</div>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--cyan);">Frontend</div>
+                <div style="font-size:11px;color:var(--text-muted);">Next.js 16 + React 19</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div class="glass" style="padding:12px 16px;border-radius:12px;">
+                <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:3px;"><code>app/</code> — 라우팅 영역</div>
+                <div style="font-size:11px;color:var(--text-muted);">Next.js App Router (page.tsx, layout.tsx)</div>
+              </div>
+              <div class="glass" style="padding:12px 16px;border-radius:12px;">
+                <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:3px;"><code>common/</code> — 공통 영역</div>
+                <div style="font-size:11px;color:var(--text-muted);">버튼, 훅, 유틸 등 순수 재사용 요소</div>
+              </div>
+              <div class="glass" style="padding:12px 16px;border-radius:12px;">
+                <div style="font-size:12px;font-weight:700;color:var(--cyan);margin-bottom:3px;"><code>features/</code> — 도메인 영역</div>
+                <div style="font-size:11px;color:var(--text-muted);">analysis · chat · docs · graph · repo</div>
+              </div>
+            </div>
+            <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+              <div class="sub" style="font-size:12px;">Feature-Sliced Design + Bulletproof React 패턴</div>
+            </div>
+          </div>
+
+          <!-- Backend -->
+          <div class="glass-strong" style="border-radius:20px; padding:28px; border-color:rgba(251,146,60,.2);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">
+              <div style="width:36px;height:36px;border-radius:10px;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.3);display:flex;align-items:center;justify-content:center;font-size:18px;">🐍</div>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--orange);">Backend</div>
+                <div style="font-size:11px;color:var(--text-muted);">Python 3.12 + FastAPI</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:2px;">각 도메인 3-Tier 패턴</div>
+              <div class="glass" style="padding:10px 14px;border-radius:10px; font-family:var(--mono); font-size:11px; color:var(--text-secondary); line-height:1.8;">
+                📡 <span style="color:#4f46e5;">router.py</span>  — API 진입점<br>
+                🧠 <span style="color:#ea580c;">service.py</span> — 비즈니스 로직<br>
+                🗄️ <span style="color:#059669;">repository.py</span> — DB 접근<br>
+                🚚 <span style="color:#db2777;">schemas.py</span> — Pydantic DTO<br>
+                🏗️ <span style="color:#64748b;">models.py</span>   — SQLAlchemy
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);padding-top:4px;">도메인: chat · embed · gen · guard<br>list · parse · pipeline · repo · search</div>
+            </div>
+          </div>
+
+          <!-- DB + Infra -->
+          <div class="glass-strong" style="border-radius:20px; padding:28px; border-color:rgba(52,211,153,.2);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">
+              <div style="width:36px;height:36px;border-radius:10px;background:#d1fae5;border:1px solid rgba(5,150,105,.3);display:flex;align-items:center;justify-content:center;font-size:18px;">🗄️</div>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--green);">DB &amp; Infra</div>
+                <div style="font-size:11px;color:var(--text-muted);">PostgreSQL + pgvector</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div class="glass" style="padding:12px 16px;border-radius:12px;">
+                <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">벡터 DB (pgvector)</div>
+                <div style="font-size:11px;color:var(--text-muted);">임베딩 + 관계형 JOIN + 재귀 쿼리</div>
+              </div>
+              <div class="glass" style="padding:12px 16px;border-radius:12px;">
+                <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">의존성 그래프 스키마</div>
+                <div style="font-size:11px;color:var(--text-muted);"><code>imports</code> · <code>imported_by</code> JSONB 배열</div>
+              </div>
+              <div class="glass" style="padding:12px 16px;border-radius:12px;">
+                <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:3px;">원클릭 환경 자동화</div>
+                <div style="font-size:11px;color:var(--text-muted);">Docker Compose + setup_env.sh<br>mkcert HTTPS 인증서 자동 발급</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 5 — AGENT FLOW ═══════════ -->
+  <div class="slide" id="s5">
+    <div class="slide-inner">
+      <div class="orb orb-1" style="background:rgba(124,58,237,.07);"></div>
+      <div class="slide-content">
+        <div class="tag">🤖 Multi-Agent Pipeline</div>
+        <div class="h2">LangGraph 멀티에이전트 흐름</div>
+        <div class="divider"></div>
+
+        <div style="display:flex; gap:40px; align-items:flex-start; margin-top:8px;">
+          <!-- Pipeline -->
+          <div style="flex:1; display:flex; flex-direction:column; gap:10px;">
+
+            <!-- Row 1 -->
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="flow-box llm" style="flex:1;">
+                <div class="fb-title">🧠 Supervisor Agent <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;background:#fff7ed;color:#ea580c;border:1px solid rgba(234,88,12,.2);margin-left:4px;">LLM</span></div>
+                <div class="fb-sub">사용자 의도 분석 · 오타 교정(Query Rewrite) · 접근 계획 수립(access_plan JSON)</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:center; color:var(--text-muted); font-size:18px;">↓</div>
+
+            <!-- Row 2 -->
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="flow-box code" style="flex:1;">
+                <div class="fb-title">⚙️ Route Node <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;background:#e0f2fe;color:#0369a1;border:1px solid rgba(2,132,199,.2);margin-left:4px;">결정론적 코드</span></div>
+                <div class="fb-sub">계획 JSON 스키마 검증 · Path Traversal 차단 · .env/key 패턴 금지 · Worker 비동기 병렬 라우팅</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:center; color:var(--text-muted); font-size:18px;">↓</div>
+
+            <!-- Row 3 — Workers -->
+            <div style="display:flex; gap:8px;">
+              <div class="flow-box llm" style="flex:1.4; font-size:12px;">
+                <div class="fb-title" style="font-size:13px;">🧠 Search Worker</div>
+                <div class="fb-sub">LLM Query Rewrite<br>+ Vector Search</div>
+              </div>
+              <div class="flow-box code" style="flex:1; font-size:12px;">
+                <div class="fb-title" style="font-size:13px;">📁 Dir Worker</div>
+                <div class="fb-sub">디렉토리 구조 탐색</div>
+              </div>
+              <div class="flow-box code" style="flex:1; font-size:12px;">
+                <div class="fb-title" style="font-size:13px;">🔍 Grep Worker</div>
+                <div class="fb-sub">키워드/정규식 검색</div>
+              </div>
+              <div class="flow-box code" style="flex:1; font-size:12px;">
+                <div class="fb-title" style="font-size:13px;">📄 Read Worker</div>
+                <div class="fb-sub">허용 파일 읽기</div>
+              </div>
+              <div class="flow-box llm" style="flex:1.4; font-size:12px;">
+                <div class="fb-title" style="font-size:13px;">🧠 Reasoning</div>
+                <div class="fb-sub">선택형 코드 해석 LLM Worker</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:center; color:var(--text-muted); font-size:18px;">↓</div>
+
+            <!-- Row 4 -->
+            <div class="flow-box code" style="flex:1;">
+              <div class="fb-title">⚙️ Evidence Aggregator Node <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;background:#e0f2fe;color:#0369a1;border:1px solid rgba(2,132,199,.2);margin-left:4px;">결정론적 코드</span></div>
+              <div class="fb-sub">worker_results 중복 제거 · 파일 경로/라인/근거 정리 · token budget 압축 → compact_context 생성</div>
+            </div>
+            <div style="display:flex;justify-content:center; color:var(--text-muted); font-size:18px;">↓</div>
+
+            <!-- Row 5 -->
+            <div class="flow-box out">
+              <div class="fb-title">✨ Final Answer Agent <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;background:#d1fae5;color:#047857;border:1px solid rgba(5,150,105,.25);margin-left:4px;">LangGraph 밖 · App Layer</span></div>
+              <div class="fb-sub">State 원본 근거(worker_results) + compact_context 기반 최종 답변 생성 → SSE 스트리밍으로 사용자에게 전달</div>
+            </div>
+          </div>
+
+          <!-- State Box -->
+          <div style="width:260px; display:flex; flex-direction:column; gap:12px;">
+            <div class="glass-strong" style="padding:22px; border-radius:18px; border-color:rgba(52,211,153,.25); height:100%;">
+              <div style="font-size:14px; font-weight:700; color:var(--green); margin-bottom:4px;">💾 CodeMapState</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:16px;">Shared Memory (공유 상태)</div>
+              <div style="display:flex; flex-direction:column; gap:10px; font-family:var(--mono); font-size:11px;">
+                <div style="padding:8px 12px; border-radius:8px; background:#f8fafc; border:1px solid rgba(99,102,241,.08);">
+                  <span style="color:var(--text-muted);">user_query:</span><br>
+                  <span style="color:#0f172a;">"로그인 어딧음?"</span>
+                </div>
+                <div style="padding:8px 12px; border-radius:8px; background:#f8fafc; border:1px solid rgba(99,102,241,.08);">
+                  <span style="color:var(--text-muted);">rewritten_query:</span><br>
+                  <span style="color:#0f172a;">"login, authentication"</span>
+                </div>
+                <div style="padding:8px 12px; border-radius:8px; background:#f8fafc; border:1px solid rgba(99,102,241,.08);">
+                  <span style="color:var(--text-muted);">access_plan:</span><br>
+                  <span style="color:#0f172a;">[dir, search, read]</span>
+                </div>
+                <div style="padding:8px 12px; border-radius:8px; background:rgba(52,211,153,.07); border:1px solid rgba(52,211,153,.2);">
+                  <span style="color:#047857;">worker_results:</span><br>
+                  <span style="color:#065f46; font-size:10px;">[{'{raw_code_1}'},<br> {'{raw_code_2}'}]</span>
+                </div>
+                <div style="padding:8px 12px; border-radius:8px; background:rgba(52,211,153,.07); border:1px solid rgba(52,211,153,.2);">
+                  <span style="color:#047857;">compact_context:</span><br>
+                  <span style="color:#065f46; font-size:10px;">Evidence Aggregator output</span>
+                </div>
+              </div>
+              <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border); font-size:11px; color:var(--text-muted); line-height:1.5;">
+                ✅ 원본 데이터 무요약 보존<br>정보 유실(Whisper 효과) 방지
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 6 — DB & RAG STRATEGY ═══════════ -->
+  <div class="slide" id="s6">
+    <div class="slide-inner">
+      <div class="orb orb-2" style="background:rgba(79,70,229,.06);"></div>
+      <div class="slide-content">
+        <div class="tag">🧠 Data Strategy</div>
+        <div class="h2">데이터베이스 &amp; RAG 전략</div>
+        <div class="divider"></div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:8px;">
+          <div class="glass strategy-item" style="border-radius:20px;">
+            <div class="strategy-num">1</div>
+            <div>
+              <div class="strategy-title">정적 RAG + Agentic CAG 하이브리드</div>
+              <div class="strategy-desc">임베딩 벡터 DB로 후보 파일군을 1초 내에 좁힌 뒤, 에이전트가 직접 탐색 도구를 호출해 정밀 분석. 거대 레포에서의 탐색 속도와 정확도를 동시에 확보합니다.</div>
+            </div>
+          </div>
+          <div class="glass strategy-item" style="border-radius:20px;">
+            <div class="strategy-num">2</div>
+            <div>
+              <div class="strategy-title">계층형 트리 RAG (Tree-Based RAG)</div>
+              <div class="strategy-desc">개별 파일 임베딩 → LLM으로 폴더 단위 자연어 요약 생성 → 그 요약본을 다시 임베딩(Bottom-up). 벡터 평균이 아닌 <em>자연어 요약 후 재임베딩</em>으로 의미 훼손을 방지합니다.</div>
+            </div>
+          </div>
+          <div class="glass strategy-item" style="border-radius:20px;">
+            <div class="strategy-num">3</div>
+            <div>
+              <div class="strategy-title">AST 기반 시맨틱 코드 청킹</div>
+              <div class="strategy-desc">단순 문자 수 기준 분할의 한계를 넘어, 함수/클래스/라우터 단위로 코드를 분할합니다. 파일 경로, 함수명 등 풍부한 메타데이터를 함께 저장합니다.</div>
+            </div>
+          </div>
+          <div class="glass strategy-item" style="border-radius:20px;">
+            <div class="strategy-num">4</div>
+            <div>
+              <div class="strategy-title">의존성 그래프 스키마 (pgvector)</div>
+              <div class="strategy-desc">폴더 구조를 무시하는 코드 참조 관계를 <em>JSONB 문자열 배열</em>로 저장. <code>imports</code>, <code>imported_by</code>를 PostgreSQL <code>JOIN</code>과 <code>WITH RECURSIVE</code>로 방사형 지식 그래프를 구성합니다.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 7 — MODEL SELECTION ═══════════ -->
+  <div class="slide" id="s7">
+    <div class="slide-inner">
+      <div class="orb orb-1"></div>
+      <div class="slide-content">
+        <div class="tag">🤖 AI Model Strategy</div>
+        <div class="h2">AI 모델 적용 전략</div>
+        <div class="divider"></div>
+
+        <div class="three-col" style="margin-top:8px; height:calc(100% - 170px);">
+          <div class="glass-strong model-card" style="border-color:rgba(251,146,60,.25);">
+            <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">🧠 Agent LLM</div>
+            <div class="model-name">GPT-4o</div>
+            <div style="width:32px;height:3px;background:linear-gradient(135deg,#ea580c,#db2777);border-radius:2px;margin:8px 0 14px;"></div>
+            <div class="model-desc">Supervisor Agent의 계획 수립, Search Worker의 Query Rewrite/Semantic Search, Final Answer Agent의 근거 기반 답변 생성을 담당합니다.</div>
+            <div style="margin-top:16px; padding:10px 14px; border-radius:10px; background:rgba(251,146,60,.07); border:1px solid rgba(251,146,60,.2); font-size:12px; color:var(--text-muted);">
+              ✅ 동일 LLM 엔진이라도 LangGraph 내에서 prompt, tool, schema, state 책임을 분리해 <em>논리적 멀티에이전트</em>로 운영
+            </div>
+          </div>
+
+          <div class="glass-strong model-card" style="border-color:rgba(56,189,248,.25);">
+            <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:8px;">📐 Embedding</div>
+            <div class="model-name">text-embedding-3-large</div>
+            <div style="width:32px;height:3px;background:linear-gradient(135deg,#0284c7,#4f46e5);border-radius:2px;margin:8px 0 14px;"></div>
+            <div class="model-desc">코드와 문서를 수학적 벡터 공간으로 변환. 다국어 정보 검색 평가(MIRACL)에서 압도적 점수로 한글 주석 + 영문 소스코드 혼재 환경에 최적화.</div>
+            <div style="margin-top:16px; padding:10px 14px; border-radius:10px; background:rgba(56,189,248,.07); border:1px solid rgba(56,189,248,.2); font-size:12px; color:var(--text-muted);">
+              ✅ 차원 축소해도 성능 유지되는 <em>마트료시카 표현 학습</em> 지원
+            </div>
+          </div>
+
+          <div class="glass-strong model-card" style="border-color:rgba(52,211,153,.25);">
+            <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);margin-bottom:8px;">💰 Cost Optimizer</div>
+            <div class="model-name">GPT-4o-mini</div>
+            <div style="width:32px;height:3px;background:linear-gradient(135deg,#059669,#0284c7);border-radius:2px;margin:8px 0 14px;"></div>
+            <div class="model-desc">Map-Reduce 요약 파이프라인 및 초기 데이터 전처리. 대량 텍스트 문서화 단계에서 발생할 막대한 API 비용을 절감합니다.</div>
+            <div style="margin-top:16px; padding:10px 14px; border-radius:10px; background:rgba(52,211,153,.07); border:1px solid rgba(52,211,153,.2); font-size:12px; color:var(--text-muted);">
+              ✅ GPT-4o 대비 입력 기준 <em>약 33배 저렴</em>, MMLU 82.0%로 고품질 요약 보장
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 8 — ROADMAP ═══════════ -->
+  <div class="slide" id="s8">
+    <div class="slide-inner">
+      <div class="orb orb-2" style="background:rgba(124,58,237,.07);"></div>
+      <div class="slide-content">
+        <div class="tag">🗺️ Roadmap</div>
+        <div class="h2">개발 로드맵</div>
+        <div class="divider"></div>
+
+        <div class="two-col" style="margin-top:12px; height:calc(100% - 170px);">
+          <!-- Phase 1 -->
+          <div class="glass-strong" style="padding:28px; border-radius:20px; border-color:rgba(52,211,153,.2);">
+            <div class="phase-badge p1" style="margin-bottom:16px;">🥇 Phase 1 · MVP</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--green);">✔</span> GitHub URL 등록 + 파일 필터링
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--green);">✔</span> AST 청킹 + 임베딩 + pgvector 적재
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--green);">✔</span> 멀티에이전트 구조 설계 확정
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--cyan);">⚙</span> Supervisor · Route Node 구현
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--cyan);">⚙</span> Dir / Grep / Read / Search Worker
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--cyan);">⚙</span> Evidence Aggregator + Final Answer
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--cyan);">⚙</span> SSE 스트리밍 + React 채팅 UI
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--cyan);">⚙</span> 온보딩 가이드북 생성 (Map-Reduce)
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-secondary);">
+                <span style="color:var(--cyan);">⚙</span> 민감정보 마스킹 (Guard) 모듈
+              </div>
+            </div>
+            <div style="margin-top:16px; height:4px; border-radius:2px; background:#e2e8f0; overflow:hidden;">
+              <div style="height:100%;width:35%;background:linear-gradient(90deg,#059669,#0284c7);border-radius:2px;"></div>
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">진행률 ~35%</div>
+          </div>
+
+          <!-- Phase 2 -->
+          <div class="glass-strong" style="padding:28px; border-radius:20px; border-color:rgba(99,102,241,.2);">
+            <div class="phase-badge p2" style="margin-bottom:16px;">🥈 Phase 2 · 고도화</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-muted);">
+                <span style="color:var(--blue);">○</span> 장기 기억 (Long-term Memory) 시스템
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-muted);">
+                <span style="color:var(--blue);">○</span> Code Reasoning Worker 고도화
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-muted);">
+                <span style="color:var(--blue);">○</span> 의존성 그래프 UI 렌더링 (시각화)
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-muted);">
+                <span style="color:var(--blue);">○</span> 위험 파일 Risk Heatmap 예측
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-muted);">
+                <span style="color:var(--blue);">○</span> PDF 가이드북 변환 다운로드
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-muted);">
+                <span style="color:var(--blue);">○</span> Slack / Email 공유 자동화
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-muted);">
+                <span style="color:var(--blue);">○</span> 얕은/깊은 분석 파이프라인 분리
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 9 — THANK YOU ═══════════ -->
+  <div class="slide" id="s9">
+    <div class="slide-inner">
+      <div class="orb orb-1" style="width:700px;height:700px;top:-200px;right:-150px;background:rgba(124,58,237,.08);"></div>
+      <div class="orb orb-2" style="width:600px;height:600px;bottom:-200px;left:-100px;background:rgba(79,70,229,.07);"></div>
+      <div class="slide-content centered-full">
+        <div class="tag">🎤 Q &amp; A</div>
+        <div class="h1" style="font-size:90px; text-align:center; line-height:1;">감사합니다</div>
+        <p class="lead" style="text-align:center; max-width:600px;">
+          GitHub 저장소 URL 하나로<br>신입 개발자 온보딩 리소스를 0으로 만드는 것이 CodeMap의 목표입니다.
+        </p>
+        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:20px;">
+          <span class="chip cyan">FastAPI</span>
+          <span class="chip blue">React 19</span>
+          <span class="chip purple">LangGraph</span>
+          <span class="chip green">pgvector</span>
+          <span class="chip orange">GPT-4o</span>
+          <span class="chip">Tree-Based RAG</span>
+          <span class="chip">Agentic RAG</span>
+          <span class="chip">DDD Monorepo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Navigation -->
+<div id="nav">
+  <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">←</button>
+  <div class="dot-nav" id="dot-nav"></div>
+  <span id="slide-counter">1 / 9</span>
+  <button class="nav-btn" id="next-btn" onclick="navigate(1)">→</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+  let isAnimating = false;
+
+  // Build dots
+  const dotNav = document.getElementById('dot-nav');
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotNav.appendChild(d);
+  });
+
+  function goTo(idx, dir) {
+    if (isAnimating || idx === current || idx < 0 || idx >= total) return;
+    isAnimating = true;
+
+    const fromSlide = slides[current];
+    const toSlide   = slides[idx];
+
+    fromSlide.classList.add('exit');
+    fromSlide.classList.remove('active');
+    toSlide.style.transform = 'translateX(60px)';
+    toSlide.style.opacity = '0';
+    toSlide.classList.add('active');
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        toSlide.style.transform = '';
+        toSlide.style.opacity = '';
+      });
+    });
+
+    setTimeout(() => {
+      fromSlide.classList.remove('exit');
+      fromSlide.style.transform = '';
+      fromSlide.style.opacity = '';
+      isAnimating = false;
+    }, 580);
+
+    current = idx;
+    updateUI();
+  }
+
+  function navigate(dir) {
+    goTo(current + dir);
+  }
+
+  function updateUI() {
+    document.getElementById('slide-counter').textContent = `${current + 1} / ${total}`;
+    document.querySelectorAll('.dot').forEach((d, i) => {
+      d.classList.toggle('active', i === current);
+    });
+    scaleSlide();
+  }
+
+  // Scale slides to fit viewport maintaining 16:9
+  function scaleSlide() {
+    const W = 1440, H = 810;
+    const scaleX = window.innerWidth  / W;
+    const scaleY = window.innerHeight / H;
+    const scale  = Math.min(scaleX, scaleY);
+    document.querySelectorAll('.slide-inner').forEach(el => {
+      el.style.transform = `scale(${scale})`;
+      el.style.transformOrigin = 'center center';
+    });
+  }
+
+  window.addEventListener('resize', scaleSlide);
+  scaleSlide();
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ')  navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')                     navigate(-1);
+  });
+
+  // Touch swipe
+  let touchX = 0;
+  document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend',   e => {
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 50) navigate(dx < 0 ? 1 : -1);
+  });
+</script>
+</body>
+</html>

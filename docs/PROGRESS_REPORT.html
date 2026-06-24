@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeMap 프로젝트 진행율 분석 (Dashboard)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #000;
+    color: #E2E8F0;
+    font-family: -apple-system, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+    padding: 36px 40px;
+    width: 1200px;
+  }
+
+  /* ── 헤더 ── */
+  .page-header { margin-bottom: 28px; border-bottom: 1px solid #1E293B; padding-bottom: 16px; }
+  .page-title { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: #64748B; }
+
+  /* ── 섹션 타이틀 ── */
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #38BDF8;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 12px; margin-top: 28px;
+  }
+
+  /* ── 전체 요약 그리드 ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .summary-card {
+    background: #0D1117;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .summary-card.highlight { border-color: #22C55E; background: #001405; }
+  .summary-card.warn { border-color: #F59E0B; background: #0D0A00; }
+  .card-domain { font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .card-name { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 14px; }
+  .card-name.green { color: #22C55E; }
+  .card-name.amber { color: #F59E0B; }
+  .phase-label { font-size: 11px; color: #94A3B8; margin-bottom: 4px; }
+  .progress-wrap { background: #1E293B; border-radius: 999px; height: 8px; margin-bottom: 10px; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 999px; transition: width 0.4s; }
+  .bar-p1 { background: #22C55E; }
+  .bar-p2-high { background: #38BDF8; }
+  .bar-p2-mid  { background: #F59E0B; }
+  .bar-p2-low  { background: #EF4444; }
+  .pct-row { display: flex; justify-content: space-between; align-items: center; }
+  .pct-val { font-size: 18px; font-weight: 700; }
+  .pct-val.green  { color: #22C55E; }
+  .pct-val.cyan   { color: #38BDF8; }
+  .pct-val.amber  { color: #F59E0B; }
+  .pct-val.red    { color: #EF4444; }
+  .pct-val.gray   { color: #64748B; }
+
+  /* ── 도메인 세부 현황 ── */
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .detail-card {
+    background: #0D1117;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .detail-card-title {
+    font-size: 13px; font-weight: 700; margin-bottom: 12px;
+    padding-bottom: 8px; border-bottom: 1px solid #1E293B;
+  }
+  .detail-card-title.cyan  { color: #38BDF8; }
+  .detail-card-title.green { color: #22C55E; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: #64748B; font-weight: 600; padding: 5px 8px; border-bottom: 1px solid #1E293B; }
+  td { padding: 6px 8px; border-bottom: 1px solid #0F172A; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  td.status-done { color: #22C55E; font-weight: 600; }
+  td.status-todo { color: #64748B; }
+  td.note        { color: #475569; font-size: 11.5px; }
+
+  /* ── 하단 3열 ── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .bottom-card {
+    background: #0D1117;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .bottom-card-title { font-size: 13px; font-weight: 700; color: #38BDF8; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #1E293B; }
+
+  .next-steps { display: flex; flex-direction: column; gap: 8px; }
+  .next-step {
+    display: flex; align-items: center; gap: 12px;
+    background: #0D1117; border: 1px solid #1E293B;
+    border-radius: 8px; padding: 10px 14px;
+  }
+  .next-step.done { border-color: #22C55E22; background: #001405; }
+  .step-text { flex: 1; font-size: 13px; color: #E2E8F0; }
+  .step-text.done { color: #22C55E; text-decoration: line-through; opacity: 0.6; }
+  .step-tag { font-size: 11px; color: #64748B; background: #1E293B; border-radius: 4px; padding: 2px 8px; flex-shrink: 0; }
+
+  /* ── Contribution Drawer ── */
+  .drawer {
+    position: fixed;
+    top: 0; right: -350px;
+    width: 350px; height: 100vh;
+    background: #0f172a;
+    border-left: 1px solid #1E293B;
+    box-shadow: -4px 0 15px rgba(0,0,0,0.5);
+    transition: right 0.3s ease;
+    z-index: 1000;
+    padding: 24px;
+    overflow-y: auto;
+  }
+  .drawer.open { right: 0; }
+  .drawer-toggle {
+    position: fixed;
+    top: 36px; right: 40px;
+    background: #38BDF8; color: #000;
+    border: none; border-radius: 8px;
+    padding: 8px 16px; font-size: 13px; font-weight: bold;
+    cursor: pointer; z-index: 1001;
+    transition: background 0.2s;
+  }
+  .drawer-toggle:hover { background: #0ea5e9; }
+  .drawer-title { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 20px; border-bottom: 1px solid #1E293B; padding-bottom: 12px; margin-top: 40px; }
+
+  .contributor { background: #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }
+  .contributor-name { font-size: 15px; font-weight: bold; color: #38BDF8; margin-bottom: 8px; display: flex; justify-content: space-between;}
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat-box { background: #0f172a; padding: 8px; border-radius: 6px; text-align: center; }
+  .stat-val { font-size: 16px; font-weight: bold; color: #fff; }
+  .stat-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+
+  .role-desc { font-size: 12px; color: #cbd5e1; line-height: 1.6; margin-top: 10px; }
+  .role-desc ul { list-style-type: none; padding: 0; margin: 0; }
+  .role-desc li { position: relative; padding-left: 12px; margin-bottom: 6px; }
+  .role-desc li::before { content: "•"; position: absolute; left: 0; color: #38BDF8; }
+  .role-label { font-weight: 600; color: #94a3b8; margin-right: 4px; }
+
+</style>
+
+</head>
+<body>
+
+<div class="page-header">
+  <div class="page-title">📊 CodeMap 프로젝트 진행율 Dashboard</div>
+  <div class="page-sub">2026-06-24 기준 · PR #105 ~ #116 모든 마일스톤 완료 가정한 종합 리포트</div>
+</div>
+
+<div class="section-title">전체 진행율 요약 (Phase 2 달성도 대폭 상승)</div>
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="card-domain">Domain 1</div>
+    <div class="card-name green">Project (완료)</div>
+    <div class="phase-label">Phase 1</div>
+    <div class="pct-row"><span class="pct-val green">99%</span></div>
+    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:99%"></div></div>
+    <div class="phase-label">Phase 2</div>
+    <div class="pct-row"><span class="pct-val green">95%</span></div>
+    <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p1" style="width:95%"></div></div>
+    <div style="margin-top:8px;font-size:11px;color:#64748B;">예외 처리/고아 메시지 방어 완비</div>
+  </div>
+
+  <div class="summary-card highlight">
+    <div class="card-domain">Domain 2</div>
+    <div class="card-name green">Agent (안정화 궤도)</div>
+    <div class="phase-label">Phase 1</div>
+    <div class="pct-row"><span class="pct-val green">99%</span></div>
+    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:99%"></div></div>
+    <div class="phase-label">Phase 2</div>
+    <div class="pct-row"><span class="pct-val green">95%</span></div>
+    <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p1" style="width:95%"></div></div>
+    <div style="margin-top:8px;font-size:11px;color:#64748B;">LangGraph 기반 멀티에이전트 이식 완료</div>
+  </div>
+
+  <div class="summary-card">
+    <div class="card-domain">Domain 3</div>
+    <div class="card-name green">RAG/Parse</div>
+    <div class="phase-label">Phase 1</div>
+    <div class="pct-row"><span class="pct-val green">99%</span></div>
+    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:99%"></div></div>
+    <div class="phase-label">Phase 2</div>
+    <div class="pct-row"><span class="pct-val green">90%</span></div>
+    <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p1" style="width:90%"></div></div>
+    <div style="margin-top:8px;font-size:11px;color:#64748B;">pgvector HNSW 인덱싱 최적화 완료</div>
+  </div>
+
+  <div class="summary-card">
+    <div class="card-domain">Domain 4</div>
+    <div class="card-name cyan">Frontend / UI</div>
+    <div class="phase-label">Phase 1</div>
+    <div class="pct-row"><span class="pct-val green">99%</span></div>
+    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:99%"></div></div>
+    <div class="phase-label">Phase 2</div>
+    <div class="pct-row"><span class="pct-val cyan">85%</span></div>
+    <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p2-high" style="width:85%"></div></div>
+    <div style="margin-top:8px;font-size:11px;color:#64748B;">대규모 파일트리 가상화(react-window) 적용</div>
+  </div>
+</div>
+
+<div class="section-title">주요 도메인 세부 달성 현황</div>
+<div class="detail-grid">
+  <!-- Agent -->
+  <div class="detail-card">
+    <div class="detail-card-title green">Agent 기능 명세 달성도</div>
+    <table>
+      <tr><th>기능</th><th>상태</th><th>비고</th></tr>
+      <tr><td>단일 God Agent 구조 구축</td><td class="status-done">✅ 완료</td><td class="note">Phase 1</td></tr>
+      <tr><td>LangGraph 스켈레톤 이식 (PR #108)</td><td class="status-done">✅ 완료</td><td class="note">Phase 2</td></tr>
+      <tr><td>하이브리드 검색 툴 연동 (PR #109)</td><td class="status-done">✅ 완료</td><td class="note">pgvector & BM25</td></tr>
+      <tr><td>최종 답변 스트리밍 Tool 전환</td><td class="status-done">✅ 완료</td><td class="note">Final Answer</td></tr>
+    </table>
+  </div>
+
+  <!-- Project -->
+  <div class="detail-card">
+    <div class="detail-card-title green">Project / Architecture 달성도</div>
+    <table>
+      <tr><th>기능</th><th>상태</th><th>비고</th></tr>
+      <tr><td>GitHub API 기반 트리 추출</td><td class="status-done">✅ 완료</td><td class="note">Phase 1</td></tr>
+      <tr><td>API-005 필드 누락 검증 (PR #115)</td><td class="status-done">✅ 완료</td><td class="note">warningCode 처리</td></tr>
+      <tr><td>고아 메시지 방어 & 인젝션 (PR #111)</td><td class="status-done">✅ 완료</td><td class="note">WebSocket 세션 보호</td></tr>
+      <tr><td>파이프라인 레이스 컨디션 (PR #112)</td><td class="status-done">✅ 완료</td><td class="note">예외처리 강화</td></tr>
+    </table>
+  </div>
+
+  <!-- UI -->
+  <div class="detail-card">
+    <div class="detail-card-title cyan">Frontend & UI 달성도</div>
+    <table>
+      <tr><th>기능</th><th>상태</th><th>비고</th></tr>
+      <tr><td>RAG-PARSE 검색 모달/결과 뷰</td><td class="status-done">✅ 완료</td><td class="note">Phase 1</td></tr>
+      <tr><td>대규모 파일트리 가상화 (PR #114)</td><td class="status-done">✅ 완료</td><td class="note">react-window 적용</td></tr>
+      <tr><td>Agent 추론 과정 시각화 (Thought UI)</td><td class="status-todo">⏳ 예정</td><td class="note">디자인 고도화 대기</td></tr>
+    </table>
+  </div>
+
+  <!-- Data -->
+  <div class="detail-card">
+    <div class="detail-card-title green">Database & RAG 달성도</div>
+    <table>
+      <tr><th>기능</th><th>상태</th><th>비고</th></tr>
+      <tr><td>문서 임베딩/청크 분할 파이프라인</td><td class="status-done">✅ 완료</td><td class="note">Phase 1</td></tr>
+      <tr><td>pgvector HNSW 인덱스 보강 (PR #116)</td><td class="status-done">✅ 완료</td><td class="note">검색 효율 튜닝</td></tr>
+      <tr><td>다중 job_id 격리 처리</td><td class="status-done">✅ 완료</td><td class="note">성능 개선 반영</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="section-title">잔여 우선순위 (Next Steps)</div>
+<div class="bottom-grid">
+  <div class="bottom-card">
+    <div class="bottom-card-title">1. UI/UX 최종 폴리싱</div>
+    <div class="next-steps">
+      <div class="next-step"><span class="step-tag">우선</span><div class="step-text">Agent 추론(Thought) 과정 아코디언 UI 디자인 적용</div></div>
+      <div class="next-step"><span class="step-tag">일반</span><div class="step-text">전체 테마 Glassmorphism 및 Micro-animation 개선</div></div>
+    </div>
+  </div>
+  <div class="bottom-card">
+    <div class="bottom-card-title">2. 성능 및 프롬프트 최적화</div>
+    <div class="next-steps">
+      <div class="next-step"><span class="step-tag">우선</span><div class="step-text">LangGraph Worker별 프롬프트 최적화 튜닝</div></div>
+      <div class="next-step"><span class="step-tag">일반</span><div class="step-text">SSE Latency 및 로딩 오버헤드 축소</div></div>
+    </div>
+  </div>
+  <div class="bottom-card">
+    <div class="bottom-card-title">3. 데모 및 문서 준비</div>
+    <div class="next-steps">
+      <div class="next-step"><span class="step-tag">우선</span><div class="step-text">시나리오 기반 데모 리포지토리 준비</div></div>
+      <div class="next-step"><span class="step-tag">일반</span><div class="step-text">God Agent -> Multi Agent 전환 스토리텔링 구성</div></div>
+    </div>
+  </div>
+</div>
+
+
+<button class="drawer-toggle" onclick="document.getElementById('drawer').classList.toggle('open')">👥 Team Contributions</button>
+
+<div id="drawer" class="drawer">
+
+  <div style="margin-top: 50px;"></div>
+  <div class="contributor">
+    <div class="contributor-name"><span>우수 (oosuhada)</span></div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val">162</div><div class="stat-label">Commits</div></div>
+      <div class="stat-box"><div class="stat-val">48</div><div class="stat-label">PRs</div></div>
+      <div class="stat-box"><div class="stat-val">22</div><div class="stat-label">Reviews</div></div>
+    </div>
+    <div class="role-desc">
+      <ul>
+        <li><span class="role-label">(프론트엔드)</span>랜딩 페이지 3D ASCII 적용 및 채팅 UI/UX 전면 개편 - PR #30, #38</li>
+        <li><span class="role-label">(프론트엔드)</span>에이전트 사고 흐름(Thought Process) 실시간 시각화 - PR #110, #118</li>
+        <li><span class="role-label">(프론트엔드)</span>대규모 파일트리 렌더링 최적화 및 결과 시각화 - PR #114, #63</li>
+        <li><span class="role-label">(프론트엔드)</span>회원가입/로그인 UI 및 JWT 상태 자동 복원 - PR #119</li>
+        <li><span class="role-label">(백엔드)</span>파이프라인 이벤트 스트리밍(SSE) 코어 구축 - PR #37, #47</li>
+        <li><span class="role-label">(백엔드)</span>LangGraph 워크플로우 및 Final Answer 연동 - PR #108, #109</li>
+        <li><span class="role-label">(백엔드)</span>웹소켓 고아 메시지 방어 및 레이스 컨디션 해결 - PR #111, #112</li>
+        <li><span class="role-label">(DB)</span>pgvector HNSW 성능 최적화 및 수명 주기 관리 - PR #116, #58</li>
+        <li><span class="role-label">(아키텍처)</span>시스템 아키텍처, 명세서(Swagger), 진행 대시보드 - PR #117, #36</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 50px;"></div>
+  <div class="contributor">
+    <div class="contributor-name"><span>김효 (KimHyo1)</span></div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val">58</div><div class="stat-label">Commits</div></div>
+      <div class="stat-box"><div class="stat-val">24</div><div class="stat-label">PRs</div></div>
+      <div class="stat-box"><div class="stat-val">15</div><div class="stat-label">Reviews</div></div>
+    </div>
+    <div class="role-desc">
+      <ul>
+        <li><span class="role-label">(백엔드)</span>AST 기반 파싱 및 클래스/함수 지식 베이스 구축 - PR #48, #207</li>
+        <li><span class="role-label">(백엔드)</span>디렉토리 구조 파싱 및 패키지 진입점 탐색 - PR #202, #203</li>
+        <li><span class="role-label">(백엔드)</span>파일 간 import 추론 및 기술 스택 추출 - PR #101, #208, #206</li>
+        <li><span class="role-label">(백엔드)</span>README 대체 요약 및 설정 파일 탐색 (tag_config_files) - PR #201, #204</li>
+        <li><span class="role-label">(백엔드)</span>RAG 임베딩 파이프라인 및 계층형 요약 적용 - PR #83, #209</li>
+        <li><span class="role-label">(백엔드)</span>LLM 기반 문서 생성 파이프라인(doc_gen) 연동 - PR #43</li>
+        <li><span class="role-label">(백엔드)</span>파이프라인 디렉토리 파싱 안정화 및 인코딩 방어 - PR #53, #54</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 50px;"></div>
+  <div class="contributor">
+    <div class="contributor-name"><span>신성민 (smmini)</span></div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val">86</div><div class="stat-label">Commits</div></div>
+      <div class="stat-box"><div class="stat-val">18</div><div class="stat-label">PRs</div></div>
+      <div class="stat-box"><div class="stat-val">10</div><div class="stat-label">Reviews</div></div>
+    </div>
+    <div class="role-desc">
+      <ul>
+        <li><span class="role-label">(DB)</span>PostgreSQL/pgvector 설계 및 초기화 스크립트 작성 - PR #100, #13</li>
+        <li><span class="role-label">(백엔드)</span>에이전트 탐색용 Grep 및 파일 트리 조회 API - PR #001, #002</li>
+        <li><span class="role-label">(백엔드)</span>분석 전 저장소 파일 수/용량 제한 사전 검증 연동 - PR #005, #115</li>
+        <li><span class="role-label">(백엔드)</span>.env 미설정 시 환경변수 폴백(Fallback) 방어 로직 - PR #76</li>
+        <li><span class="role-label">(인프라)</span>패키지 매니저 세팅 및 글로벌 예외 처리 구축 - PR #62, #68</li>
+        <li><span class="role-label">(인프라)</span>API/WebSocket 명세서 관리 및 최상위 경로 승격 - PR #15, #18</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 50px;"></div>
+  <div class="contributor">
+    <div class="contributor-name"><span>영우 (woovii000)</span></div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val">46</div><div class="stat-label">Commits</div></div>
+      <div class="stat-box"><div class="stat-val">10</div><div class="stat-label">PRs</div></div>
+      <div class="stat-box"><div class="stat-val">4</div><div class="stat-label">Reviews</div></div>
+    </div>
+    <div class="role-desc">
+      <ul>
+        <li><span class="role-label">(백엔드)</span>분석 내역 리스트 조회 및 메타데이터 반환 API - PR #003, #004</li>
+        <li><span class="role-label">(백엔드)</span>실시간 작업 상태 트래킹 연동 및 동기화 - PR #001, #006</li>
+        <li><span class="role-label">(백엔드)</span>에이전트 채팅 과거 대화 컨텍스트/코드 참조 API - PR #201</li>
+        <li><span class="role-label">(백엔드)</span>전역 에러 응답(Error Envelope) 구조 개편 참여 - PR #11, #25</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</body>
+
+</html>
