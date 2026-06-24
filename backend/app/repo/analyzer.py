@@ -128,6 +128,9 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Any]:
 
     primary_language = languages.most_common(1)[0][0] if languages else "Unknown"
     test_ratio = test_files / max(len(files), 1)
+    # [TODO] 건강도(Health Score) 산정 로직 재정의 논의 필요
+    # 현재는 단순 감점(파일 누락, 파일 크기, TODO 개수) 방식으로 하드코딩 되어 있습니다.
+    # 향후 `보안`, `코드품질`, `모듈화`, `테스트 커버리지` 등 다차원 레이더 차트를 위한 지표로 세분화해야 합니다.
     health_score = 84
     if test_ratio < 0.05:
         health_score -= 10
@@ -176,6 +179,9 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Any]:
     })
 
     files.sort(key=lambda item: (item["path"].count("/"), item["path"]))
+    # [TODO] Git Commit Log 분석을 통한 Contributor 통계 추출 로직 추가
+    # 대시보드 시각화(기여자 비율, 파이/도넛 차트) 및 코드 변경 빈도(Churn) 히트맵을 위해
+    # 분석 시점에 로컬 .git 로그나 GitHub API를 연동하여 기여자 메타데이터를 수집하는 범위 확정이 필요합니다.
     return {
         "repository": {"name": repo_name, "root": str(root)},
         "stats": {
