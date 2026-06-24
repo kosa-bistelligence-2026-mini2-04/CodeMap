@@ -41,11 +41,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Hydrate from localStorage after mount (avoids SSR mismatch)
   useEffect(() => {
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       const savedTheme = (localStorage.getItem("cm-theme") as Theme) ?? "dark";
       const savedLocale = (localStorage.getItem("cm-locale") as Locale) ?? "en";
       setTheme(savedTheme);
       setLocale(savedLocale);
+      
+      // Restore Auth Session
+      const { useAuthStore } = await import("@/features/auth/store/useAuthStore");
+      useAuthStore.getState().restoreSession();
+
       setMounted(true);
     });
   }, []);
