@@ -550,6 +550,10 @@ class AnalysisService:
             progress=21,
             message="분석 파이프라인을 시작합니다.",
         )
+        # get_db() finalizer의 자동 commit이 PR #96에서 제거됐으므로 명시적으로 commit.
+        # BackgroundTask가 실행되기 전 IN_PROGRESS 상태가 DB에 반드시 저장돼야
+        # 독립 세션으로 동작하는 파이프라인이 올바른 상태를 조회할 수 있다.
+        await self.db.commit()
 
         # [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 재시작
         #    응답이 전송되고 DB 커밋이 완료된 후 실행되도록 BackgroundTasks에 등록한다.
