@@ -23,6 +23,7 @@ from app.repo.router import router as repo_router
 from app.repo.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
 from app.parse.router import router as parse_router
+from app.tool.router import router as tool_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -117,4 +118,7 @@ app.include_router(chat_router)
 
 # RAG-PARSE 분석 API (API-001 등)
 app.include_router(parse_router)
+
+# MCP Tools API (Phase 2 대비)
+app.include_router(tool_router)
 

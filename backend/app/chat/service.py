@@ -67,35 +67,15 @@ class RepositoryChatService:
           - compact_context: Evidence Aggregator가 생성한 token budget 내 근거 묶음
         """
         try:
-            from app.agent.graph import compiled_graph
-            from app.agent.state import CodeMapState
+            from app.agent.service import CodeMapAgentService
 
-            initial_state: CodeMapState = {
-                "user_query": user_query,
-                "repo_id": str(repo_id),
-                "clone_path": clone_path,
-                "run_id": "",
-                "rewritten_query": "",
-                "access_plan": [],
-                "security_result": {"approved": [], "rejected": []},
-                "worker_results": [],
-                "events": [],
-                "errors": [],
-                "durations": {},
-                "compact_context": {},
-                "final_answer": None,
-            }
-
-            # LangGraph invoke (비동기)
-            final_state = await compiled_graph.ainvoke(initial_state)
-            logger.info(
-                "[ChatService] agent 실행 완료 — worker_results=%d",
-                len(final_state.get("worker_results", [])),
+            agent_service = CodeMapAgentService(self.db)
+            return await agent_service.run_agent(
+                repo_id=repo_id,
+                user_query=user_query,
+                clone_path=clone_path,
+                mode=mode,
             )
-            return {
-                "worker_results": final_state.get("worker_results", []),
-                "compact_context": final_state.get("compact_context", {}),
-            }
 
         except Exception as exc:
             # LangGraph 실패 시 기존 키워드 검색으로 폴백
@@ -155,44 +135,16 @@ class RepositoryChatService:
         clone_path: str,
         run_id: str,
     ) -> AsyncIterator[dict]:
-        from app.agent.graph import compiled_graph
-        from app.agent.state import CodeMapState
+        from app.agent.service import CodeMapAgentService
 
-        initial_state: CodeMapState = {
-            "user_query": user_query,
-            "repo_id": str(repo_id),
-            "clone_path": clone_path,
-            "run_id": run_id,
-            "rewritten_query": "",
-            "access_plan": [],
-            "security_result": {"approved": [], "rejected": []},
-            "worker_results": [],
-            "events": [],
-            "errors": [],
-            "durations": {},
-            "compact_context": {},
-            "final_answer": None,
-        }
-
-        compact_context = {}
-        worker_results = []
-
-        async for output in compiled_graph.astream(initial_state):
-            for node_name, state_update in output.items():
-                if "events" in state_update:
-                    for event in state_update["events"]:
-                        yield event
-
-                if "compact_context" in state_update:
-                    compact_context = state_update["compact_context"]
-                if "worker_results" in state_update:
-                    worker_results.extend(state_update["worker_results"])
-
-        yield {
-            "type": "internal_state",
-            "compact_context": compact_context,
-            "worker_results": worker_results,
-        }
+        agent_service = CodeMapAgentService(self.db)
+        async for event in agent_service.run_agent_stream(
+            repo_id=repo_id,
+            user_query=user_query,
+            clone_path=clone_path,
+            run_id=run_id,
+        ):
+            yield event
 
     def stream_answer(
         self,
@@ -207,7 +159,7 @@ class RepositoryChatService:
 
         router에서 json.dumps() 후 SSE 포맷으로 전송합니다.
         """
-        from app.agent.agents.final_answer_agent import stream_final_answer
+        from app.chat.final_answer_agent import stream_final_answer
 
         return stream_final_answer(
             repo_name=repo_name,

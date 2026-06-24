@@ -1,11 +1,5 @@
 """
-Final Answer Agent: LangGraph Evidence를 받아 스트리밍 응답을 생성.
-
-역할:
-- compact_context (Evidence Aggregator 출력)를 시스템 프롬프트에 주입
-- ChatOpenAI streaming=True로 SSE 토큰 단위 스트리밍
-- 응답 생성 중 worker 탐색 이력을 exploration 이벤트로 선행 전송
-- OPENAI_API_KEY 미설정 시 키워드 검색 결과 기반 폴백 응답 생성
+Final Answer Agent: LangGraph Evidence를 받아 SSE 스트리밍 응답을 생성.
 """
 
 from __future__ import annotations
@@ -38,13 +32,23 @@ _MAX_CONTEXT_CHARS = 12_000
 _MAX_USER_QUERY_CHARS = 4_000
 
 
+# ──────────────────────────────────────────────
+# 근거 텍스트 이스케이프 함수
+# ──────────────────────────────────────────────
 def _sanitize_snippet(value: object) -> str:
-    """Evidence가 prompt fence를 탈출하지 못하도록 최소 이스케이프한다."""
+    '''
+    Evidence가 prompt fence를 탈출하지 못하도록 최소 이스케이프한다.
+    '''
     return str(value or "").replace("```", "'''")[:_MAX_SNIPPET_CHARS]
 
 
+# ──────────────────────────────────────────────
+# 컨텍스트 빌더 함수
+# ──────────────────────────────────────────────
 def _build_context(compact_context: dict) -> str:
-    """compact_context dict → LLM 프롬프트용 텍스트 변환."""
+    '''
+    compact_context dict -> LLM 프롬프트용 텍스트 변환.
+    '''
     grouped = compact_context.get("groupedByFile", {})
     if not grouped:
         return "(검색 결과 없음)"
@@ -68,6 +72,9 @@ def _build_context(compact_context: dict) -> str:
     return "\n\n".join(parts)[:_MAX_CONTEXT_CHARS]
 
 
+# ──────────────────────────────────────────────
+# 최종 답변 스트리밍 함수
+# ──────────────────────────────────────────────
 async def stream_final_answer(
     repo_name: str,
     user_query: str,
@@ -75,25 +82,15 @@ async def stream_final_answer(
     worker_results: list[dict],
     mode: str = "quick",
 ) -> AsyncIterator[str]:
-    """
+    '''
     Final Answer Agent — SSE 이벤트 스트림 생성기.
-
-    Yields JSON 직렬화 가능한 dict 형태의 이벤트.
-    호출측(router)에서 json.dumps() 후 SSE 형식으로 전송합니다.
-
-    이벤트 순서:
-      1. exploration 이벤트 (worker 탐색 이력)
-      2. status: generating
-      3. content 토큰 스트림 (LLM streaming)
-      4. references 이벤트
-      5. done
-    """
+    '''
     settings = get_settings()
 
     context_text = _build_context(compact_context)
     system_prompt = _SYSTEM_PROMPT.format(context=context_text)
 
-    # ── 2. LLM 스트리밍 응답 ──
+    ## 2. LLM 스트리밍 응답
     if settings.OPENAI_API_KEY.get_secret_value():
         try:
             from langchain_openai import ChatOpenAI
@@ -111,7 +108,9 @@ async def stream_final_answer(
             safe_user_query = user_query[:_MAX_USER_QUERY_CHARS]
             async for chunk in llm.astream([
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=f"저장소: {repo_name}\n\n질문: {safe_user_query}"),
+                HumanMessage(
+                    content=f"저장소: {repo_name}\n\n질문: {safe_user_query}"
+                ),
             ]):
                 token = chunk.content
                 if token:
@@ -121,9 +120,12 @@ async def stream_final_answer(
             return
 
         except Exception as exc:
-            logger.warning("[FinalAnswerAgent] LLM 스트리밍 실패, 폴백 응답 사용: %s", exc)
+            logger.warning(
+                "[FinalAnswerAgent] LLM 스트리밍 실패, 폴백 응답 사용: %s",
+                exc,
+            )
 
-    # ── 3. OPENAI_API_KEY 미설정 또는 LLM 실패 → 폴백 ──
+    ## 3. OPENAI_API_KEY 미설정 또는 LLM 실패 -> 폴백
     grouped = compact_context.get("groupedByFile", {})
     if grouped:
         all_snips = [s for snips in grouped.values() for s in snips]
@@ -141,8 +143,7 @@ async def stream_final_answer(
             "파일명, 함수명 또는 기능 흐름을 더 구체적으로 입력해 주세요."
         )
 
-    # 폴백 응답도 토큰 단위로 분할 전송 (UI 일관성)
+    ## 폴백 응답도 토큰 단위로 분할 전송 (UI 일관성)
     chunk_size = 40
     for i in range(0, len(answer), chunk_size):
         yield {"type": "answer_delta", "content": answer[i:i + chunk_size]}
-
