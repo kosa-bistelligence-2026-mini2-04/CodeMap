@@ -11,8 +11,10 @@ from contextlib import asynccontextmanager
 
 from app.core.exceptions import register_exception_handlers
 from app.core.database import engine, Base
+from sqlalchemy import text
+
 # Import model classes to ensure they register on Base.metadata
-import app.embed.models  # type: ignore[import]
+from app.embed.models import CodeNode, Dependency
 
 from app.auth.router import router as auth_router
 from app.list.router import router as list_router
@@ -24,9 +26,13 @@ from app.parse.router import router as parse_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 애플리케이션 시작 시 DB 테이블 정의 검증 및 자동 생성 (code_nodes, code_dependencies 등)
+    # 애플리케이션 시작 시 DB vector extension 보장 및 RAG 관련 테이블만 자동 생성
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await conn.run_sync(
+            Base.metadata.create_all,
+            tables=[CodeNode.__table__, Dependency.__table__],
+        )
     yield
     # 애플리케이션 종료 시 커넥션 풀 닫기
     await engine.dispose()
