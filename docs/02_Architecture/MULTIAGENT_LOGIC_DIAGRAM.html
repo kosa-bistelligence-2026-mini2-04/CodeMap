@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeMap AI Multi-Agent Architecture</title>
+<style>
+  :root {
+    --bg: #f7f8fb;
+    --panel: #ffffff;
+    --ink: #111827;
+    --muted: #64748b;
+    --line: #cbd5e1;
+    --llm-bg: #f3e8ff;
+    --llm-border: #7e22ce;
+    --llm-ink: #4c1d95;
+    --code-bg: #e0f2fe;
+    --code-border: #0284c7;
+    --code-ink: #075985;
+    --state-bg: #dcfce7;
+    --state-border: #16a34a;
+    --state-ink: #166534;
+    --stream-bg: #ccfbf1;
+    --stream-border: #0f766e;
+    --stream-ink: #115e59;
+    --warn-bg: #fff7ed;
+    --warn-border: #f97316;
+    --warn-ink: #9a3412;
+    --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    display: block;
+    padding: 24px;
+  }
+
+  .sidebar {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.05fr 1.4fr 1fr 1fr;
+    gap: 16px;
+    align-items: stretch;
+    margin-bottom: 18px;
+  }
+
+  .title-block {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 4px 4px 0;
+  }
+
+  .title-block h1 {
+    font-size: 25px;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .title-block p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+    font-weight: 600;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .info-panel {
+    min-height: 160px;
+    padding: 20px;
+    transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+  }
+
+  .info-panel strong {
+    display: block;
+    color: #0f172a;
+    font-size: 16px;
+    margin-bottom: 10px;
+  }
+
+  .info-panel span {
+    display: block;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  .info-panel code {
+    font-size: 12.5px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  .legend-panel,
+  .decision-panel {
+    padding: 18px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .section-label {
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .swatch {
+    width: 30px;
+    height: 16px;
+    border-radius: 5px;
+    border: 2px solid;
+    flex: 0 0 30px;
+  }
+
+  .swatch.llm { background: var(--llm-bg); border-color: var(--llm-border); }
+  .swatch.code { background: var(--code-bg); border-color: var(--code-border); }
+  .swatch.state { background: var(--state-bg); border-color: var(--state-border); }
+  .swatch.stream { background: var(--stream-bg); border-color: var(--stream-border); }
+
+  .line-key {
+    width: 32px;
+    height: 0;
+    border-top: 3px solid;
+    flex: 0 0 32px;
+  }
+
+  .line-key.control { border-color: #334155; }
+  .line-key.data { border-color: #7e22ce; border-top-style: dashed; }
+  .line-key.return { border-color: #0f766e; border-top-style: dashed; }
+
+  .decision-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .decision-list li {
+    list-style: none;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.45;
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .decision-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #64748b;
+  }
+
+  .arch-wrap {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 22px;
+    overflow-x: auto;
+  }
+
+  .canvas {
+    min-width: 1180px;
+    display: grid;
+    gap: 18px;
+  }
+
+  .canvas-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+    padding: 4px 2px 0;
+  }
+
+  .canvas-header h2 {
+    font-size: 22px;
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+
+  .canvas-header p {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+    max-width: 780px;
+  }
+
+  .latency-note {
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+    color: #9a3412;
+    border-radius: 10px;
+    padding: 12px 14px;
+    width: 300px;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 700;
+  }
+
+  .lane {
+    border: 1px solid #dbe3ef;
+    border-radius: 16px;
+    padding: 18px;
+    background: #fbfdff;
+  }
+
+  .lane-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    color: #334155;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 16px;
+  }
+
+  .lane-title span:last-child {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .app-flow {
+    display: grid;
+    grid-template-columns: 180px 46px 250px 46px 250px 1fr;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .graph-shell {
+    border: 2px dashed #cbd5e1;
+    border-radius: 18px;
+    padding: 18px;
+    background: #f8fafc;
+  }
+
+  .graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 18px;
+  }
+
+  .graph-header h3 {
+    font-size: 17px;
+    line-height: 1.3;
+    color: #1e293b;
+  }
+
+  .graph-header p {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 710px;
+  }
+
+  .graph-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    align-items: stretch;
+  }
+
+  .workflow {
+    display: grid;
+    gap: 14px;
+  }
+
+  .row {
+    display: grid;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .row.single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row.two {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .workers {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .arrow-row,
+  .return-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-height: 28px;
+  }
+
+  .arrow,
+  .return-arrow {
+    text-align: center;
+    color: #334155;
+    font-size: 23px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .return-arrow {
+    color: var(--stream-border);
+  }
+
+  .wide-arrow {
+    text-align: center;
+    color: #334155;
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1;
+    min-height: 24px;
+  }
+
+  .parallel-label {
+    border: 1px dashed #94a3b8;
+    border-radius: 999px;
+    color: #475569;
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 6px 12px;
+    text-align: center;
+  }
+
+  .card {
+    min-height: 104px;
+    border: 2px solid;
+    border-radius: 12px;
+    padding: 14px;
+    display: grid;
+    align-content: start;
+    gap: 9px;
+    cursor: pointer;
+    transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+    position: relative;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 25px rgba(15, 23, 42, 0.1);
+  }
+
+  .card.compact {
+    min-height: 96px;
+    padding: 12px;
+  }
+
+  .card.llm {
+    background: var(--llm-bg);
+    border-color: var(--llm-border);
+    color: var(--llm-ink);
+  }
+
+  .card.code {
+    background: var(--code-bg);
+    border-color: var(--code-border);
+    color: var(--code-ink);
+  }
+
+  .card.state {
+    background: var(--state-bg);
+    border-color: var(--state-border);
+    color: var(--state-ink);
+  }
+
+  .card.stream {
+    background: var(--stream-bg);
+    border-color: var(--stream-border);
+    color: var(--stream-ink);
+  }
+
+  .card.warn {
+    background: var(--warn-bg);
+    border-color: var(--warn-border);
+    color: var(--warn-ink);
+  }
+
+  .card.user {
+    background: #eef2ff;
+    border-color: #4f46e5;
+    color: #3730a3;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    color: inherit;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+  }
+
+  .card h4 {
+    font-size: 16px;
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+
+  .card p {
+    color: currentColor;
+    font-size: 12.5px;
+    line-height: 1.45;
+    opacity: 0.9;
+  }
+
+  .responsibility {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .mini {
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 13px;
+  }
+
+  .mini h4 {
+    color: #0f172a;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .mini p {
+    color: #64748b;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+
+  .state-panel {
+    height: 100%;
+    min-height: 600px;
+    display: grid;
+    gap: 12px;
+    align-content: start;
+  }
+
+  .state-panel .card {
+    min-height: auto;
+  }
+
+  .state-list {
+    display: grid;
+    gap: 9px;
+  }
+
+  .state-item {
+    border: 1px solid #bbf7d0;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 10px;
+  }
+
+  .state-item strong {
+    display: block;
+    color: #166534;
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+
+  .state-item span {
+    color: #475569;
+    display: block;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .data-note {
+    border: 2px dashed #7e22ce;
+    background: #faf5ff;
+    color: #581c87;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 700;
+  }
+
+  .return-lane {
+    border-color: #99f6e4;
+    background: #f0fdfa;
+  }
+
+  .return-flow {
+    display: grid;
+    grid-template-columns: 260px 52px 260px 52px 180px 1fr;
+    align-items: stretch;
+  }
+
+  .number {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.78);
+    color: #ffffff;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .connector {
+    display: grid;
+    place-items: center;
+    color: #334155;
+    font-size: 26px;
+    font-weight: 900;
+  }
+
+  .connector.data {
+    color: #7e22ce;
+  }
+
+  .connector.return {
+    color: #0f766e;
+  }
+
+  @media (max-width: 980px) {
+    body {
+      padding: 16px;
+    }
+
+    .sidebar {
+      grid-template-columns: 1fr;
+      margin-bottom: 16px;
+    }
+  }
+
+  @media (max-width: 1250px) {
+    .canvas {
+      min-width: 0;
+    }
+
+    .canvas-header {
+      flex-direction: column;
+    }
+
+    .latency-note {
+      width: 100%;
+    }
+
+    .app-flow,
+    .return-flow {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .connector {
+      min-height: 26px;
+      transform: rotate(90deg);
+    }
+
+    .graph-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .state-panel {
+      min-height: auto;
+    }
+
+    .workers {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .responsibility {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 680px) {
+    .workers,
+    .responsibility,
+    .row.two {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="title-block">
+    <h1>CodeMap AI Multi-Agent Architecture</h1>
+    <p>LangGraph State 공유형 멀티에이전트 합의안 시각화</p>
+  </div>
+
+  <div class="panel info-panel" id="info-panel">
+    <strong>핵심 합의</strong>
+    <span>
+      같은 고성능 LLM 엔진을 공유하더라도 LangGraph 안에서는 역할별 node/agent를 분리합니다.
+      다만 Route Node는 LLM agent가 아니라 deterministic routing/control node로 둡니다.
+      카드를 클릭하면 각 역할과 회의 합의 포인트를 확인할 수 있습니다.
+    </span>
+  </div>
+
+  <div class="panel legend-panel">
+    <div class="section-label">Legend</div>
+    <div class="legend-item"><span class="swatch llm"></span>LLM Agent Node: 추론, 계획, 자연어 답변</div>
+    <div class="legend-item"><span class="swatch code"></span>Code / Router Node: 검증, 실행 제어, API/SSE</div>
+    <div class="legend-item"><span class="swatch state"></span>LangGraph Shared State: 원본 근거 저장</div>
+    <div class="legend-item"><span class="line-key control"></span>Control Flow: 실행 순서</div>
+    <div class="legend-item"><span class="line-key data"></span>State Read/Write: 데이터 공유</div>
+    <div class="legend-item"><span class="line-key return"></span>SSE Return Flow: 사용자 응답</div>
+  </div>
+
+  <div class="panel decision-panel">
+    <div class="section-label">Team Decision</div>
+    <ul class="decision-list">
+      <li>단일 만능 agent에 모든 도구를 몰아주지 않는다.</li>
+      <li>Worker별 multi-agent 분리는 유지한다.</li>
+      <li>Route Node는 LLM agent로 만들지 않는다.</li>
+      <li>State 공유로 LLM 간 요약 릴레이를 줄인다.</li>
+      <li>직렬 LLM 릴레이 대신 병렬 Worker 실행을 우선한다.</li>
+    </ul>
+  </div>
+</aside>
+
+<main class="arch-wrap">
+  <section class="canvas" aria-label="CodeMap AI architecture diagram">
+    <header class="canvas-header">
+      <div>
+        <h2>LangGraph State 공유형 하이브리드 멀티에이전트</h2>
+        <p>
+          회의의 핵심은 “LLM을 많이 붙이느냐”가 아니라, 어떤 책임을 LLM agent로 두고 어떤 책임을 일반 코드 node로 통제할지입니다.
+          이 구조는 LangGraph의 State, Node, Edge 모델을 사용해 LLM node와 deterministic node를 같은 graph 안에서 함께 운용합니다.
+        </p>
+      </div>
+      <div class="latency-note">
+        목표: Supervisor LLM 1회, Worker 병렬 실행, Final Answer LLM 1회 중심으로 직렬 지연을 줄인다.
+      </div>
+    </header>
+
+    <section class="lane">
+      <div class="lane-title">
+        <span>Application Layer</span>
+        <span>chat/router + chat/service는 agent가 아니라 API, 세션, SSE 계층</span>
+      </div>
+      <div class="app-flow">
+        <article class="card user" onclick="showInfo('user')">
+          <span class="number">1</span>
+          <span class="badge">USER</span>
+          <h4>사용자 질문</h4>
+          <p>예: “로그인 어딧음?” 같은 오타와 한국어 자연어 질문</p>
+        </article>
+        <div class="connector">→</div>
+        <article class="card code" onclick="showInfo('chat')">
+          <span class="number">2</span>
+          <span class="badge">CODE</span>
+          <h4>chat/router · chat/service</h4>
+          <p>요청 수신, 세션 관리, LangGraph 실행 호출, SSE 스트리밍 담당</p>
+        </article>
+        <div class="connector">→</div>
+        <article class="card code" onclick="showInfo('graphStart')">
+          <span class="number">3</span>
+          <span class="badge">GRAPH CALL</span>
+          <h4>LangGraph 실행 시작</h4>
+          <p>State 초기화 후 graph node 실행. chat/service 자체는 LLM agent가 아님</p>
+        </article>
+        <div class="parallel-label">아래 LangGraph 영역으로 진입</div>
+      </div>
+    </section>
+
+    <section class="graph-shell">
+      <div class="graph-header">
+        <div>
+          <h3>LangGraph Execution Environment · backend/app/agent_graph/</h3>
+          <p>
+            State는 애플리케이션의 현재 상태를 나타내는 공유 데이터 구조입니다.
+            각 node는 LLM일 수도 있고 일반 코드일 수도 있으므로, agentic node와 deterministic workflow node를 섞는 방식이 자연스럽습니다.
+          </p>
+        </div>
+        <div class="data-note">
+          State 공유의 목적은 속도 자체를 자동 해결하는 것이 아니라, 중간 LLM 요약 릴레이로 인한 정보 유실을 줄이는 것입니다.
+        </div>
+      </div>
+
+      <div class="graph-grid">
+        <div class="workflow">
+          <div class="row single">
+            <article class="card llm" onclick="showInfo('supervisor')">
+              <span class="number">4</span>
+              <span class="badge">LLM AGENT</span>
+              <h4>Supervisor Agent</h4>
+              <p>
+                의도 분석, 오타/모호성 정리, 필요한 worker 선택, 접근 범위 plan JSON 생성.
+                최종 답변은 작성하지 않고 구조화된 계획만 만든다.
+              </p>
+            </article>
+          </div>
+
+          <div class="wide-arrow">↓ access_plan · rewritten_query를 State에 write</div>
+
+          <div class="row single">
+            <article class="card code" onclick="showInfo('orchestrator')">
+              <span class="number">5</span>
+              <span class="badge">CODE NODE</span>
+              <h4>Route Node</h4>
+              <p>
+                LLM 아님. plan JSON 검증, allowlist 검사, path traversal 차단, worker 병렬 라우팅,
+                timeout/retry/fallback 제어를 코드로 수행.
+              </p>
+            </article>
+          </div>
+
+          <div class="wide-arrow">↓ 검증된 작업만 병렬 fan-out</div>
+
+          <div class="parallel-label">Worker Agents: 같은 모델을 공유할 수 있지만 prompt, tool, schema, state 책임은 분리</div>
+          <div class="workers">
+            <article class="card llm compact" onclick="showInfo('workerSearch')">
+              <span class="number">6A</span>
+              <span class="badge">LLM</span>
+              <h4>Search Worker</h4>
+              <p>Query rewrite, semantic search, embedding/vector search 전략</p>
+            </article>
+            <article class="card code compact" onclick="showInfo('workerDir')">
+              <span class="number">6B</span>
+              <span class="badge">CODE</span>
+              <h4>Dir Worker</h4>
+              <p>repo 구조 탐색. 도구는 작고 제한된 단일 책임</p>
+            </article>
+            <article class="card code compact" onclick="showInfo('workerGrep')">
+              <span class="number">6C</span>
+              <span class="badge">CODE</span>
+              <h4>Grep Worker</h4>
+              <p>키워드, 정규식, alias 기반 빠른 후보 탐색</p>
+            </article>
+            <article class="card code compact" onclick="showInfo('workerRead')">
+              <span class="number">6D</span>
+              <span class="badge">CODE</span>
+              <h4>Read Worker</h4>
+              <p>허용된 후보 파일만 읽고 line/evidence를 State에 기록</p>
+            </article>
+            <article class="card llm compact" onclick="showInfo('workerReason')">
+              <span class="number">6E</span>
+              <span class="badge">OPTIONAL LLM</span>
+              <h4>Code Reasoning</h4>
+              <p>필요 시 읽은 코드 조각을 해석. MVP에서는 생략 가능</p>
+            </article>
+          </div>
+
+          <div class="wide-arrow">↓ raw evidence를 State에 직접 write</div>
+
+          <div class="row two">
+            <article class="card code" onclick="showInfo('aggregator')">
+              <span class="number">7</span>
+              <span class="badge">CODE FIRST</span>
+              <h4>Evidence Aggregator Node</h4>
+              <p>
+                MVP는 코드 추천. 중복 제거, 파일 경로/라인/근거 정리, token budget 압축.
+                고도화 시에만 LLM 압축을 선택.
+              </p>
+            </article>
+            <article class="card llm" onclick="showInfo('final')">
+              <span class="number">8</span>
+              <span class="badge">LLM AGENT</span>
+              <h4>Final Answer Agent</h4>
+              <p>
+                State의 원본 근거와 compact_context를 기반으로 최종 답변 생성.
+                Route Node 요약본에 의존하지 않으며 chat/final_answer_agent.py에 둔다.
+              </p>
+            </article>
+          </div>
+        </div>
+
+        <aside class="state-panel">
+          <article class="card state" onclick="showInfo('state')">
+            <span class="badge">LANGGRAPH STATE</span>
+            <h4>CodeMapState Shared Memory</h4>
+            <p>모든 node가 같은 상태 객체를 읽고 쓰며, 중간 자연어 릴레이를 최소화한다.</p>
+          </article>
+
+          <div class="state-list">
+            <div class="state-item">
+              <strong>user_query</strong>
+              <span>원본 사용자 질문: “로그인 어딧음?”</span>
+            </div>
+            <div class="state-item">
+              <strong>rewritten_query</strong>
+              <span>login, signin, auth, authentication, 회원가입, register</span>
+            </div>
+            <div class="state-item">
+              <strong>access_plan</strong>
+              <span>intent, selected_workers, allowed_paths, risk_level, parallel_groups</span>
+            </div>
+            <div class="state-item">
+              <strong>security_result</strong>
+              <span>allowlist, path traversal, denied paths, fallback policy</span>
+            </div>
+            <div class="state-item">
+              <strong>worker_results</strong>
+              <span>raw snippets, file paths, line ranges, search score, tool metadata</span>
+            </div>
+            <div class="state-item">
+              <strong>compact_context</strong>
+              <span>중복 제거와 token budget 정리 후 Final Answer에 전달할 근거 묶음</span>
+            </div>
+            <div class="state-item">
+              <strong>final_answer</strong>
+              <span>SSE로 사용자에게 보낼 근거 기반 최종 답변</span>
+            </div>
+          </div>
+
+          <div class="data-note">
+            데이터 흐름: Supervisor write → Route Node read/validate → Workers write raw evidence → Aggregator compact → Final Answer read.
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="lane return-lane">
+      <div class="lane-title">
+        <span>Response Return Flow</span>
+        <span>답변이 다시 사용자에게 돌아가는 경로를 별도 레일로 표시</span>
+      </div>
+      <div class="return-flow">
+        <article class="card llm" onclick="showInfo('finalReturn')">
+          <span class="number">9</span>
+          <span class="badge">LLM OUTPUT</span>
+          <h4>Final Answer Agent</h4>
+          <p>State 기반 답변 토큰 생성. 파일 경로/라인/근거를 포함해 자연어로 정리</p>
+        </article>
+        <div class="connector return">→</div>
+        <article class="card code" onclick="showInfo('sse')">
+          <span class="number">10</span>
+          <span class="badge">SSE</span>
+          <h4>chat/service Stream</h4>
+          <p>세션 상태와 이벤트 스트림 관리. UI가 실시간으로 답변을 수신</p>
+        </article>
+        <div class="connector return">→</div>
+        <article class="card user" onclick="showInfo('userReturn')">
+          <span class="number">11</span>
+          <span class="badge">USER</span>
+          <h4>사용자 화면</h4>
+          <p>근거 기반 최종 답변 확인</p>
+        </article>
+        <article class="card stream" onclick="showInfo('summary')">
+          <span class="badge">MEETING SUMMARY</span>
+          <h4>팀에 설명할 한 문장</h4>
+          <p>
+            같은 LLM 모델을 공유하더라도 역할별 node/agent로 분리하되,
+            Route Node는 LLM이 아니라 deterministic control node로 둔다.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="lane">
+      <div class="lane-title">
+        <span>Role Matrix</span>
+        <span>회의에서 합의한 “어디까지 LLM인가”를 빠르게 확인</span>
+      </div>
+      <div class="responsibility">
+        <div class="mini">
+          <h4>LLM 사용</h4>
+          <p>Supervisor, Search Worker, Final Answer. 필요 시 Code Reasoning Worker와 Evidence 압축.</p>
+        </div>
+        <div class="mini">
+          <h4>LLM 비추천</h4>
+          <p>chat/service 직접 agent화, Route Node LLM화, 보안 검증 자연어 판단.</p>
+        </div>
+        <div class="mini">
+          <h4>코드가 더 잘하는 영역</h4>
+          <p>경로 제한, allowlist, timeout, retry, worker fan-out, schema 정규화, 로그 기록.</p>
+        </div>
+        <div class="mini">
+          <h4>과장해서 말하지 않을 점</h4>
+          <p>오타/검색은 일반 로직으로도 일부 가능. LLM Rewriter는 품질과 시연 가치 때문에 채택.</p>
+        </div>
+      </div>
+    </section>
+  </section>
+</main>
+
+<script>
+const INFO = {
+  user: {
+    title: "사용자 질문",
+    body: "사용자는 자연어로 코드베이스 질문을 던집니다. 오타나 모호한 한국어 표현은 일반 검색 로직으로도 일부 처리 가능하지만, LLM 기반 Query Rewriter를 두면 코드 검색용 질의로 확장하기 좋습니다."
+  },
+  chat: {
+    title: "chat/router · chat/service",
+    body: "직접 LLM agent로 만들지 않는 계층입니다. 요청 수신, 세션 관리, LangGraph 실행 호출, SSE 스트리밍을 담당합니다. Final Answer Agent는 chat/final_answer_agent.py에 둡니다."
+  },
+  graphStart: {
+    title: "LangGraph 실행 시작",
+    body: "chat/service가 초기 State를 만들고 backend/app/agent_graph/ 아래의 LangGraph를 실행합니다. LangGraph 안에서는 LLM node와 일반 코드 node를 섞어 구성합니다."
+  },
+  supervisor: {
+    title: "Supervisor Agent",
+    body: "LLM 기반 계획 수립자입니다. 사용자 의도 분석, 오타/모호성 정리, 필요한 worker 선택, 접근 범위 plan JSON 생성을 담당합니다. 최종 답변을 미리 쓰거나 worker 결과를 장황하게 요약하지 않습니다."
+  },
+  orchestrator: {
+    title: "Route Node",
+    body: "LLM이 아니라 deterministic code node입니다. plan JSON 검증, 허용 경로 allowlist 검사, path traversal 차단, worker 병렬 실행, timeout/retry/fallback을 코드로 제어합니다. 이 영역은 LLM보다 코드가 안전합니다."
+  },
+  workerSearch: {
+    title: "Search Worker Agent",
+    body: "LLM 활용 가치가 큰 worker입니다. 사용자의 자연어 질문을 login, signin, auth, authentication처럼 검색 가능한 질의로 확장하고, embedding/vector search 또는 hybrid search 전략을 수행합니다."
+  },
+  workerDir: {
+    title: "Dir Worker",
+    body: "repo 구조를 탐색하는 단일 책임 worker입니다. 프로젝트 시연상 agent node로 분리할 수 있지만, 내부 실행은 결정론적 코드 wrapper가 적합합니다."
+  },
+  workerGrep: {
+    title: "Grep Worker",
+    body: "키워드, 정규식, alias table, fuzzy matching 등 일반 검색 로직으로 빠르게 후보를 찾습니다. LLM 없이도 충분히 가치가 있는 탐색 worker입니다."
+  },
+  workerRead: {
+    title: "Read Worker",
+    body: "Route Node가 허용한 경로 안의 후보 파일만 읽습니다. 파일 접근은 보안 경계가 중요하므로, LLM 판단이 아니라 코드 기반 검증 뒤 실행합니다."
+  },
+  workerReason: {
+    title: "Code Reasoning Worker",
+    body: "선택형 LLM worker입니다. 읽은 코드 조각이 복잡하거나 cross-file reasoning이 필요할 때만 사용합니다. MVP에서는 비용과 latency를 줄이기 위해 생략할 수 있습니다."
+  },
+  aggregator: {
+    title: "Evidence Aggregator Node",
+    body: "MVP에서는 코드 node를 추천합니다. worker_results의 중복 제거, 파일 경로/라인/근거 정리, token budget 압축을 담당합니다. 고도화 단계에서는 LLM 압축을 조건부로 붙일 수 있습니다."
+  },
+  final: {
+    title: "Final Answer Agent",
+    body: "chat/final_answer_agent.py에 위치합니다. State에 저장된 원본 근거와 compact_context를 읽고 사용자에게 보낼 최종 답변을 생성합니다. 핵심은 Route Node가 자연어로 요약한 내용이 아니라 State의 근거를 직접 읽는다는 점입니다."
+  },
+  state: {
+    title: "CodeMapState Shared Memory",
+    body: "LangGraph의 공유 상태입니다. user_query, rewritten_query, access_plan, allowed_paths, worker_results, compact_context, final_answer를 저장합니다. LLM끼리 말로 전달하는 직렬 릴레이를 줄여 정보 유실을 낮춥니다."
+  },
+  finalReturn: {
+    title: "Final Answer 출력",
+    body: "Final Answer Agent가 근거 기반 답변을 생성합니다. 답변은 사용자 친화적이어야 하지만, 파일 경로와 라인, 근거가 빠지지 않도록 State의 원본 evidence를 기반으로 합니다."
+  },
+  sse: {
+    title: "SSE Streaming",
+    body: "chat/service가 생성된 답변 토큰 또는 이벤트를 사용자 화면으로 스트리밍합니다. 따라서 답변 복귀 흐름은 Final Answer Agent에서 끝나지 않고 chat/service를 거쳐 사용자에게 돌아갑니다."
+  },
+  userReturn: {
+    title: "사용자 화면",
+    body: "사용자는 최종 답변을 실시간으로 받습니다. 이 경로가 보여야 전체 시스템이 단순 분석 그래프가 아니라 실제 채팅 제품 흐름으로 이해됩니다."
+  },
+  summary: {
+    title: "팀 설명용 문장",
+    body: "우리 프로젝트의 목표는 LangChain 멀티에이전트 활용이므로 단일 agent에 모든 도구를 몰아주지 않는다. 같은 LLM 모델을 공유하더라도 역할별 prompt/tool/schema/state로 분리하고, Route Node는 LLM agent가 아니라 deterministic routing/control node로 둔다."
+  }
+};
+
+function showInfo(key) {
+  const data = INFO[key];
+  if (!data) return;
+  const panel = document.getElementById("info-panel");
+  panel.innerHTML = `<strong>${data.title}</strong><span>${data.body}</span>`;
+  panel.style.borderColor = "#0284c7";
+  panel.style.background = "#f8fafc";
+  panel.style.transform = "translateY(-2px)";
+  window.setTimeout(() => {
+    panel.style.borderColor = "#e2e8f0";
+    panel.style.background = "#ffffff";
+    panel.style.transform = "translateY(0)";
+  }, 220);
+}
+</script>
+</body>
+</html>
