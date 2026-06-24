@@ -1,10 +1,7 @@
 "use client";
 
 import { useMemo, useState, CSSProperties } from "react";
-// @ts-ignore
-import * as reactWindow from "react-window";
-const List = (reactWindow as any).FixedSizeList;
-// @ts-ignore
+import { FixedSizeList as List } from "react-window";
 import { AutoSizer } from "react-virtualized-auto-sizer";
 import {
   ChevronRight,
@@ -223,11 +220,11 @@ export function FileTree({
           <div className="px-2 py-8 text-center text-[10px] leading-5 text-zinc-600">
             {files.length === 0 ? "분석이 완료되면 실제 파일 구조가 여기에 표시됩니다." : "일치하는 파일이 없습니다."}
           </div>
-        ) : (
-          // @ts-ignore
-          <AutoSizer>
+        ) : (() => {
+          const Sizer = AutoSizer as any;
+          return (
+          <Sizer>
             {({ height, width }: { height: number; width: number }) => (
-              // @ts-ignore
               <List
                 height={height || 400}
                 itemCount={flatNodes.length}
@@ -247,8 +244,9 @@ export function FileTree({
                 {Row}
               </List>
             )}
-          </AutoSizer>
-        )}
+          </Sizer>
+          );
+        })()}
       </div>
       <div className={`border-t px-3 py-2 text-[9px] text-zinc-600 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
         {files.length ? `${files.length.toLocaleString()} files indexed` : "No snapshot loaded"}

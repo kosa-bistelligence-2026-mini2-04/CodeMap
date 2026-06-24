@@ -20,7 +20,7 @@
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
     "react-virtualized-auto-sizer": "^2.0.3",
-    "react-window": "^2.2.7",
+    "react-window": "^1.8.11",
     "remark-gfm": "^4.0.1",
     "three": "^0.181.2",
     "zustand": "^5.0.14"
@@ -30,7 +30,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/react-virtualized-auto-sizer": "^1.0.4",
     "@types/react-window": "^1.8.8",
     "@types/three": "^0.181.0",
     "eslint": "^9",
