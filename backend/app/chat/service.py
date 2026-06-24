@@ -1,19 +1,21 @@
-"""Repository-grounded conversational service."""
+"""Repository-grounded conversational service — LangGraph 멀티에이전트 연동."""
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from pathlib import Path
+from typing import AsyncIterator
 from uuid import UUID
 
-
 from sqlalchemy.ext.asyncio import AsyncSession
-import asyncio
 
 from app.chat.repository import ChatRepository
 from app.chat.schemas import ChatRequest
 from app.core.config import get_settings
-from app.repo.analyzer import search_repository
 from app.repo.repository import AnalysisJobRepository
+
+logger = logging.getLogger(__name__)
 
 
 class RepositoryChatService:
@@ -24,6 +26,7 @@ class RepositoryChatService:
         self.settings = get_settings()
 
     async def prepare(self, repo_id: UUID, request: ChatRequest):
+        """스레드 생성, 사용자 메시지 저장 후 job/thread/mode를 반환."""
         job = await self.job_repository.get_job_by_id(repo_id)
         if not job:
             raise ValueError("분석 프로젝트를 찾을 수 없습니다.")
@@ -39,60 +42,137 @@ class RepositoryChatService:
         mode = "quick" if request.mode == "fast" else request.mode
         await self.chat_repository.add_message(thread, "user", request.message, mode)
         await self.db.commit()
-        references = await self._search(clone_path, request, mode)
-        return job, thread, mode, references
+        return job, thread, mode, str(clone_path)
 
-    async def _search(self, clone_path: Path, request: ChatRequest, mode: str) -> list[dict]:
-        query = request.message
-        if request.contextFile:
-            query = f"{request.contextFile} {query}"
-        return await asyncio.to_thread(
+    async def run_agent_graph(
+        self,
+        repo_id: UUID,
+        user_query: str,
+        clone_path: str,
+        mode: str = "quick",
+    ) -> dict:
+        """
+        LangGraph 멀티에이전트 워크플로우를 실행하고 최종 State를 반환.
+
+        반환값:
+          - worker_results: 각 Worker가 수집한 원본 결과 목록
+          - compact_context: Evidence Aggregator가 생성한 token budget 내 근거 묶음
+        """
+        try:
+            from app.agent_graph.graph import compiled_graph
+            from app.agent_graph.state import CodeMapState
+
+            initial_state: CodeMapState = {
+                "user_query": user_query,
+                "repo_id": str(repo_id),
+                "clone_path": clone_path,
+                "rewritten_query": "",
+                "access_plan": [],
+                "security_result": {"approved": [], "rejected": []},
+                "worker_results": [],
+                "compact_context": {},
+                "final_answer": None,
+            }
+
+            # LangGraph invoke (비동기)
+            final_state = await compiled_graph.ainvoke(initial_state)
+            logger.info(
+                "[ChatService] agent_graph 실행 완료 — worker_results=%d",
+                len(final_state.get("worker_results", [])),
+            )
+            return {
+                "worker_results": final_state.get("worker_results", []),
+                "compact_context": final_state.get("compact_context", {}),
+            }
+
+        except Exception as exc:
+            # LangGraph 실패 시 기존 키워드 검색으로 폴백
+            logger.warning(
+                "[ChatService] agent_graph 실패, 키워드 검색 폴백: %s", exc
+            )
+            return await self._keyword_search_fallback(user_query, clone_path, mode)
+
+    async def _keyword_search_fallback(
+        self, query: str, clone_path: str, mode: str
+    ) -> dict:
+        """
+        LangGraph 미설치 또는 실패 시 기존 search_repository 키워드 검색 폴백.
+        worker_results / compact_context 형식에 맞춰 변환하여 반환합니다.
+        """
+        from app.repo.analyzer import search_repository
+
+        raw: list[dict] = await asyncio.to_thread(
             search_repository,
-            str(clone_path),
+            clone_path,
             query,
             10 if mode == "deep" else 5,
         )
 
-    async def answer(self, repo_name: str, request: ChatRequest, references: list[dict], mode: str = "quick") -> str:
-        if not references:
-            return (
-                f"`{repo_name}` 저장소에서 질문과 직접 연결되는 코드 근거를 찾지 못했습니다. "
-                "파일명, 함수명 또는 기능 흐름을 조금 더 구체적으로 알려주시면 실제 소스에서 다시 탐색하겠습니다."
-            )
+        # 기존 참조 형식 → WorkerResult 형식 변환
+        worker_results = [
+            {
+                "worker": "search",
+                "tool": "keyword_search",
+                "query": query,
+                "content": f"{item.get('snippet', '')}",
+                "file_path": item.get("file"),
+            }
+            for item in raw
+        ]
 
-        if self.settings.OPENAI_API_KEY.get_secret_value():
-            from langchain_openai import ChatOpenAI
+        # 동일한 compact_context 형식 구성
+        compact_context = {
+            "total_results": len(raw),
+            "deduplicated": len(raw),
+            "total_chars": sum(len(r["content"]) for r in worker_results),
+            "snippets": [
+                {
+                    "file": item.get("file"),
+                    "worker": "search",
+                    "query": query,
+                    "content": item.get("snippet", ""),
+                }
+                for item in raw
+            ],
+        }
+        return {"worker_results": worker_results, "compact_context": compact_context}
 
-            # mode에 따라 실제 모델 분기 적용
-            model_name = "gpt-4o" if mode == "deep" else self.settings.OPENAI_MODEL
+    def stream_answer(
+        self,
+        repo_name: str,
+        user_query: str,
+        compact_context: dict,
+        worker_results: list[dict],
+        mode: str = "quick",
+    ) -> AsyncIterator[dict]:
+        """
+        Final Answer Agent — SSE 이벤트 딕셔너리 스트림을 반환.
 
-            context = "\n\n".join(
-                f"[{item['file']}:{item['line']}]\n{item['snippet']}" for item in references
-            )
-            llm = ChatOpenAI(
-                model=model_name,
-                api_key=self.settings.OPENAI_API_KEY,
-                temperature=0.1,
-            )
-            response = await llm.ainvoke([
-                ("system", (
-                    "당신은 CodeMap 저장소 분석 도우미입니다. 제공된 실제 코드 근거만 사용하세요. "
-                    "추측은 추측이라고 밝히고, 중요한 주장에는 [파일:라인] 형식의 출처를 붙이세요."
-                )),
-                ("user", f"저장소: {repo_name}\n질문: {request.message}\n\n코드 근거:\n{context}"),
-            ])
-            return str(response.content)
+        router에서 json.dumps() 후 SSE 포맷으로 전송합니다.
+        """
+        from app.agent_graph.agents.final_answer_agent import stream_final_answer
 
-        bullets = "\n".join(
-            f"- `{item['file']}:{item['line']}` — 질문 키워드와 연결되는 코드가 확인됩니다."
-            for item in references[:5]
+        return stream_final_answer(
+            repo_name=repo_name,
+            user_query=user_query,
+            compact_context=compact_context,
+            worker_results=worker_results,
+            mode=mode,
         )
-        return (
-            f"`{repo_name}`의 실제 저장소 스냅샷에서 관련 파일을 찾았습니다.\n\n{bullets}\n\n"
-            "현재 서버에는 생성형 모델 키가 설정되지 않아 코드 근거 목록까지만 제공합니다. "
-            "서버에 `OPENAI_API_KEY`를 설정하면 같은 근거를 사용해 상세 설명을 생성합니다."
-        )
 
-    async def persist_answer(self, thread, answer: str, mode: str, references: list[dict]) -> None:
+    async def persist_answer(
+        self,
+        thread,
+        answer: str,
+        mode: str,
+        worker_results: list[dict],
+    ) -> None:
+        """어시스턴트 응답과 참조 파일 목록을 DB에 저장."""
+        # 기존 references 형식으로 변환 (file_path가 있는 Worker 결과만)
+        references = [
+            {"file": r.get("file_path", ""), "line": 0, "snippet": r.get("content", "")[:200]}
+            for r in worker_results
+            if r.get("file_path")
+        ]
         await self.chat_repository.add_message(thread, "assistant", answer, mode, references)
         await self.db.commit()

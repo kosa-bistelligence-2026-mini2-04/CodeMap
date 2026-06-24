@@ -1,5 +1,5 @@
-import asyncio
 import json
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +11,7 @@ from app.chat.schemas import ChatRequest
 from app.chat.service import RepositoryChatService
 from app.core.database import get_db
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Repository Chat"])
 
@@ -21,56 +22,99 @@ def _event(payload: dict) -> str:
 
 @router.post("/{repo_id}")
 async def chat(repo_id: UUID, request: ChatRequest, db: AsyncSession = Depends(get_db)):
+    """
+    LangGraph 멀티에이전트 기반 저장소 대화 엔드포인트.
+
+    SSE 이벤트 순서:
+      thread      — 스레드 ID
+      status      — searching / building_context / generating
+      exploration — Worker가 탐색한 파일 이력 (실시간)
+      content     — LLM 응답 토큰 스트림
+      references  — 최종 참조 파일 목록
+      done        — 완료 신호
+      error       — 오류 발생 시
+    """
     service = RepositoryChatService(db)
+
     try:
-        job, thread, mode, references = await service.prepare(repo_id, request)
+        job, thread, mode, clone_path = await service.prepare(repo_id, request)
     except ValueError as exc:
-        if str(exc) == "저장소 스냅샷이 아직 준비되지 않았습니다.":
-            async def fallback_stream():
+        if "스냅샷이 아직 준비" in str(exc):
+            # 스냅샷 미준비 — 안내 메시지 SSE 스트림 반환
+            async def _fallback_stream():
                 yield _event({"type": "status", "phase": "generating"})
-                answer = (
-                    "⚠️ 아직 저장소 스냅샷 분석이 완료되지 않아 전체 아키텍처나 구조 기반 탐색을 수행할 수 없습니다.\n\n"
-                    "하지만 **단일 코드 스니펫 해석**, **일반적인 프로그래밍 지문**, **오류 메시지 원인 파악** 등은 "
-                    "현재 상태에서도 바로 답변해 드릴 수 있습니다."
+                msg = (
+                    "⚠️ 아직 저장소 스냅샷 분석이 완료되지 않아 전체 구조 기반 탐색을 수행할 수 없습니다.\n\n"
+                    "하지만 **단일 코드 스니펫 해석**, **일반적인 프로그래밍 질문**, "
+                    "**오류 메시지 원인 파악** 등은 현재도 도움을 드릴 수 있습니다."
                 )
-                for index in range(0, len(answer), 36):
-                    yield _event({"type": "content", "content": answer[index:index + 36]})
-                    await asyncio.sleep(0.01)
+                chunk_size = 36
+                for i in range(0, len(msg), chunk_size):
+                    yield _event({"type": "content", "content": msg[i:i + chunk_size]})
                 yield _event({"type": "suggestions", "suggestions": [
                     "에러 메시지 의미 해석",
                     "단편적인 코드 리뷰",
-                    "특정 프레임워크 사용법"
+                    "특정 프레임워크 사용법",
                 ]})
                 yield _event({"type": "done"})
-            return StreamingResponse(fallback_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+            return StreamingResponse(
+                _fallback_stream(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache"},
+            )
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    # ── LangGraph 멀티에이전트 스트리밍 SSE ──
     async def stream():
-        answer = None
+        accumulated_answer = ""
+        worker_results: list[dict] = []
         try:
             yield _event({"type": "thread", "threadId": str(thread.id)})
             yield _event({"type": "status", "phase": "searching"})
-            for item in references:
-                yield _event({"type": "exploration", "step": f"{item['file']}:{item['line']} 확인"})
+
+            # 1. LangGraph 실행 (Supervisor → Route → Workers → Aggregator)
+            user_query = request.message
+            if request.contextFile:
+                user_query = f"{request.contextFile} 파일 컨텍스트: {user_query}"
+
+            graph_result = await service.run_agent_graph(
+                repo_id=repo_id,
+                user_query=user_query,
+                clone_path=clone_path,
+                mode=mode,
+            )
+            worker_results = graph_result.get("worker_results", [])
+            compact_context = graph_result.get("compact_context", {})
+
             yield _event({"type": "status", "phase": "building_context"})
-            answer = await service.answer(job.repo_name, request, references, mode)
-            yield _event({"type": "status", "phase": "generating"})
-            for index in range(0, len(answer), 36):
-                yield _event({"type": "content", "content": answer[index:index + 36]})
-                await asyncio.sleep(0.01)
-            yield _event({"type": "references", "references": references})
-            await service.persist_answer(thread, answer, mode, references)
-            yield _event({"type": "done"})
+
+            # 2. Final Answer Agent 스트리밍
+            async for event in service.stream_answer(
+                repo_name=job.repo_name,
+                user_query=request.message,
+                compact_context=compact_context,
+                worker_results=worker_results,
+                mode=mode,
+            ):
+                if event.get("type") == "content":
+                    accumulated_answer += event.get("content", "")
+                yield _event(event)
+
+            # 3. DB 저장
+            await service.persist_answer(thread, accumulated_answer, mode, worker_results)
+
         except Exception as exc:
-            # 스트리밍 중 오류 발생 시 에러 이벤트 전송 후 정리
-            import logging
-            logging.getLogger(__name__).exception("SSE stream failed for repo %s", repo_id)
+            logger.exception("[ChatRouter] SSE stream 오류 repo=%s", repo_id)
             yield _event({"type": "error", "message": "답변 생성 중 오류가 발생했습니다. 다시 시도해주세요."})
-            # 답변이 생성되지 않았으면 user 메시지도 롤백
-            if answer is None:
+            if not accumulated_answer:
                 await db.rollback()
 
-    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @router.get("/{repo_id}/threads")

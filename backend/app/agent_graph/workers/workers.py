@@ -35,43 +35,92 @@ _MAX_GREP_RESULTS = 30     # grep 결과 최대 개수
 
 async def search_worker(state: CodeMapState) -> dict:
     """
-    시맨틱 검색 Worker.
+    Hybrid Search Worker (pgvector 시맨틱 + BM25 + RRF).
 
-    pgvector 임베딩 기반 유사도 검색을 수행합니다.
-    임베딩 미준비 시 기존 키워드 검색(search_repository)으로 폴백합니다.
+    실행 전략:
+    1. pgvector 시맨틱 검색 + BM25 재스코어링 + RRF 결합
+    2. 실패/미준비 시 기존 키워드 검색(search_repository)으로 폴백
+
+    State에서 repo_id를 읽어 DB에서 임베딩 벡터를 조회합니다.
     """
     item = state.get("_plan_item", {})
     query = item.get("query", state.get("rewritten_query", state["user_query"]))
+    repo_id = state.get("repo_id", "")
     clone_path = state.get("clone_path", "")
 
-    logger.info("[SearchWorker] 시작 — query=%r", query)
+    logger.info("[SearchWorker] 시작 — query=%r repo_id=%s", query, repo_id)
 
-    result_content = ""
+    worker_results: list[WorkerResult] = []
+
+    # ── 1. Hybrid Search (pgvector + BM25 + RRF) ──
+    try:
+        from uuid import UUID as _UUID
+        from app.core.database import async_session_factory
+        from app.agent_graph.search.hybrid_search import hybrid_search
+
+        async with async_session_factory() as db:
+            hits = await hybrid_search(
+                db=db,
+                job_id=_UUID(repo_id),
+                query=query,
+                top_n=5,
+            )
+
+        if hits:
+            for hit in hits:
+                file_path = hit.get("file_path", "")
+                content = hit.get("content", "") or hit.get("summary", "")
+                rrf = hit.get("rrf_score", 0.0)
+                sem = hit.get("semantic_rank")
+                bm = hit.get("bm25_rank")
+                worker_results.append(
+                    WorkerResult(
+                        worker="search",
+                        tool=f"hybrid_search(sem={sem},bm25={bm},rrf={rrf:.4f})",
+                        query=query,
+                        content=content,
+                        file_path=file_path or None,
+                    )
+                )
+            logger.info("[SearchWorker] Hybrid Search 완료 — %d 결과", len(hits))
+            return {"worker_results": worker_results}
+
+    except Exception as exc:
+        logger.info("[SearchWorker] Hybrid Search 실패/미준비, 키워드 폴백: %s", exc)
+
+    # ── 2. 키워드 검색 폴백 ──
     try:
         from app.repo.analyzer import search_repository
-        results: list[dict] = await asyncio.to_thread(
+
+        raw: list[dict] = await asyncio.to_thread(
             search_repository, clone_path, query, 5
         )
-        result_content = "\n\n".join(
-            f"# {r.get('file', '')}\n{r.get('content', '')}"
-            for r in results
-        )
+        for r in raw:
+            snippet = r.get("snippet", "") or r.get("content", "")
+            worker_results.append(
+                WorkerResult(
+                    worker="search",
+                    tool="keyword_search",
+                    query=query,
+                    content=snippet,
+                    file_path=r.get("file"),
+                )
+            )
+        logger.info("[SearchWorker] 키워드 폴백 — %d 결과", len(raw))
     except Exception as exc:
-        logger.warning("[SearchWorker] 키워드 검색 실패: %s", exc)
-        result_content = f"검색 실패: {exc}"
-
-    logger.info("[SearchWorker] 완료 — 결과 길이=%d", len(result_content))
-    return {
-        "worker_results": [
+        logger.warning("[SearchWorker] 키워드 검색도 실패: %s", exc)
+        worker_results.append(
             WorkerResult(
                 worker="search",
-                tool="search_repository",
+                tool="fallback_failed",
                 query=query,
-                content=result_content,
+                content=f"검색 실패: {exc}",
                 file_path=None,
             )
-        ]
-    }
+        )
+
+    return {"worker_results": worker_results}
+
 
 
 # ─────────────────────────────────────────────

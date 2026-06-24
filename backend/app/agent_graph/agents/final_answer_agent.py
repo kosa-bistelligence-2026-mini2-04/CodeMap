@@ -1,0 +1,140 @@
+"""
+Final Answer Agent: LangGraph Evidence를 받아 스트리밍 응답을 생성.
+
+역할:
+- compact_context (Evidence Aggregator 출력)를 시스템 프롬프트에 주입
+- ChatOpenAI streaming=True로 SSE 토큰 단위 스트리밍
+- 응답 생성 중 worker 탐색 이력을 exploration 이벤트로 선행 전송
+- OPENAI_API_KEY 미설정 시 키워드 검색 결과 기반 폴백 응답 생성
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import AsyncIterator
+
+from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+_SYSTEM_PROMPT = """당신은 CodeMap 저장소 분석 전문가입니다.
+
+아래 코드 근거는 사용자의 질문과 연관된 실제 소스 파일에서 추출한 원본 데이터입니다.
+이 근거만을 사용하여 답변하세요.
+
+규칙:
+- 코드 인용 시 반드시 [파일명:라인] 형식의 출처를 붙이세요.
+- 확실하지 않은 추론은 "추정:" 으로 시작하여 구분하세요.
+- 근거에 없는 내용은 "근거 없음" 으로 명시하세요.
+- 한국어로 답변하세요.
+
+코드 근거:
+{context}
+"""
+
+
+def _build_context(compact_context: dict) -> str:
+    """compact_context dict → LLM 프롬프트용 텍스트 변환."""
+    snippets: list[dict] = compact_context.get("snippets", [])
+    if not snippets:
+        return "(검색 결과 없음)"
+    parts: list[str] = []
+    for s in snippets:
+        header = f"## {s['file'] or '검색결과'} [{s['worker']}]"
+        parts.append(f"{header}\n{s['content']}")
+    return "\n\n---\n\n".join(parts)
+
+
+async def stream_final_answer(
+    repo_name: str,
+    user_query: str,
+    compact_context: dict,
+    worker_results: list[dict],
+    mode: str = "quick",
+) -> AsyncIterator[str]:
+    """
+    Final Answer Agent — SSE 이벤트 스트림 생성기.
+
+    Yields JSON 직렬화 가능한 dict 형태의 이벤트.
+    호출측(router)에서 json.dumps() 후 SSE 형식으로 전송합니다.
+
+    이벤트 순서:
+      1. exploration 이벤트 (worker 탐색 이력)
+      2. status: generating
+      3. content 토큰 스트림 (LLM streaming)
+      4. references 이벤트
+      5. done
+    """
+    settings = get_settings()
+
+    # ── 1. Worker 탐색 이력 exploration 이벤트 ──
+    for r in worker_results[:10]:  # 최대 10개만 표시
+        file_hint = r.get("file_path") or "시맨틱 검색"
+        yield {"type": "exploration", "step": f"[{r.get('worker', '?')}] {file_hint} 분석 완료"}
+
+    yield {"type": "status", "phase": "generating"}
+
+    context_text = _build_context(compact_context)
+    system_prompt = _SYSTEM_PROMPT.format(context=context_text)
+
+    # ── 2. LLM 스트리밍 응답 ──
+    if settings.OPENAI_API_KEY.get_secret_value():
+        try:
+            from langchain_openai import ChatOpenAI
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            model_name = "gpt-4o" if mode == "deep" else settings.OPENAI_MODEL
+            llm = ChatOpenAI(
+                model=model_name,
+                api_key=settings.OPENAI_API_KEY,
+                temperature=0.1,
+                streaming=True,
+            )
+
+            accumulated = ""
+            async for chunk in llm.astream([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=f"저장소: {repo_name}\n\n질문: {user_query}"),
+            ]):
+                token = chunk.content
+                if token:
+                    accumulated += token
+                    yield {"type": "content", "content": token}
+
+            # 탐색된 파일 references 이벤트
+            refs = [
+                {"file": r.get("file_path", ""), "query": r.get("query", "")}
+                for r in worker_results
+                if r.get("file_path")
+            ]
+            yield {"type": "references", "references": refs}
+            yield {"type": "done"}
+            return
+
+        except Exception as exc:
+            logger.warning("[FinalAnswerAgent] LLM 스트리밍 실패, 폴백 응답 사용: %s", exc)
+
+    # ── 3. OPENAI_API_KEY 미설정 또는 LLM 실패 → 폴백 ──
+    snippets = compact_context.get("snippets", [])
+    if snippets:
+        bullets = "\n".join(
+            f"- `{s['file'] or '검색결과'}` — {s['content'][:80].strip()}..."
+            for s in snippets[:5]
+        )
+        answer = (
+            f"`{repo_name}` 저장소에서 관련 코드를 찾았습니다.\n\n{bullets}\n\n"
+            "상세 설명을 원하시면 서버에 `OPENAI_API_KEY`를 설정해 주세요."
+        )
+    else:
+        answer = (
+            f"`{repo_name}` 저장소에서 질문과 연관된 코드를 찾지 못했습니다. "
+            "파일명, 함수명 또는 기능 흐름을 더 구체적으로 입력해 주세요."
+        )
+
+    # 폴백 응답도 토큰 단위로 분할 전송 (UI 일관성)
+    chunk_size = 40
+    for i in range(0, len(answer), chunk_size):
+        yield {"type": "content", "content": answer[i:i + chunk_size]}
+
+    yield {"type": "references", "references": []}
+    yield {"type": "done"}
