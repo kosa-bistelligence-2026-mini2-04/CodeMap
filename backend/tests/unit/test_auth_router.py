@@ -202,7 +202,7 @@ class AuthLogoutTests(unittest.TestCase):
         self.client = TestClient(app)
 
     @patch("app.auth.router.AuthService")
-    @patch("app.core.auth.verify_access_token")
+    @patch("app.common.auth.verify_access_token")
     def test_logout_success(self, mock_verify, mock_service_class):
         """유효한 토큰 + Refresh Token → 200 로그아웃 성공"""
         from app.auth.schemas import LogoutResponse
