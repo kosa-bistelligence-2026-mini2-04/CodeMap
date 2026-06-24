@@ -81,7 +81,18 @@ async def supervisor_node(state: CodeMapState) -> dict:
     plan: list[AccessPlanItem] = data.get("access_plan", [])
     logger.info("[Supervisor] 완료 — plan 항목 수=%d", len(plan))
 
+    selected_workers = list(set([p.get("tool", "search") for p in plan]))
+    allowed_paths = list(set([p.get("path") for p in plan if p.get("path")]))
+
+    events = [{
+        "type": "supervisor_plan",
+        "rewrittenQuery": data.get("rewritten_query", state["user_query"]),
+        "selectedWorkers": selected_workers,
+        "allowedPaths": allowed_paths,
+    }]
+
     return {
         "rewritten_query": data.get("rewritten_query", state["user_query"]),
         "access_plan": plan,
+        "events": events
     }

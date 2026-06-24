@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chat.repository import ChatRepository
-from app.chat.schemas import ChatRequest
+from app.chat.schemas import ChatRunRequest
 from app.core.config import get_settings
 from app.repo.repository import AnalysisJobRepository
 
@@ -25,7 +25,7 @@ class RepositoryChatService:
         self.job_repository = AnalysisJobRepository(db)
         self.settings = get_settings()
 
-    async def prepare(self, repo_id: UUID, request: ChatRequest):
+    async def prepare(self, repo_id: UUID, request: ChatRunRequest):
         """스레드 생성, 사용자 메시지 저장 후 job/thread/mode를 반환."""
         job = await self.job_repository.get_job_by_id(repo_id)
         if not job:
@@ -36,13 +36,12 @@ class RepositoryChatService:
 
         thread = await self.chat_repository.get_or_create_thread(
             repo_id,
-            request.threadId,
-            request.message.strip().replace("\n", " ")[:72],
+            request.sessionId,
+            request.question.strip().replace("\n", " ")[:72],
         )
-        mode = "quick" if request.mode == "fast" else request.mode
-        await self.chat_repository.add_message(thread, "user", request.message, mode)
+        await self.chat_repository.add_message(thread, "user", request.question, request.mode)
         await self.db.commit()
-        return job, thread, mode, str(clone_path)
+        return job, thread, request.mode, str(clone_path)
 
     async def run_agent_graph(
         self,
@@ -92,52 +91,47 @@ class RepositoryChatService:
             )
             return await self._keyword_search_fallback(user_query, clone_path, mode)
 
-    async def _keyword_search_fallback(
-        self, query: str, clone_path: str, mode: str
-    ) -> dict:
-        """
-        LangGraph 미설치 또는 실패 시 기존 search_repository 키워드 검색 폴백.
-        worker_results / compact_context 형식에 맞춰 변환하여 반환합니다.
-        """
-        from app.repo.analyzer import search_repository
+    async def run_agent_graph_stream(
+        self,
+        repo_id: UUID,
+        user_query: str,
+        clone_path: str,
+        run_id: str,
+    ) -> AsyncIterator[dict]:
+        from app.agent_graph.graph import compiled_graph
+        from app.agent_graph.state import CodeMapState
 
-        raw: list[dict] = await asyncio.to_thread(
-            search_repository,
-            clone_path,
-            query,
-            10 if mode == "deep" else 5,
-        )
-
-        # 기존 참조 형식 → WorkerResult 형식 변환
-        worker_results = [
-            {
-                "worker": "search",
-                "tool": "keyword_search",
-                "query": query,
-                "content": f"{item.get('snippet', '')}",
-                "file_path": item.get("file"),
-            }
-            for item in raw
-        ]
-
-        # 동일한 compact_context 형식 구성
-        compact_context = {
-            "total_results": len(raw),
-            "deduplicated": len(raw),
-            "total_chars": sum(len(r["content"]) for r in worker_results),
-            "snippets": [
-                {
-                    "file": item.get("file"),
-                    "worker": "search",
-                    "query": query,
-                    "content": item.get("snippet", ""),
-                }
-                for item in raw
-            ],
+        initial_state: CodeMapState = {
+            "user_query": user_query,
+            "repo_id": str(repo_id),
+            "clone_path": clone_path,
+            "run_id": run_id,
+            "rewritten_query": "",
+            "access_plan": [],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "final_answer": None,
         }
-        return {"worker_results": worker_results, "compact_context": compact_context}
 
-    def stream_answer(
+        compact_context = {}
+        worker_results = []
+        
+        async for output in compiled_graph.astream(initial_state):
+            for node_name, state_update in output.items():
+                if "events" in state_update:
+                    for event in state_update["events"]:
+                        yield event
+                
+                if "compact_context" in state_update:
+                    compact_context = state_update["compact_context"]
+                if "worker_results" in state_update:
+                    worker_results.extend(state_update["worker_results"])
+
+        yield {"type": "internal_state", "compact_context": compact_context, "worker_results": worker_results}\n\n(
         self,
         repo_name: str,
         user_query: str,
@@ -168,11 +162,10 @@ class RepositoryChatService:
         worker_results: list[dict],
     ) -> None:
         """어시스턴트 응답과 참조 파일 목록을 DB에 저장."""
-        # 기존 references 형식으로 변환 (file_path가 있는 Worker 결과만)
         references = [
-            {"file": r.get("file_path", ""), "line": 0, "snippet": r.get("content", "")[:200]}
+            {"file": r.get("path", ""), "line": 0, "snippet": r.get("snippet", "")[:200]}
             for r in worker_results
-            if r.get("file_path")
+            if r.get("path")
         ]
         await self.chat_repository.add_message(thread, "assistant", answer, mode, references)
         await self.db.commit()

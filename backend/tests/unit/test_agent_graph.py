@@ -38,14 +38,16 @@ class TestCodeMapState(unittest.TestCase):
     def test_worker_result_structure(self):
         from app.agent_graph.state import WorkerResult
         r = WorkerResult(
-            worker="search",
-            tool="search_repository",
-            query="login",
-            content="def login(): ...",
-            file_path="app/auth/service.py",
+            id="ev_123",
+            path="app/auth/service.py",
+            lineStart=1,
+            lineEnd=10,
+            score=0.9,
+            snippet="def login(): ...",
+            metadata={"worker": "search"}
         )
-        self.assertEqual(r["worker"], "search")
-        self.assertEqual(r["file_path"], "app/auth/service.py")
+        self.assertEqual(r["metadata"]["worker"], "search")
+        self.assertEqual(r["path"], "app/auth/service.py")
 
 
 class TestRouteNodeSecurity(unittest.TestCase):
@@ -79,20 +81,15 @@ class TestRouteNodeSecurity(unittest.TestCase):
         self.assertFalse(self._is_safe(".ENV"))
         self.assertFalse(self._is_safe("Id_Rsa"))
 
-    def test_route_node_returns_sends(self):
-        """route_node가 Send 객체 리스트를 반환하는지 검증."""
-        try:
-            from langgraph.types import Send
-            has_langgraph = True
-        except ImportError:
-            has_langgraph = False
-
-        from app.agent_graph.nodes.route_node import route_node
+    def test_route_node_returns_security_result(self):
+        """route_node가 보안 검증된 dict를 반환하는지 검증."""
+        from app.agent_graph.nodes.route_node import route_node, fanout_to_workers
 
         state = {
             "user_query": "test",
             "repo_id": "r1",
             "clone_path": "/tmp",
+            "run_id": "r1",
             "rewritten_query": "test",
             "access_plan": [
                 {"tool": "search", "path": None, "query": "test", "scope": "chunk"},
@@ -101,14 +98,21 @@ class TestRouteNodeSecurity(unittest.TestCase):
             ],
             "security_result": {"approved": [], "rejected": []},
             "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
             "compact_context": {},
             "final_answer": None,
         }
 
-        if not has_langgraph:
-            self.skipTest("langgraph 미설치 환경 — Send 반환 테스트 생략")
-
-        sends = route_node(state)
+        res = route_node(state)
+        self.assertIn("security_result", res)
+        self.assertEqual(len(res["security_result"]["approved"]), 2)
+        self.assertEqual(len(res["security_result"]["rejected"]), 1)
+        
+        # Add to state to test fanout
+        state["security_result"] = res["security_result"]
+        sends = fanout_to_workers(state)
         node_names = [s.node for s in sends]
         self.assertIn("search_worker", node_names)
         self.assertIn("grep_worker", node_names)
@@ -123,12 +127,9 @@ class TestEvidenceAggregator(unittest.TestCase):
         from app.agent_graph.nodes.evidence_aggregator import _deduplicate
         from app.agent_graph.state import WorkerResult
 
-        r1 = WorkerResult(worker="search", tool="t", query="q",
-                          content="same content", file_path="a.py")
-        r2 = WorkerResult(worker="grep", tool="t", query="q",
-                          content="same content", file_path="a.py")  # 중복
-        r3 = WorkerResult(worker="read", tool="t", query="q",
-                          content="different content", file_path="b.py")
+        r1 = WorkerResult(id="1", path="a.py", lineStart=1, lineEnd=2, score=None, snippet="same content", metadata={"worker":"search"})
+        r2 = WorkerResult(id="2", path="a.py", lineStart=1, lineEnd=2, score=None, snippet="same content", metadata={"worker":"grep"})  # 중복
+        r3 = WorkerResult(id="3", path="b.py", lineStart=1, lineEnd=2, score=None, snippet="different content", metadata={"worker":"read"})
 
         result = _deduplicate([r1, r2, r3])
         self.assertEqual(len(result), 2)  # r2는 중복 제거
@@ -141,23 +142,25 @@ class TestEvidenceAggregator(unittest.TestCase):
             "user_query": "test",
             "repo_id": "r1",
             "clone_path": "/tmp",
+            "run_id": "r1",
             "rewritten_query": "test",
             "access_plan": [],
             "security_result": {"approved": [], "rejected": []},
             "worker_results": [
-                WorkerResult(worker="search", tool="t", query="q",
-                             content="code snippet here", file_path=None),
-                WorkerResult(worker="read", tool="t", query="q",
-                             content="def login(): pass", file_path="auth.py"),
+                WorkerResult(id="1", path=None, lineStart=None, lineEnd=None, score=None, snippet="code snippet here", metadata={"worker":"search"}),
+                WorkerResult(id="2", path="auth.py", lineStart=None, lineEnd=None, score=None, snippet="def login(): pass", metadata={"worker":"read"}),
             ],
+            "events": [],
+            "errors": [],
+            "durations": {},
             "compact_context": {},
             "final_answer": None,
         }
         result = evidence_aggregator(state)
         ctx = result["compact_context"]
-        self.assertIn("snippets", ctx)
-        self.assertEqual(ctx["total_results"], 2)
-        self.assertGreater(ctx["total_chars"], 0)
+        self.assertIn("groupedByFile", ctx)
+        self.assertEqual(ctx["selectedEvidenceCount"], 2)
+        self.assertGreater(ctx["usedTokens"], 0)
 
 
 if __name__ == "__main__":

@@ -49,12 +49,12 @@ def _is_safe_path(path: str | None) -> bool:
     return True
 
 
-def route_node(state: CodeMapState) -> list[Send]:
+def route_node(state: CodeMapState) -> dict:
     """
     Route Node.
 
-    access_plan을 검증 후 승인된 각 항목을 해당 Worker 노드로 Send합니다.
-    병렬 fan-out: 모든 Worker가 동시에 실행됩니다.
+    access_plan을 검증 후 보안 검증 결과를 반환합니다.
+    (실제 라우팅은 fanout_to_workers conditional edge에서 수행됨)
     """
     plan: list[AccessPlanItem] = state.get("access_plan", [])
     approved: list[AccessPlanItem] = []
@@ -75,9 +75,28 @@ def route_node(state: CodeMapState) -> list[Send]:
         len(approved), len(rejected),
     )
 
-    # Send API로 Worker 병렬 실행
-    # 각 Worker 노드는 개별 plan 항목을 받아 독립 실행됩니다.
-    from langgraph.types import Send  # lazy import — langgraph 없는 환경에서도 보안 로직 테스트 가능
+    # emit event
+    groups = []
+    # 간단히 tool 단위로 group을 묶었다고 가정 (실제로는 병렬 실행)
+    for app in approved:
+        groups.append([app.get("tool", "search")])
+
+    events = [{"type": "route_validated", "allowed": True, "parallelGroups": groups}]
+
+    return {
+        "security_result": {"approved": approved, "rejected": rejected},
+        "events": events
+    }
+
+
+def fanout_to_workers(state: CodeMapState) -> list[Send]:
+    """
+    Conditional Edge 함수.
+    승인된 plan 항목을 기반으로 각 Worker에게 Send 인스턴스를 반환하여 병렬 fan-out 합니다.
+    """
+    from langgraph.types import Send  # lazy import
+    approved = state.get("security_result", {}).get("approved", [])
+    
     sends: list[Send] = []
     for item in approved:
         tool = item.get("tool", "search")
@@ -85,7 +104,6 @@ def route_node(state: CodeMapState) -> list[Send]:
         sends.append(Send(node_name, {**state, "_plan_item": item}))
 
     if not sends:
-        # 승인된 계획이 없으면 evidence_aggregator로 바로 진행
         logger.warning("[RouteNode] 승인된 plan 없음 — evidence_aggregator로 직행")
         sends.append(Send("evidence_aggregator", state))
 

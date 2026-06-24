@@ -35,13 +35,15 @@ _SYSTEM_PROMPT = """당신은 CodeMap 저장소 분석 전문가입니다.
 
 def _build_context(compact_context: dict) -> str:
     """compact_context dict → LLM 프롬프트용 텍스트 변환."""
-    snippets: list[dict] = compact_context.get("snippets", [])
-    if not snippets:
+    grouped = compact_context.get("groupedByFile", {})
+    if not grouped:
         return "(검색 결과 없음)"
     parts: list[str] = []
-    for s in snippets:
-        header = f"## {s['file'] or '검색결과'} [{s['worker']}]"
-        parts.append(f"{header}\n{s['content']}")
+    for file_path, snippets in grouped.items():
+        header = f"## {file_path if file_path != 'no_path' else '검색결과'}"
+        for s in snippets:
+            worker = s.get("metadata", {}).get("worker", "unknown")
+            parts.append(f"{header} [{worker}]\n{s.get('snippet', '')}")
     return "\n\n---\n\n".join(parts)
 
 
@@ -66,13 +68,6 @@ async def stream_final_answer(
       5. done
     """
     settings = get_settings()
-
-    # ── 1. Worker 탐색 이력 exploration 이벤트 ──
-    for r in worker_results[:10]:  # 최대 10개만 표시
-        file_hint = r.get("file_path") or "시맨틱 검색"
-        yield {"type": "exploration", "step": f"[{r.get('worker', '?')}] {file_hint} 분석 완료"}
-
-    yield {"type": "status", "phase": "generating"}
 
     context_text = _build_context(compact_context)
     system_prompt = _SYSTEM_PROMPT.format(context=context_text)
@@ -99,27 +94,20 @@ async def stream_final_answer(
                 token = chunk.content
                 if token:
                     accumulated += token
-                    yield {"type": "content", "content": token}
+                    yield {"type": "answer_delta", "content": token}
 
-            # 탐색된 파일 references 이벤트
-            refs = [
-                {"file": r.get("file_path", ""), "query": r.get("query", "")}
-                for r in worker_results
-                if r.get("file_path")
-            ]
-            yield {"type": "references", "references": refs}
-            yield {"type": "done"}
             return
 
         except Exception as exc:
             logger.warning("[FinalAnswerAgent] LLM 스트리밍 실패, 폴백 응답 사용: %s", exc)
 
     # ── 3. OPENAI_API_KEY 미설정 또는 LLM 실패 → 폴백 ──
-    snippets = compact_context.get("snippets", [])
-    if snippets:
+    grouped = compact_context.get("groupedByFile", {})
+    if grouped:
+        all_snips = [s for snips in grouped.values() for s in snips]
         bullets = "\n".join(
-            f"- `{s['file'] or '검색결과'}` — {s['content'][:80].strip()}..."
-            for s in snippets[:5]
+            f"- `검색결과` — {s.get('snippet', '')[:80].strip()}..."
+            for s in all_snips[:5]
         )
         answer = (
             f"`{repo_name}` 저장소에서 관련 코드를 찾았습니다.\n\n{bullets}\n\n"
@@ -134,7 +122,6 @@ async def stream_final_answer(
     # 폴백 응답도 토큰 단위로 분할 전송 (UI 일관성)
     chunk_size = 40
     for i in range(0, len(answer), chunk_size):
-        yield {"type": "content", "content": answer[i:i + chunk_size]}
+        yield {"type": "answer_delta", "content": answer[i:i + chunk_size]}
 
-    yield {"type": "references", "references": []}
-    yield {"type": "done"}
+

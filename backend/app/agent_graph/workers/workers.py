@@ -16,6 +16,7 @@ Workers:
 from __future__ import annotations
 
 import asyncio
+import uuid
 import logging
 import os
 import re
@@ -75,15 +76,24 @@ async def search_worker(state: CodeMapState) -> dict:
                 bm = hit.get("bm25_rank")
                 worker_results.append(
                     WorkerResult(
-                        worker="search",
-                        tool=f"hybrid_search(sem={sem},bm25={bm},rrf={rrf:.4f})",
-                        query=query,
-                        content=content,
-                        file_path=file_path or None,
+                        id=f"ev_{uuid.uuid4().hex[:8]}",
+                        path=file_path or None,
+                        lineStart=None,
+                        lineEnd=None,
+                        score=rrf,
+                        snippet=content,
+                        metadata={
+                            "worker": "search",
+                            "tool": f"hybrid_search(sem={sem},bm25={bm},rrf={rrf:.4f})",
+                            "query": query,
+                        }
                     )
                 )
             logger.info("[SearchWorker] Hybrid Search 완료 — %d 결과", len(hits))
-            return {"worker_results": worker_results}
+            return {
+                "worker_results": worker_results,
+                "events": [{"type": "worker_result", "worker": "search", "resultCount": len(worker_results), "evidenceIds": [w["id"] for w in worker_results]}]
+            }
 
     except Exception as exc:
         logger.info("[SearchWorker] Hybrid Search 실패/미준비, 키워드 폴백: %s", exc)
@@ -99,11 +109,13 @@ async def search_worker(state: CodeMapState) -> dict:
             snippet = r.get("snippet", "") or r.get("content", "")
             worker_results.append(
                 WorkerResult(
-                    worker="search",
-                    tool="keyword_search",
-                    query=query,
-                    content=snippet,
-                    file_path=r.get("file"),
+                    id=f"ev_{uuid.uuid4().hex[:8]}",
+                    path=r.get("file"),
+                    lineStart=None,
+                    lineEnd=None,
+                    score=None,
+                    snippet=snippet,
+                    metadata={"worker": "search", "tool": "keyword_search", "query": query}
                 )
             )
         logger.info("[SearchWorker] 키워드 폴백 — %d 결과", len(raw))
@@ -111,15 +123,20 @@ async def search_worker(state: CodeMapState) -> dict:
         logger.warning("[SearchWorker] 키워드 검색도 실패: %s", exc)
         worker_results.append(
             WorkerResult(
-                worker="search",
-                tool="fallback_failed",
-                query=query,
-                content=f"검색 실패: {exc}",
-                file_path=None,
+                id=f"ev_{uuid.uuid4().hex[:8]}",
+                path=None,
+                lineStart=None,
+                lineEnd=None,
+                score=None,
+                snippet=f"검색 실패: {exc}",
+                metadata={"worker": "search", "tool": "fallback_failed", "query": query}
             )
         )
 
-    return {"worker_results": worker_results}
+    return {
+        "worker_results": worker_results,
+        "events": [{"type": "worker_result", "worker": "search", "resultCount": len(worker_results), "evidenceIds": [w["id"] for w in worker_results]}]
+    }
 
 
 
@@ -136,7 +153,9 @@ async def dir_worker(state: CodeMapState) -> dict:
     item = state.get("_plan_item", {})
     rel_path = item.get("path", "")
     clone_path = state.get("clone_path", "")
-    target = Path(clone_path) / rel_path
+    target = (Path(clone_path) / rel_path).resolve()
+    if not str(target).startswith(str(Path(clone_path).resolve())):
+        return {"worker_results": [], "events": []}
 
     logger.info("[DirWorker] 시작 — path=%s", target)
 
@@ -159,16 +178,18 @@ async def dir_worker(state: CodeMapState) -> dict:
 
     content = "\n".join(lines)
     logger.info("[DirWorker] 완료 — 줄 수=%d", len(lines))
+    wr = WorkerResult(
+        id=f"ev_{uuid.uuid4().hex[:8]}",
+        path=rel_path or None,
+        lineStart=None,
+        lineEnd=None,
+        score=None,
+        snippet=content,
+        metadata={"worker": "dir", "tool": "os.walk", "query": rel_path}
+    )
     return {
-        "worker_results": [
-            WorkerResult(
-                worker="dir",
-                tool="os.walk",
-                query=rel_path,
-                content=content,
-                file_path=rel_path or None,
-            )
-        ]
+        "worker_results": [wr],
+        "events": [{"type": "worker_result", "worker": "dir", "resultCount": 1, "evidenceIds": [wr["id"]]}]
     }
 
 
@@ -186,7 +207,9 @@ async def grep_worker(state: CodeMapState) -> dict:
     pattern = item.get("query", "")
     rel_path = item.get("path", "")
     clone_path = state.get("clone_path", "")
-    base = Path(clone_path) / rel_path
+    base = (Path(clone_path) / rel_path).resolve()
+    if not str(base).startswith(str(Path(clone_path).resolve())):
+        return {"worker_results": [], "events": []}
 
     logger.info("[GrepWorker] 시작 — pattern=%r path=%s", pattern, base)
 
@@ -215,16 +238,18 @@ async def grep_worker(state: CodeMapState) -> dict:
 
     content = "\n".join(matches) or "(결과 없음)"
     logger.info("[GrepWorker] 완료 — 매칭=%d", len(matches))
+    wr = WorkerResult(
+        id=f"ev_{uuid.uuid4().hex[:8]}",
+        path=rel_path or None,
+        lineStart=None,
+        lineEnd=None,
+        score=None,
+        snippet=content,
+        metadata={"worker": "grep", "tool": "rglob+regex", "query": pattern}
+    )
     return {
-        "worker_results": [
-            WorkerResult(
-                worker="grep",
-                tool="rglob+regex",
-                query=pattern,
-                content=content,
-                file_path=rel_path or None,
-            )
-        ]
+        "worker_results": [wr],
+        "events": [{"type": "worker_result", "worker": "grep", "resultCount": 1, "evidenceIds": [wr["id"]]}]
     }
 
 
@@ -241,7 +266,9 @@ async def read_worker(state: CodeMapState) -> dict:
     item = state.get("_plan_item", {})
     rel_path = item.get("path", "")
     clone_path = state.get("clone_path", "")
-    target = Path(clone_path) / rel_path
+    target = (Path(clone_path) / rel_path).resolve()
+    if not str(target).startswith(str(Path(clone_path).resolve())):
+        return {"worker_results": [], "events": []}
 
     logger.info("[ReadWorker] 시작 — path=%s", target)
 
@@ -255,14 +282,16 @@ async def read_worker(state: CodeMapState) -> dict:
         content = f"파일 읽기 실패: {exc}"
 
     logger.info("[ReadWorker] 완료 — 길이=%d", len(content))
+    wr = WorkerResult(
+        id=f"ev_{uuid.uuid4().hex[:8]}",
+        path=rel_path or None,
+        lineStart=None,
+        lineEnd=None,
+        score=None,
+        snippet=content,
+        metadata={"worker": "read", "tool": "file.read", "query": rel_path}
+    )
     return {
-        "worker_results": [
-            WorkerResult(
-                worker="read",
-                tool="file.read",
-                query=rel_path,
-                content=content,
-                file_path=rel_path or None,
-            )
-        ]
+        "worker_results": [wr],
+        "events": [{"type": "worker_result", "worker": "read", "resultCount": 1, "evidenceIds": [wr["id"]]}]
     }

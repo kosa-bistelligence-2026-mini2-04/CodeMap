@@ -50,8 +50,10 @@ def build_graph() -> StateGraph:
     builder.set_entry_point("supervisor_agent")
     builder.add_edge("supervisor_agent", "route_node")
 
-    # Route Node → Workers (Send API가 동적으로 처리 — conditional 불필요)
-    # route_node가 Send 리스트를 반환하면 LangGraph가 자동으로 병렬 실행
+    # Route Node → Workers (Send API가 동적으로 처리 — conditional edge 사용)
+    # route_node가 반환한 dict를 통해 상태 업데이트 후 fanout_to_workers 실행
+    from app.agent_graph.nodes.route_node import fanout_to_workers
+    builder.add_conditional_edges("route_node", fanout_to_workers, ["search_worker", "dir_worker", "grep_worker", "read_worker", "evidence_aggregator"])
 
     # Workers → Evidence Aggregator (fan-in)
     # worker_results는 Annotated[list, operator.add]로 자동 병합됨

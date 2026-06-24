@@ -13,12 +13,14 @@ import operator
 
 
 class WorkerResult(TypedDict):
-    """단일 Worker가 수집한 원본 결과."""
-    worker: str          # "search" | "dir" | "grep" | "read"
-    tool: str            # 실행한 도구명
-    query: str           # 사용한 검색/탐색 쿼리
-    content: str         # 도구 실행 결과 (raw, 요약 없음)
-    file_path: str | None  # 해당 파일 경로 (있는 경우)
+    """단일 Worker가 수집한 원본 결과 (명세 반영)."""
+    id: str              # e.g., "ev_001"
+    path: str | None     # 파일 경로
+    lineStart: int | None # 시작 줄
+    lineEnd: int | None   # 끝 줄
+    score: float | None   # 검색 스코어 등
+    snippet: str         # 코드 스니펫
+    metadata: dict       # worker, tool, query 등 부가 정보
 
 
 class AccessPlanItem(TypedDict):
@@ -46,6 +48,7 @@ class CodeMapState(TypedDict):
     user_query: str                   # 사용자 원본 질문
     repo_id: str                      # 분석 대상 저장소 ID
     clone_path: str                   # 로컬 clone 경로
+    run_id: str                       # Agent Run ID
 
     # ── Supervisor 출력 ────────────────────────────────
     rewritten_query: str              # 오타 교정 및 의도 분석된 검색 쿼리
@@ -56,6 +59,9 @@ class CodeMapState(TypedDict):
 
     # ── Worker 출력 (fan-in: 병렬 병합) ───────────────
     worker_results: Annotated[list[WorkerResult], operator.add]
+    events: Annotated[list[dict], operator.add]  # SSE 스트리밍을 위한 발생 이벤트 목록
+    errors: list[str]                 # 발생한 에러 메시지 목록
+    durations: dict                   # 각 단계별 소요 시간
 
     # ── Evidence Aggregator 출력 ──────────────────────
     compact_context: dict             # token budget 내로 압축된 근거 묶음
