@@ -138,19 +138,19 @@ export function AsciiScene({ isDark = true }: { isDark?: boolean }) {
       torusGeom,
     );
 
-    shapes.push(createShape(icosahedronGeom, -320, 120, -100, 1.8));
-    shapes.push(createShape(octahedronGeom, 380, -80, -200, 2.2));
-    shapes.push(createShape(dodecahedronGeom, -180, -180, 50, 1.5));
-    shapes.push(createShape(tetrahedronGeom, 280, 200, -150, 1.6));
+    shapes.push(createShape(icosahedronGeom, -450, 180, -100, 1.8));
+    shapes.push(createShape(octahedronGeom, 520, -120, -200, 2.2));
+    shapes.push(createShape(dodecahedronGeom, -350, -280, 50, 1.5));
+    shapes.push(createShape(tetrahedronGeom, 450, 250, -150, 1.6));
 
-    shapes.push(createShape(icosahedronGeom, 150, 280, -300, 1.0));
-    shapes.push(createShape(octahedronGeom, -400, -50, -250, 1.2));
-    shapes.push(createShape(dodecahedronGeom, 450, 50, -350, 0.9));
-    shapes.push(createShape(tetrahedronGeom, -250, 250, -200, 0.8));
-    shapes.push(createShape(torusGeom, -80, -280, -100, 1.3));
+    shapes.push(createShape(icosahedronGeom, 250, 380, -300, 1.0));
+    shapes.push(createShape(octahedronGeom, -550, -100, -250, 1.2));
+    shapes.push(createShape(dodecahedronGeom, 600, 100, -350, 0.9));
+    shapes.push(createShape(tetrahedronGeom, -400, 350, -200, 0.8));
+    shapes.push(createShape(torusGeom, -150, -420, -100, 1.3));
 
-    shapes.push(createShape(icosahedronGeom, 500, -200, -400, 0.7));
-    shapes.push(createShape(octahedronGeom, -480, 180, -350, 0.6));
+    shapes.push(createShape(icosahedronGeom, 700, -300, -400, 0.7));
+    shapes.push(createShape(octahedronGeom, -650, 280, -350, 0.6));
 
     let animationId: number;
     const start = Date.now();
