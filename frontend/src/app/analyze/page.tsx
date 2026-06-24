@@ -222,7 +222,11 @@ function AnalyzeWorkspace() {
 
   const repoName = report?.repository.name || job?.repoName || "새 프로젝트";
   const progress = preview ? 100 : job?.progress || 0;
-  const chatRepoId = report || status === "completed" ? jobId : null;
+  // RAG 인덱스 상태: 'ready' | 'failed' | 'skipped' | 'empty' | undefined
+  const ragIndexStatus = job?.report?.rag_index?.status as string | undefined;
+  // chatRepoId는 rag_index.status === 'ready' 일 때만 활성화
+  // (report 존재 또는 status==='completed'만으로는 임베딩 완료를 보장할 수 없음)
+  const chatRepoId = ragIndexStatus === "ready" ? jobId : null;
   const fullChatUrl = preview
     ? "/chat?repo_id=preview-codemap&preview=1"
     : `/chat?repo_id=${jobId || ""}${threadId ? `&thread=${threadId}` : ""}`;
@@ -301,7 +305,50 @@ function AnalyzeWorkspace() {
             <div className="mx-auto flex min-h-full max-w-xl items-center justify-center"><div className="w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center"><AlertTriangle className="mx-auto size-6 text-red-400" /><h2 className={`mt-3 text-sm font-bold ${isDark ? "" : "text-zinc-800"}`}>{isKo ? "분석을 완료하지 못했습니다" : "Analysis failed"}</h2><p className="mt-2 text-xs leading-5 text-zinc-500">{error}</p><button onClick={() => setShowNewAnalysis(true)} className={`mt-5 rounded-lg px-3 py-2 text-[11px] font-bold ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>{isKo ? "입력 확인하기" : "Check input"}</button></div></div>
           )}
 
-          {status === "completed" && report && <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={setSelectedFile} />}
+          {status === "completed" && report && ragIndexStatus !== "ready" && ragIndexStatus && (
+            <div className="mx-auto flex min-h-full max-w-2xl items-center justify-center">
+              <div className={`w-full rounded-2xl border p-6 shadow-xl ${
+                ragIndexStatus === "failed"
+                  ? "border-red-500/30 bg-red-500/5"
+                  : "border-yellow-500/30 bg-yellow-500/5"
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`flex size-10 items-center justify-center rounded-xl ${
+                    ragIndexStatus === "failed" ? "bg-red-500/10" : "bg-yellow-500/10"
+                  }`}>
+                    <AlertTriangle className={`size-5 ${
+                      ragIndexStatus === "failed" ? "text-red-400" : "text-yellow-400"
+                    }`} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold">
+                      {ragIndexStatus === "failed"
+                        ? (isKo ? "AI 인덱싱 실패" : "AI Indexing Failed")
+                        : (isKo ? "AI 인덱싱 생략됨" : "AI Indexing Skipped")}
+                    </h2>
+                    <p className="mt-1 text-[10px] text-zinc-500">
+                      {ragIndexStatus === "failed"
+                        ? (isKo
+                            ? "벡터 인덱싱 중 오류가 발생하여 AI 대화를 이용할 수 없습니다. 관리자에게 문의하거나 다시 분석해 주세요."
+                            : "An error occurred during vector indexing. AI chat is unavailable. Please re-analyze or contact support.")
+                        : (isKo
+                            ? "OpenAI API 키 미설정 또는 clone 경로 문제로 인덱싱이 생략됐습니다. AI 대화를 이용하려면 API 키를 설정 후 재분석해 주세요."
+                            : "Indexing was skipped due to missing API key or clone path issue. Set up the API key and re-analyze to enable AI chat.")}
+                    </p>
+                  </div>
+                </div>
+                <div className={`mt-4 rounded-lg px-3 py-2 text-[10px] ${
+                  ragIndexStatus === "failed"
+                    ? "bg-red-500/10 text-red-400"
+                    : "bg-yellow-500/10 text-yellow-500"
+                }`}>
+                  {isKo ? "보고서 열람은 가능하지만 AI Chat 버튼은 비활성화됩니다." : "Report is available but AI Chat button is disabled."}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {status === "completed" && report && ragIndexStatus === "ready" && <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={setSelectedFile} />}
         </section>
 
         <aside className={`hidden w-[400px] shrink-0 border-l xl:block ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
