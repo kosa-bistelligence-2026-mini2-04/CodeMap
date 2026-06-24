@@ -112,7 +112,48 @@
   .step-text { flex: 1; font-size: 13px; color: #E2E8F0; }
   .step-text.done { color: #22C55E; text-decoration: line-through; opacity: 0.6; }
   .step-tag { font-size: 11px; color: #64748B; background: #1E293B; border-radius: 4px; padding: 2px 8px; flex-shrink: 0; }
+
+  /* ── Contribution Drawer ── */
+  .drawer {
+    position: fixed;
+    top: 0; right: -350px;
+    width: 350px; height: 100vh;
+    background: #0f172a;
+    border-left: 1px solid #1E293B;
+    box-shadow: -4px 0 15px rgba(0,0,0,0.5);
+    transition: right 0.3s ease;
+    z-index: 1000;
+    padding: 24px;
+    overflow-y: auto;
+  }
+  .drawer.open { right: 0; }
+  .drawer-toggle {
+    position: fixed;
+    top: 36px; right: 40px;
+    background: #38BDF8; color: #000;
+    border: none; border-radius: 8px;
+    padding: 8px 16px; font-size: 13px; font-weight: bold;
+    cursor: pointer; z-index: 1001;
+    transition: background 0.2s;
+  }
+  .drawer-toggle:hover { background: #0ea5e9; }
+  .drawer-title { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 20px; border-bottom: 1px solid #1E293B; padding-bottom: 12px; margin-top: 40px; }
+  
+  .contributor { background: #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }
+  .contributor-name { font-size: 15px; font-weight: bold; color: #38BDF8; margin-bottom: 8px; display: flex; justify-content: space-between;}
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat-box { background: #0f172a; padding: 8px; border-radius: 6px; text-align: center; }
+  .stat-val { font-size: 16px; font-weight: bold; color: #fff; }
+  .stat-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+  
+  .role-desc { font-size: 12px; color: #cbd5e1; line-height: 1.6; margin-top: 10px; }
+  .role-desc ul { list-style-type: none; padding: 0; margin: 0; }
+  .role-desc li { position: relative; padding-left: 12px; margin-bottom: 6px; }
+  .role-desc li::before { content: "•"; position: absolute; left: 0; color: #38BDF8; }
+  .role-label { font-weight: 600; color: #94a3b8; margin-right: 4px; }
+
 </style>
+
 </head>
 <body>
 
@@ -127,11 +168,11 @@
     <div class="card-domain">Domain 1</div>
     <div class="card-name green">Project (완료)</div>
     <div class="phase-label">Phase 1</div>
-    <div class="pct-row"><span class="pct-val green">100%</span></div>
-    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:100%"></div></div>
+    <div class="pct-row"><span class="pct-val green">99%</span></div>
+    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:99%"></div></div>
     <div class="phase-label">Phase 2</div>
-    <div class="pct-row"><span class="pct-val green">100%</span></div>
-    <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p1" style="width:100%"></div></div>
+    <div class="pct-row"><span class="pct-val green">95%</span></div>
+    <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p1" style="width:95%"></div></div>
     <div style="margin-top:8px;font-size:11px;color:#64748B;">예외 처리/고아 메시지 방어 완비</div>
   </div>
 
@@ -139,8 +180,8 @@
     <div class="card-domain">Domain 2</div>
     <div class="card-name green">Agent (안정화 궤도)</div>
     <div class="phase-label">Phase 1</div>
-    <div class="pct-row"><span class="pct-val green">100%</span></div>
-    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:100%"></div></div>
+    <div class="pct-row"><span class="pct-val green">99%</span></div>
+    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:99%"></div></div>
     <div class="phase-label">Phase 2</div>
     <div class="pct-row"><span class="pct-val green">95%</span></div>
     <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p1" style="width:95%"></div></div>
@@ -151,8 +192,8 @@
     <div class="card-domain">Domain 3</div>
     <div class="card-name green">RAG/Parse</div>
     <div class="phase-label">Phase 1</div>
-    <div class="pct-row"><span class="pct-val green">100%</span></div>
-    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:100%"></div></div>
+    <div class="pct-row"><span class="pct-val green">99%</span></div>
+    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:99%"></div></div>
     <div class="phase-label">Phase 2</div>
     <div class="pct-row"><span class="pct-val green">90%</span></div>
     <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p1" style="width:90%"></div></div>
@@ -163,8 +204,8 @@
     <div class="card-domain">Domain 4</div>
     <div class="card-name cyan">Frontend / UI</div>
     <div class="phase-label">Phase 1</div>
-    <div class="pct-row"><span class="pct-val green">100%</span></div>
-    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:100%"></div></div>
+    <div class="pct-row"><span class="pct-val green">99%</span></div>
+    <div class="progress-wrap" style="margin-top:4px;margin-bottom:10px"><div class="progress-bar bar-p1" style="width:99%"></div></div>
     <div class="phase-label">Phase 2</div>
     <div class="pct-row"><span class="pct-val cyan">85%</span></div>
     <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar bar-p2-high" style="width:85%"></div></div>
@@ -246,5 +287,94 @@
   </div>
 </div>
 
+
+<button class="drawer-toggle" onclick="document.getElementById('drawer').classList.toggle('open')">👥 Team Contributions</button>
+
+<div id="drawer" class="drawer">
+
+  <div style="margin-top: 50px;"></div>
+  <div class="contributor">
+    <div class="contributor-name"><span>우수 (oosuhada)</span></div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val">162</div><div class="stat-label">Commits</div></div>
+      <div class="stat-box"><div class="stat-val">48</div><div class="stat-label">PRs</div></div>
+      <div class="stat-box"><div class="stat-val">22</div><div class="stat-label">Reviews</div></div>
+    </div>
+    <div class="role-desc">
+      <ul>
+        <li><span class="role-label">(프론트엔드)</span>랜딩 페이지 3D ASCII 적용 및 채팅 UI/UX 전면 개편 - PR #30, #38</li>
+        <li><span class="role-label">(프론트엔드)</span>에이전트 사고 흐름(Thought Process) 실시간 시각화 - PR #110, #118</li>
+        <li><span class="role-label">(프론트엔드)</span>대규모 파일트리 렌더링 최적화 및 결과 시각화 - PR #114, #63</li>
+        <li><span class="role-label">(프론트엔드)</span>회원가입/로그인 UI 및 JWT 상태 자동 복원 - PR #119</li>
+        <li><span class="role-label">(백엔드)</span>파이프라인 이벤트 스트리밍(SSE) 코어 구축 - PR #37, #47</li>
+        <li><span class="role-label">(백엔드)</span>LangGraph 워크플로우 및 Final Answer 연동 - PR #108, #109</li>
+        <li><span class="role-label">(백엔드)</span>웹소켓 고아 메시지 방어 및 레이스 컨디션 해결 - PR #111, #112</li>
+        <li><span class="role-label">(DB)</span>pgvector HNSW 성능 최적화 및 수명 주기 관리 - PR #116, #58</li>
+        <li><span class="role-label">(아키텍처)</span>시스템 아키텍처, 명세서(Swagger), 진행 대시보드 - PR #117, #36</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 50px;"></div>
+  <div class="contributor">
+    <div class="contributor-name"><span>김효 (KimHyo1)</span></div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val">58</div><div class="stat-label">Commits</div></div>
+      <div class="stat-box"><div class="stat-val">24</div><div class="stat-label">PRs</div></div>
+      <div class="stat-box"><div class="stat-val">15</div><div class="stat-label">Reviews</div></div>
+    </div>
+    <div class="role-desc">
+      <ul>
+        <li><span class="role-label">(백엔드)</span>AST 기반 파싱 및 클래스/함수 지식 베이스 구축 - PR #48, #207</li>
+        <li><span class="role-label">(백엔드)</span>디렉토리 구조 파싱 및 패키지 진입점 탐색 - PR #202, #203</li>
+        <li><span class="role-label">(백엔드)</span>파일 간 import 추론 및 기술 스택 추출 - PR #101, #208, #206</li>
+        <li><span class="role-label">(백엔드)</span>README 대체 요약 및 설정 파일 탐색 (tag_config_files) - PR #201, #204</li>
+        <li><span class="role-label">(백엔드)</span>RAG 임베딩 파이프라인 및 계층형 요약 적용 - PR #83, #209</li>
+        <li><span class="role-label">(백엔드)</span>LLM 기반 문서 생성 파이프라인(doc_gen) 연동 - PR #43</li>
+        <li><span class="role-label">(백엔드)</span>파이프라인 디렉토리 파싱 안정화 및 인코딩 방어 - PR #53, #54</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 50px;"></div>
+  <div class="contributor">
+    <div class="contributor-name"><span>신성민 (smmini)</span></div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val">86</div><div class="stat-label">Commits</div></div>
+      <div class="stat-box"><div class="stat-val">18</div><div class="stat-label">PRs</div></div>
+      <div class="stat-box"><div class="stat-val">10</div><div class="stat-label">Reviews</div></div>
+    </div>
+    <div class="role-desc">
+      <ul>
+        <li><span class="role-label">(DB)</span>PostgreSQL/pgvector 설계 및 초기화 스크립트 작성 - PR #100, #13</li>
+        <li><span class="role-label">(백엔드)</span>에이전트 탐색용 Grep 및 파일 트리 조회 API - PR #001, #002</li>
+        <li><span class="role-label">(백엔드)</span>분석 전 저장소 파일 수/용량 제한 사전 검증 연동 - PR #005, #115</li>
+        <li><span class="role-label">(백엔드)</span>.env 미설정 시 환경변수 폴백(Fallback) 방어 로직 - PR #76</li>
+        <li><span class="role-label">(인프라)</span>패키지 매니저 세팅 및 글로벌 예외 처리 구축 - PR #62, #68</li>
+        <li><span class="role-label">(인프라)</span>API/WebSocket 명세서 관리 및 최상위 경로 승격 - PR #15, #18</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top: 50px;"></div>
+  <div class="contributor">
+    <div class="contributor-name"><span>영우 (woovii000)</span></div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val">46</div><div class="stat-label">Commits</div></div>
+      <div class="stat-box"><div class="stat-val">10</div><div class="stat-label">PRs</div></div>
+      <div class="stat-box"><div class="stat-val">4</div><div class="stat-label">Reviews</div></div>
+    </div>
+    <div class="role-desc">
+      <ul>
+        <li><span class="role-label">(백엔드)</span>분석 내역 리스트 조회 및 메타데이터 반환 API - PR #003, #004</li>
+        <li><span class="role-label">(백엔드)</span>실시간 작업 상태 트래킹 연동 및 동기화 - PR #001, #006</li>
+        <li><span class="role-label">(백엔드)</span>에이전트 채팅 과거 대화 컨텍스트/코드 참조 API - PR #201</li>
+        <li><span class="role-label">(백엔드)</span>전역 에러 응답(Error Envelope) 구조 개편 참여 - PR #11, #25</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
 </body>
+
 </html>
