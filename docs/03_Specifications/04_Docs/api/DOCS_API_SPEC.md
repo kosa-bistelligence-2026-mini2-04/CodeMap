@@ -128,7 +128,7 @@ Authorization: Bearer eyJhbGci...
       { "rank": 2, "path": "backend/app/main.py", "reason": "FastAPI 앱 진입점 및 라우터 구성 파악" }
     ],
     "dangerFiles": [
-      { "path": "backend/app/core/config.py", "reason": "API 키 등 환경변수 관리 파일. 직접 수정 주의" }
+      { "path": "backend/app/infra/config.py", "reason": "API 키 등 환경변수 관리 파일. 직접 수정 주의" }
     ],
     "coreFlow": "사용자 GitHub URL 입력 → Clone → Parse → Embed → Agent 탐색 → Docs 생성",
     "generatedAt": "2026-06-18T10:15:00Z",
@@ -428,7 +428,7 @@ Authorization: Bearer eyJhbGci...
     "maskedContent": "## 환경 설정\nOPENAI_API_KEY=[MASKED]\n",
     "detectedCount": 1,
     "detectedPatterns": [
-      { "type": "api_key", "location": "backend/app/core/config.py" }
+      { "type": "api_key", "location": "backend/app/infra/config.py" }
     ]
   }
 }

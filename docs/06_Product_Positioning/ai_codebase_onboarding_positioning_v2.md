@@ -274,7 +274,7 @@ CodeMap으로 프로젝트 맥락과 읽을 경로를 익힌다
 상태: 코드에서 확인됨
 
 필수 환경변수: DATABASE_URL
-근거: backend/app/core/config.py
+근거: backend/app/infra/config.py
 상태: 코드에서 확인됨
 
 권장 실행 순서: DB → Backend → Frontend

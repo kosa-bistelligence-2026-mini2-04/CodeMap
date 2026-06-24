@@ -40,7 +40,7 @@
 
 리뷰의 지적 사항 중 성능 최적화 및 스타일 규격 준수를 위해 즉각 조치한 사항들의 세부 내역입니다.
 
-### 1) [exceptions.py](file:///c:/kosa/project/mini2/CodeMap/backend/app/core/exceptions.py) (PEP 8 컨벤션 및 주석 오기 정정 완료 - `db89f77`)
+### 1) [exceptions.py](file:///c:/kosa/project/mini2/CodeMap/backend/app/common/exceptions.py) (PEP 8 컨벤션 및 주석 오기 정정 완료 - `db89f77`)
 * **일부분 import logging 제거**: `general_exception_handler` 내부에 남아있던 `import logging` 구문을 전면 제거했습니다.
 * **모듈 수준 공유**: `exceptions.py` 파일 최상단 헤더에 `import logging` 및 `logger = logging.getLogger(__name__)`를 선언하고, 내부 핸들러에서는 이를 전역 재사용하도록 개선했습니다.
 * **주석 오기 정정**: `_build_http_exception_response` 주석에 존재하던 부정확한 예시(`RequestValidationError` 언급 - 실제로는 전용 validation_handler가 사전 차단함)를 지우고, `OAuth 인증 외부 라이브러리 및 커스텀 미들웨어 예외` 상황으로 문구를 명확히 정정했습니다.

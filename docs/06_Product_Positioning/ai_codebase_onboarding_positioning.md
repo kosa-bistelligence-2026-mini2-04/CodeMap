@@ -217,7 +217,7 @@ LLM이 단순히 추측하여 설명하는 것이 아니라, 실제 레포지토
 ```text
 인증 로직은 다음 파일에서 확인할 수 있습니다.
 
-- backend/app/core/security.py: JWT 생성 및 검증
+- backend/app/infra/security.py: JWT 생성 및 검증
 - backend/app/api/auth.py: 로그인 API 라우터
 - backend/app/deps.py: current_user 의존성 주입
 ```

@@ -303,13 +303,13 @@ INSERT INTO repositories (user_id, url) VALUES ('<USER_UUID>', 'https://github.c
 프로젝트는 FastAPI의 비동기 실행 흐름에 맞춰 **SQLAlchemy 비동기 엔진(postgresql+asyncpg)**과 **`AsyncSession`**을 사용합니다.
 모델 선언 및 세션 설정은 다음 파일들을 참고하세요:
 * **모델**: `backend/app/repo/models.py`
-* **DB 설정 및 세션 팩토리**: `backend/app/core/database.py`
+* **DB 설정 및 세션 팩토리**: `backend/app/infra/database.py`
 
 #### CRUD 및 조회 비동기 예시
 ```python
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import async_session_factory
+from app.infra.database import async_session_factory
 from app.repo.models import User, Repository, CodeNode, Dependency
 
 async def database_operations():

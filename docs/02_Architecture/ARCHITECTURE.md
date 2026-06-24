@@ -42,11 +42,18 @@ frontend/
 
 ```text
 backend/app/
-├── core/                 # ⚙️ 코어 설정 및 애플리케이션 초기화 (Config, Security 등)
-├── util/                 # 🛠️ 공통 유틸리티 함수
-├── chat/                 # 💬 챗봇 대화 도메인
+├── infra/                # ⚙️ 애플리케이션 인프라 (Config, Database, Auth)
+├── common/               # 📋 도메인 간 공통 계약 (Exceptions, Schemas)
+├── util/                 # 🛠️ 순수 유틸리티 함수
+├── agent/                # 🤖 LLM 멀티에이전트 도메인 (LangGraph, MCP)
+│   ├── agents/           #    Supervisor, Final Answer 에이전트
+│   ├── nodes/            #    Route Node, Evidence Aggregator
+│   ├── workers/          #    MCP 기반 Worker (search, dir, grep, read)
+│   └── tools/            #    검색 도구 (Hybrid Search, RRF)
+├── auth/                 # 🔐 인증 도메인
+├── chat/                 # 💬 채팅 대화 도메인
 ├── embed/                # 🧠 임베딩 처리 도메인
-├── gen/                  # ✨ 생성형 AI 관련 도메인
+├── gen/                  # ✨ 문서 생성 도메인
 ├── graph/                # 📊 그래프 구조 도메인
 ├── guard/                # 🛡️ 가드레일 (안전성) 도메인
 ├── list/                 # 📋 리스트 데이터 처리 도메인
@@ -64,16 +71,15 @@ backend/app/
 
 ### 🏷️ Backend 모듈 네이밍 및 분리 규칙 (Naming Conventions)
 
-특히 백엔드 전역 공통 모듈과 각 도메인 하위 모듈 간의 명칭 혼동을 방지하기 위해 다음 규칙을 엄격히 따릅니다.
+백엔드 전역 공통 모듈과 각 도메인 하위 모듈 간의 명칭 혼동을 방지하기 위해 다음 규칙을 엄격히 따릅니다.
 
-* **`app/core` (전역 인프라 유지)**: 앱 전체의 구동을 책임지는 전역 공통 인프라 레이어로 유지합니다. (Config, Database, Auth, Exceptions, Global Handlers 등 포함)
-* **`app/common` (순수 유틸리티)**: 향후 도메인과 무관한 **순수 공용 유틸리티**(단순 문자열 변환, 날짜 헬퍼 등)가 필요해질 때 별도로 도입을 검토합니다. DB/Auth 등 앱 구동 기반 로직은 `common`이 아닌 `core`에 속합니다.
-* **Agent 등 도메인 내부 모듈 (core 명칭 피하기)**: 
-  * `agent` 도메인(또는 기타 도메인) 내부에서 핵심 로직을 작성할 때 **`core.py` 또는 `core/` 폴더 명칭 사용을 금지**합니다. (`app/core`와의 의미적 혼동 방지)
-  * 대신 역할(Role)에 기반하여 구체적이고 명확하게 명명합니다.
-    * *실행/오케스트레이션*: `runtime.py`, `engine.py`, `orchestrator.py`
-    * *워크플로우/그래프*: `workflow.py`, `graph.py`
-    * *도구 묶음*: `tools.py`
+* **`app/infra` (애플리케이션 인프라)**: 앱 구동에 필요한 인프라 컴포넌트입니다. (Config, Database, Auth 등)
+* **`app/common` (공통 계약)**: 도메인 간 공유되는 예외 처리, 스키마 등 공통 계약입니다. (Exceptions, Schemas, Global Handlers 등)
+* **`app/agent` (LLM 에이전트 도메인)**: AI 멀티에이전트의 핵심 로직이 위치하는 도메인입니다. 하위 모듈은 역할(Role)에 기반하여 명명합니다.
+    * `agents/`: LLM 에이전트 (Supervisor, Final Answer)
+    * `nodes/`: LangGraph 노드 (Route, Evidence)
+    * `workers/`: MCP 기반 Worker
+    * `tools/`: 검색 도구 (Hybrid Search, RRF)
 
 ---
 
