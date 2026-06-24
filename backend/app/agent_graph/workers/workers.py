@@ -49,24 +49,37 @@ async def search_worker(state: CodeMapState) -> dict:
     logger.info("[SearchWorker] 시작 — query=%r", query)
 
     result_content = ""
+    tool_name = "search_repository"
     try:
-        # TODO(AGENT-SEARCH): Embed domain과의 연동 (vector_search -> search_repository fallback)
-        # from uuid import UUID
-        # from app.core.database import async_session_factory
-        # from app.embed.service import embed_ready, vector_search
-        # async with async_session_factory() as db:
-        #     if repo_id and await embed_ready(db, UUID(repo_id)):
-        #         hits = await vector_search(db, UUID(repo_id), query, k=5)
-        #         result_content = "\n\n".join(f"# {h['file']}:{h['line']}\n{h['snippet']}" for h in hits)
-        #     else:
-        from app.repo.analyzer import search_repository
-        results: list[dict] = await asyncio.to_thread(
-            search_repository, clone_path, query, 5
-        )
-        result_content = "\n\n".join(
-            f"# {r.get('file', '')}\n{r.get('content', '')}"
-            for r in results
-        )
+        vector_hits: list[dict] = []
+        if repo_id:
+            try:
+                from app.core.database import async_session_factory
+                from app.embed.service import embed_ready, vector_search
+
+                repo_uuid = uuid.UUID(str(repo_id))
+                async with async_session_factory() as db:
+                    if await embed_ready(db, repo_uuid):
+                        vector_hits = await vector_search(db, repo_uuid, query, k=5)
+            except Exception as exc:
+                logger.info("[SearchWorker] vector_search 폴백 — %s", exc)
+
+        if vector_hits:
+            tool_name = "vector_search"
+            result_content = "\n\n".join(
+                f"# {hit.get('file', '')}:{hit.get('line', '')}\n{hit.get('snippet', '')}"
+                for hit in vector_hits
+            )
+        else:
+            from app.repo.analyzer import search_repository
+
+            results: list[dict] = await asyncio.to_thread(
+                search_repository, clone_path, query, 5
+            )
+            result_content = "\n\n".join(
+                f"# {r.get('file', '')}\n{r.get('content', '')}"
+                for r in results
+            )
     except Exception as exc:
         logger.warning("[SearchWorker] 검색 실패: %s", exc)
         result_content = f"검색 실패: {exc}"
@@ -77,7 +90,7 @@ async def search_worker(state: CodeMapState) -> dict:
             WorkerResult(
                 id=str(uuid.uuid4()),
                 worker="search",
-                tool="search_repository",
+                tool=tool_name,
                 query=query,
                 snippet=result_content,
                 path=None,

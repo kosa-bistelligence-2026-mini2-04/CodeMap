@@ -177,6 +177,32 @@ class TestEvidenceAggregator(unittest.TestCase):
         self.assertGreater(ctx["total_chars"], 0)
 
 
+class TestWorkers(unittest.IsolatedAsyncioTestCase):
+    """Worker fallback 동작 검증."""
+
+    async def test_search_worker_falls_back_to_keyword_search(self):
+        from app.agent_graph.workers.workers import search_worker
+
+        state = {
+            "_plan_item": {"tool": "search", "query": "login", "path": None, "scope": "chunk"},
+            "rewritten_query": "login",
+            "user_query": "login code",
+            "repo_id": "not-a-uuid",
+            "clone_path": "/tmp/repo",
+        }
+
+        with patch("app.repo.analyzer.search_repository") as search_repository:
+            search_repository.return_value = [
+                {"file": "app/auth.py", "content": "def login(): pass"}
+            ]
+            result = await search_worker(state)
+
+        worker_result = result["worker_results"][0]
+        self.assertEqual(worker_result["tool"], "search_repository")
+        self.assertIn("app/auth.py", worker_result["snippet"])
+        search_repository.assert_called_once_with("/tmp/repo", "login", 5)
+
+
 class TestGraphExecution(unittest.IsolatedAsyncioTestCase):
     """실제 LangGraph의 ainvoke 테스트 (dummy supervisor 사용)."""
 
