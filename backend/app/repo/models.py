@@ -12,7 +12,7 @@ from sqlalchemy import Boolean, String, Integer, Text, DateTime, Index, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
-from app.core.database import Base
+from app.infra.database import Base
 from app.repo.schemas import JobStatus, PipelineStage
 
 

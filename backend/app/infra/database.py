@@ -8,7 +8,7 @@ FastAPI 의존성 주입(Dependency Injection)용 get_db 함수를 제공한다.
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
-from app.core.config import get_settings
+from app.infra.config import get_settings
 
 settings = get_settings()
 

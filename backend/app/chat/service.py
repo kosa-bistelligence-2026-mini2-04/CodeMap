@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chat.repository import ChatRepository
 from app.chat.schemas import ChatRunRequest
-from app.core.config import get_settings
+from app.infra.config import get_settings
 from app.repo.repository import AnalysisJobRepository
 
 logger = logging.getLogger(__name__)

@@ -33,8 +33,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ValidationError
 
-from app.core.config import get_settings
-from app.core.database import async_session_factory
+from app.infra.config import get_settings
+from app.infra.database import async_session_factory
 from app.repo.analyzer import scan_repository
 from app.repo.event_manager import event_manager
 from app.repo.pipeline.state import PipelineState

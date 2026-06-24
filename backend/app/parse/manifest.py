@@ -15,7 +15,7 @@ import re
 import tomllib
 from pathlib import Path
 
-from app.core.config import get_settings
+from app.infra.config import get_settings
 from app.parse.schemas import ParsedFile, RunCommandSet
 from app.parse.tech_catalog import (
     CATEGORY_GUIDE,

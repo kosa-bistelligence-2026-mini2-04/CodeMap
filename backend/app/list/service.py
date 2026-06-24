@@ -9,14 +9,14 @@ import httpx
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.infra.database import get_db
 from app.list.models import (
     AnalysisJobDetailModel,
     AnalysisJobListModel,
     AnalysisJobStatusUpdateModel,
 )
-from app.core.config import get_settings
-from app.core.exceptions import (
+from app.infra.config import get_settings
+from app.common.exceptions import (
     CodeMapException,
     InvalidRepoUrlError,
     RepositoryNotFoundError,

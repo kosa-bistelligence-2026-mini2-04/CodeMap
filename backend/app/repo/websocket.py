@@ -15,7 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
-from app.core.database import async_session_factory
+from app.infra.database import async_session_factory
 from app.repo.event_manager import event_manager
 from app.repo.repository import AnalysisJobRepository
 from app.repo.schemas import JobStatus

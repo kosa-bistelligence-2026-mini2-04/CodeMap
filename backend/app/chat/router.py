@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.chat.repository import ChatRepository
 from app.chat.schemas import ChatLegacyRequest, ChatRunRequest
 from app.chat.service import RepositoryChatService
-from app.core.database import get_db
+from app.infra.database import get_db
 
 logger = logging.getLogger(__name__)
 

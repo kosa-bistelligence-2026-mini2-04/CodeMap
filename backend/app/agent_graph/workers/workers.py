@@ -56,7 +56,7 @@ async def search_worker(state: CodeMapState) -> dict:
     # ── 1. Hybrid Search (pgvector + BM25 + RRF) ──
     try:
         from uuid import UUID as _UUID
-        from app.core.database import async_session_factory
+        from app.infra.database import async_session_factory
         from app.agent_graph.search.hybrid_search import hybrid_search
 
         async with async_session_factory() as db:

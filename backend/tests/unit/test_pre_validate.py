@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.core.exceptions import InvalidRepoUrlError, RepositoryNotFoundError, ValidationFailedError
+from app.common.exceptions import InvalidRepoUrlError, RepositoryNotFoundError, ValidationFailedError
 from app.list.service import ListService, _should_exclude_path
 
 

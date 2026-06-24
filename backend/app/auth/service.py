@@ -21,9 +21,9 @@ from app.auth.schemas import (
     RegisterData,
     RegisterResponse,
 )
-from app.core.auth import create_access_token
-from app.core.config import get_settings
-from app.core.exceptions import (
+from app.infra.auth import create_access_token
+from app.infra.config import get_settings
+from app.common.exceptions import (
     EmailAlreadyExistsError,
     InvalidCredentialsError,
     InvalidRefreshTokenError,

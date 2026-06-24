@@ -58,7 +58,7 @@ class RagIndexStatusTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
-            patch("app.core.database.async_session_factory", side_effect=lambda: _AsyncCtx()),
+            patch("app.infra.database.async_session_factory", side_effect=lambda: _AsyncCtx()),
             patch("app.repo.service.AnalysisJobRepository", return_value=repo_instance),
             patch("app.repo.service.os.path.isdir", return_value=True),
             patch("app.repo.service.get_settings", return_value=fake_settings),

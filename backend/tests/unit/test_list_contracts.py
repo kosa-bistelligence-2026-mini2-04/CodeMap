@@ -8,8 +8,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from app.core.exceptions import register_exception_handlers
-from app.core.auth import get_current_user
+from app.common.exceptions import register_exception_handlers
+from app.infra.auth import get_current_user
 from app.list.models import AnalysisJobDetailModel, AnalysisJobListModel, AnalysisJobStatusUpdateModel
 from app.list.router import router as list_router
 from app.list.service import (
@@ -111,7 +111,7 @@ class FakeListService:
 
 
 from fastapi import FastAPI, Request
-from app.core.exceptions import UnauthorizedError
+from app.common.exceptions import UnauthorizedError
 
 def mock_get_current_user(request: Request):
     auth = request.headers.get("Authorization")

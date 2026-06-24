@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import AsyncIterator
 
-from app.core.config import get_settings
+from app.infra.config import get_settings
 
 logger = logging.getLogger(__name__)
 

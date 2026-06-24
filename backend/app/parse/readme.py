@@ -15,7 +15,7 @@ import json
 import logging
 from pathlib import Path
 
-from app.core.config import get_settings
+from app.infra.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

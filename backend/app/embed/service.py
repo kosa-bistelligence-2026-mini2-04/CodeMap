@@ -29,7 +29,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from app.core.config import get_settings
+from app.infra.config import get_settings
 from app.embed.repository import EmbedRepository
 from app.parse.schemas import CodeChunk, EmbedRequest, EmbedResult, ParsedFile
 

@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import patch
 from pydantic import SecretStr
-from app.core.config import Settings
+from app.infra.config import Settings
 
 
 # ──────────────────────────────────────────────

@@ -19,8 +19,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, Up
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import async_session_factory, get_db
-from app.core.exceptions import JobAlreadyDoneError, JobNotFoundError
+from app.infra.database import async_session_factory, get_db
+from app.common.exceptions import JobAlreadyDoneError, JobNotFoundError
 from app.repo.event_manager import event_manager
 from app.repo.schemas import (
     AnalysisRequest,
@@ -36,7 +36,7 @@ from app.repo.schemas import (
     WorkspaceCleanupResponse,
 )
 from app.repo.service import AnalysisService, RepoValidateService
-from app.core.config import get_settings
+from app.infra.config import get_settings
 
 logger = logging.getLogger(__name__)
 

@@ -24,8 +24,8 @@ import httpx
 from fastapi import BackgroundTasks, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
-from app.core.exceptions import (
+from app.infra.config import get_settings
+from app.common.exceptions import (
     AlreadyInProgressError,
     CloneFailedError,
     CloneNotCompletedError,
@@ -613,7 +613,7 @@ class AnalysisService:
         Args:
             job_id: 분석 작업 고유 ID
         """
-        from app.core.database import async_session_factory
+        from app.infra.database import async_session_factory
         from app.repo.pipeline.graph import AnalysisPipelineSupervisor
         from app.repo.pipeline.state import PipelineState
 
@@ -709,7 +709,7 @@ class AnalysisService:
         이 단계의 실패는 분석 결과에 영향을 주지 않도록 내부에서 흡수한다.
         세션/commit은 기존 백그라운드 패턴과 동일하게 독립 세션으로 처리한다.
         """
-        from app.core.database import async_session_factory
+        from app.infra.database import async_session_factory
         from app.embed.service import embed_ready, run_embed_pipeline
         from app.parse import service as parse_service
         from app.parse.schemas import EmbedRequest

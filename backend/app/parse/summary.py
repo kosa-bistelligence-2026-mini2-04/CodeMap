@@ -11,7 +11,7 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 
-from app.core.config import get_settings
+from app.infra.config import get_settings
 from app.parse.schemas import FileSummary, FolderSummary, ParsedFile
 
 logger = logging.getLogger(__name__)

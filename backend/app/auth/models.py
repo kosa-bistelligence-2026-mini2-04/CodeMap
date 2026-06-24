@@ -12,7 +12,7 @@ from sqlalchemy import DateTime, ForeignKey, String, Text, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.database import Base
+from app.infra.database import Base
 
 
 # ──────────────────────────────────────────────

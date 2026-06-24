@@ -5,7 +5,7 @@ from pathlib import Path, PurePosixPath
 
 from fastapi import UploadFile
 
-from app.core.exceptions import CodeMapException, FileLimitExceededError
+from app.common.exceptions import CodeMapException, FileLimitExceededError
 
 
 MAX_LOCAL_FILE_COUNT = 900

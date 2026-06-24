@@ -3,8 +3,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.exceptions import ParseResultNotFoundError, RepositoryNotFoundError
+from app.infra.database import get_db
+from app.common.exceptions import ParseResultNotFoundError, RepositoryNotFoundError
 from app.parse.report import (
     normalize_run_commands,
     report_config_files,
