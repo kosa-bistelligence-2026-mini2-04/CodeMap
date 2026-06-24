@@ -64,6 +64,13 @@ class CodeNode(Base):
         UniqueConstraint("job_id", "path", "chunk_index", name="uq_code_nodes_job_path_chunk"),
         Index("idx_code_nodes_job_id", "job_id"),
         Index("idx_code_nodes_language", "language"),
+        # RAG EMBED: 코사인 유사도 고속 검색을 위한 HNSW 인덱스 정의
+        Index(
+            "idx_code_nodes_embedding",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     # ── 기본 식별자 ──────────────────────────────────────────
