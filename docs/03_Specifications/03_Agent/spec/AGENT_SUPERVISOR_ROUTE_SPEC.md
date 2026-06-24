@@ -88,7 +88,7 @@
   "rewrittenQuery": "database connection configuration 데이터베이스 연결 설정",
   "intent": "explain_flow",
   "selectedWorkers": ["search", "grep", "read"],
-  "allowedPaths": ["backend/app/core", "backend/app/db"],
+  "allowedPaths": ["backend/app/common", "backend/app/core", "backend/app/db"],
   "blockedPatterns": [".env", "*.pem", "alembic/versions"],
   "riskLevel": "sensitive",
   "searchHints": ["database", "connection", "pool", "session", "engine"],

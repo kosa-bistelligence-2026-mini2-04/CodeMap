@@ -66,11 +66,10 @@ backend/app/
 
 특히 백엔드 전역 공통 모듈과 각 도메인 하위 모듈 간의 명칭 혼동을 방지하기 위해 다음 규칙을 엄격히 따릅니다.
 
-* **`app/core` (전역 인프라 유지)**: 앱 전체의 구동을 책임지는 전역 공통 인프라 레이어로 유지합니다. (Config, Database, Auth, Exceptions, Global Handlers 등 포함)
-* **`app/common` (순수 유틸리티)**: 향후 도메인과 무관한 **순수 공용 유틸리티**(단순 문자열 변환, 날짜 헬퍼 등)가 필요해질 때 별도로 도입을 검토합니다. DB/Auth 등 앱 구동 기반 로직은 `common`이 아닌 `core`에 속합니다.
-* **Agent 등 도메인 내부 모듈 (core 명칭 피하기)**: 
-  * `agent` 도메인(또는 기타 도메인) 내부에서 핵심 로직을 작성할 때 **`core.py` 또는 `core/` 폴더 명칭 사용을 금지**합니다. (`app/core`와의 의미적 혼동 방지)
-  * 대신 역할(Role)에 기반하여 구체적이고 명확하게 명명합니다.
+* **`app/common` (전역 인프라)**: 앱 전체의 구동을 책임지는 전역 공통 인프라 레이어입니다. (Config, Database, Auth, Exceptions, Global Handlers 등 포함)
+* **`app/core` (에이전트 도메인)**: AI 에이전트의 핵심 로직이 위치하는 도메인 레이어입니다. (`core/agent/nodes`, `core/agent/search` 등)
+* **도메인 내부 모듈 네이밍**: 
+  * 도메인 내부에서 핵심 로직을 작성할 때 역할(Role)에 기반하여 구체적이고 명확하게 명명합니다.
     * *실행/오케스트레이션*: `runtime.py`, `engine.py`, `orchestrator.py`
     * *워크플로우/그래프*: `workflow.py`, `graph.py`
     * *도구 묶음*: `tools.py`
