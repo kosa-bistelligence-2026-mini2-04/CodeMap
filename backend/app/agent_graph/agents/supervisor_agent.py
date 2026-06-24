@@ -15,6 +15,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.agent_graph.state import AccessPlanItem, CodeMapState
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ async def supervisor_node(state: CodeMapState) -> dict:
     """
     logger.info("[Supervisor] 시작 — query=%r", state["user_query"])
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    settings = get_settings()
+    llm = ChatOpenAI(model=settings.OPENAI_MODEL, temperature=0)
     messages = [
         SystemMessage(content=_SUPERVISOR_SYSTEM),
         HumanMessage(content=f"사용자 질문: {state['user_query']}"),

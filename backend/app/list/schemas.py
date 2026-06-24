@@ -147,8 +147,8 @@ class PreValidateData(BaseModel):
     total_size_kb: int = Field(alias="totalSizeKb", description="저장소 총 용량 (KB)")
     warning_message: Optional[str] = Field(default=None, alias="warningMessage", description="제한 조건 초과 시 경고 메시지")
     is_truncated: bool = Field(default=False, alias="isTruncated", description="GitHub Trees API 결과 누락 여부")
-    warning_code: Optional[str] = Field(default=None, alias="warningCode", description="제한 초과 경고 코드")
-    max_file_size_kb: Optional[int] = Field(default=None, alias="maxFileSizeKb", description="검출된 최대 파일 크기 (KB)")
+    warning_code: Optional[str] = Field(default=None, alias="warningCode", description="제한 초과 경고 코드 (API-005 스펙 대응)")
+    max_file_size_kb: Optional[int] = Field(default=None, alias="maxFileSizeKb", description="검출된 최대 파일 크기 (KB) (API-005 스펙 대응)")
     limit: Optional[PreValidateLimit] = Field(default=None, description="제한 기준 설정값")
 
 

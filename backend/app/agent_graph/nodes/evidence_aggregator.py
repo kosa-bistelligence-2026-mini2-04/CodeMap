@@ -56,6 +56,7 @@ def evidence_aggregator(state: CodeMapState) -> dict:
     grouped_by_file: dict[str, list[dict]] = defaultdict(list)
     total_chars = 0
     selected_count = 0
+    budget_exceeded = False
 
     for file_path, items in sorted(grouped.items()):
         for item in items:
@@ -64,9 +65,11 @@ def evidence_aggregator(state: CodeMapState) -> dict:
                 available = _TOKEN_BUDGET - total_chars
                 if available > 100:
                     snippet = snippet[:available] + "\n... (budget 초과로 잘림)"
+                    budget_exceeded = True
                 else:
+                    budget_exceeded = True
                     break
-            
+
             grouped_by_file[file_path].append({
                 "id": item.get("id"),
                 "lineStart": item.get("lineStart"),
@@ -77,18 +80,23 @@ def evidence_aggregator(state: CodeMapState) -> dict:
             })
             total_chars += len(snippet)
             selected_count += 1
+            if budget_exceeded:
+                break
+        if budget_exceeded:
+            break
 
     # 파일 경로 없는 결과 추가
-    if no_path:
+    if no_path and not budget_exceeded:
         for item in no_path:
             snippet = item.get("snippet", "")
             if total_chars + len(snippet) > _TOKEN_BUDGET:
                 available = _TOKEN_BUDGET - total_chars
                 if available > 100:
                     snippet = snippet[:available] + "\n... (budget 초과로 잘림)"
+                    budget_exceeded = True
                 else:
                     break
-            
+
             grouped_by_file["no_path"].append({
                 "id": item.get("id"),
                 "lineStart": item.get("lineStart"),
@@ -99,6 +107,8 @@ def evidence_aggregator(state: CodeMapState) -> dict:
             })
             total_chars += len(snippet)
             selected_count += 1
+            if budget_exceeded:
+                break
 
     compact_context = {
         "selectedEvidenceCount": selected_count,

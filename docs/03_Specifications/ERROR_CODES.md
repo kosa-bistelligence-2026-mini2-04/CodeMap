@@ -93,26 +93,28 @@
 | 422 | `PARSE_NOT_COMPLETED` | 사전 검증 | 파싱이 완료되지 않은 상태에서 임베딩 요청 |
 | 500 | `EMBEDDING_FAILED` | 임베딩 처리 | OpenAI API 호출 또는 벡터 저장 중 오류 |
 
-## 8. AGENT-CHAT-API (코드 Q&A)
-`POST /api/chat/{repo_id}`
+## 8. AGENT-CHAT-RUN-API (멀티에이전트 Q&A)
+`POST /api/chat/{repo_id}/runs` 및 연관 엔드포인트
 
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | :--- | :--- | :--- | :--- |
-| 404 | `EMBEDDING_NOT_READY` | 사전 검증 | 임베딩이 완료되지 않아 검색 불가 |
-| 422 | `QUESTION_TOO_LONG` | 입력 검증 | 질문이 최대 허용 길이 초과 |
-| 500 | `AGENT_INTERNAL_ERROR` | 에이전트 실행 | LLM 호출 또는 도구 실행 중 내부 오류 |
-| 500 | `VECTOR_SEARCH_FAILED` | 벡터 검색 | pgvector 유사도 검색 실패 |
+| 400 | `INVALID_CHAT_REQUEST` | 입력 검증 | 요청이 유효하지 않음 (예: 최대 길이 초과) |
+| 409 | `REPO_NOT_ANALYZED` | 사전 검증 | 임베딩 및 분석이 완료되지 않아 에이전트 실행 불가 |
+| 404 | `AGENT_RUN_NOT_FOUND` | 상태 조회/스트림 | 존재하지 않는 run_id |
+| 404 | `AGENT_EVIDENCE_NOT_FOUND` | 근거 조회 | 존재하지 않거나 만료된 증거 데이터 |
+| 409 | `AGENT_RUN_ALREADY_FINISHED` | 취소/스트림 | 이미 종료된 run_id에 대한 요청 |
+| 409 | `AGENT_EVIDENCE_NOT_READY` | 근거 조회 | 아직 워커 수집이 완료되지 않아 Evidence 접근 불가 |
+| 500 | `AGENT_RUN_CREATE_FAILED` | Run 생성 | LangGraph 초기화 및 Run 생성 실패 |
+| 500 | `AGENT_STREAM_FAILED` | 스트리밍 | SSE 연결 또는 결과 스트리밍 중 오류 |
 
-## 9. AGENT-SEARCH-API (자율 탐색 도구)
-`POST /api/search/{repo_id}/grep`
+## 9. AGENT-WORKER-INTERNAL-ERRORS (내부 에러)
+*이 에러들은 REST 응답이 아닌 State 내부에 기록되며 Error Recovery에 사용됩니다.*
 
-| HTTP Status | Error Code | 발생 시점 | 설명 |
-| :--- | :--- | :--- | :--- |
-| 400 | `INVALID_PATTERN` | 패턴 검증 | 정규식 패턴 문법 오류 |
-| 400 | `INVALID_PATH` | 경로 검증 | 잘못된 파일 경로 또는 접근 금지 경로 |
-| 404 | `FILE_NOT_FOUND` | 파일 접근 | 요청 경로의 파일이 없음 |
-| 500 | `GREP_FAILED` | grep 실행 | grep 도구 실행 중 오류 |
-| 500 | `FILE_READ_FAILED` | 파일 읽기 | 파일 읽기 중 오류 |
+| 발생 도구 | Error Code | 설명 |
+| :--- | :--- | :--- |
+| Route Node | `AGENT_TOOL_POLICY_FAILED` | Supervisor의 접근 계획이 Path Traversal 등 보안 정책에 위배됨 |
+| Reasoning Worker | `AGENT_REASONING_FAILED` | 코드 추론 중 LLM 응답 파싱 또는 실행 실패 |
+| Search / Grep Worker | `VECTOR_SEARCH_FAILED` / `GREP_FAILED` | 임베딩 검색 또는 grep 도구 실행 실패 |
 
 ## 10. DOCS-GEN-API (가이드북 생성)
 `POST /api/gen/docs/{repo_id}`

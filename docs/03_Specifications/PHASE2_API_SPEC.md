@@ -7,7 +7,8 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 > - **PROJECT-PIPELINE**: 비동기 깊은 분석 파이프라인
 > - **RAG-GRAPH**: 코드 의존성 그래프 시각화
 > - **RAG-PARSE 고도화**: 위험 신호 태깅, 기술 스택 점수화
-> - **AGENT 고도화**: 장기 기억, Advanced Reasoning, 자율 외부 도구
+> - **AGENT 멀티에이전트**: LangGraph State 공유형 채팅 실행, SSE 스트리밍, 근거 조회
+> - **AGENT 고도화**: 장기 기억, Code Reasoning Worker 고도화, 허용된 외부 도구 worker
 > - **DOCS-UTIL**: HTML-PDF 변환, 이메일/Slack 공유
 > - **PROJECT-REPO**: 중복 저장소 검사
 
@@ -382,9 +383,337 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 
 ---
 
-## AGENT 고도화 API 명세서
+## AGENT 멀티에이전트 API 명세서
 
-> 관련 기능 ID: `AGENT-CHAT-B-203`, `AGENT-SEARCH-B-206`, `AGENT-SEARCH-B-207`
+> [!IMPORTANT]
+> 아래 AGENT API는 최신 합의된 LangGraph State 공유형 멀티에이전트 구조를 기준으로 합니다. `Route Node`는 LLM agent가 아니라 deterministic code node이며, 보안 검증과 병렬 worker routing을 담당합니다.
+> 구현 위치 기준으로 `Final Answer Agent`는 `chat/final_answer_agent.py`에 두고, Supervisor/Route/Workers/Evidence node는 `agent_graph/` 아래에 둡니다.
+
+> 관련 기능 ID: `AGENT-CHAT-B-101`, `AGENT-CHAT-B-201` ~ `AGENT-CHAT-B-204`, `AGENT-GRAPH-B-201` ~ `AGENT-GRAPH-B-202`, `AGENT-SUPERVISOR-B-201`, `AGENT-ROUTE-B-201` ~ `AGENT-ROUTE-B-203`, `AGENT-WORKER-B-201` ~ `AGENT-WORKER-B-205`, `AGENT-EVIDENCE-B-201`
+
+### AGENT 공통 State 및 역할 계약
+
+| 구분 | 명세 |
+| :--- | :--- |
+| 구현 기준 구조 | `backend/app/chat/` + `backend/app/agent_graph/` |
+| `Final Answer Agent` 위치 | `chat/final_answer_agent.py` |
+| LangGraph 데이터 수집 계층 | `agent_graph/state.py`, `graph.py`, `agents/`, `nodes/`, `tools/`, `workers/` |
+| LLM agent | `Supervisor Agent`, `Search Worker Agent`, `Code Reasoning Worker`(선택), `Final Answer Agent` |
+| 일반 코드 node/wrapper | `Route Node`, `Evidence Aggregator Node`, `Dir Worker`, `Grep Worker`, `Read Worker` |
+| `CodeMapState` 핵심 필드 | `user_query`, `rewritten_query`, `access_plan`, `security_result`, `worker_results`, `compact_context`, `final_answer` |
+| 원본 근거 보존 기준 | Worker 결과는 중간 LLM 요약 없이 `CodeMapState.worker_results`에 append-only 방식으로 기록 |
+
+---
+
+### AGENT-CHAT-API-001 멀티에이전트 채팅 실행 요청
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `POST /api/chat/{repo_id}/runs` |
+| Method | POST |
+| 관련 기능 ID | `AGENT-CHAT-B-101`, `AGENT-CHAT-B-201`, `AGENT-GRAPH-B-201`, `AGENT-SUPERVISOR-B-201` |
+| 목적 | 사용자 질문을 받아 LangGraph 멀티에이전트 실행 run을 생성하고 SSE stream URL을 반환 |
+| 상태 | 설계 확정 / 구현 예정 |
+
+#### 요청(Request)
+
+##### Path Parameters
+
+| 파라미터명 | 타입 | 필수 | 설명 |
+| :--- | :--- | :--- | :--- |
+| repo_id | UUID | Y | 질문 대상 저장소 고유 ID |
+
+##### Request Body
+
+| 필드명 | 타입 | 필수 | 기본값 | 설명 |
+| :--- | :--- | :--- | :--- | :--- |
+| question | String | Y | - | 사용자 원본 질문 |
+| sessionId | UUID | N | 자동 생성 | 이어지는 대화 세션 ID |
+| mode | String | N | `balanced` | 실행 모드 (`lite`, `balanced`, `thinking`) |
+| includeEvidence | Boolean | N | true | 최종 응답에 파일 경로/라인 근거 포함 여부 |
+| maxToolCalls | Integer | N | 8 | 전체 worker tool call 최대 횟수 |
+| timeoutSeconds | Integer | N | 30 | run 전체 제한 시간 |
+
+##### 요청 예시
+
+```json
+{
+  "question": "로그인 어딧음?",
+  "mode": "balanced",
+  "includeEvidence": true,
+  "maxToolCalls": 8,
+  "timeoutSeconds": 30
+}
+```
+
+#### 응답(Response)
+
+##### 성공 응답 - 202 Accepted
+
+| 필드명 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| code | Integer | HTTP 상태 코드 (202) |
+| message | String | "accepted" |
+| data.runId | UUID | 생성된 agent 실행 ID |
+| data.sessionId | UUID | 대화 세션 ID |
+| data.status | String | `queued` |
+| data.streamUrl | String | SSE 수신 URL |
+| data.statusUrl | String | run 상태 조회 URL |
+
+##### 응답 예시
+
+```json
+{
+  "code": 202,
+  "message": "accepted",
+  "data": {
+    "runId": "2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10",
+    "sessionId": "a0de8d29-92a4-4fd6-a657-2d22f4c0cc75",
+    "status": "queued",
+    "streamUrl": "/api/chat/8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f/runs/2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10/stream",
+    "statusUrl": "/api/chat/8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f/runs/2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10"
+  }
+}
+```
+
+##### 에러 응답
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 400 | `INVALID_CHAT_REQUEST` | 요청 검증 | 질문 누락, mode 값 오류, 제한값 초과 |
+| 404 | `REPO_NOT_FOUND` | DB 조회 | 저장소 없음 |
+| 409 | `REPO_NOT_ANALYZED` | 사전 검증 | 분석/인덱싱이 완료되지 않은 저장소 |
+| 500 | `AGENT_RUN_CREATE_FAILED` | run 생성 | agent run 생성 실패 |
+
+---
+
+### AGENT-CHAT-API-002 멀티에이전트 SSE 스트림
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}/stream` |
+| Method | GET |
+| 관련 기능 ID | `AGENT-CHAT-B-203`, `AGENT-CORE-B-201`, `AGENT-CORE-B-202`, `AGENT-CORE-B-204` |
+| 목적 | LangGraph 실행 과정과 Final Answer 토큰을 SSE로 실시간 전달 |
+| 상태 | 설계 확정 / 구현 예정 |
+
+#### Path Parameters
+
+| 파라미터명 | 타입 | 필수 | 설명 |
+| :--- | :--- | :--- | :--- |
+| repo_id | UUID | Y | 저장소 고유 ID |
+| run_id | UUID | Y | agent 실행 ID |
+
+#### SSE 이벤트 규격
+
+| Event | data payload | 설명 |
+| :--- | :--- | :--- |
+| `graph_started` | `{ "runId": "...", "stateKeys": ["user_query"] }` | LangGraph 실행 시작 |
+| `supervisor_plan` | `{ "rewrittenQuery": "...", "selectedWorkers": [...], "allowedPaths": [...] }` | Supervisor LLM 계획 생성 완료 |
+| `route_validated` | `{ "allowed": true, "parallelGroups": [...] }` | deterministic Route Node 검증 완료 |
+| `worker_started` | `{ "worker": "grep", "target": "backend/app" }` | worker 실행 시작 |
+| `worker_result` | `{ "worker": "grep", "resultCount": 3, "evidenceIds": [...] }` | worker 원본 근거 State 기록 완료 |
+| `evidence_compacted` | `{ "evidenceCount": 8, "tokenBudget": 12000 }` | Evidence Aggregator 정리 완료 |
+| `answer_delta` | `{ "content": "로그인 로직은..." }` | Final Answer 토큰 조각 |
+| `completed` | `{ "runId": "...", "answerId": "...", "elapsedSeconds": 12.4 }` | run 정상 완료 |
+| `failed` | `{ "runId": "...", "errorCode": "AGENT_TIMEOUT", "message": "..." }` | run 실패 |
+
+#### 스트림 예시
+
+```text
+event: graph_started
+data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","stateKeys":["user_query"]}
+
+event: supervisor_plan
+data: {"rewrittenQuery":"login signin auth authentication","selectedWorkers":["search","grep","read"],"allowedPaths":["backend/app","frontend/src"]}
+
+event: route_validated
+data: {"allowed":true,"parallelGroups":[["search","grep"],["read"]]}
+
+event: answer_delta
+data: {"content":"로그인 로직은 "}
+
+event: answer_delta
+data: {"content":"backend/app/auth/router.py에서 시작됩니다."}
+
+event: completed
+data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elapsedSeconds":12.4}
+```
+
+##### 에러 응답
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `AGENT_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
+| 409 | `AGENT_RUN_ALREADY_FINISHED` | stream 연결 | 이미 완료된 run에 stream 재연결 |
+| 500 | `AGENT_STREAM_FAILED` | SSE 처리 | 스트림 초기화 또는 전송 실패 |
+
+---
+
+### AGENT-CHAT-API-003 Agent Run 상태 및 State 요약 조회
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}` |
+| Method | GET |
+| 관련 기능 ID | `AGENT-CHAT-B-204`, `AGENT-GRAPH-B-201`, `AGENT-CORE-B-203` |
+| 목적 | 실행 상태, node별 소요 시간, State 요약, 최종 답변 상태 조회 |
+| 상태 | 설계 확정 / 구현 예정 |
+
+#### 응답(Response)
+
+##### 성공 응답 - 200 OK
+
+| 필드명 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| code | Integer | HTTP 상태 코드 |
+| message | String | "success" |
+| data.runId | UUID | agent 실행 ID |
+| data.sessionId | UUID | 대화 세션 ID |
+| data.status | String | `queued`, `running`, `streaming`, `completed`, `failed`, `cancelled` |
+| data.currentNode | String | 현재 실행 중인 node/worker |
+| data.state.userQuery | String | 사용자 원본 질문 |
+| data.state.rewrittenQuery | String | Supervisor가 교정한 검색 질의 |
+| data.state.accessPlan | Object | selectedWorkers, allowedPaths, riskLevel |
+| data.state.securityResult | Object | Route Node의 allowlist/path traversal 검증 결과 |
+| data.state.workerResultCount | Integer | State에 기록된 raw evidence 개수 |
+| data.state.compactContextReady | Boolean | Final Answer용 compact context 준비 여부 |
+| data.state.stateKeys | Array<String> | 현재 `CodeMapState`에 기록된 key 목록 |
+| data.durations | Object | node/worker별 소요 시간 |
+| data.finalAnswer | Object | 완료된 경우 최종 답변 메타데이터 |
+
+##### 응답 예시
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "runId": "2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10",
+    "sessionId": "a0de8d29-92a4-4fd6-a657-2d22f4c0cc75",
+    "status": "running",
+    "currentNode": "read_worker",
+    "state": {
+      "userQuery": "로그인 어딧음?",
+      "rewrittenQuery": "login signin auth authentication",
+      "accessPlan": {
+        "selectedWorkers": ["search", "grep", "read"],
+        "allowedPaths": ["backend/app", "frontend/src"],
+        "riskLevel": "normal"
+      },
+      "securityResult": {
+        "allowed": true,
+        "blockedPaths": [],
+        "policy": "repo_allowlist"
+      },
+      "workerResultCount": 5,
+      "compactContextReady": false,
+      "stateKeys": ["user_query", "rewritten_query", "access_plan", "security_result", "worker_results"]
+    },
+    "durations": {
+      "supervisor": 1.4,
+      "route_node": 0.03,
+      "search_worker": 0.8,
+      "grep_worker": 0.2
+    },
+    "finalAnswer": null
+  }
+}
+```
+
+---
+
+### AGENT-CHAT-API-004 Agent Run 취소
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `POST /api/chat/{repo_id}/runs/{run_id}/cancel` |
+| Method | POST |
+| 관련 기능 ID | `AGENT-CHAT-B-204`, `AGENT-CORE-B-202`, `AGENT-CORE-B-204` |
+| 목적 | 실행 중인 LangGraph/worker run을 취소하고 SSE에 cancelled 이벤트 발행 |
+| 상태 | 설계 확정 / 구현 예정 |
+
+#### 응답(Response)
+
+##### 성공 응답 - 200 OK
+
+| 필드명 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| code | Integer | HTTP 상태 코드 |
+| message | String | "cancelled" |
+| data.runId | UUID | 취소된 run ID |
+| data.status | String | `cancelled` |
+| data.cancelledAt | String | 취소 시각 |
+
+##### 에러 응답
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `AGENT_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
+| 409 | `AGENT_RUN_ALREADY_FINISHED` | 상태 검증 | 이미 completed/failed/cancelled 상태 |
+
+---
+
+### AGENT-CHAT-API-005 Agent 근거 조회
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `GET /api/chat/{repo_id}/runs/{run_id}/evidence` |
+| Method | GET |
+| 관련 기능 ID | `AGENT-WORKER-B-201` ~ `AGENT-WORKER-B-205`, `AGENT-EVIDENCE-B-201` |
+| 목적 | Worker가 `CodeMapState.worker_results`에 직접 기록한 raw evidence와 compact context 조회 |
+| 상태 | 설계 확정 / 구현 예정 |
+
+#### Query Parameters
+
+| 파라미터명 | 타입 | 필수 | 기본값 | 설명 |
+| :--- | :--- | :--- | :--- | :--- |
+| includeRawSnippet | Boolean | N | false | 원본 코드 snippet 포함 여부 |
+| worker | String | N | - | 특정 worker 결과만 필터링 (`search`, `dir`, `grep`, `read`, `reasoning`) |
+| limit | Integer | N | 20 | 반환할 최대 evidence 수 |
+
+#### 응답(Response)
+
+##### 성공 응답 - 200 OK
+
+| 필드명 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| code | Integer | HTTP 상태 코드 |
+| message | String | "success" |
+| data.runId | UUID | agent 실행 ID |
+| data.evidence | Array<Object> | 근거 목록 |
+| data.evidence[].id | String | evidence ID |
+| data.evidence[].worker | String | 생성 worker |
+| data.evidence[].path | String | 파일 경로 |
+| data.evidence[].lineStart | Integer | 시작 라인 |
+| data.evidence[].lineEnd | Integer | 종료 라인 |
+| data.evidence[].score | Float | 검색/선정 점수 |
+| data.evidence[].snippet | String | 선택 시 반환되는 원본 코드 snippet |
+| data.compactContext | String | Final Answer Agent에 전달된 압축 근거 |
+| data.stateField | String | 원본 근거가 저장된 State 필드명 (`worker_results`) |
+
+##### 에러 응답
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `AGENT_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
+| 404 | `AGENT_EVIDENCE_NOT_FOUND` | evidence 조회 | State에 evidence가 없음 |
+
+---
+
+## AGENT 고도화 확장 API 명세서
+
+> 관련 기능 ID: `AGENT-MEMORY-B-201`, `AGENT-WORKER-B-206`, `AGENT-WORKER-B-207`
 
 ---
 
@@ -396,7 +725,7 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 | :--- | :--- |
 | Endpoint | `GET /api/chat/{repo_id}/memory` |
 | Method | GET |
-| 관련 기능 ID | `AGENT-CHAT-B-203` |
+| 관련 기능 ID | `AGENT-MEMORY-B-201` |
 | 목적 | 이전 대화 세션에서 에이전트가 학습한 장기 기억 컨텍스트 조회 |
 | 상태 | 시작 전 (Phase 2) |
 
@@ -435,6 +764,108 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 | :--- | :--- | :--- | :--- |
 | 404 | `REPO_NOT_FOUND` | DB 조회 | 저장소 없음 |
 | 500 | `MEMORY_RETRIEVAL_FAILED` | 기억 조회 | 장기 기억 조회 중 오류 |
+
+---
+
+### AGENT-ADVANCED-API-002 허용 외부 도구 Worker 목록 조회
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `GET /api/chat/{repo_id}/tools/allowed` |
+| Method | GET |
+| 관련 기능 ID | `AGENT-WORKER-B-206` |
+| 목적 | Phase 2에서 확장 가능한 외부 도구 worker allowlist와 권한 범위 조회 |
+| 상태 | 시작 전 (Phase 2) |
+
+#### 응답(Response)
+
+##### 성공 응답 - 200 OK
+
+| 필드명 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| code | Integer | HTTP 상태 코드 |
+| message | String | "success" |
+| data.repoId | UUID | 저장소 고유 ID |
+| data.tools | Array<Object> | 허용된 외부 도구 worker 목록 |
+| data.tools[].name | String | 도구 worker 이름 |
+| data.tools[].type | String | 도구 유형 (`github`, `docs`, `issue`, `webhook` 등) |
+| data.tools[].enabled | Boolean | 활성화 여부 |
+| data.tools[].allowedActions | Array<String> | 허용된 action 목록 |
+| data.tools[].requiresConfirmation | Boolean | 사용자 확인 필요 여부 |
+
+##### 응답 예시
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "repoId": "8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f",
+    "tools": [
+      {
+        "name": "github_issue_search",
+        "type": "github",
+        "enabled": false,
+        "allowedActions": ["search"],
+        "requiresConfirmation": false
+      }
+    ]
+  }
+}
+```
+
+##### 에러 응답
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `REPO_NOT_FOUND` | DB 조회 | 저장소 없음 |
+| 500 | `AGENT_TOOL_POLICY_FAILED` | 정책 조회 | 외부 도구 worker 정책 조회 실패 |
+
+---
+
+### AGENT-ADVANCED-API-003 Code Reasoning Worker 고도화 실행 요청
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `POST /api/chat/{repo_id}/runs/{run_id}/reasoning` |
+| Method | POST |
+| 관련 기능 ID | `AGENT-WORKER-B-205`, `AGENT-WORKER-B-207` |
+| 목적 | 기존 run의 State evidence를 기반으로 선택형 Code Reasoning Worker 또는 고도화 reasoning worker를 실행 |
+| 상태 | 시작 전 (Phase 2) |
+
+#### 요청(Request)
+
+##### Request Body
+
+| 필드명 | 타입 | 필수 | 기본값 | 설명 |
+| :--- | :--- | :--- | :--- | :--- |
+| focus | String | N | - | 추가 추론 초점 (`security`, `architecture`, `data_flow`, `bug_risk` 등) |
+| maxEvidence | Integer | N | 12 | Code Reasoning Worker가 읽을 최대 evidence 수 |
+| includeNewSearch | Boolean | N | false | 추가 worker 검색 허용 여부 |
+
+#### 응답(Response)
+
+##### 성공 응답 - 202 Accepted
+
+| 필드명 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| code | Integer | HTTP 상태 코드 (202) |
+| message | String | "accepted" |
+| data.runId | UUID | 대상 run ID |
+| data.reasoningRunId | UUID | 추가 Code Reasoning Worker 실행 ID |
+| data.status | String | `reasoning_queued` |
+
+##### 에러 응답
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `AGENT_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
+| 409 | `AGENT_EVIDENCE_NOT_READY` | 사전 검증 | Code Reasoning에 필요한 evidence가 아직 준비되지 않음 |
+| 500 | `AGENT_REASONING_FAILED` | worker 실행 | Code Reasoning Worker 실행 실패 |
 
 ---
 
@@ -616,6 +1047,16 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 | `RISK_ANALYSIS_FAILED` | 500 | 위험 신호 분석 처리 실패 |
 | `STACK_SCORE_NOT_FOUND` | 404 | 기술 스택 점수화 결과 없음 |
 | `STACK_SCORE_FAILED` | 500 | 기술 스택 점수화 실패 |
+| `INVALID_CHAT_REQUEST` | 400 | agent 채팅 실행 요청 검증 실패 |
+| `REPO_NOT_ANALYZED` | 409 | agent 실행 전 저장소 분석/인덱싱 미완료 |
+| `AGENT_RUN_CREATE_FAILED` | 500 | agent run 생성 실패 |
+| `AGENT_RUN_NOT_FOUND` | 404 | agent run이 존재하지 않음 |
+| `AGENT_RUN_ALREADY_FINISHED` | 409 | 이미 종료된 agent run에 대한 불가능한 요청 |
+| `AGENT_STREAM_FAILED` | 500 | SSE 스트림 처리 실패 |
+| `AGENT_EVIDENCE_NOT_FOUND` | 404 | agent State evidence가 존재하지 않음 |
+| `AGENT_EVIDENCE_NOT_READY` | 409 | 추가 reasoning에 필요한 evidence가 준비되지 않음 |
+| `AGENT_TOOL_POLICY_FAILED` | 500 | 외부 도구 worker 정책 조회 실패 |
+| `AGENT_REASONING_FAILED` | 500 | Code Reasoning Worker 실행 실패 |
 | `MEMORY_RETRIEVAL_FAILED` | 500 | 에이전트 장기 기억 조회 실패 |
 | `PDF_RENDER_FAILED` | 500 | HTML→PDF 렌더링 실패 |
 | `SHARE_FAILED` | 500 | 이메일 또는 Slack 발송 실패 |

@@ -335,6 +335,30 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("pkg/c.py", by_path["pkg/a.py"].imports)
         self.assertIn("backend/app/service.py", by_path["pkg/a.py"].imports)
 
+    @unittest.skipUnless(_has("analyze_imports"), "analyze_imports(B-208) 미구현")
+    async def test_imports_resolve_monorepo_package_root(self):
+        # 패키지 루트가 하위 디렉토리(backend/)에 있는 모노레포에서, 절대 import
+        # `from app.service import run`이 backend/app/service.py로 접미사 해석돼야 한다 (#101).
+        # 단, 단일 세그먼트(import json 등)는 외부 모듈 오탐 방지를 위해 해석하지 않는다.
+        files = [
+            rag_schemas.ParsedFile(
+                path="backend/app/main.py",
+                file_type="FILE",
+                depth=2,
+                content="from app.service import run\nimport json\n",
+            ),
+            rag_schemas.ParsedFile(
+                path="backend/app/service.py", file_type="FILE", depth=2, content="def run(): ...\n"
+            ),
+            rag_schemas.ParsedFile(
+                path="backend/app/json.py", file_type="FILE", depth=2, content="x = 1\n"
+            ),
+        ]
+        analyzed = await parse_service.analyze_imports(files)
+        imports = {item.path: item for item in analyzed}["backend/app/main.py"].imports
+        self.assertIn("backend/app/service.py", imports)       # 다중 세그먼트 → 접미사 해석
+        self.assertNotIn("backend/app/json.py", imports)       # 단일 세그먼트(import json) → 오탐 안 함
+
     @unittest.skipUnless(_has("build_file_map", "build_heatmap"), "Code Map 품질 보강 미구현")
     async def test_file_map_adds_imported_by_and_risk_score(self):
         chunked = await parse_service.chunk_by_ast(self.files)

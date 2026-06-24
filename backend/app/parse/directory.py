@@ -8,9 +8,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 
 from app.parse.schemas import ParsedFile
+
+logger = logging.getLogger(__name__)
 
 # 탐색 제외 디렉토리 — repo/analyzer.IGNORED_DIRS와 동일 값으로 정합(노이즈/대용량 제외).
 # 도메인 결합을 피하려 import 대신 parse 자체 상수로 둔다(추후 공통 상수화 가능).
@@ -35,6 +38,8 @@ _SENSITIVE_FILE_NAMES = {
 _SENSITIVE_FILE_EXTS = {".pem", ".key", ".p12", ".pfx", ".keystore", ".jks"}
 # content를 읽을 최대 크기 (초과 시 생략)
 _MAX_CONTENT_BYTES = 1_000_000
+# 분석할 파일 수 상한 — 대형 모노레포에서 전체 content를 메모리에 적재하는 OOM/장시간 방지 (#53).
+_MAX_FILES = 5000
 
 # 진입점 파일 우선순위 (앞일수록 우선; RAG-PARSE-B-203). page=Next.js App Router 진입점.
 _ENTRY_STEMS = ["main", "__main__", "app", "server", "index", "page", "manage", "cli", "wsgi", "asgi"]
@@ -45,19 +50,28 @@ _ENTRY_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rb"
 def _read_text(path: Path) -> str | None:
     """텍스트 파일 내용을 반환. 바이너리/민감파일/대용량/빈파일/오류면 None."""
     # 민감 파일(.env, 키류)은 content를 읽지 않는다 — EMBED/LLM 유출 방지.
-    if path.name in _SENSITIVE_FILE_NAMES or path.suffix.lower() in _SENSITIVE_FILE_EXTS:
+    # 파일명은 소문자화해 비교한다 (.ENV / Id_Rsa 등 대소문자 우회 차단; #53).
+    if path.name.lower() in _SENSITIVE_FILE_NAMES or path.suffix.lower() in _SENSITIVE_FILE_EXTS:
         return None
     if path.suffix.lower() in _BINARY_EXTS:
         return None
     try:
         if path.stat().st_size > _MAX_CONTENT_BYTES:
             return None
-        content = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        # 디코딩 불가(바이너리)면 content를 생략한다. errors="replace"로 오염된
-        # 텍스트가 청킹·임베딩으로 유입되는 것을 방지.
+    except OSError:
         return None
-    return content or None  # 빈 파일은 ""가 아니라 None으로 통일
+    # utf-8 우선, 실패 시 cp949(EUC-KR) 폴백 — 한국어 Windows 저장 소스(cp949)의
+    # 무음 드롭을 방지한다 (#53). 바이너리 확장자는 위에서 이미 걸렀으므로
+    # 여기 도달하면 텍스트 소스로 간주한다.
+    for encoding in ("utf-8", "cp949"):
+        try:
+            content = path.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue  # 다음 인코딩 시도
+        except OSError:
+            return None
+        return content or None  # 빈 파일은 ""가 아니라 None으로 통일
+    return None  # 모든 인코딩 실패 (실제 바이너리/깨진 파일)
 
 
 async def analyze_directory(clone_path: str) -> list[ParsedFile]:
@@ -79,6 +93,8 @@ def _analyze_directory_sync(clone_path: str) -> list[ParsedFile]:
     if not root.exists():
         return nodes
 
+    file_count = 0
+    truncated = False
     for path in root.rglob("*"):
         # symlink는 건너뛴다 — clone 디렉토리 밖(host 파일/비밀)을 가리킬 수 있어
         # content가 EMBED/LLM로 유출되는 root-escape를 차단한다.
@@ -93,9 +109,20 @@ def _analyze_directory_sync(clone_path: str) -> list[ParsedFile]:
                 ParsedFile(path=rel, file_type="DIRECTORY", depth=rel.count("/"), content=None)
             )
         else:
+            # 파일 수 상한 초과분은 건너뛴다 — 대형 모노레포 OOM/장시간 방지 (#53).
+            if file_count >= _MAX_FILES:
+                truncated = True
+                continue
             nodes.append(
                 ParsedFile(path=rel, file_type="FILE", depth=rel.count("/"), content=_read_text(path))
             )
+            file_count += 1
+
+    if truncated:
+        logger.warning(
+            "[parse/directory] 파일 수 상한(%d) 초과 — 일부 파일이 분석에서 제외되었습니다 (clone=%s)",
+            _MAX_FILES, clone_path,
+        )
 
     # 얕은 경로 → 알파벳 순으로 안정 정렬
     nodes.sort(key=lambda n: (n.path.count("/"), n.path))
