@@ -1,16 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Sun, Moon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Sun, Moon, LogOut } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const isHome = pathname === "/";
   const { theme, locale, toggleTheme, toggleLocale, t } = useApp();
+  const { user, isLoggedIn, logout } = useAuthStore();
 
   const isDark = theme === "dark";
+
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+  };
 
   // Toggle button style — adapts to current theme
   const toggleBtnClass =
@@ -60,18 +68,48 @@ export function Navbar() {
           )}
         </button>
 
-        {/* Launch App CTA */}
-        <Link
-          href="/analyze"
-          className={
-            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm " +
-            (isDark
-              ? "bg-white text-black hover:bg-zinc-200"
-              : "bg-black text-white hover:bg-zinc-800")
-          }
-        >
-          {t.nav.launchApp}
-        </Link>
+        {/* Launch App CTA / User Menu */}
+        {isLoggedIn ? (
+          <div className="flex items-center gap-2 ml-1">
+            <span className={`text-xs font-semibold ${isDark ? "text-zinc-300" : "text-zinc-600"} hidden sm:inline-block`}>
+              {user?.email?.split('@')[0]}
+            </span>
+            <button
+              onClick={handleLogout}
+              className={
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm " +
+                (isDark
+                  ? "bg-zinc-800 text-white hover:bg-zinc-700"
+                  : "bg-zinc-100 text-black hover:bg-zinc-200")
+              }
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <Link
+              href="/signin"
+              className={
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all " +
+                (isDark ? "text-zinc-300 hover:text-white" : "text-zinc-600 hover:text-black")
+              }
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/analyze"
+              className={
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm " +
+                (isDark
+                  ? "bg-white text-black hover:bg-zinc-200"
+                  : "bg-black text-white hover:bg-zinc-800")
+              }
+            >
+              {t.nav.launchApp}
+            </Link>
+          </>
+        )}
       </div>
     );
   }
@@ -133,11 +171,51 @@ export function Navbar() {
             href="https://github.com/kosa-bistelligence-2026-mini2-04/CodeMap"
             target="_blank"
             rel="noopener noreferrer"
-            className={`text-xs font-semibold ${linkHover} transition-colors ml-1`}
+            className={`text-xs font-semibold ${linkHover} transition-colors ml-1 hidden sm:inline-block`}
           >
             {t.nav.github}
           </a>
 
+          {/* User Section */}
+          <div className="flex items-center gap-2 ml-2 pl-2 border-l border-zinc-200 dark:border-zinc-800">
+            {isLoggedIn ? (
+            <button
+              onClick={handleLogout}
+              className={
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all " +
+                (isDark
+                  ? "bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-black")
+              }
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline-block">Sign out</span>
+            </button>
+            ) : (
+              <>
+                <Link
+                  href="/signin"
+                  className={`text-xs font-bold transition-all px-2 py-1.5 ${
+                    isDark ? "text-zinc-300 hover:text-white" : "text-zinc-600 hover:text-black"
+                  }`}
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/signup"
+                  className={
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm " +
+                    (isDark
+                      ? "bg-white text-black hover:bg-zinc-200"
+                      : "bg-black text-white hover:bg-zinc-800")
+                  }
+                >
+                  Sign up
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>
