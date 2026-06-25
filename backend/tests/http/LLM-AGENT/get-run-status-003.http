@@ -1,9 +1,8 @@
 ### ============================================================================
 ### LLM-AGENT-API-001 | 에이전트 실행 상태 조회
-### Markdown source: docs/03_Specifications/03_LLM/api/LLM_API_SPEC.md
+### Markdown source: docs/03_Specifications/03_LLM/api/LLM_RUN_MANAGEMENT_API_SPEC.md
 ### Endpoint: GET /api/chat/{repo_id}/runs/{run_id}
-### 관련 기능 ID: LLM-AGENT-B-201, LLM-AGENT-B-202, LLM-AGENT-B-203,
-### LLM-AGENT-B-204
+### 관련 기능 ID: LLM-CHAT-B-204, LLM-GRAPH-B-201, LLM-OPS-B-203
 ### 상태: 구현 완료
 ### ============================================================================
 @baseUrl = http://localhost:8000
