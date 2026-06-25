@@ -85,7 +85,7 @@
 ## LLM-AGENT-B-203: `route_node` 보안 검증 및 Send 병렬 fan-out
 
 ### 1. 설명
-`backend/app/agent/nodes/route_node.py` — **100% 결정론적**(LLM 아님). Supervisor의 `access_plan` 각 항목 경로를 보안 검증해 `security_result`로 분류하고, `fanout_to_workers`가 승인 항목을 `Send(f"{tool}_worker", {**state, "_plan_item": item})`로 병렬 fan-out 한다.
+`backend/app/agent/workers/route_node.py` — **100% 결정론적**(LLM 아님). Supervisor의 `access_plan` 각 항목 경로를 보안 검증해 `security_result`로 분류하고, `fanout_to_workers`가 승인 항목을 `Send(f"{tool}_worker", {**state, "_plan_item": item})`로 병렬 fan-out 한다.
 
 ### 2. 입/출력 규격
 - **Input**: `access_plan: list[AccessPlanItem]`

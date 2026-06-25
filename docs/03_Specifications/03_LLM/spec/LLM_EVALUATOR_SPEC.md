@@ -10,7 +10,7 @@
 
 | 구분 | 기준 |
 | --- | --- |
-| 구현 위치 | `backend/app/agent/nodes/evidence_aggregator.py` (`evidence_aggregator`) |
+| 구현 위치 | `backend/app/agent/workers/evidence_aggregator.py` (`evidence_aggregator`) |
 | 성격 | 결정론적 코드 노드 (Phase 1) → LLM 평가 에이전트 (Phase 2) |
 | 책임 | `worker_results` 중복 제거, 파일 경로 그룹핑, token budget 내 `compact_context` 생성 |
 | 비책임 | 최초 계획 수립(→ PLANNER), 직접적인 도구 실행(→ TOOL), 최종 사용자 답변 렌더링(→ Chat) |

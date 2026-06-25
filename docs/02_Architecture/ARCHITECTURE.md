@@ -46,11 +46,8 @@ backend/app/
 ├── common/               # 📋 도메인 간 공통 계약 (Exceptions, Schemas)
 ├── util/                 # 🛠️ 순수 유틸리티 함수
 ├── agent/                # 🤖 LLM 멀티에이전트 도메인 (LangGraph)
-│   ├── agents/           #    계획수립(Planner), 평가(Evaluator) 에이전트
-│   ├── nodes/            #    LangGraph 실행 노드
-│   ├── workers/          #    에이전트 내부 실행 Worker
-│   └── tools/            #    내부 검색 도구 (Hybrid Search, RRF)
-├── tool/                 # 🔧 독립 도구 도메인 (RAG/파일/Grep 실행 MCP I/O)
+│   └── workers/          #    역할별 에이전트 코드 (Supervisor, Route, Evidence, Worker)
+├── tool/                 # 🔧 도구 도메인 (검색 알고리즘 + MCP I/O)
 ├── auth/                 # 🔐 인증 도메인
 ├── chat/                 # 💬 채팅 대화 도메인 (Final Answer 생성 및 스트리밍)
 │   ├── final_answer_agent.py # 최종 답변 정제 에이전트
@@ -79,10 +76,8 @@ backend/app/
 * **`app/infra` (애플리케이션 인프라)**: 앱 구동에 필요한 인프라 컴포넌트입니다. (Config, Database, Auth 등)
 * **`app/common` (공통 계약)**: 도메인 간 공유되는 예외 처리, 스키마 등 공통 계약입니다. (Exceptions, Schemas, Global Handlers 등)
 * **`app/agent` (LLM 에이전트 도메인)**: AI 멀티에이전트의 핵심 로직이 위치하는 도메인입니다. 하위 모듈은 역할(Role)에 기반하여 명명합니다.
-    * `agents/`: LLM 에이전트 (Supervisor, Final Answer)
-    * `nodes/`: LangGraph 노드 (Route, Evidence)
-    * `workers/`: MCP 기반 Worker
-    * `tools/`: 검색 도구 (Hybrid Search, RRF)
+    * `workers/`: 역할별 에이전트 코드 (Supervisor, Route Node, Evidence Aggregator, 4대 Worker)
+* **`app/tool` (도구 도메인)**: RAG 검색 알고리즘(Hybrid Search, RRF)과 MCP I/O 외부 인터페이스를 제공합니다.
 
 ---
 

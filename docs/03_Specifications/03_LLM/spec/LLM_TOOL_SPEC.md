@@ -6,11 +6,11 @@
 
 `LLM-TOOL`은 RAG 검색, 디렉토리 조회, Grep 검색, 파일 읽기 등 소스코드 탐색 도구의 **실제 실행**을 담당하는 결정론적 계층입니다. 결과를 요약하지 않고 **Raw Data를 그대로 `worker_results`에 병합(fan-in)**합니다.
 
-> **구현 구조(중요)**: 현재 도구 실행은 LangGraph 워커(`backend/app/agent/workers/workers.py`)와 검색 알고리즘(`backend/app/agent/tools/`)에 **실구현**되어 있습니다. `backend/app/tool/`의 `CodeMapToolService`는 **MCP I/O 표준 인터페이스**로, 인터페이스/DTO는 설계 확정 상태이나 실제 도구 라우팅은 더미 응답 단계로 **구현 예정**입니다.
+> **구현 구조(중요)**: 현재 도구 실행은 LangGraph 워커(`backend/app/agent/workers/workers.py`)와 검색 알고리즘(`backend/app/tool/hybrid_search.py`, `backend/app/tool/rrf.py`)에 **실구현**되어 있습니다. `backend/app/tool/`의 `CodeMapToolService`는 **MCP I/O 표준 인터페이스**로, 인터페이스/DTO는 설계 확정 상태이나 실제 도구 라우팅은 더미 응답 단계로 **구현 예정**입니다.
 
 | 구분 | 기준 |
 | --- | --- |
-| 구현 위치 | `backend/app/agent/workers/workers.py`(4 워커), `backend/app/agent/tools/`(hybrid_search, rrf) / MCP 인터페이스: `backend/app/tool/service.py` |
+| 구현 위치 | `backend/app/agent/workers/workers.py`(4 워커), `backend/app/tool/hybrid_search.py`(RAG RRF), `backend/app/tool/rrf.py`(RRF 알고리즘) / MCP 인터페이스: `backend/app/tool/service.py` |
 | 성격 | Deterministic Code Domain (search 워커는 임베딩 호출 포함) |
 | 책임 | 4개 단일목적 도구 실행, RAG RRF 검색, 경로 보안 검증, 자원 제한, raw 결과 fan-in |
 | 비책임 | 계획 수립(→ PLANNER), 실행 순서/충분성 평가(→ EVALUATOR), 사용자 답변 스트리밍(→ Chat) |
@@ -52,7 +52,7 @@
 ## LLM-TOOL-B-202: RAG RRF 하이브리드 검색
 
 ### 1. 설명
-시맨틱 임베딩(pgvector) 검색과 키워드(BM25) 검색 순위를 **RRF(Reciprocal Rank Fusion)**로 병합한다. 구현: `agent/tools/hybrid_search.py::hybrid_search`, 순수 함수 `agent/tools/rrf.py`.
+시맨틱 임베딩(pgvector) 검색과 키워드(BM25) 검색 순위를 **RRF(Reciprocal Rank Fusion)**로 병합한다. 구현: `tool/hybrid_search.py::hybrid_search`, 순수 함수 `tool/rrf.py`.
 
 ### 2. 입/출력 규격
 - **시그니처**: `hybrid_search(db, job_id, query, top_n=5)`

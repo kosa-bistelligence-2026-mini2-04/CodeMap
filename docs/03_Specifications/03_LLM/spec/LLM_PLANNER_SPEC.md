@@ -8,7 +8,7 @@
 
 | 구분 | 기준 |
 | --- | --- |
-| 구현 위치 | `backend/app/agent/agents/supervisor_agent.py` (`supervisor_node`) |
+| 구현 위치 | `backend/app/agent/workers/supervisor_agent.py` (`supervisor_node`) |
 | 성격 | LLM Agent (`ChatOpenAI`, `settings.OPENAI_MODEL`, `temperature=0`) |
 | 책임 | 사용자 의도 분석, 쿼리 재작성, 초기 도구 실행 계획(`access_plan`) 수립 |
 | 비책임 | 직접적인 파일 I/O 도구 실행, 경로 보안 검증(→ `route_node`/LLM-AGENT), 결과 충분성 평가(→ LLM-EVALUATOR) |
