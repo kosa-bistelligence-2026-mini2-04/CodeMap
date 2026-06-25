@@ -282,7 +282,7 @@ MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 
 | `LLM-DISPATCHER-B-201` | LLM | DISPATCHER | Backend | Dispatcher Node plan 검증 | LLM이 아닌 코드 노드로 plan JSON schema, worker 목록, path allowlist 검증 |
 | `LLM-DISPATCHER-B-202` | LLM | DISPATCHER | Backend | 경로 보안 및 traversal 차단 | `..`, 절대경로, `.env`, key/token 등 금지 패턴과 허용 루트 경계 검사 |
 | `LLM-DISPATCHER-B-203` | LLM | DISPATCHER | Backend | Worker 비동기 병렬 라우팅 | 검증된 작업을 LangGraph parallel branch로 fan-out |
-| `LLM-OPS-B-201` | LLM | OPS | Backend | agent 시작/완료 이벤트 발행 | graph_started, supervisor_plan, route_validated, worker_started, worker_result, completed, failed 이벤트 publish |
+| `LLM-OPS-B-201` | LLM | OPS | Backend | agent 시작/완료 이벤트 발행 | graph_started, planner_plan, route_validated, worker_started, worker_result, completed, failed 이벤트 publish |
 | `LLM-OPS-B-202` | LLM | OPS | Backend | completed/failed 후 cleanup | final event 이후 queue 정리 |
 | `LLM-OPS-B-203` | LLM | OPS | Backend | agent 실행 시간 측정 | 각 node/worker start/end timestamp와 latency 기록 |
 | `LLM-OPS-B-204` | LLM | OPS | Backend | agent 실패 처리 | 실패 node/worker, error code, fallback answer context 저장 및 failed event 발행 |

@@ -513,7 +513,7 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 | Event | data payload | 설명 |
 | :--- | :--- | :--- |
 | `graph_started` | `{ "runId": "...", "stateKeys": ["user_query"] }` | LangGraph 실행 시작 |
-| `supervisor_plan` | `{ "rewrittenQuery": "...", "selectedWorkers": [...], "allowedPaths": [...] }` | Planner LLM 계획 생성 완료 |
+| `planner_plan` | `{ "rewrittenQuery": "...", "selectedWorkers": [...], "allowedPaths": [...] }` | Planner LLM 계획 생성 완료 |
 | `route_validated` | `{ "allowed": true, "parallelGroups": [...] }` | deterministic Dispatcher Node 검증 완료 |
 | `worker_started` | `{ "worker": "grep", "target": "backend/app" }` | worker 실행 시작 |
 | `worker_result` | `{ "worker": "grep", "resultCount": 3, "evidenceIds": [...] }` | worker 원본 근거 State 기록 완료 |
@@ -528,7 +528,7 @@ MVP 이후 점진적으로 도입되는 23개 기능을 포함하며, 각 도메
 event: graph_started
 data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","stateKeys":["user_query"]}
 
-event: supervisor_plan
+event: planner_plan
 data: {"rewrittenQuery":"login signin auth authentication","selectedWorkers":["search","grep","read"],"allowedPaths":["backend/app","frontend/src"]}
 
 event: route_validated

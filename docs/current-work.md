@@ -37,12 +37,10 @@
   - `git diff --check` passed
   - compileall passed for agent/tool/chat modules
 - Known issues:
-  - `supervisor_plan` and `route_validated` SSE event names remain intentionally unchanged for frontend compatibility.
-  - `backend/app/agent/workers/route_node.py`, `supervisor_agent.py`, and `evidence_aggregator.py` remain as compatibility import wrappers only.
+  - `route_validated` SSE event name remains intentionally unchanged for frontend compatibility.
   - `backend/app/repo/pipeline/graph.py` still references `route_node_fun` as a separate repository-analysis pipeline concept, not the LLM agent dispatcher.
 - Next steps:
   - Review PR #126 after the pushed commit.
-  - Remove compatibility wrappers later only after confirming no downstream imports remain.
 
 ## 2026-06-25 — PR #126 migration follow-up
 

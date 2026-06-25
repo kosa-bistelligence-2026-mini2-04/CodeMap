@@ -20,13 +20,13 @@
 
 | 기능 ID | 기능명 | 계층 | Phase |
 | --- | --- | --- | --- |
-| LLM-PLANNER-B-201 | Planner Agent 계획 수립 (`access_plan` 생성) | Backend | Phase 1 |
+| LLM-PLANNER-B-201 | Planner Node 계획 수립 (`access_plan` 생성) | Backend | Phase 1 |
 | LLM-PLANNER-B-202 | LLM 응답 파싱 실패 시 휴리스틱 폴백 | Backend | Phase 1 |
 | LLM-PLANNER-B-301 | 재계획(re-plan) 피드백 반영 | Backend | Phase 2 |
 
 ---
 
-## LLM-PLANNER-B-201: Planner Agent 계획 수립
+## LLM-PLANNER-B-201: Planner Node 계획 수립
 
 ### 1. 설명
 사용자 질문을 LLM으로 분석하여 `rewritten_query`(오타 교정·의도 보정)와 어떤 도구를 어떤 경로에 실행할지 구조화한 `access_plan`을 수립합니다. 시스템 프롬프트는 **최대 4개** plan 항목, **상대 경로만 허용**(절대 경로·`../` 금지), **JSON만 출력**을 강제합니다.
@@ -47,7 +47,7 @@
       ]
     }
     ```
-- **발행 이벤트**: `{"type": "supervisor_plan", "rewrittenQuery", "selectedWorkers", "allowedPaths"}`
+- **발행 이벤트**: `{"type": "planner_plan", "rewrittenQuery", "selectedWorkers", "allowedPaths"}`
 
 ### 3. 완료 조건
 - 수립된 plan은 위 JSON 스키마(`AccessPlanItem`)를 충족하고, 경로는 저장소 내 상대 경로만 사용한다.

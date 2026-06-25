@@ -121,7 +121,7 @@ Authorization: Bearer {access_token}
 event: graph_started
 data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","stateKeys":["user_query"]}
 
-event: supervisor_plan
+event: planner_plan
 data: {"rewrittenQuery":"login signin auth authentication","selectedWorkers":["search","grep","read"],"allowedPaths":["backend/app","frontend/src"]}
 
 event: route_validated
@@ -169,8 +169,8 @@ sequenceDiagram
     Graph-->>Service: event: graph_started
     Service-->>FE: SSE event: graph_started
 
-    Graph-->>Service: event: supervisor_plan
-    Service-->>FE: SSE event: supervisor_plan
+    Graph-->>Service: event: planner_plan
+    Service-->>FE: SSE event: planner_plan
 
     Graph-->>Service: event: route_validated
     Service-->>FE: SSE event: route_validated

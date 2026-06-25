@@ -229,7 +229,7 @@ LangGraph 실행 단계와 Final Answer 토큰을 SSE로 전달합니다. 이벤
 | 이벤트 | 설명 |
 | --- | --- |
 | `graph_started` | LangGraph 실행 시작 |
-| `supervisor_plan` | Planner 계획 생성 완료 |
+| `planner_plan` | Planner 계획 생성 완료 |
 | `route_validated` | Dispatcher Node 보안 검증 완료 |
 | `worker_started` | Worker 실행 시작 |
 | `worker_result` | Worker 결과가 State에 기록됨 |
