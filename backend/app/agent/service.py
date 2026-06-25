@@ -56,6 +56,10 @@ class CodeMapAgentService:
                 "errors": [],
                 "durations": {},
                 "compact_context": {},
+                "evaluator_decision": None,
+                "replan_count": 0,
+                "max_replans": 1,
+                "replan_hint": None,
                 "final_answer": None,
             }
 
@@ -102,6 +106,10 @@ class CodeMapAgentService:
             "errors": [],
             "durations": {},
             "compact_context": {},
+            "evaluator_decision": None,
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": None,
             "final_answer": None,
         }
 

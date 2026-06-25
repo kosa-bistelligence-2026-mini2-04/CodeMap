@@ -56,26 +56,26 @@ async def planner_node(state: CodeMapState) -> dict:
 
     Reads state["user_query"] and writes rewritten_query/access_plan.
     """
-    logger.info("[Planner] 시작 — query=%r", state["user_query"])
-
-    llm = create_planner_llm()
-    messages = [
-        SystemMessage(content=_PLANNER_SYSTEM),
-        HumanMessage(content=f"사용자 질문: {state['user_query']}"),
-    ]
+    planner_query = state.get("replan_hint") or state["user_query"]
+    logger.info("[Planner] 시작 — query=%r", planner_query)
 
     try:
+        llm = create_planner_llm()
+        messages = [
+            SystemMessage(content=_PLANNER_SYSTEM),
+            HumanMessage(content=f"사용자 질문: {planner_query}"),
+        ]
         response = await llm.ainvoke(messages)
         data = json.loads(_strip_json_fence(str(response.content)))
     except Exception as exc:
         logger.warning("[Planner] LLM 응답 파싱 실패, 기본 plan으로 폴백: %s", exc)
         data = {
-            "rewritten_query": state["user_query"],
+            "rewritten_query": planner_query,
             "access_plan": [
                 {
                     "tool": "search",
                     "path": None,
-                    "query": state["user_query"],
+                    "query": planner_query,
                     "scope": "chunk",
                 }
             ],
@@ -88,13 +88,12 @@ async def planner_node(state: CodeMapState) -> dict:
     allowed_paths = sorted({p.get("path") for p in plan if p.get("path")})
 
     return {
-        "rewritten_query": data.get("rewritten_query", state["user_query"]),
+        "rewritten_query": data.get("rewritten_query", planner_query),
         "access_plan": plan,
         "events": [{
             "type": "planner_plan",
-            "rewrittenQuery": data.get("rewritten_query", state["user_query"]),
+            "rewrittenQuery": data.get("rewritten_query", planner_query),
             "selectedWorkers": selected_workers,
             "allowedPaths": allowed_paths,
         }],
     }
-

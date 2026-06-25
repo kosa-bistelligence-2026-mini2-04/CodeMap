@@ -103,6 +103,29 @@ class TestChatAnswerSafety(unittest.IsolatedAsyncioTestCase):
 
 
 class TestAgentLLMClient(unittest.TestCase):
+    def test_planner_and_evaluator_llms_use_configured_api_key(self):
+        from app.agent.llm_client import create_evaluator_llm, create_planner_llm
+
+        calls: list[dict] = []
+
+        class FakeChatOpenAI:
+            def __init__(self, **kwargs):
+                calls.append(kwargs)
+
+        with (
+            patch("app.agent.llm_client.get_settings", return_value=_FakeSettings()),
+            patch("app.agent.llm_client.ChatOpenAI", FakeChatOpenAI),
+        ):
+            planner_llm = create_planner_llm()
+            evaluator_llm = create_evaluator_llm()
+
+        self.assertIsInstance(planner_llm, FakeChatOpenAI)
+        self.assertIsInstance(evaluator_llm, FakeChatOpenAI)
+        self.assertEqual(calls, [
+            {"model": "gpt-4o-mini", "api_key": "sk-test", "temperature": 0},
+            {"model": "gpt-4o-mini", "api_key": "sk-test", "temperature": 0},
+        ])
+
     def test_final_answer_deep_mode_uses_gpt_4o(self):
         from app.agent.llm_client import create_final_answer_llm
 

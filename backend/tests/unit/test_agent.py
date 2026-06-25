@@ -31,6 +31,10 @@ class TestCodeMapState(unittest.TestCase):
             "security_result": {"approved": [], "rejected": []},
             "worker_results": [],
             "compact_context": {},
+            "evaluator_decision": None,
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": None,
             "final_answer": None,
         }
         self.assertEqual(state["user_query"], "로그인 코드 어디에 있어?")
@@ -103,6 +107,10 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
             "errors": [],
             "durations": {},
             "compact_context": {},
+            "evaluator_decision": None,
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": None,
             "final_answer": None,
         }
 
@@ -146,6 +154,10 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
             "errors": [],
             "durations": {},
             "compact_context": {},
+            "evaluator_decision": None,
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": None,
             "final_answer": None,
         }
 
@@ -188,6 +200,10 @@ class TestEvidenceAggregator(unittest.TestCase):
             "errors": [],
             "durations": {},
             "compact_context": {},
+            "evaluator_decision": None,
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": None,
             "final_answer": None,
         }
         result = evaluator_node(state)
@@ -195,6 +211,98 @@ class TestEvidenceAggregator(unittest.TestCase):
         self.assertIn("groupedByFile", ctx)
         self.assertEqual(ctx["selectedEvidenceCount"], 2)
         self.assertGreater(ctx["usedTokens"], 0)
+        self.assertTrue(result["evaluator_decision"]["sufficient"])
+        self.assertEqual(result["events"][1]["type"], "evaluator_decision")
+        self.assertIn("evaluatorDecision", ctx)
+
+    def test_evaluator_emits_replan_event_when_evidence_is_missing(self):
+        from app.agent.nodes.evaluator_node import evaluator_node
+
+        state = {
+            "user_query": "stream 이벤트 처리 위치",
+            "repo_id": "r1",
+            "clone_path": "/tmp",
+            "run_id": "r1",
+            "rewritten_query": "stream 이벤트 처리 위치",
+            "access_plan": [],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "evaluator_decision": None,
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": None,
+            "final_answer": None,
+        }
+
+        result = evaluator_node(state)
+
+        self.assertFalse(result["evaluator_decision"]["sufficient"])
+        self.assertEqual(result["events"][1]["type"], "evaluator_decision")
+        self.assertEqual(result["events"][2]["type"], "replan_started")
+        self.assertIn("nextPlanHint", result["events"][2])
+
+
+class TestReplanRouting(unittest.TestCase):
+    def test_route_after_evaluator_replans_until_limit(self):
+        from app.agent.graph import route_after_evaluator
+
+        route = route_after_evaluator({
+            "evaluator_decision": {"sufficient": False},
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": "search again",
+        })
+
+        self.assertEqual(route, "planner_node")
+
+    def test_route_after_evaluator_stops_at_limit(self):
+        from app.agent.graph import route_after_evaluator
+        from langgraph.graph import END
+
+        route = route_after_evaluator({
+            "evaluator_decision": {"sufficient": False},
+            "replan_count": 1,
+            "max_replans": 1,
+            "replan_hint": None,
+        })
+
+        self.assertEqual(route, END)
+
+
+class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
+    async def test_planner_falls_back_when_llm_cannot_be_created(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        state = {
+            "user_query": "stream 이벤트 처리 위치",
+            "repo_id": "r1",
+            "clone_path": "/tmp",
+            "run_id": "run1",
+            "rewritten_query": "",
+            "access_plan": [],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "evaluator_decision": None,
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": None,
+            "final_answer": None,
+        }
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", side_effect=RuntimeError("missing key")):
+            result = await planner_node(state)
+
+        self.assertEqual(result["rewritten_query"], "stream 이벤트 처리 위치")
+        self.assertEqual(result["access_plan"][0]["tool"], "search")
+        self.assertEqual(result["events"][0]["type"], "planner_plan")
 
 
 class TestWorkerEvents(unittest.IsolatedAsyncioTestCase):
@@ -219,6 +327,10 @@ class TestWorkerEvents(unittest.IsolatedAsyncioTestCase):
                 "errors": [],
                 "durations": {},
                 "compact_context": {},
+                "evaluator_decision": None,
+                "replan_count": 0,
+                "max_replans": 1,
+                "replan_hint": None,
                 "final_answer": None,
                 "_plan_item": {"tool": "read", "path": "app.py", "query": "", "scope": "file"},
             })
