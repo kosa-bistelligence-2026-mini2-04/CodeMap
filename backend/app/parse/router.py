@@ -73,6 +73,8 @@ def _camel_file_map(items: list[dict]) -> list[dict]:
             "path": item.get("path"),
             "language": item.get("language"),
             "chunkCount": item.get("chunk_count", item.get("chunkCount", 0)),
+            "lines": item.get("lines", 0),
+            "size": item.get("size", 0),
             "imports": item.get("imports", []),
             "importedBy": item.get("imported_by", item.get("importedBy", [])),
             "riskScore": item.get("risk_score", item.get("riskScore")),
