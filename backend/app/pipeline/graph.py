@@ -18,14 +18,14 @@ import time
 
 from langgraph.graph import END, START, StateGraph
 
-from app.repo.pipeline.nodes import (
+from app.pipeline.nodes import (
     clone_node,
     code_map_node,
     doc_gen_node,
     onboarding_node,
     report_node,
 )
-from app.repo.pipeline.state import PipelineState
+from app.pipeline.state import PipelineState
 from app.repo.schemas import JobStatus
 
 logger = logging.getLogger(__name__)

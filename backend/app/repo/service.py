@@ -614,8 +614,8 @@ class AnalysisService:
             job_id: 분석 작업 고유 ID
         """
         from app.infra.database import async_session_factory
-        from app.repo.pipeline.graph import AnalysisPipelineSupervisor
-        from app.repo.pipeline.state import PipelineState
+        from app.pipeline.graph import AnalysisPipelineSupervisor
+        from app.pipeline.state import PipelineState
 
         try:
             # DB에서 job 메타데이터 조회 (repo_url, branch 등 필요)

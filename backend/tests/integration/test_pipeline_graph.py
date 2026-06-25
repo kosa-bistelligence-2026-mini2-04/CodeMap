@@ -1,6 +1,6 @@
 import unittest
 
-from app.repo.pipeline.graph import AnalysisPipelineSupervisor
+from app.pipeline.graph import AnalysisPipelineSupervisor
 
 
 class PipelineGraphContractTests(unittest.TestCase):

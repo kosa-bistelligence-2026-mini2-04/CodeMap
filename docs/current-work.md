@@ -38,7 +38,7 @@
   - compileall passed for agent/tool/chat modules
 - Known issues:
   - `route_validated` SSE event name remains intentionally unchanged for frontend compatibility.
-  - `backend/app/repo/pipeline/graph.py` still references `route_node_fun` as a separate repository-analysis pipeline concept, not the LLM agent dispatcher.
+  - `backend/app/pipeline/graph.py` contains the analysis pipeline (previously at `backend/app/repo/pipeline/`). It references `route_node_fun` as a separate repository-analysis pipeline concept, not the LLM agent dispatcher.
 - Next steps:
   - Ask for an additional PR #126 review against the latest cleanup commit.
 

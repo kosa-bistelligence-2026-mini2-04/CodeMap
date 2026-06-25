@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from app.repo.pipeline import nodes
-from app.repo.pipeline.graph import _check_failure
+from app.pipeline import nodes
+from app.pipeline.graph import _check_failure
 from app.repo.schemas import JobStatus, PipelineStage
 
 
