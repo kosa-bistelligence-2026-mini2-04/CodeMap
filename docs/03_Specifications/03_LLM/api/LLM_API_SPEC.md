@@ -28,13 +28,16 @@
 
 ## 폐기된 이전 API
 
-| 이전 API | 처리 |
-| --- | --- |
-| `POST /api/chat/{repo_id}` | `POST /api/chat/{repo_id}/runs` + SSE stream으로 대체 |
-| `POST /api/chat/{repo_id}/context` | evidence 조회와 worker 결과 기반 flow로 대체 |
-| `POST /api/search/{repo_id}/grep` | 외부 공개 API가 아니라 내부 `grep_worker` tool contract로 이동 |
-| `GET /api/search/{repo_id}/file` | 외부 공개 API가 아니라 내부 `read_worker`/`dir_worker` tool contract로 이동 |
-| `GET /api/chat/{repo_id}/agent/status` | `GET /api/chat/{repo_id}/runs/{run_id}`로 대체 |
+> 아래 표의 **소스 코드 상태**는 2026-06-25 기준 `grep -rn` 전수 검색으로 확인했습니다.
+> `backend/` 코드에서 라우터 등록이 제거되었고 남은 참조는 HTTP 예시 파일과 명세서 내 설명 문구뿐입니다.
+
+| 이전 API | 처리 | 소스 코드 상태 |
+| --- | --- | --- |
+| `POST /api/chat/{repo_id}` | `POST /api/chat/{repo_id}/runs` + SSE stream으로 대체 | ✅ 라우터에서 제거 완료. `chat/router.py`에 미존재 확인 |
+| `POST /api/chat/{repo_id}/context` | evidence 조회와 worker 결과 기반 flow로 대체 | ✅ 라우터에서 제거 완료. `chat/router.py`에 미존재 확인 |
+| `POST /api/search/{repo_id}/grep` | 외부 공개 API가 아니라 내부 `grep_worker` tool contract로 이동 | ⚠️ `backend/tests/http/LLM-TOOL/post-grep-001.http` 예시 파일에 참조 잔존 (구현 시작 전 예시이므로 실제 라우터 미노출) |
+| `GET /api/search/{repo_id}/file` | 외부 공개 API가 아니라 내부 `read_worker`/`dir_worker` tool contract로 이동 | ⚠️ `backend/tests/http/LLM-TOOL/get-file-002.http` 예시 파일에 참조 잔존 (구현 시작 전 예시이므로 실제 라우터 미노출) |
+| `GET /api/chat/{repo_id}/agent/status` | `GET /api/chat/{repo_id}/runs/{run_id}`로 대체 | ✅ 라우터에서 제거 완료. `agent/router.py`의 `get_run_status`로 대체 확인 |
 
 ## 관련 기능 명세
 

@@ -4,6 +4,9 @@
 ### Endpoint: POST /api/search/{repo_id}/grep
 ### 관련 기능 ID: LLM-TOOL-B-205
 ### 상태: 시작 전
+### ⚠️ DEPRECATED: 이 엔드포인트는 외부 공개 API가 아닙니다.
+###               grep 기능은 LangGraph 내부 grep_worker tool contract로 이동되었습니다.
+###               (ref: LLM_API_SPEC.md > 폐기된 이전 API, 2026-06-25 확인)
 ### ============================================================================
 @baseUrl = http://localhost:8000
 @accessToken = replace-me
