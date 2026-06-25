@@ -4,7 +4,7 @@
 
 ## 범위
 
-`LLM-PLANNER`(Planner)는 사용자 질문을 분석해 오타 교정·의도 보정한 쿼리(`rewritten_query`)와 탐색 도구 실행 계획(`access_plan`)을 도출하는 **LLM 계획 수립 에이전트**입니다. 로컬 I/O 도구는 직접 보유하지 않습니다(보안 원칙).
+`LLM-PLANNER`(Planner)는 사용자 질문을 분석해 오타 교정·의도 보정한 쿼리(`rewritten_query`)와 탐색 도구 실행 계획(`access_plan`)을 도출하는 **LLM 계획 수립 노드**입니다. 로컬 I/O 도구는 직접 보유하지 않습니다(보안 원칙).
 
 | 구분 | 기준 |
 | --- | --- |

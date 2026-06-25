@@ -59,7 +59,7 @@
 | 이벤트 | 데이터 요약 | 설명 |
 | --- | --- | --- |
 | `graph_started` | `runId`, `stateKeys` | LangGraph 실행 시작 |
-| `planner_plan` | `rewrittenQuery`, `selectedWorkers`, `allowedPaths` | Planner 계획 완료. 이벤트명은 기존 프론트 호환을 위해 유지 |
+| `planner_plan` | `rewrittenQuery`, `selectedWorkers`, `allowedPaths` | Planner Node 계획 완료 |
 | `route_validated` | `allowed`, `parallelGroups`, `blockedReason` | Dispatcher Node 검증 완료. 이벤트명은 기존 프론트 호환을 위해 유지 |
 | `worker_started` | `worker`, `target` | worker 실행 시작 |
 | `worker_result` | `worker`, `resultCount`, `evidenceIds` | worker 결과 기록 |

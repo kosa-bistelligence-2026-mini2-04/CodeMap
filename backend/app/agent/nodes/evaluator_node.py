@@ -115,7 +115,3 @@ def evaluator_node(state: CodeMapState) -> dict:
             "compactContextReady": True,
         }],
     }
-
-
-# Backward-compatible alias while old docs/tests migrate.
-evidence_aggregator = evaluator_node

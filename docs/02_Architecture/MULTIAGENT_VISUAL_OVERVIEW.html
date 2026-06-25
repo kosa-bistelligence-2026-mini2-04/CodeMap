@@ -269,7 +269,7 @@
   </g>
 
   <!-- Planner (LangGraph) -->
-  <g class="worker-card" onclick="showInfo('supervisor')">
+  <g class="worker-card" onclick="showInfo('planner')">
     <rect x="250" y="280" width="200" height="60" rx="10" class="agent-card"/>
     <text x="350" y="305" text-anchor="middle" class="agent-text">🧠 Planner Node</text>
     <text x="350" y="325" text-anchor="middle" class="agent-sub">LLM (의도 분석 · 계획 수립)</text>
@@ -374,7 +374,7 @@ const INFO = {
   user:       { title:'👤 사용자 (User)', body:'자연어로 코딩 관련 질문을 던집니다. 마지막에 SSE를 통해 타이핑되듯 응답을 받습니다.' },
   chat:       { title:'⚙️ app/chat/service', body:'<strong>[일반 코드] API 프레젠테이션 계층</strong>. LangGraph 실행을 시작시키고, 결과가 돌아오면 Final Answer Agent를 호출하여 UI와 연결합니다.' },
   final:      { title:'🧠 Final Answer Agent', body:'<strong>[LLM 에이전트] 요약 및 스트리밍 전담</strong>. LangGraph 밖의 <code>chat/final_answer_agent.py</code>에 위치합니다. State에 쌓인 원본 근거와 compact_context를 기반으로 사용자에게 답변을 스트리밍합니다.' },
-supervisor: { title:'🧠 Planner Node', body:'<strong>[LLM 에이전트] 지능형 계획 수립자</strong>. 사용자의 질문 의도를 파악하고, 오타를 문맥에 맞게 교정한 뒤(Query Rewrite), 접근 계획을 세웁니다.' },
+planner: { title:'🧠 Planner Node', body:'<strong>[LLM 에이전트] 지능형 계획 수립자</strong>. 사용자의 질문 의도를 파악하고, 오타를 문맥에 맞게 교정한 뒤(Query Rewrite), 접근 계획을 세웁니다.' },
   orchestrator: { title:'⚙️ Dispatcher Node', body:'<strong>[일반 코드] 결정론적 보안 통제자</strong>. LLM이 아닙니다! Planner의 계획을 건네받아 보안/권한을 엄격하게 검증하고, Worker들을 병렬로 라우팅하는 역할만 수행합니다.' },
 
   worker_search: { title:'🧠 Search Worker', body:'<strong>[LLM 에이전트] 시맨틱 검색 전담</strong>. 오타나 모호한 질문이라도 의미(Semantic)를 파악해 Vector DB에서 유사 코드를 찾아냅니다.' },

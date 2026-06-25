@@ -98,7 +98,3 @@ async def planner_node(state: CodeMapState) -> dict:
         }],
     }
 
-
-# Backward-compatible alias while old docs/tests migrate.
-supervisor_node = planner_node
-

@@ -109,7 +109,7 @@
 ### 2. 입/출력 규격
 - **현재 코드에서 실제 발행되는 Agent 그래프 이벤트**:
   - `graph_started` — 그래프 실행 시작
-  - `planner_plan` — Planner가 `access_plan` 수립 완료. 이벤트명은 기존 프론트 호환을 위해 유지
+  - `planner_plan` — Planner Node가 `access_plan` 수립 완료
   - `route_validated` — `dispatcher_node` 보안 검증 결과(`allowed`, `parallelGroups`). 이벤트명은 기존 프론트 호환을 위해 유지
   - `worker_result` — 개별 워커 근거 수집
   - `evidence_compacted` — Evaluator 압축/충분성 평가 완료

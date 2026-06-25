@@ -92,7 +92,3 @@ def fanout_to_workers(state: CodeMapState) -> list[Send]:
         sends.append(Send("evaluator_node", state))
 
     return sends
-
-
-# Backward-compatible alias while old docs/tests migrate.
-route_node = dispatcher_node

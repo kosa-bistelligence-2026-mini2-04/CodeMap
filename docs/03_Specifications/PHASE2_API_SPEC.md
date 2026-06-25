@@ -617,7 +617,7 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","answerId":"ans_01","elaps
       "stateKeys": ["user_query", "rewritten_query", "access_plan", "security_result", "worker_results"]
     },
     "durations": {
-      "supervisor": 1.4,
+      "planner_node": 1.4,
       "dispatcher_node": 0.03,
       "search_worker": 0.8,
       "grep_worker": 0.2

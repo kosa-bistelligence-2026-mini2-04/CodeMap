@@ -729,7 +729,7 @@
       <div class="graph-grid">
         <div class="workflow">
           <div class="row single">
-            <article class="card llm" onclick="showInfo('supervisor')">
+            <article class="card llm" onclick="showInfo('planner')">
               <span class="number">4</span>
               <span class="badge">LLM AGENT</span>
               <h4>Planner Node</h4>
@@ -937,7 +937,7 @@ const INFO = {
     title: "LangGraph 실행 시작",
     body: "chat/service가 초기 State를 만들고 backend/app/agent/ 아래의 LangGraph를 실행합니다. LangGraph 안에서는 LLM node와 일반 코드 node를 섞어 구성합니다."
   },
-  supervisor: {
+  planner: {
     title: "Planner Node",
     body: "LLM 기반 계획 수립자입니다. 사용자 의도 분석, 오타/모호성 정리, 필요한 worker 선택, 접근 범위 plan JSON 생성을 담당합니다. 최종 답변을 미리 쓰거나 worker 결과를 장황하게 요약하지 않습니다."
   },

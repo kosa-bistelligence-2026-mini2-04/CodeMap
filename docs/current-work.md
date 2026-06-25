@@ -7,7 +7,7 @@
 - Current status:
   - Added `backend/app/agent/llm_client.py` as the LLM provider/factory boundary.
   - Added `backend/app/agent/nodes/` for `planner_node`, `dispatcher_node`, and `evaluator_node`.
-  - Kept legacy worker import paths as thin compatibility wrappers while the graph now uses the new node modules directly.
+  - Removed legacy worker import wrappers after code/tests/docs migrated to the new node modules.
   - Split deterministic tool implementations into `backend/app/tool/dir_scan.py`, `grep_scan.py`, and `file_read.py`.
   - Reworked `search_worker`, `dir_worker`, `grep_worker`, and `read_worker` as worker adapters around search/tool logic.
   - Updated architecture/spec/API docs to use Planner/Dispatcher/Workers/Evaluator terminology and mark reasoning worker behavior as Phase 2 optional.
@@ -40,7 +40,7 @@
   - `route_validated` SSE event name remains intentionally unchanged for frontend compatibility.
   - `backend/app/repo/pipeline/graph.py` still references `route_node_fun` as a separate repository-analysis pipeline concept, not the LLM agent dispatcher.
 - Next steps:
-  - Review PR #126 after the pushed commit.
+  - Ask for an additional PR #126 review against the latest cleanup commit.
 
 ## 2026-06-25 — PR #126 migration follow-up
 

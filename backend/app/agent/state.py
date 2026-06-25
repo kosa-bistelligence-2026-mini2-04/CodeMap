@@ -24,7 +24,7 @@ class WorkerResult(TypedDict):
 
 
 class AccessPlanItem(TypedDict):
-    """Supervisor가 수립한 단일 도구 사용 계획."""
+    """Planner Node가 수립한 단일 도구 사용 계획."""
     tool: str            # "search" | "dir" | "grep" | "read"
     path: str | None     # 대상 경로 (dir/grep/read 전용)
     query: str           # 검색 쿼리 또는 grep 패턴
@@ -50,9 +50,9 @@ class CodeMapState(TypedDict):
     clone_path: str                   # 로컬 clone 경로
     run_id: str                       # Agent Run ID
 
-    # ── Supervisor 출력 ────────────────────────────────
+    # ── Planner Node 출력 ──────────────────────────────
     rewritten_query: str              # 오타 교정 및 의도 분석된 검색 쿼리
-    access_plan: list[AccessPlanItem] # Supervisor가 수립한 도구 사용 계획
+    access_plan: list[AccessPlanItem] # Planner Node가 수립한 도구 사용 계획
 
     # ── Dispatcher Node 출력 ─────────────────────────
     security_result: SecurityResult   # 보안 검증 결과 (allowlist 통과 여부)
