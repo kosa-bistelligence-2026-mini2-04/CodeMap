@@ -91,7 +91,7 @@ async def planner_node(state: CodeMapState) -> dict:
         "rewritten_query": data.get("rewritten_query", state["user_query"]),
         "access_plan": plan,
         "events": [{
-            "type": "supervisor_plan",
+            "type": "planner_plan",
             "rewrittenQuery": data.get("rewritten_query", state["user_query"]),
             "selectedWorkers": selected_workers,
             "allowedPaths": allowed_paths,
