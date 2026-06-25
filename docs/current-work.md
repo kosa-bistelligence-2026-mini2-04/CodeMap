@@ -1,5 +1,40 @@
 # Current Work
 
+## 2026-06-25 — Phase 1 run stream UI hardening
+
+- Current branch: `feat/phase1-agent-run-hardening`
+- Current goal: Finish oosuhada Phase 1 tasks from PR #126 follow-up: frontend stream event handling and real-repo run dogfooding.
+- Current status:
+  - Added a shared frontend stream-event timeline formatter for `worker_started`, `worker_result`, `evidence_compacted`, `references`, `completed`, `failed`, and `cancelled`.
+  - Updated `ChatInterface` to append every handled run event to the exploration timeline and to surface failed/cancelled terminal states cleanly.
+  - Fixed Planner fallback so missing or invalid OpenAI credentials do not prevent Phase 1 run graph execution.
+  - Fixed Planner LLM factory to pass the configured API key explicitly.
+  - Dogfooded a real CodeMap repo question: "Run stream 이벤트 타입은 프론트 어디에서 처리돼?"
+- Files touched or likely relevant:
+  - `frontend/src/features/chat/api/chatApi.ts`
+  - `frontend/src/features/chat/components/ChatInterface.tsx`
+  - `backend/app/agent/nodes/dispatcher_node.py`
+  - `backend/app/agent/nodes/planner_node.py`
+  - `backend/app/agent/llm_client.py`
+  - `backend/tests/unit/test_agent.py`
+  - `backend/tests/unit/test_chat_issue_56.py`
+- Commands run:
+  - `env -u GITHUB_TOKEN /opt/homebrew/bin/gh auth status`
+  - `env -u GITHUB_TOKEN /opt/homebrew/bin/gh api repos/kosa-bistelligence-2026-mini2-04/CodeMap/issues/comments/4797727054`
+  - `PATH=".../node/bin:.../bin:$PATH" ./node_modules/.bin/eslint src/features/chat/api/chatApi.ts src/features/chat/components/ChatInterface.tsx`
+  - `backend/.venv/bin/python - <<'PY' ... CodeMapAgentService dogfood ... PY`
+- Dogfooding result:
+  - Stream emitted `planner_plan`, `route_validated`, `worker_started`, `worker_result`, `evidence_compacted`, and `answer_delta`.
+  - Run status record reached `completed`.
+  - Evidence lookup returned 5 sampled evidence items from 8 worker results.
+  - Generated answer cited `frontend/src/features/chat/components/ChatInterface.tsx`.
+- Known issues:
+  - Local frontend validation requires the bundled Codex Node path because `node` is not on the default shell PATH.
+  - The dogfood run used the app's no-key fallback path for Planner/Final Answer because no OpenAI key was available in the shell environment.
+- Next steps:
+  - Run full backend unit tests, compileall, frontend lint, frontend build, and `git diff --check`.
+  - Push branch and open a Draft PR after final spec comparison.
+
 ## 2026-06-25 — Run registry and Phase 1 stream contract alignment
 
 - Current branch: `refactor/split-core-to-infra-common`

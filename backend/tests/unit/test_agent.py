@@ -197,6 +197,34 @@ class TestEvidenceAggregator(unittest.TestCase):
         self.assertGreater(ctx["usedTokens"], 0)
 
 
+class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
+    async def test_planner_falls_back_when_llm_cannot_be_created(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        state = {
+            "user_query": "stream 이벤트 처리 위치",
+            "repo_id": "r1",
+            "clone_path": "/tmp",
+            "run_id": "run1",
+            "rewritten_query": "",
+            "access_plan": [],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "final_answer": None,
+        }
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", side_effect=RuntimeError("missing key")):
+            result = await planner_node(state)
+
+        self.assertEqual(result["rewritten_query"], "stream 이벤트 처리 위치")
+        self.assertEqual(result["access_plan"][0]["tool"], "search")
+        self.assertEqual(result["events"][0]["type"], "planner_plan")
+
+
 class TestWorkerEvents(unittest.IsolatedAsyncioTestCase):
     async def test_read_worker_emits_started_before_result(self):
         from app.agent.workers.read_worker import read_worker

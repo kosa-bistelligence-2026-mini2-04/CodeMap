@@ -58,13 +58,12 @@ async def planner_node(state: CodeMapState) -> dict:
     """
     logger.info("[Planner] 시작 — query=%r", state["user_query"])
 
-    llm = create_planner_llm()
-    messages = [
-        SystemMessage(content=_PLANNER_SYSTEM),
-        HumanMessage(content=f"사용자 질문: {state['user_query']}"),
-    ]
-
     try:
+        llm = create_planner_llm()
+        messages = [
+            SystemMessage(content=_PLANNER_SYSTEM),
+            HumanMessage(content=f"사용자 질문: {state['user_query']}"),
+        ]
         response = await llm.ainvoke(messages)
         data = json.loads(_strip_json_fence(str(response.content)))
     except Exception as exc:
@@ -97,4 +96,3 @@ async def planner_node(state: CodeMapState) -> dict:
             "allowedPaths": allowed_paths,
         }],
     }
-

@@ -15,7 +15,11 @@ from app.infra.config import get_settings
 def create_planner_llm() -> ChatOpenAI:
     """Create the deterministic planner model used for access planning."""
     settings = get_settings()
-    return ChatOpenAI(model=settings.OPENAI_MODEL, temperature=0)
+    return ChatOpenAI(
+        model=settings.OPENAI_MODEL,
+        api_key=settings.OPENAI_API_KEY.get_secret_value(),
+        temperature=0,
+    )
 
 
 def create_final_answer_llm(*, mode: str = "quick", streaming: bool = True) -> ChatOpenAI:

@@ -9,6 +9,7 @@ import { SuggestionChips } from "./SuggestionChips";
 import { ChatMessageBubble } from "./ChatMessage";
 import { StreamingStatus } from "./StreamingStatus";
 import {
+  describeStreamTimelineStep,
   fetchThread,
   previewStream,
   streamChat,
@@ -32,6 +33,21 @@ interface ChatInterfaceProps {
   expandHref?: string;
   onClose?: () => void;
 }
+
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
+
+const appendExplorationStep = (
+  messages: ChatMessage[],
+  assistantId: string,
+  step: string,
+): ChatMessage[] => messages.map((message) => message.id === assistantId
+  ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
+  : message);
 
 export function ChatInterface({
   repoId,
@@ -102,15 +118,6 @@ export function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamPhase]);
 
-
-
-const generateId = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
-};
-
   const handleSend = useCallback(async (text?: string) => {
     const content = (text || input).trim();
     if (!content || isStreaming || !repoId) return;
@@ -131,6 +138,11 @@ const generateId = () => {
       : streamChat(repoId, content, mode, { threadId: activeThreadId, contextFile });
     try {
       for await (const event of stream) {
+        const timelineStep = describeStreamTimelineStep(event);
+        if (timelineStep) {
+          setMessages((current) => appendExplorationStep(current, assistantId, timelineStep));
+        }
+
         // Run 시작
         if (event.type === "graph_started") {
           setStreamPhase("searching");
@@ -138,37 +150,6 @@ const generateId = () => {
             setActiveThreadId(event.sessionId);
             onThreadChange?.(event.sessionId);
           }
-        }
-        // Planner 계획 수립
-        if (event.type === "planner_plan") {
-          const workers = event.selectedWorkers?.length ? event.selectedWorkers.join(', ') : '전체 스캔';
-          const step = `계획 수립: [${workers}] ${event.rewrittenQuery || ""}`;
-          setMessages((current) => current.map((message) => message.id === assistantId
-            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
-            : message));
-        }
-        // Dispatcher 검증 완료
-        if (event.type === "route_validated") {
-          const count = event.parallelGroups?.length || 0;
-          const step = `에이전트 작업 ${count}개를 검증했습니다.`;
-          setMessages((current) => current.map((message) => message.id === assistantId
-            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
-            : message));
-        }
-        // Worker 실행 시작
-        if (event.type === "worker_started") {
-          const target = event.target ? ` (${event.target})` : "";
-          const step = `${event.worker || "worker"} worker가 실행을 시작했습니다${target}.`;
-          setMessages((current) => current.map((message) => message.id === assistantId
-            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
-            : message));
-        }
-        // Worker 결과 수집
-        if (event.type === "worker_result") {
-          const step = `${event.worker || "worker"} worker가 근거 ${event.resultCount || 0}개를 수집했습니다.`;
-          setMessages((current) => current.map((message) => message.id === assistantId
-            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
-            : message));
         }
         // 근거 압축 완료
         if (event.type === "evidence_compacted") {
@@ -189,12 +170,16 @@ const generateId = () => {
         }
         // 에러
         if (event.type === "error" || event.type === "failed") {
+          setStreamPhase("complete");
           setMessages((current) => current.map((message) => message.id === assistantId
             ? { ...message, content: `⚠️ ${event.error || "응답을 생성하지 못했습니다."}` }
             : message));
         }
         if (event.type === "cancelled") {
           setStreamPhase("complete");
+          setMessages((current) => current.map((message) => message.id === assistantId
+            ? { ...message, content: message.content || "요청이 취소되었습니다." }
+            : message));
         }
         // 완료
         if (event.type === "completed") setStreamPhase("complete");

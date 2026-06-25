@@ -45,6 +45,10 @@ export interface StreamEvent {
   worker?: string;
   target?: string | null;
   resultCount?: number;
+  evidenceIds?: string[];
+  // evidence_compacted
+  evidenceCount?: number;
+  compactContextReady?: boolean;
   // answer_delta
   content?: string;
   // references
@@ -55,6 +59,48 @@ export interface StreamEvent {
   cancelledAt?: string | number;
   // sessionId (from create_chat_run response)
   sessionId?: string;
+}
+
+export function describeStreamTimelineStep(event: StreamEvent): string | null {
+  switch (event.type) {
+    case "graph_started":
+      return event.runId ? `Run ${event.runId} 실행을 시작했습니다.` : "Run 실행을 시작했습니다.";
+    case "planner_plan": {
+      const workers = event.selectedWorkers?.length ? event.selectedWorkers.join(", ") : "전체 스캔";
+      const query = event.rewrittenQuery ? ` — ${event.rewrittenQuery}` : "";
+      return `계획 수립: [${workers}]${query}`;
+    }
+    case "route_validated": {
+      const count = event.parallelGroups?.length || 0;
+      return `에이전트 작업 ${count}개를 검증했습니다.`;
+    }
+    case "worker_started": {
+      const target = event.target ? ` (${event.target})` : "";
+      return `${event.worker || "worker"} worker가 실행을 시작했습니다${target}.`;
+    }
+    case "worker_result": {
+      const evidenceText = event.evidenceIds?.length ? ` — ${event.evidenceIds.length}개 ID 확인` : "";
+      return `${event.worker || "worker"} worker가 근거 ${event.resultCount || 0}개를 수집했습니다${evidenceText}.`;
+    }
+    case "evidence_compacted": {
+      const count = typeof event.evidenceCount === "number" ? event.evidenceCount : event.resultCount;
+      const countText = typeof count === "number" ? ` ${count}개` : "";
+      return `수집 근거${countText}를 답변 컨텍스트로 압축했습니다.`;
+    }
+    case "references": {
+      const count = event.references?.length || 0;
+      return `참조 파일 ${count}개를 답변에 연결했습니다.`;
+    }
+    case "completed":
+      return "Run이 정상 완료되었습니다.";
+    case "cancelled":
+      return "Run이 취소되었습니다.";
+    case "failed":
+    case "error":
+      return `Run 처리 중 오류가 발생했습니다: ${event.error || "원인 미상"}`;
+    default:
+      return null;
+  }
 }
 
 interface StreamChatOptions {
