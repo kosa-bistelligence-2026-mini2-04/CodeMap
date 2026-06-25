@@ -234,6 +234,8 @@ LangGraph 실행 단계와 Final Answer 토큰을 SSE로 전달합니다. 이벤
 | `worker_started` | Worker 실행 시작 |
 | `worker_result` | Worker 결과가 State에 기록됨 |
 | `evidence_compacted` | Evaluator 처리 완료 |
+| `evaluator_decision` | Evaluator 근거 충분성 판단 |
+| `replan_started` | Evaluator가 추가 탐색을 요청 |
 | `answer_delta` | 최종 답변 토큰 조각 |
 | `references` | 참조 파일 목록 |
 | `completed` | run 정상 완료 |
