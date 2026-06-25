@@ -89,7 +89,7 @@ sequenceDiagram
     participant G as Agent Graph
     participant FA as Final Answer Agent
 
-    FE->>SVC: POST /chat/run
+    FE->>SVC: POST /api/chat/{repo_id}/runs
     SVC->>G: graph.ainvoke(state)
 
     G-->>SVC: event: graph_started
