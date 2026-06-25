@@ -115,7 +115,7 @@
   - `worker_result` — 개별 워커 근거 수집
   - `evidence_compacted` — Evaluator 압축/충분성 평가 완료
   - 터미널: `completed` / `failed` / `error`
-- Chat 스트리밍 계층 이벤트(`answer_delta`, `references`, `content`, `done`, `thread`, `status`, `exploration`, `internal_state`)는 **Chat 도메인** 책임이며 본 명세 범위 밖.
+- Chat 스트리밍 계층 이벤트(`answer_delta`, `references`, `completed`, `failed` 등)는 **Chat 도메인** 책임이며 본 명세 범위 밖. 이전 legacy bridge 이벤트(`content`, `done`, `exploration` 등)는 제거되었으며, 프론트엔드는 Run stream 이벤트를 직접 수신한다.
 
 ### 3. 완료 조건
 - 각 이벤트는 `{"type": ..., ...payload}` 형태로 `events`(operator.add) 채널에 누적되어 SSE로 스트리밍된다.

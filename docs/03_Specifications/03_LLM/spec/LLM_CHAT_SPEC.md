@@ -237,15 +237,9 @@ LangGraph 실행 단계와 Final Answer 토큰을 SSE로 전달합니다. 이벤
 | `completed` | run 정상 완료 |
 | `failed` | run 실패 |
 
-**Legacy chat bridge 이벤트**
+**Frontend 연동 기준**
 
-`POST /api/chat/{repo_id}`는 기존 프론트엔드 스트림 파서를 위해 일부 이벤트를 변환합니다.
-
-| 원본 이벤트 | Legacy 이벤트 | 설명 |
-| --- | --- | --- |
-| `answer_delta` | `content` | 답변 토큰을 기존 content 이벤트로 변환 |
-| `completed` | `done` | 완료 이벤트를 기존 done 이벤트로 변환 |
-| `route_validated`, `worker_result` | `exploration` | 실행 타임라인 문구로 변환 |
+프론트엔드는 `POST /api/chat/{repo_id}/runs`로 run을 생성한 뒤, 응답의 `streamUrl`에 SSE 연결하여 위 Run stream 이벤트를 직접 수신합니다. 이전 `POST /api/chat/{repo_id}` legacy bridge와 `content`/`done` 변환 이벤트는 제거되었습니다.
 
 **구현 예정 이벤트**
 

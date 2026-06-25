@@ -6,7 +6,7 @@
 - Current goal: Align current implementation contracts with the latest Planner -> Dispatcher -> Workers -> Evaluator architecture, excluding `AGENT_GRAPH_FLOW.md` because it visualizes the Phase 1 completion target.
 - Current status:
   - Split current SSE events from planned future events in the common/chat LLM specs.
-  - Documented the run stream vs legacy chat bridge event difference (`answer_delta`/`completed` vs `content`/`done`).
+  - Documented the current Run stream event contract after removing the legacy chat bridge (`POST /api/chat/{repo_id}`).
   - Updated Dispatcher and tool security descriptions to match current `_ALLOWED_EXTENSIONS` and `Path.relative_to()` behavior.
   - Removed the unused `backend/app/agent/workers/workers.py` compatibility export.
   - Reworded the external tool service as an MCP-style interface while it remains a 501 Phase 2 stub.
