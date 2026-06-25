@@ -85,7 +85,6 @@ async def create_chat_run(repo_id: UUID, request: ChatRunRequest, db: AsyncSessi
         "mode": mode
     }
 
-    base_url = f"/api/chat/{repo_id}/runs/{run_id}"
     return {
         "code": 202,
         "message": "accepted",
@@ -93,9 +92,9 @@ async def create_chat_run(repo_id: UUID, request: ChatRunRequest, db: AsyncSessi
             "runId": run_id,
             "sessionId": str(thread.id),
             "status": "queued",
-            "streamUrl": f"{base_url}/stream",
-            "statusUrl": base_url,
-            "evidenceUrl": f"{base_url}/evidence"
+            "streamUrl": f"/api/chat/{repo_id}/runs/{run_id}/stream",
+            "statusUrl": f"/api/agent/{repo_id}/runs/{run_id}",
+            "evidenceUrl": f"/api/agent/{repo_id}/runs/{run_id}/evidence"
         }
     }
 

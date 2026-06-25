@@ -22,6 +22,7 @@ from app.list.websocket import ws_router as list_ws_router
 from app.repo.router import router as repo_router
 from app.repo.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
+from app.agent.router import router as agent_router
 from app.parse.router import router as parse_router
 # MCP Tools: 더미 응답 단계라 미등록 — 실구현 연결 후 등록 (PR #126 리뷰)
 # from app.tool.router import router as tool_router
@@ -116,6 +117,9 @@ app.include_router(repo_ws_router)
 
 # Repository-scoped grounded chat and conversation history
 app.include_router(chat_router)
+
+# Agent Run Management (상태조회/취소/근거 — LLM-CHAT-API-003~005)
+app.include_router(agent_router)
 
 # RAG-PARSE 분석 API (API-001 등)
 app.include_router(parse_router)
