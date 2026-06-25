@@ -360,5 +360,172 @@ class TestChatRunCreation(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(db.flushes, 0)
 
 
+class TestRunManagementAPI(unittest.IsolatedAsyncioTestCase):
+    """LLM_RUN_MANAGEMENT_API_SPEC.md (LLM-CHAT-API-003 ~ 005) HTTP 계약 검증.
+
+    - LLM-CHAT-API-003: GET /runs/{run_id}         → 404 when run not found
+    - LLM-CHAT-API-004: POST /runs/{run_id}/cancel → 404 when run not found
+                                                   → 409 when run already terminal
+    - LLM-CHAT-API-005: GET /runs/{run_id}/evidence → 404 when run not found
+                                                     → 404 when no evidence yet
+                                                     → 200 with evidence items
+    """
+
+    async def _make_record(self, status: str = "queued", with_evidence: bool = False):
+        from app.chat.run_registry import RunRegistry
+
+        registry = RunRegistry()
+        repo_id = uuid4()
+        record = registry.create(
+            run_id="run-test",
+            repo_id=repo_id,
+            session_id=str(uuid4()),
+            request=types.SimpleNamespace(question="where is login?"),
+        )
+        record.status = status
+        if with_evidence:
+            record.worker_results = [
+                {
+                    "id": "ev_1",
+                    "path": "backend/app/auth.py",
+                    "lineStart": 10,
+                    "lineEnd": 15,
+                    "score": 0.9,
+                    "snippet": "def login(): ...",
+                    "metadata": {"worker": "read"},
+                }
+            ]
+        return repo_id, registry, record
+
+    # ── LLM-CHAT-API-003: Run 상태 조회 ──────────────────────────────────
+
+    async def test_get_run_status_returns_404_for_unknown_run(self):
+        """존재하지 않는 run_id 조회 시 404 반환 (LLM-CHAT-API-003)."""
+        from app.agent import router as agent_router
+        from fastapi import HTTPException
+
+        repo_id = uuid4()
+        with patch.object(agent_router, "run_registry", __import__("app.chat.run_registry", fromlist=["RunRegistry"]).RunRegistry()):
+            with self.assertRaises(HTTPException) as ctx:
+                await agent_router.get_run_status(repo_id, "non-existent-run", db=_FakeDB())
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    async def test_get_run_status_returns_status_for_completed_run(self):
+        """completed 상태 run 조회 시 status 필드 정확성 검증 (LLM-CHAT-API-003)."""
+        from app.agent import router as agent_router
+        from app.chat.run_registry import RunRegistry
+
+        repo_id, registry, record = await self._make_record(status="completed", with_evidence=True)
+        record.accumulated_answer = "로그인 함수는 app/auth.py에 있습니다."
+
+        with patch.object(agent_router, "run_registry", registry):
+            response = await agent_router.get_run_status(repo_id, "run-test", db=_FakeDB())
+
+        data = response["data"]
+        self.assertEqual(data["status"], "completed")
+        self.assertEqual(data["state"]["workerResultCount"], 1)
+        self.assertIsNotNone(data["finalAnswer"])
+        self.assertEqual(data["finalAnswer"]["referenceCount"], 0)  # references 아직 비어 있음
+
+    # ── LLM-CHAT-API-004: Run 취소 ────────────────────────────────────────
+
+    async def test_cancel_run_returns_404_for_unknown_run(self):
+        """존재하지 않는 run_id 취소 시 404 반환 (LLM-CHAT-API-004)."""
+        from app.agent import router as agent_router
+        from fastapi import HTTPException
+
+        repo_id = uuid4()
+        with patch.object(agent_router, "run_registry", __import__("app.chat.run_registry", fromlist=["RunRegistry"]).RunRegistry()):
+            with self.assertRaises(HTTPException) as ctx:
+                await agent_router.cancel_run(repo_id, "non-existent-run", db=_FakeDB())
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    async def test_cancel_run_returns_409_for_completed_run(self):
+        """이미 completed 상태인 run 취소 시 409 반환 (LLM-CHAT-API-004)."""
+        from app.agent import router as agent_router
+        from fastapi import HTTPException
+
+        repo_id, registry, record = await self._make_record(status="completed")
+
+        with patch.object(agent_router, "run_registry", registry):
+            with self.assertRaises(HTTPException) as ctx:
+                await agent_router.cancel_run(repo_id, "run-test", db=_FakeDB())
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertIn("already finished", ctx.exception.detail)
+
+    async def test_cancel_run_returns_409_for_failed_run(self):
+        """이미 failed 상태인 run 취소 시 409 반환 (LLM-CHAT-API-004)."""
+        from app.agent import router as agent_router
+        from fastapi import HTTPException
+
+        repo_id, registry, record = await self._make_record(status="failed")
+
+        with patch.object(agent_router, "run_registry", registry):
+            with self.assertRaises(HTTPException) as ctx:
+                await agent_router.cancel_run(repo_id, "run-test", db=_FakeDB())
+        self.assertEqual(ctx.exception.status_code, 409)
+
+    async def test_cancel_run_succeeds_for_running_run(self):
+        """running 상태 run 취소 성공 시 cancelled 상태와 cancelledAt 반환 (LLM-CHAT-API-004)."""
+        from app.agent import router as agent_router
+
+        repo_id, registry, record = await self._make_record(status="running")
+
+        with patch.object(agent_router, "run_registry", registry):
+            response = await agent_router.cancel_run(repo_id, "run-test", db=_FakeDB())
+
+        self.assertEqual(response["message"], "cancelled")
+        self.assertEqual(response["data"]["status"], "cancelled")
+        self.assertIsNotNone(response["data"]["cancelledAt"])
+        self.assertEqual(record.status, "cancelled")
+
+    # ── LLM-CHAT-API-005: Evidence 조회 ──────────────────────────────────
+
+    async def test_get_run_evidence_returns_404_for_unknown_run(self):
+        """존재하지 않는 run_id evidence 조회 시 404 반환 (LLM-CHAT-API-005)."""
+        from app.agent import router as agent_router
+        from fastapi import HTTPException
+
+        repo_id = uuid4()
+        with patch.object(agent_router, "run_registry", __import__("app.chat.run_registry", fromlist=["RunRegistry"]).RunRegistry()):
+            with self.assertRaises(HTTPException) as ctx:
+                await agent_router.get_run_evidence(repo_id, "non-existent", db=_FakeDB())
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    async def test_get_run_evidence_returns_404_when_no_evidence(self):
+        """worker_results가 아직 비어 있을 때 404 반환 (LLM-CHAT-API-005)."""
+        from app.agent import router as agent_router
+        from fastapi import HTTPException
+
+        repo_id, registry, record = await self._make_record(status="running", with_evidence=False)
+
+        with patch.object(agent_router, "run_registry", registry):
+            with self.assertRaises(HTTPException) as ctx:
+                await agent_router.get_run_evidence(repo_id, "run-test", db=_FakeDB())
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    async def test_get_run_evidence_returns_evidence_after_completion(self):
+        """완료 후 evidence 조회 시 items와 snippet 정상 반환 (LLM-CHAT-API-005)."""
+        from app.agent import router as agent_router
+
+        repo_id, registry, record = await self._make_record(status="completed", with_evidence=True)
+
+        with patch.object(agent_router, "run_registry", registry):
+            response = await agent_router.get_run_evidence(
+                repo_id, "run-test",
+                include_raw_snippet=True,
+                worker=None,
+                limit=20,
+                db=_FakeDB(),
+            )
+
+        evidence = response["data"]["evidence"]
+        self.assertEqual(len(evidence), 1)
+        self.assertEqual(evidence[0]["path"], "backend/app/auth.py")
+        self.assertEqual(evidence[0]["worker"], "read")
+        self.assertEqual(evidence[0]["snippet"], "def login(): ...")
+        self.assertEqual(evidence[0]["score"], 0.9)
+
+
 if __name__ == "__main__":
     unittest.main()
