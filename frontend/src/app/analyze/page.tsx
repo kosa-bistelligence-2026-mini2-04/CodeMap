@@ -22,6 +22,7 @@ import { FileTree } from "@/features/chat/components/FileTree";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
 import { fetchJobStatus, fetchParseDetails, startAnalysis, validateRepository } from "@/features/analysis/api/api";
+import { getRagIndexBanner } from "@/features/analysis/utils/ragIndexStatus.mjs";
 import type {
   JobStatusData,
   ParseDetails,
@@ -224,6 +225,7 @@ function AnalyzeWorkspace() {
   const progress = preview ? 100 : job?.progress || 0;
   // RAG 인덱스 상태: 'ready' | 'failed' | 'skipped' | 'empty' | undefined
   const ragIndexStatus = job?.report?.rag_index?.status as string | undefined;
+  const ragIndexBanner = getRagIndexBanner(ragIndexStatus, locale);
   // chatRepoId: 분석(COMPLETED) 완료 시 활성화. 현재 chat은 키워드 검색 기반으로 임베딩 없이도 동작.
   // ragIndexStatus === 'ready' 일 때는 벡터 검색까지 지원, 그 외에는 키워드 폴백으로 안내.
   const chatRepoId = status === "completed" ? jobId : null;
@@ -305,20 +307,14 @@ function AnalyzeWorkspace() {
             <div className="mx-auto flex min-h-full max-w-xl items-center justify-center"><div className="w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center"><AlertTriangle className="mx-auto size-6 text-red-400" /><h2 className={`mt-3 text-sm font-bold ${isDark ? "" : "text-zinc-800"}`}>{isKo ? "분석을 완료하지 못했습니다" : "Analysis failed"}</h2><p className="mt-2 text-xs leading-5 text-zinc-500">{error}</p><button onClick={() => setShowNewAnalysis(true)} className={`mt-5 rounded-lg px-3 py-2 text-[11px] font-bold ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>{isKo ? "입력 확인하기" : "Check input"}</button></div></div>
           )}
 
-          {status === "completed" && report && ragIndexStatus !== "ready" && ragIndexStatus && ragIndexStatus !== "pending" && ragIndexStatus !== "in_progress" && (
+          {status === "completed" && report && ragIndexBanner && (
             <div className={`mx-4 mt-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11px] ${
-              ragIndexStatus === "failed"
+              ragIndexBanner.tone === "error"
                 ? "border-red-500/20 bg-red-500/5 text-red-400"
                 : "border-yellow-500/20 bg-yellow-500/5 text-yellow-500"
             }`}>
               <AlertTriangle className="mt-0.5 size-3 shrink-0" />
-              <span>
-                {ragIndexStatus === "failed"
-                  ? (isKo ? "AI 벡터 인덱싱 실패 — 키워드 검색으로 대화가 가능합니다." : "AI vector indexing failed — keyword-based chat is available.")
-                  : ragIndexStatus === "empty"
-                  ? (isKo ? "벡터화할 유효한 코드가 없습니다 — 키워드 검색으로 대화가 가능합니다." : "No valid code to vectorize — keyword-based chat is available.")
-                  : (isKo ? "AI 벡터 인덱싱 생략됨 (API 키 미설정) — 키워드 검색으로 대화가 가능합니다." : "AI vector indexing skipped (no API key) — keyword-based chat is available.")}
-              </span>
+              <span>{ragIndexBanner.message}</span>
             </div>
           )}
 

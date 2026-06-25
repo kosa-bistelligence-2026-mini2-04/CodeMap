@@ -75,14 +75,24 @@ class RagIndexStatusTests(unittest.IsolatedAsyncioTestCase):
             service = AnalysisService(db=AsyncMock())
             await service._run_parse_and_embed(str(job_id))
 
-        return repo_instance.update_job_status.await_args.kwargs["report_json"]["rag_index"]
+        return [
+            call.kwargs["report_json"]["rag_index"]
+            for call in repo_instance.update_job_status.await_args_list
+        ]
 
     async def test_status_empty_when_rows_saved_but_no_embeddings(self):
         # row는 저장됐지만(saved_chunks=5) 실제 임베딩이 없으면(embed_ready=False) → status != ready
-        rag_index = await self._run(has_vectors=False, saved_chunks=5)
+        rag_statuses = await self._run(has_vectors=False, saved_chunks=5)
+        rag_index = rag_statuses[-1]
         self.assertEqual(rag_index["chunks"], 5)
         self.assertEqual(rag_index["status"], "empty")
 
     async def test_status_ready_when_embeddings_present(self):
-        rag_index = await self._run(has_vectors=True, saved_chunks=5)
+        rag_index = (await self._run(has_vectors=True, saved_chunks=5))[-1]
         self.assertEqual(rag_index["status"], "ready")
+
+    async def test_records_in_progress_before_final_status(self):
+        rag_statuses = await self._run(has_vectors=True, saved_chunks=5)
+
+        self.assertEqual(rag_statuses[0]["status"], "in_progress")
+        self.assertEqual(rag_statuses[-1]["status"], "ready")
