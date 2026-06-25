@@ -11,7 +11,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import AsyncMock, patch, MagicMock
 
 # backend를 sys.path에 추가
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "backend"))
@@ -67,6 +67,7 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
         self.assertFalse(self._is_safe("../../../etc/passwd"))
         self.assertFalse(self._is_safe("../../secret"))
         self.assertFalse(self._is_safe("app/../../../root"))
+        self.assertFalse(self._is_safe(r"..\..\secret.py"))
 
     def test_absolute_path_blocked(self):
         self.assertFalse(self._is_safe("/etc/passwd"))
@@ -110,6 +111,7 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
         self.assertIn("security_result", res)
         self.assertEqual(len(res["security_result"]["approved"]), 2)
         self.assertEqual(len(res["security_result"]["rejected"]), 1)
+        self.assertTrue(res["events"][0]["allowed"])
         
         # Add to state to test fanout
         state["security_result"] = res["security_result"]
@@ -119,6 +121,32 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
         self.assertIn("grep_worker", node_names)
         self.assertNotIn("read_worker", node_names)  # 차단됨
         self.assertEqual(len(sends), 2)
+
+    def test_dispatcher_marks_route_disallowed_when_every_plan_is_rejected(self):
+        from app.agent.nodes.dispatcher_node import dispatcher_node
+
+        state = {
+            "user_query": "test",
+            "repo_id": "r1",
+            "clone_path": "/tmp",
+            "run_id": "r1",
+            "rewritten_query": "test",
+            "access_plan": [
+                {"tool": "read", "path": "../../../etc/passwd", "query": "", "scope": "file"},
+            ],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "final_answer": None,
+        }
+
+        res = dispatcher_node(state)
+
+        self.assertEqual(res["security_result"]["approved"], [])
+        self.assertFalse(res["events"][0]["allowed"])
 
     def test_fanout_blocks_unregistered_tools(self):
         """미등록 tool은 LangGraph Send 대상에서 제외됩니다."""
@@ -226,6 +254,73 @@ class TestWorkerEvents(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([event["type"] for event in result["events"]], ["worker_started", "worker_result"])
         self.assertEqual(result["events"][0]["worker"], "read")
 
+    async def test_blocking_workers_run_tool_calls_in_threads(self):
+        from app.agent.workers.dir_worker import dir_worker
+        from app.agent.workers.grep_worker import grep_worker
+        from app.agent.workers.read_worker import read_worker
+
+        base_state = {
+            "user_query": "test",
+            "repo_id": "r1",
+            "clone_path": "/tmp/repo",
+            "run_id": "run1",
+            "rewritten_query": "test",
+            "access_plan": [],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "final_answer": None,
+        }
+
+        with patch("app.agent.workers.dir_worker.asyncio.to_thread", AsyncMock(return_value="tree")) as to_thread:
+            await dir_worker({**base_state, "_plan_item": {"tool": "dir", "path": "app", "query": "", "scope": "directory"}})
+            self.assertEqual(to_thread.await_count, 1)
+
+        with patch("app.agent.workers.grep_worker.asyncio.to_thread", AsyncMock(return_value="hit")) as to_thread:
+            await grep_worker({**base_state, "_plan_item": {"tool": "grep", "path": "app", "query": "login", "scope": "file"}})
+            self.assertEqual(to_thread.await_count, 1)
+
+        with patch("app.agent.workers.read_worker.asyncio.to_thread", AsyncMock(return_value="content")) as to_thread:
+            await read_worker({**base_state, "_plan_item": {"tool": "read", "path": "app.py", "query": "", "scope": "file"}})
+            self.assertEqual(to_thread.await_count, 1)
+
+
+class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
+    async def test_planner_parses_text_blocks_from_list_content(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        class FakePlannerLLM:
+            async def ainvoke(self, _messages):
+                return MagicMock(content=[{
+                    "type": "text",
+                    "text": '{"rewritten_query":"auth flow","access_plan":[{"tool":"read","path":"app/auth.py","query":"auth","scope":"file"}]}',
+                }])
+
+        state = {
+            "user_query": "auth?",
+            "repo_id": "r1",
+            "clone_path": "/tmp/repo",
+            "run_id": "run1",
+            "rewritten_query": "",
+            "access_plan": [],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "final_answer": None,
+        }
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", return_value=FakePlannerLLM()):
+            result = await planner_node(state)
+
+        self.assertEqual(result["rewritten_query"], "auth flow")
+        self.assertEqual(result["access_plan"][0]["path"], "app/auth.py")
+
 
 class TestRepositoryToolBoundaries(unittest.TestCase):
     """Repository-bounded tool helpers must not trust string-prefix path checks."""
@@ -257,6 +352,17 @@ class TestRepositoryToolBoundaries(unittest.TestCase):
             result = grep_repository_path(str(root), "app.py", "login")
 
         self.assertIn("app.py:1: def login():", result)
+
+    def test_grep_rejects_empty_and_nested_quantifier_patterns(self):
+        from app.tool.grep_scan import grep_repository_path
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "repo"
+            root.mkdir()
+            (root / "app.py").write_text("aaaaab\n", encoding="utf-8")
+
+            self.assertEqual(grep_repository_path(str(root), "app.py", ""), "")
+            self.assertEqual(grep_repository_path(str(root), "app.py", "(a+)+$"), "")
 
 
 if __name__ == "__main__":

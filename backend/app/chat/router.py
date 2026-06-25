@@ -32,7 +32,8 @@ def _references_from_worker_results(worker_results: list[dict]) -> list[dict]:
         file_path = result.get("path")
         if not file_path:
             continue
-        line = result.get("lineStart") or 1
+        line_start = result.get("lineStart")
+        line = line_start if line_start is not None else 1
         key = (str(file_path), int(line))
         if key in seen:
             continue
