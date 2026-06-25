@@ -141,6 +141,13 @@ const generateId = () => {
             ? { ...message, explorationSteps: [...(message.explorationSteps || []), event.step!] }
             : message));
         }
+        if (event.type === "planner_plan") {
+          const workers = event.selectedWorkers?.length ? event.selectedWorkers.join(', ') : '전체 스캔';
+          const step = `계획 수립: [${workers}] ${event.rewrittenQuery || ""}`;
+          setMessages((current) => current.map((message) => message.id === assistantId
+            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
+            : message));
+        }
         if (event.type === "content" && event.content) {
           setMessages((current) => current.map((message) => message.id === assistantId
             ? { ...message, content: message.content + event.content }

@@ -15,7 +15,7 @@ export interface ChatMessage {
 }
 
 export interface StreamEvent {
-  type: "status" | "content" | "done" | "error" | "exploration" | "references" | "thread" | "suggestions";
+  type: "status" | "content" | "done" | "error" | "exploration" | "references" | "thread" | "suggestions" | "planner_plan";
   phase?: StreamPhase;
   content?: string;
   error?: string;
@@ -23,6 +23,9 @@ export interface StreamEvent {
   references?: CodeReference[];
   threadId?: string;
   suggestions?: string[];
+  rewrittenQuery?: string;
+  selectedWorkers?: string[];
+  allowedPaths?: string[];
 }
 
 interface StreamChatOptions {
