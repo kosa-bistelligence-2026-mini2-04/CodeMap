@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 
@@ -19,7 +20,7 @@ async def dir_worker(state: CodeMapState) -> dict:
 
     logger.info("[DirWorker] 시작 — path=%s", rel_path or ".")
     started_event = {"type": "worker_started", "worker": "dir", "target": rel_path or "."}
-    content = scan_directory_tree(clone_path, rel_path)
+    content = await asyncio.to_thread(scan_directory_tree, clone_path, rel_path)
     if not content:
         return {"worker_results": [], "events": [
             started_event,

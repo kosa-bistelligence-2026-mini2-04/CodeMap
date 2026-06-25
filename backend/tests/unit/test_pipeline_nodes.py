@@ -1,8 +1,8 @@
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from app.pipeline import nodes
-from app.pipeline.graph import _check_failure
+from app.pipeline.graph import AnalysisPipelineSupervisor, _check_failure
 from app.repo.schemas import JobStatus, PipelineStage
 
 
@@ -33,6 +33,23 @@ class PipelineRoutingTests(unittest.TestCase):
 
     def test_non_failure_routes_to_next_node(self):
         self.assertEqual(_check_failure(pipeline_state()), "success")
+
+
+class PipelineSupervisorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_run_logs_wall_time_when_ainvoke_raises(self):
+        supervisor = AnalysisPipelineSupervisor()
+        supervisor.work_flow = Mock()
+        supervisor.work_flow.ainvoke = AsyncMock(side_effect=RuntimeError("langgraph boom"))
+
+        with self.assertLogs(
+            "app.pipeline.graph.AnalysisPipelineSupervisor",
+            level="ERROR",
+        ) as logs:
+            with self.assertRaisesRegex(RuntimeError, "langgraph boom"):
+                await supervisor.run(pipeline_state())
+
+        self.assertTrue(any("ainvoke 미처리 예외" in message for message in logs.output))
+        self.assertTrue(any("벽시계=" in message for message in logs.output))
 
 
 class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):

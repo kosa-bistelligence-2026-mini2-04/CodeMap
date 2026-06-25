@@ -35,6 +35,8 @@ class EventManager:
         self._subscribers: dict[str, list[asyncio.Queue]] = defaultdict(list)
         # job_id → 마지막 이벤트 (늦게 접속한 구독자에게 현재 상태 제공용)
         self._last_events: dict[str, ProgressEvent] = {}
+        # 백그라운드 정리 태스크가 GC로 사라지지 않도록 완료 전까지 참조 유지
+        self._task_refs: set[asyncio.Task] = set()
         # 동시성 보장을 위한 락
         self._lock = asyncio.Lock()
 
@@ -46,10 +48,9 @@ class EventManager:
             job_id: 분석 작업 고유 ID
             event: 진행 상태 이벤트 데이터
         """
-        self._last_events[job_id] = event # 마지막 이벤트 저장
-
         # 연결이 끊긴 구독자 제거를 위한 유효 큐 목록
         async with self._lock:
+            self._last_events[job_id] = event # 마지막 이벤트 저장
             active_queues = []
             for queue in self._subscribers[job_id]:
                 try:
@@ -62,7 +63,7 @@ class EventManager:
 
         # 최종 상태(COMPLETED/FAILED)인 경우 해당 job의 구독 정보를 정리한다
         if event.status in (JobStatus.COMPLETED, JobStatus.FAILED):
-            asyncio.create_task(self._cleanup_job(job_id))
+            self._create_tracked_task(self._cleanup_job(job_id))
 
     async def subscribe(self, job_id: str) -> AsyncGenerator[ProgressEvent, None]:
         """
@@ -113,14 +114,22 @@ class EventManager:
         
         # 2. 10분 후 마지막 이벤트 캐시 제거 (메모리 누수 방지)
         # 클라이언트가 늦게 상태를 조회할 수 있도록 여유 시간을 둠
-        asyncio.create_task(self._delayed_cache_cleanup(job_id, delay=600))
+        self._create_tracked_task(self._delayed_cache_cleanup(job_id, delay=600))
         logger.info(f"이벤트 구독 정리 완료 및 캐시 삭제 예약 (job_id={job_id})")
 
     async def _delayed_cache_cleanup(self, job_id: str, delay: int) -> None:
         """지연 후 캐시를 삭제하는 백그라운드 태스크"""
         await asyncio.sleep(delay)
-        self._last_events.pop(job_id, None)
+        async with self._lock:
+            self._last_events.pop(job_id, None)
         logger.info(f"이벤트 캐시 정리 완료 (job_id={job_id})")
+
+    def _create_tracked_task(self, coro) -> asyncio.Task:
+        """백그라운드 태스크 참조를 완료 시점까지 보관한다."""
+        task = asyncio.create_task(coro)
+        self._task_refs.add(task)
+        task.add_done_callback(self._task_refs.discard)
+        return task
 
 
 # ──────────────────────────────────────────────

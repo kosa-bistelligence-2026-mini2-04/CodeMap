@@ -73,6 +73,20 @@ def _build_context(compact_context: dict) -> str:
     return "\n\n".join(parts)[:_MAX_CONTEXT_CHARS]
 
 
+def _context_from_worker_results(worker_results: list[dict]) -> dict:
+    grouped_by_file: dict[str, list[dict]] = {}
+    for result in worker_results:
+        file_path = result.get("path") or "검색결과"
+        grouped_by_file.setdefault(file_path, []).append({
+            "lineStart": result.get("lineStart"),
+            "lineEnd": result.get("lineEnd"),
+            "score": result.get("score"),
+            "snippet": result.get("snippet", ""),
+            "metadata": result.get("metadata", {}),
+        })
+    return {"groupedByFile": grouped_by_file}
+
+
 # ──────────────────────────────────────────────
 # 최종 답변 스트리밍 함수
 # ──────────────────────────────────────────────
@@ -88,6 +102,8 @@ async def stream_final_answer(
     '''
     settings = get_settings()
 
+    if not compact_context.get("groupedByFile") and worker_results:
+        compact_context = _context_from_worker_results(worker_results)
     context_text = _build_context(compact_context)
     system_prompt = _SYSTEM_PROMPT.format(context=context_text)
 

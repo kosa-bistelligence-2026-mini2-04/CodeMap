@@ -5,9 +5,10 @@ FastAPI 앱 인스턴스를 생성하고, 도메인별 라우터와 미들웨어
 예외 핸들러를 등록하는 메인 모듈이다.
 """
 
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from app.common.exceptions import register_exception_handlers
 from app.infra.database import engine, Base
@@ -22,44 +23,51 @@ from app.list.websocket import ws_router as list_ws_router
 from app.repo.router import router as repo_router
 from app.repo.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
+from app.chat.run_registry import sweep_run_registry
 from app.agent.router import router as agent_router
 from app.parse.router import router as parse_router
 from app.tool.router import router as tool_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    run_registry_sweeper = asyncio.create_task(sweep_run_registry())
     # 애플리케이션 시작 시 DB vector extension 및 필수 RAG 테이블 존재 여부 검증
-    async with engine.connect() as conn:
-        # 1. pgvector extension 존재 여부 확인
-        extension_check = await conn.execute(
-            text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")
-        )
-        if not extension_check.scalar():
-            raise RuntimeError(
-                "Database extension 'vector' is missing. "
-                "Please execute the database initialization script (database/init.sql) as superuser first."
+    try:
+        async with engine.connect() as conn:
+            # 1. pgvector extension 존재 여부 확인
+            extension_check = await conn.execute(
+                text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")
             )
-
-        # 2. 필수 RAG 테이블(code_nodes, code_dependencies) 존재 여부 확인
-        # (생성 권한이 없는 서비스 계정에서 DDL 에러가 나는 것을 방지하고, 런타임 구동을 안전하게 차단하기 위함)
-        for table in ["code_nodes", "code_dependencies"]:
-            table_check = await conn.execute(
-                text(
-                    "SELECT EXISTS ("
-                    "    SELECT 1 FROM information_schema.tables "
-                    "    WHERE table_schema = 'public' AND table_name = :table"
-                    ")"
-                ),
-                {"table": table},
-            )
-            if not table_check.scalar():
+            if not extension_check.scalar():
                 raise RuntimeError(
-                    f"Required database table '{table}' is missing. "
-                    f"Please initialize your database schema first."
+                    "Database extension 'vector' is missing. "
+                    "Please execute the database initialization script (database/init.sql) as superuser first."
                 )
-    yield
-    # 애플리케이션 종료 시 커넥션 풀 닫기
-    await engine.dispose()
+
+            # 2. 필수 RAG 테이블(code_nodes, code_dependencies) 존재 여부 확인
+            # (생성 권한이 없는 서비스 계정에서 DDL 에러가 나는 것을 방지하고, 런타임 구동을 안전하게 차단하기 위함)
+            for table in ["code_nodes", "code_dependencies"]:
+                table_check = await conn.execute(
+                    text(
+                        "SELECT EXISTS ("
+                        "    SELECT 1 FROM information_schema.tables "
+                        "    WHERE table_schema = 'public' AND table_name = :table"
+                        ")"
+                    ),
+                    {"table": table},
+                )
+                if not table_check.scalar():
+                    raise RuntimeError(
+                        f"Required database table '{table}' is missing. "
+                        f"Please initialize your database schema first."
+                    )
+        yield
+    finally:
+        run_registry_sweeper.cancel()
+        with suppress(asyncio.CancelledError):
+            await run_registry_sweeper
+        # 애플리케이션 종료 시 커넥션 풀 닫기
+        await engine.dispose()
 
 # ──────────────────────────────────────────────
 # FastAPI 앱 인스턴스 생성

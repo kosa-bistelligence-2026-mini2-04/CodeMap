@@ -7,10 +7,26 @@ from pathlib import Path
 
 _MAX_FILE_SIZE = 50_000
 _MAX_GREP_RESULTS = 30
+_MAX_PATTERN_LENGTH = 128
+_NESTED_QUANTIFIER = re.compile(r"\([^)]*[+*][^)]*\)\s*[+*?{]")
+
+
+def _is_safe_pattern(pattern: str) -> bool:
+    """Reject empty or high-risk regex patterns before scanning repository files."""
+    if not pattern or not pattern.strip():
+        return False
+    if len(pattern) > _MAX_PATTERN_LENGTH:
+        return False
+    if _NESTED_QUANTIFIER.search(pattern):
+        return False
+    return True
 
 
 def grep_repository_path(clone_path: str, rel_path: str | None, pattern: str) -> str:
     """Search a repository-relative path with a bounded regex scan."""
+    if not _is_safe_pattern(pattern):
+        return ""
+
     base = (Path(clone_path) / (rel_path or "")).resolve()
     root = Path(clone_path).resolve()
     try:

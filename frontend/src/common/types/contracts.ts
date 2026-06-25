@@ -163,6 +163,8 @@ export interface ParseFileMapItem {
   path: string;
   language: string | null;
   chunkCount: number;
+  lines: number;
+  size: number;
   imports: string[];
   importedBy: string[];
   riskScore: number | null;
