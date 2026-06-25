@@ -15,7 +15,7 @@ JWT 생성/검증 헬퍼를 제공한다.
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
@@ -82,7 +82,7 @@ def verify_access_token(token: str) -> dict:
 # FastAPI Depends 주입용 — 보호된 엔드포인트에서 사용
 # ──────────────────────────────────────────────────────────────
 
-def get_current_user(token: str | None = Depends(oauth2_scheme)) -> dict:
+def get_current_user(request: Request, token: str | None = Depends(oauth2_scheme)) -> dict:
     """
     Authorization: Bearer <token> 헤더에서 토큰을 추출하여 검증.
 
@@ -92,6 +92,7 @@ def get_current_user(token: str | None = Depends(oauth2_scheme)) -> dict:
     Raises:
         UnauthorizedError (401): 토큰 없음 / 만료 / 서명 불일치
     """
+    token = token or request.cookies.get("cm-access-token")
     if not token:
         raise UnauthorizedError()
     return verify_access_token(token)

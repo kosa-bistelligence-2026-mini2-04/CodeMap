@@ -36,7 +36,6 @@ class LoginRequest(BaseModel):
 
 class LoginData(BaseModel):
     accessToken: str
-    refreshToken: str
     expiresIn: int = 3600  # 초 단위
 
 
@@ -50,12 +49,11 @@ class LoginResponse(BaseModel):
 # AUTH-API-003: 토큰 갱신
 # ──────────────────────────────────────────────
 class RefreshRequest(BaseModel):
-    refreshToken: str = Field(..., description="기존 Refresh Token")
+    refreshToken: str | None = Field(default=None, description="기존 Refresh Token")
 
 
 class RefreshData(BaseModel):
     accessToken: str
-    refreshToken: str
     expiresIn: int = 3600
 
 

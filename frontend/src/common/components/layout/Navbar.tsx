@@ -11,7 +11,9 @@ export function Navbar() {
   const router = useRouter();
   const isHome = pathname === "/";
   const { theme, locale, toggleTheme, toggleLocale, t } = useApp();
-  const { user, isLoggedIn, logout } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const logout = useAuthStore((state) => state.logout);
 
   const isDark = theme === "dark";
 

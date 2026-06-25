@@ -76,19 +76,18 @@ class AuthLoginTests(unittest.TestCase):
 
     @patch("app.auth.router.AuthService")
     def test_login_success(self, mock_service_class):
-        """정상 로그인 → 200 + accessToken/refreshToken 반환"""
+        """정상 로그인 → 200 + accessToken 반환 + refreshToken httpOnly 쿠키 설정"""
         from app.auth.schemas import LoginData, LoginResponse
 
         mock_svc = mock_service_class.return_value
-        mock_svc.login = AsyncMock(
-            return_value=LoginResponse(
-                data=LoginData(
-                    accessToken="mock-access-token",
-                    refreshToken="mock-refresh-token",
-                    expiresIn=3600,
-                )
+        response = LoginResponse(
+            data=LoginData(
+                accessToken="mock-access-token",
+                expiresIn=3600,
             )
         )
+        object.__setattr__(response, "refresh_token", "mock-refresh-token")
+        mock_svc.login = AsyncMock(return_value=response)
 
         resp = self.client.post(
             "/api/auth/login",
@@ -98,8 +97,10 @@ class AuthLoginTests(unittest.TestCase):
         data = resp.json()
         self.assertEqual(data["code"], 200)
         self.assertIn("accessToken", data["data"])
-        self.assertIn("refreshToken", data["data"])
+        self.assertNotIn("refreshToken", data["data"])
         self.assertEqual(data["data"]["expiresIn"], 3600)
+        self.assertIn("cm-refresh-token=", resp.headers["set-cookie"])
+        self.assertIn("HttpOnly", resp.headers["set-cookie"])
 
     @patch("app.auth.router.AuthService")
     def test_login_invalid_credentials(self, mock_service_class):
@@ -125,27 +126,27 @@ class AuthRefreshTests(unittest.TestCase):
 
     @patch("app.auth.router.AuthService")
     def test_refresh_success(self, mock_service_class):
-        """유효한 Refresh Token → 200 + 새 accessToken 반환"""
+        """유효한 Refresh Token cookie → 200 + 새 accessToken 반환 + cookie rotation"""
         from app.auth.schemas import RefreshData, RefreshResponse
 
         mock_svc = mock_service_class.return_value
-        mock_svc.refresh = AsyncMock(
-            return_value=RefreshResponse(
-                data=RefreshData(
-                    accessToken="new-access-token",
-                    refreshToken="new-refresh-token",
-                    expiresIn=3600,
-                )
+        response = RefreshResponse(
+            data=RefreshData(
+                accessToken="new-access-token",
+                expiresIn=3600,
             )
         )
+        object.__setattr__(response, "refresh_token", "new-refresh-token")
+        mock_svc.refresh = AsyncMock(return_value=response)
 
         resp = self.client.post(
             "/api/auth/refresh",
-            json={"refreshToken": "valid-refresh-token"},
+            cookies={"cm-refresh-token": "valid-refresh-token"},
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn("accessToken", resp.json()["data"])
-        self.assertIn("refreshToken", resp.json()["data"])
+        self.assertNotIn("refreshToken", resp.json()["data"])
+        self.assertIn("cm-refresh-token=", resp.headers["set-cookie"])
 
     @patch("app.auth.router.AuthService")
     def test_refresh_invalid_token(self, mock_service_class):
@@ -188,11 +189,24 @@ class AuthServiceRotationTests(unittest.IsolatedAsyncioTestCase):
 
         response = await service.refresh(old_refresh_token)
 
-        self.assertNotEqual(response.data.refreshToken, old_refresh_token)
+        self.assertNotEqual(getattr(response, "refresh_token"), old_refresh_token)
         service.repo.save_refresh_token.assert_awaited_once()
         saved_kwargs = service.repo.save_refresh_token.await_args.kwargs
         self.assertEqual(saved_kwargs["user_id"], user_id)
-        self.assertEqual(saved_kwargs["token"], response.data.refreshToken)
+        self.assertEqual(saved_kwargs["token"], getattr(response, "refresh_token"))
+
+
+class AuthPasswordHashingTests(unittest.TestCase):
+    """bcrypt 72 byte 제한을 넘는 비밀번호 처리 회귀 테스트"""
+
+    def test_long_password_hash_and_verify(self):
+        from app.auth.service import _hash_password, _verify_password
+
+        password = "가" * 80 + "long-password"
+        hashed = _hash_password(password)
+
+        self.assertTrue(_verify_password(password, hashed))
+        self.assertFalse(_verify_password(password + "x", hashed))
 
 
 class AuthLogoutTests(unittest.TestCase):

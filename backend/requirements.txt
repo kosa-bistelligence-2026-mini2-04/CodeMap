@@ -51,3 +51,4 @@ python-jose[cryptography]>=3.3.0
 
 # [PROJECT-AUTH] 비밀번호 bcrypt 해싱
 passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1
