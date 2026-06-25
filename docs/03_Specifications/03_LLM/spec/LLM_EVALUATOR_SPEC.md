@@ -6,7 +6,7 @@
 
 `LLM-EVALUATOR`는 병렬 워커가 수집한 `worker_results`를 정제하여 Final Answer Agent가 소비할 **압축 근거 묶음(`compact_context`)**을 생성하는 노드입니다.
 
-> **Phase 2 착수 현황**: 현재 구현은 중복 제거 + token budget 압축 후 `sufficient`, `missingInfo`, `nextPlanHint` 구조의 Evaluator 판단 DTO와 SSE 이벤트를 생성하고, 반복 한도 내에서 LangGraph re-plan 조건부 edge를 수행합니다.
+> **Phase 2 구현 현황**: 현재 구현은 중복 제거 + token budget 압축 후 `sufficient`, `missingInfo`, `nextPlanHint` 구조의 Evaluator 판단 DTO와 SSE 이벤트를 생성하고, 설정 가능한 반복 한도(`AGENT_MAX_REPLANS`, 기본 2회) 내에서 LangGraph re-plan 조건부 edge를 수행합니다.
 
 | 구분 | 기준 |
 | --- | --- |
@@ -63,7 +63,7 @@ Final Answer Agent의 컨텍스트 한도를 넘지 않도록 근거를 token bu
 ## LLM-EVALUATOR-B-301: 근거 충분성 판단 prompt/출력 스키마 및 re-plan 제어 결정 (Phase 2)
 
 ### 1. 설명
-누적된 근거가 사용자 질문에 답하기 충분한지 평가하기 위해 Evaluator Judge prompt와 구조화 출력 스키마를 정의합니다. 현재 노드는 API key가 없는 로컬/CI에서도 동작하도록 deterministic fallback 판단을 사용하며, 같은 DTO를 `evaluator_decision` 이벤트로 발행합니다. `sufficient=false`이고 `replan_count < max_replans`이면 `replan_started`를 발행하고 Planner로 되돌아갑니다.
+누적된 근거가 사용자 질문에 답하기 충분한지 평가하기 위해 Evaluator Judge prompt와 구조화 출력 스키마를 정의합니다. 현재 노드는 API key가 없는 로컬/CI에서도 동작하도록 deterministic fallback 판단을 사용하며, 같은 DTO를 `evaluator_decision` 이벤트로 발행합니다. `sufficient=false`이고 `replan_count < max_replans`이면 `replan_started`를 발행하고 Planner로 되돌아갑니다. `max_replans`는 `AGENT_MAX_REPLANS` 설정값으로 결정하며, 잘못된 환경값으로 인한 과도한 반복을 막기 위해 0~3 범위로 제한합니다.
 
 ### 2. 입/출력 규격
 - **Input**: `user_query`, `compact_context`
@@ -98,3 +98,4 @@ Final Answer Agent의 컨텍스트 한도를 넘지 않도록 근거를 token bu
 - Evaluator 판단 DTO가 `compact_context.evaluatorDecision`과 State `evaluator_decision`에 기록된다.
 - 프론트 타임라인에서 `evaluator_decision`, `replan_started`를 표시할 수 있다.
 - LangGraph 조건부 edge가 반복 한도 내에서 Planner로 되돌아가고, 한도 도달 또는 `sufficient=true`일 때 종료한다.
+- 반복 한도는 서비스 초기 state의 `max_replans`에 주입되며 기본값은 2회, 안전 상한은 3회다.

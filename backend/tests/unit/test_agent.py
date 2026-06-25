@@ -304,6 +304,40 @@ class TestReplanRouting(unittest.TestCase):
 
         self.assertEqual(route, END)
 
+    def test_route_after_evaluator_allows_multiple_replans_until_configured_limit(self):
+        from app.agent.graph import route_after_evaluator
+        from langgraph.graph import END
+
+        self.assertEqual(route_after_evaluator({
+            "evaluator_decision": {"sufficient": False},
+            "replan_count": 1,
+            "max_replans": 2,
+            "replan_hint": "read service.py",
+        }), "planner_node")
+        self.assertEqual(route_after_evaluator({
+            "evaluator_decision": {"sufficient": False},
+            "replan_count": 2,
+            "max_replans": 2,
+            "replan_hint": "read router.py",
+        }), "planner_node")
+        self.assertEqual(route_after_evaluator({
+            "evaluator_decision": {"sufficient": False},
+            "replan_count": 2,
+            "max_replans": 2,
+            "replan_hint": None,
+        }), END)
+
+
+class TestAgentServiceReplanConfig(unittest.TestCase):
+    def test_bounded_max_replans_uses_safe_default_and_cap(self):
+        from app.agent.service import _bounded_max_replans
+
+        self.assertEqual(_bounded_max_replans(None), 2)
+        self.assertEqual(_bounded_max_replans("bad"), 2)
+        self.assertEqual(_bounded_max_replans(-1), 0)
+        self.assertEqual(_bounded_max_replans(2), 2)
+        self.assertEqual(_bounded_max_replans(99), 3)
+
 
 class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
     def _base_state(self):

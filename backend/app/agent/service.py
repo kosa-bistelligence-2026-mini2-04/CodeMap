@@ -19,6 +19,17 @@ logger = logging.getLogger(__name__)
 _MEMORY_MESSAGE_LIMIT = 8
 _MEMORY_CONTENT_LIMIT = 700
 
+_MAX_REPLAN_CAP = 3
+
+
+def _bounded_max_replans(raw_value: int | str | None) -> int:
+    """Clamp configured re-plan retries so a bad env value cannot overload the graph."""
+    try:
+        value = int(raw_value if raw_value is not None else 2)
+    except (TypeError, ValueError):
+        value = 2
+    return max(0, min(value, _MAX_REPLAN_CAP))
+
 
 # ──────────────────────────────────────────────
 # CodeMap 에이전트 서비스 클래스
@@ -31,6 +42,7 @@ class CodeMapAgentService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.settings = get_settings()
+        self.max_replans = _bounded_max_replans(getattr(self.settings, "AGENT_MAX_REPLANS", 2))
 
     # ──────────────────────────────────────────────
     # 에이전트 동기/비동기 실행 메서드
@@ -100,7 +112,7 @@ class CodeMapAgentService:
                 "compact_context": {},
                 "evaluator_decision": None,
                 "replan_count": 0,
-                "max_replans": 1,
+                "max_replans": self.max_replans,
                 "replan_hint": None,
                 "final_answer": None,
             }

@@ -133,6 +133,10 @@ class Settings(BaseSettings):
     # kosa-langchain-practice/langchain/api/sec05_create_agent/ 참고
     OPENAI_MODEL: str = "gpt-4o-mini"
 
+    # Evaluator가 근거 부족 판단 시 허용할 추가 re-plan 횟수
+    # 기본 2회: 최초 계획 1회 + 추가 탐색 계획 최대 2회
+    AGENT_MAX_REPLANS: int = 2
+
     # [RAG-EMBED] 임베딩 모델 설정
     # 결정 근거: docs/04_Decisions/EMBEDDING_MODEL_DECISION.md
     # text-embedding-3-large + dimensions=1536: large 모델의 한국어↔영어 의미 검색 강점을
