@@ -21,7 +21,6 @@ def create_planner_llm() -> ChatOpenAI:
         temperature=0,
     )
 
-
 def create_evaluator_llm() -> ChatOpenAI:
     """Create the deterministic evaluator judge model used for evidence sufficiency."""
     settings = get_settings()

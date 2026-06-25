@@ -1,6 +1,6 @@
 ### ============================================================================
 ### LLM-CHAT-API-005 | Agent 근거 조회
-### Markdown source: docs/03_Specifications/03_LLM/api/LLM_API_SPEC.md
+### Markdown source: docs/03_Specifications/03_LLM/api/LLM_RUN_MANAGEMENT_API_SPEC.md
 ### Endpoint: GET /api/chat/{repo_id}/runs/{run_id}/evidence
 ### 관련 기능 ID: LLM-WORKER-B-201 ~ LLM-WORKER-B-204, LLM-EVALUATOR-B-201
 ### 상태: 구현 완료

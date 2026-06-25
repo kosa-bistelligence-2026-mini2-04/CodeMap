@@ -14,7 +14,8 @@
 # Description:
 # 저장소에 대한 자연어 질문으로 run을 생성한 뒤 streamUrl에 SSE 연결.
 # SSE 이벤트: graph_started | planner_plan | route_validated | worker_started |
-# worker_result | evidence_compacted | answer_delta | references | completed | failed
+# worker_result | evidence_compacted | answer_delta | references | completed |
+# failed | cancelled
 # # curl 테스트:
 # # curl -X POST http://localhost:8000/api/chat/{repo_id}/runs \
 # #   -H 'Authorization: Bearer {token}' \
@@ -70,8 +71,14 @@ Accept: text/event-stream
 # event: answer_delta
 # data: {"content": "인증 미들웨어는"}
 #
+# event: references
+# data: {"references":[{"file":"backend/app/infra/auth.py","line":1}]}
+#
 # event: completed
 # data: {"runId":"...","status":"completed"}
+#
+# event: cancelled
+# data: {"runId":"...","cancelledAt":"2026-06-25T00:00:00+00:00"}
 
 
 ### 에러 케이스 - 인증 없음

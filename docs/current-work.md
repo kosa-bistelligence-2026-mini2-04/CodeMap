@@ -1,5 +1,45 @@
 # Current Work
 
+## 2026-06-25 — Phase 1 run stream UI hardening
+
+- Current branch: `feat/phase1-agent-run-hardening`
+- Current goal: Finish oosuhada Phase 1 tasks from PR #126 follow-up: frontend stream event handling and real-repo run dogfooding.
+- Current status:
+  - Added a shared frontend stream-event timeline formatter for `worker_started`, `worker_result`, `evidence_compacted`, `references`, `completed`, `failed`, and `cancelled`.
+  - Updated `ChatInterface` to append every handled run event to the exploration timeline and to surface failed/cancelled terminal states cleanly.
+  - Fixed Planner fallback so missing or invalid OpenAI credentials do not prevent Phase 1 run graph execution.
+  - Fixed Planner LLM factory to pass the configured API key explicitly.
+  - Dogfooded a real CodeMap repo question: "Run stream 이벤트 타입은 프론트 어디에서 처리돼?"
+- Files touched or likely relevant:
+  - `frontend/src/features/chat/api/chatApi.ts`
+  - `frontend/src/features/chat/components/ChatInterface.tsx`
+  - `backend/app/agent/nodes/dispatcher_node.py`
+  - `backend/app/agent/nodes/planner_node.py`
+  - `backend/app/agent/llm_client.py`
+  - `backend/tests/unit/test_agent.py`
+  - `backend/tests/unit/test_chat_issue_56.py`
+- Commands run:
+  - `env -u GITHUB_TOKEN /opt/homebrew/bin/gh auth status`
+  - `env -u GITHUB_TOKEN /opt/homebrew/bin/gh api repos/kosa-bistelligence-2026-mini2-04/CodeMap/issues/comments/4797727054`
+  - `PATH=".../node/bin:.../bin:$PATH" ./node_modules/.bin/eslint src/features/chat/api/chatApi.ts src/features/chat/components/ChatInterface.tsx`
+  - `backend/.venv/bin/python - <<'PY' ... CodeMapAgentService dogfood ... PY`
+- Validation:
+  - `backend/tests/unit`: 159 passed, 5 skipped with test-only PostgreSQL-form `DATABASE_URL`, `JWT_SECRET_KEY`, and `OPENAI_API_KEY`.
+  - Focused LLM/chat tests: 20 passed.
+  - `compileall` for `backend/app/agent`, `backend/app/chat`, and `backend/app/tool` passed.
+  - `eslint src/features/chat/api/chatApi.ts src/features/chat/components/ChatInterface.tsx` passed.
+  - `next build --webpack` passed. Turbopack build was not used because the worktree borrows `node_modules` through a symlink and Turbopack rejects symlinks outside the project root.
+  - `git diff --check` passed.
+  - Spec/code grep confirmed stream events in `LLM_COMMON_API_SPEC.md`, `LLM_CHAT_RUN_API_SPEC.md`, frontend stream types, and HTTP examples.
+- Dogfooding result:
+  - Actual repo agent stream emitted `planner_plan`, `route_validated`, `worker_started`, `worker_result`, `evidence_compacted`, and `internal_state`.
+  - Evidence collection returned 5 items with sample paths including `frontend/src/features/chat/api/chatApi.ts` and `frontend/src/features/chat/components/ChatInterface.tsx`.
+  - `compact_context` was populated.
+- Known issues:
+  - Dogfood used test-only invalid OpenAI/DB values, so Planner used the fallback path and semantic search fell back after DB connection refusal. File-based evidence still verified the stream/evidence contract.
+- Next steps:
+  - Push branch and open a PR after final reviewer-risk pass.
+
 ## 2026-06-25 — Phase 2 evaluator decision and re-plan timeline
 
 - Current branch: `feat/phase2-evaluator-replan-loop`
