@@ -131,16 +131,15 @@ const generateId = () => {
       : streamChat(repoId, content, mode, { threadId: activeThreadId, contextFile });
     try {
       for await (const event of stream) {
-        if (event.type === "status" && event.phase) setStreamPhase(event.phase);
-        if (event.type === "thread" && event.threadId) {
-          setActiveThreadId(event.threadId);
-          onThreadChange?.(event.threadId);
+        // Run 시작
+        if (event.type === "graph_started") {
+          setStreamPhase("searching");
+          if (event.sessionId) {
+            setActiveThreadId(event.sessionId);
+            onThreadChange?.(event.sessionId);
+          }
         }
-        if (event.type === "exploration" && event.step) {
-          setMessages((current) => current.map((message) => message.id === assistantId
-            ? { ...message, explorationSteps: [...(message.explorationSteps || []), event.step!] }
-            : message));
-        }
+        // Planner 계획 수립
         if (event.type === "planner_plan") {
           const workers = event.selectedWorkers?.length ? event.selectedWorkers.join(', ') : '전체 스캔';
           const step = `계획 수립: [${workers}] ${event.rewrittenQuery || ""}`;
@@ -148,27 +147,46 @@ const generateId = () => {
             ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
             : message));
         }
-        if (event.type === "content" && event.content) {
+        // Dispatcher 검증 완료
+        if (event.type === "route_validated") {
+          const count = event.parallelGroups?.length || 0;
+          const step = `에이전트 작업 ${count}개를 검증했습니다.`;
+          setMessages((current) => current.map((message) => message.id === assistantId
+            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
+            : message));
+        }
+        // Worker 결과 수집
+        if (event.type === "worker_result") {
+          const step = `${event.worker || "worker"} worker가 근거 ${event.resultCount || 0}개를 수집했습니다.`;
+          setMessages((current) => current.map((message) => message.id === assistantId
+            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
+            : message));
+        }
+        // 근거 압축 완료
+        if (event.type === "evidence_compacted") {
+          setStreamPhase("building_context");
+        }
+        // 답변 토큰 스트리밍
+        if (event.type === "answer_delta" && event.content) {
+          if (streamPhase !== "generating") setStreamPhase("generating");
           setMessages((current) => current.map((message) => message.id === assistantId
             ? { ...message, content: message.content + event.content }
             : message));
         }
+        // 참조 파일
         if (event.type === "references" && event.references) {
           setMessages((current) => current.map((message) => message.id === assistantId
             ? { ...message, references: event.references }
             : message));
         }
-        if (event.type === "suggestions" && event.suggestions) {
-          setMessages((current) => current.map((message) => message.id === assistantId
-            ? { ...message, suggestions: event.suggestions }
-            : message));
-        }
-        if (event.type === "error") {
+        // 에러
+        if (event.type === "error" || event.type === "failed") {
           setMessages((current) => current.map((message) => message.id === assistantId
             ? { ...message, content: `⚠️ ${event.error || "응답을 생성하지 못했습니다."}` }
             : message));
         }
-        if (event.type === "done") setStreamPhase("complete");
+        // 완료
+        if (event.type === "completed") setStreamPhase("complete");
       }
     } finally {
       setIsStreaming(false);

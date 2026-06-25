@@ -13,27 +13,6 @@ class ChatRunRequest(BaseModel):
     timeoutSeconds: int = Field(default=30, ge=5, le=120)
 
 
-class ChatLegacyRequest(BaseModel):
-    """기존 프론트엔드 단일 SSE API 요청 스키마."""
-
-    message: str = Field(min_length=1, max_length=8000)
-    mode: Literal["quick", "deep", "fast"] = "quick"
-    threadId: UUID | None = None
-    contextFile: str | None = None
-
-    def to_run_request(self) -> ChatRunRequest:
-        mode_map = {
-            "quick": "lite",
-            "fast": "lite",
-            "deep": "deep",
-        }
-        return ChatRunRequest(
-            question=self.message,
-            sessionId=self.threadId,
-            mode=mode_map[self.mode],
-        )
-
-
 class ThreadSummary(BaseModel):
     id: UUID
     repoId: UUID
