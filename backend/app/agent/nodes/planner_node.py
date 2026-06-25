@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -50,6 +51,23 @@ def _strip_json_fence(raw: str) -> str:
     return text.strip()
 
 
+def _content_to_text(content: Any) -> str:
+    """Normalize LangChain string or multimodal list content into parseable text."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        chunks: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                chunks.append(block)
+            elif isinstance(block, dict) and block.get("type") in {None, "text"}:
+                text = block.get("text")
+                if isinstance(text, str):
+                    chunks.append(text)
+        return "\n".join(chunks)
+    return str(content)
+
+
 async def planner_node(state: CodeMapState) -> dict:
     """
     Planner LLM node.
@@ -66,7 +84,7 @@ async def planner_node(state: CodeMapState) -> dict:
 
     try:
         response = await llm.ainvoke(messages)
-        data = json.loads(_strip_json_fence(str(response.content)))
+        data = json.loads(_strip_json_fence(_content_to_text(response.content)))
     except Exception as exc:
         logger.warning("[Planner] LLM 응답 파싱 실패, 기본 plan으로 폴백: %s", exc)
         data = {
@@ -97,4 +115,3 @@ async def planner_node(state: CodeMapState) -> dict:
             "allowedPaths": allowed_paths,
         }],
     }
-

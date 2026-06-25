@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 
@@ -20,7 +21,7 @@ async def grep_worker(state: CodeMapState) -> dict:
 
     logger.info("[GrepWorker] 시작 — pattern=%r path=%s", pattern, rel_path or ".")
     started_event = {"type": "worker_started", "worker": "grep", "target": rel_path or "."}
-    content = grep_repository_path(clone_path, rel_path, pattern)
+    content = await asyncio.to_thread(grep_repository_path, clone_path, rel_path, pattern)
     if not content:
         return {"worker_results": [], "events": [
             started_event,

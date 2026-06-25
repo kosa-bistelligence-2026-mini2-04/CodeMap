@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
 from app.agent.state import AccessPlanItem, CodeMapState
@@ -33,17 +33,28 @@ _ALLOWED_EXTENSIONS = {
 }
 
 
-def _is_safe_path(path: str | None) -> bool:
+def _is_safe_path(path: str | None, clone_root: str | None = None) -> bool:
     """Block traversal, absolute paths, sensitive files, and unsupported extensions."""
     if path is None:
         return True
-    if path.startswith("/") or ".." in PurePosixPath(path).parts:
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("/") or re.match(r"^[a-zA-Z]:", normalized):
         return False
-    if _SENSITIVE_PATTERNS.search(path):
+    posix_path = PurePosixPath(normalized)
+    if ".." in posix_path.parts:
         return False
-    suffix = PurePosixPath(path).suffix
+    if _SENSITIVE_PATTERNS.search(normalized):
+        return False
+    suffix = posix_path.suffix
     if suffix and suffix not in _ALLOWED_EXTENSIONS:
         return False
+    if clone_root:
+        root = Path(clone_root).resolve()
+        candidate = (root / normalized).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            return False
     return True
 
 
@@ -54,7 +65,7 @@ def dispatcher_node(state: CodeMapState) -> dict:
     rejected: list[AccessPlanItem] = []
 
     for item in plan:
-        if _is_safe_path(item.get("path")):
+        if _is_safe_path(item.get("path"), state.get("clone_path")):
             approved.append(item)
         else:
             logger.warning(
@@ -68,7 +79,7 @@ def dispatcher_node(state: CodeMapState) -> dict:
 
     return {
         "security_result": {"approved": approved, "rejected": rejected},
-        "events": [{"type": "route_validated", "allowed": True, "parallelGroups": groups}],
+        "events": [{"type": "route_validated", "allowed": len(approved) > 0, "parallelGroups": groups}],
     }
 
 
