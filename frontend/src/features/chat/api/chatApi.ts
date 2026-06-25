@@ -26,6 +26,8 @@ export interface StreamEvent {
     | "worker_started"
     | "worker_result"
     | "evidence_compacted"
+    | "evaluator_decision"
+    | "replan_started"
     | "answer_delta"
     | "references"
     | "completed"
@@ -45,6 +47,14 @@ export interface StreamEvent {
   worker?: string;
   target?: string | null;
   resultCount?: number;
+  // evaluator_decision / replan_started
+  sufficient?: boolean;
+  missingInfo?: string[];
+  nextPlanHint?: string | null;
+  iteration?: number;
+  maxIterations?: number;
+  reason?: string;
+  confidence?: number;
   // answer_delta
   content?: string;
   // references
@@ -169,6 +179,14 @@ export async function* previewStream(message: string): AsyncGenerator<StreamEven
   await new Promise((resolve) => setTimeout(resolve, 220));
   yield { type: "worker_result", worker: "search", resultCount: 1 };
   yield { type: "evidence_compacted" };
+  yield {
+    type: "evaluator_decision",
+    sufficient: true,
+    missingInfo: [],
+    nextPlanHint: null,
+    reason: "preview evidence is sufficient",
+    confidence: 0.72,
+  };
   const answer = /구조|architecture|아키텍처/i.test(message)
     ? PREVIEW_ANSWERS.architecture
     : PREVIEW_ANSWERS.default;

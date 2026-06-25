@@ -174,6 +174,31 @@ const generateId = () => {
         if (event.type === "evidence_compacted") {
           setStreamPhase("building_context");
         }
+        // Evaluator 충분성 판단
+        if (event.type === "evaluator_decision") {
+          const status = event.sufficient ? "충분" : "추가 탐색 필요";
+          const confidence = typeof event.confidence === "number"
+            ? ` · 신뢰도 ${Math.round(event.confidence * 100)}%`
+            : "";
+          const reason = event.reason ? ` — ${event.reason}` : "";
+          const step = `Evaluator 판단: ${status}${confidence}${reason}`;
+          setMessages((current) => current.map((message) => message.id === assistantId
+            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
+            : message));
+        }
+        // Evaluator가 부족한 근거를 발견해 재계획을 요청
+        if (event.type === "replan_started") {
+          const iteration = typeof event.iteration === "number" && typeof event.maxIterations === "number"
+            ? ` (${event.iteration}/${event.maxIterations})`
+            : "";
+          const missing = event.missingInfo?.length ? ` 부족: ${event.missingInfo.join(", ")}` : "";
+          const hint = event.nextPlanHint ? ` 다음 계획: ${event.nextPlanHint}` : "";
+          const step = `Re-plan 시작${iteration}.${missing}${hint}`;
+          setMessages((current) => current.map((message) => message.id === assistantId
+            ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
+            : message));
+          setStreamPhase("searching");
+        }
         // 답변 토큰 스트리밍
         if (event.type === "answer_delta" && event.content) {
           if (streamPhase !== "generating") setStreamPhase("generating");

@@ -26,6 +26,16 @@ from app.agent.workers.grep_worker import grep_worker
 from app.agent.workers.read_worker import read_worker
 
 
+def route_after_evaluator(state: CodeMapState) -> str:
+    """Continue planning when Evaluator requests more evidence within the retry limit."""
+    decision = state.get("evaluator_decision") or {}
+    replan_count = int(state.get("replan_count") or 0)
+    max_replans = int(state.get("max_replans") or 0)
+    if decision.get("sufficient") is False and state.get("replan_hint") and replan_count <= max_replans:
+        return "planner_node"
+    return END
+
+
 def build_graph() -> StateGraph:
     """
     CodeMap 멀티에이전트 LangGraph 워크플로우를 빌드합니다.
@@ -63,8 +73,12 @@ def build_graph() -> StateGraph:
     builder.add_edge("grep_worker", "evaluator_node")
     builder.add_edge("read_worker", "evaluator_node")
 
-    # Evaluator → END
-    builder.add_edge("evaluator_node", END)
+    # Evaluator → Planner 재계획 또는 END
+    builder.add_conditional_edges(
+        "evaluator_node",
+        route_after_evaluator,
+        {"planner_node": "planner_node", END: END},
+    )
 
     return builder
 

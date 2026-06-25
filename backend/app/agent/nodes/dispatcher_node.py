@@ -12,10 +12,8 @@ import re
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
+from langgraph.types import Send
 from app.agent.state import AccessPlanItem, CodeMapState
-
-if TYPE_CHECKING:
-    from langgraph.types import Send
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +85,6 @@ def fanout_to_workers(state: CodeMapState) -> list[Send]:
     """
     Conditional edge function that sends approved plan items to worker nodes.
     """
-    from langgraph.types import Send
-
     approved = state.get("security_result", {}).get("approved", [])
     sends: list[Send] = []
     for item in approved:

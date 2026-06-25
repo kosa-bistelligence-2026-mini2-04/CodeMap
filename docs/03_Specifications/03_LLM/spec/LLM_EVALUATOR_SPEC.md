@@ -6,13 +6,13 @@
 
 `LLM-EVALUATOR`는 병렬 워커가 수집한 `worker_results`를 정제하여 Final Answer Agent가 소비할 **압축 근거 묶음(`compact_context`)**을 생성하는 노드입니다.
 
-> **Phase 1 현황**: 현재 구현은 **결정론적 코드 노드**(LLM 아님)로, 중복 제거 + token budget 압축만 수행합니다. 명칭상의 "충분성 평가 및 commit/re-plan 제어 결정"은 **Phase 2 구현 예정**입니다.
+> **Phase 2 착수 현황**: 현재 구현은 중복 제거 + token budget 압축 후 `sufficient`, `missingInfo`, `nextPlanHint` 구조의 Evaluator 판단 DTO와 SSE 이벤트를 생성하고, 반복 한도 내에서 LangGraph re-plan 조건부 edge를 수행합니다.
 
 | 구분 | 기준 |
 | --- | --- |
 | 구현 위치 | `backend/app/agent/nodes/evaluator_node.py` (`evaluator_node`) |
-| 성격 | 결정론적 코드 노드 (Phase 1) → LLM 평가 에이전트 (Phase 2) |
-| 책임 | `worker_results` 중복 제거, 파일 경로 그룹핑, token budget 내 `compact_context` 생성 |
+| 성격 | 결정론적 압축 노드 + Phase 2 Evaluator Judge 계약 |
+| 책임 | `worker_results` 중복 제거, 파일 경로 그룹핑, token budget 내 `compact_context` 생성, 근거 충분성 판단 DTO 생성 |
 | 비책임 | 최초 계획 수립(→ PLANNER), 직접적인 도구 실행(→ TOOL), 최종 사용자 답변 렌더링(→ Chat) |
 
 ---
@@ -23,7 +23,7 @@
 | --- | --- | --- | --- |
 | LLM-EVALUATOR-B-201 | `worker_results` 중복 제거 및 파일 그룹핑 | Backend | Phase 1 |
 | LLM-EVALUATOR-B-202 | token budget 내 `compact_context` 압축 생성 | Backend | Phase 1 |
-| LLM-EVALUATOR-B-301 | LLM 근거 충분성 평가 및 commit/re-plan 제어 결정 | Backend | Phase 2 |
+| LLM-EVALUATOR-B-301 | 근거 충분성 판단 prompt/출력 스키마 및 re-plan 제어 결정 | Backend | Phase 2 |
 
 ---
 
@@ -60,17 +60,41 @@ Final Answer Agent의 컨텍스트 한도를 넘지 않도록 근거를 token bu
 
 ---
 
-## LLM-EVALUATOR-B-301: LLM 근거 충분성 평가 및 commit/re-plan 제어 결정 (Phase 2)
+## LLM-EVALUATOR-B-301: 근거 충분성 판단 prompt/출력 스키마 및 re-plan 제어 결정 (Phase 2)
 
 ### 1. 설명
-누적된 근거가 사용자 질문에 답하기 충분한지 LLM으로 평가하여 탐색을 종결(`commit`)하거나 추가 탐색(`re-plan`)을 지시합니다. (자가 교정 루프)
+누적된 근거가 사용자 질문에 답하기 충분한지 평가하기 위해 Evaluator Judge prompt와 구조화 출력 스키마를 정의합니다. 현재 노드는 API key가 없는 로컬/CI에서도 동작하도록 deterministic fallback 판단을 사용하며, 같은 DTO를 `evaluator_decision` 이벤트로 발행합니다. `sufficient=false`이고 `replan_count < max_replans`이면 `replan_started`를 발행하고 Planner로 되돌아갑니다.
 
-### 2. 입/출력 규격 (Phase 2 목표)
-- **Input**: `user_query`, `worker_results`(또는 `compact_context`)
-- **Output**: 제어 결정 JSON
-  - 충분: `{ "decision": "commit", "reason": "..." }`
-  - 부족: `{ "decision": "re-plan", "feedback": "..." }` → LLM-PLANNER-B-301로 전달
-- **현황**: 현재 `evaluator_node`는 결정론적 압축까지만 수행하며 commit/re-plan 판단은 미구현.
+### 2. 입/출력 규격
+- **Input**: `user_query`, `compact_context`
+- **Prompt builder**: `build_evaluator_messages(user_query, compact_context)`
+- **LLM factory**: `create_evaluator_llm()`
+- **Output DTO**:
 
-### 3. 완료 조건
-- (Phase 2) `re-plan` 루프가 최대 반복 한도 내에서 수렴하고, `commit` 시 `compact_context`가 Final Answer로 전달되어야 한다.
+```json
+{
+  "sufficient": true,
+  "missingInfo": [],
+  "nextPlanHint": null,
+  "reason": "파일 경로와 snippet 근거가 질문에 직접 대응합니다.",
+  "confidence": 0.72
+}
+```
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `sufficient` | Boolean | 현재 근거만으로 답변 가능한지 여부 |
+| `missingInfo` | String[] | 부족한 파일, 함수, 정책, 실행 흐름 등 추가 정보 |
+| `nextPlanHint` | String \| null | Planner가 다음 탐색 계획에 사용할 힌트 |
+| `reason` | String | 판단 근거 |
+| `confidence` | Number | 0~1 범위의 판단 신뢰도 |
+
+### 3. 발행 이벤트
+- `evidence_compacted`: 기존 Phase 1 압축 완료 이벤트
+- `evaluator_decision`: 위 DTO를 그대로 포함
+- `replan_started`: `sufficient=false`이고 반복 한도 전일 때 `missingInfo`, `nextPlanHint`, `iteration`, `maxIterations`를 포함하여 발행
+
+### 4. 완료 조건
+- Evaluator 판단 DTO가 `compact_context.evaluatorDecision`과 State `evaluator_decision`에 기록된다.
+- 프론트 타임라인에서 `evaluator_decision`, `replan_started`를 표시할 수 있다.
+- LangGraph 조건부 edge가 반복 한도 내에서 Planner로 되돌아가고, 한도 도달 또는 `sufficient=true`일 때 종료한다.

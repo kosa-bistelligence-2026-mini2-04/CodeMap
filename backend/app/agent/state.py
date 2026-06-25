@@ -37,6 +37,15 @@ class SecurityResult(TypedDict):
     rejected: list[AccessPlanItem]   # 거부된 계획 (path traversal 등)
 
 
+class EvaluatorDecision(TypedDict):
+    """Evaluator Node의 근거 충분성 판단 결과."""
+    sufficient: bool
+    missingInfo: list[str]
+    nextPlanHint: str | None
+    reason: str
+    confidence: float
+
+
 class CodeMapState(TypedDict):
     """
     LangGraph 공유 상태 (메모리).
@@ -65,6 +74,10 @@ class CodeMapState(TypedDict):
 
     # ── Evaluator 출력 ───────────────────────────────
     compact_context: dict             # token budget 내로 압축된 근거 묶음
+    evaluator_decision: EvaluatorDecision | None
+    replan_count: int                 # Evaluator re-plan 반복 횟수
+    max_replans: int                  # re-plan 최대 반복 횟수
+    replan_hint: str | None           # Planner가 다음 탐색에 사용할 힌트
 
     # ── 최종 출력 ─────────────────────────────────────
     final_answer: str | None          # Final Answer Agent가 생성한 최종 응답
