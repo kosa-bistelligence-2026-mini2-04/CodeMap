@@ -57,7 +57,7 @@ async def search_worker(state: CodeMapState) -> dict:
     try:
         from uuid import UUID as _UUID
         from app.infra.database import async_session_factory
-        from app.agent.tools.hybrid_search import hybrid_search
+        from app.tool.hybrid_search import hybrid_search
 
         async with async_session_factory() as db:
             hits = await hybrid_search(

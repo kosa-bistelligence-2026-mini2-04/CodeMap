@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from app.agent.tools.rrf import bm25_rank as _bm25_rank, rrf_score as _rrf_score
+from app.tool.rrf import bm25_rank as _bm25_rank, rrf_score as _rrf_score
 
 logger = logging.getLogger(__name__)
 
