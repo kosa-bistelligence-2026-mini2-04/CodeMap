@@ -159,7 +159,16 @@ class AnalysisPipelineSupervisor:
         self.logger.info(f"파이프라인 시작 (job_id={job_id})")
 
         # [Sec09 - ainvoke] 비동기 워크플로우 실행
-        result = await self.work_flow.ainvoke(initial_state)
+        try:
+            result = await self.work_flow.ainvoke(initial_state)
+        except Exception:
+            wall_time = time.perf_counter() - _t0_total
+            self.logger.exception(
+                "[파이프라인 예외 종료] job=%s | ainvoke 미처리 예외 | 벽시계=%.3f초",
+                job_id,
+                wall_time,
+            )
+            raise
 
         final_status = result.get("status", "UNKNOWN")
         self.logger.info(

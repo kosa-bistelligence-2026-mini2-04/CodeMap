@@ -62,6 +62,13 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("package.json", paths)
         self.assertTrue(all(not Path(path).is_absolute() for path in paths))
 
+    async def test_analyze_directory_records_file_lines_and_size(self):
+        by_path = {item.path: item for item in self.files}
+        main = by_path["backend/app/main.py"]
+
+        self.assertGreater(main.lines, 0)
+        self.assertGreater(main.size, 0)
+
     @unittest.skipUnless(_has("find_entry_points"), "find_entry_points(B-203) 미구현")
     async def test_entry_points_prioritize_main_before_index(self):
         entry_points = await parse_service.find_entry_points(self.files)
@@ -371,10 +378,38 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("backend/app/main.py", by_path["backend/app/service.py"].imported_by)
         self.assertGreaterEqual(by_path["backend/app/service.py"].risk_score, 1)
         self.assertEqual(by_path["backend/app/main.py"].language, "Python")
+        self.assertGreater(by_path["backend/app/main.py"].lines, 0)
+        self.assertGreater(by_path["backend/app/main.py"].size, 0)
 
         heatmap = await parse_service.build_heatmap(tagged)
         self.assertTrue(heatmap)
         self.assertGreaterEqual(heatmap[0].score, heatmap[-1].score)
+
+    @unittest.skipUnless(_has("build_file_map"), "Code Map 품질 보강 미구현")
+    async def test_risk_score_uses_keyword_boundaries(self):
+        files = [
+            rag_schemas.ParsedFile(
+                path="docs/administrator.md",
+                file_type="FILE",
+                depth=1,
+                content="administrator guide\n",
+                lines=1,
+                size=20,
+            ),
+            rag_schemas.ParsedFile(
+                path="docs/admin.md",
+                file_type="FILE",
+                depth=1,
+                content="admin guide\n",
+                lines=1,
+                size=12,
+            ),
+        ]
+
+        by_path = {item.path: item for item in await parse_service.build_file_map(files)}
+
+        self.assertEqual(by_path["docs/administrator.md"].risk_score, 0)
+        self.assertEqual(by_path["docs/admin.md"].risk_score, 20)
 
     @unittest.skipUnless(_has("parse_readme"), "parse_readme(B-201) 미구현")
     async def test_missing_readme_returns_none_without_model_call(self):

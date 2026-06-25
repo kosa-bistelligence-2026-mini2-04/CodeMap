@@ -32,7 +32,8 @@ def _references_from_worker_results(worker_results: list[dict]) -> list[dict]:
         file_path = result.get("path")
         if not file_path:
             continue
-        line = result.get("lineStart") or 1
+        line_start = result.get("lineStart")
+        line = line_start if line_start is not None else 1
         key = (str(file_path), int(line))
         if key in seen:
             continue
@@ -45,6 +46,18 @@ def _references_from_worker_results(worker_results: list[dict]) -> list[dict]:
     return references
 
 
+def _cancelled_event(run_id: str, record) -> dict:
+    return {"type": "cancelled", "runId": run_id, "cancelledAt": record.completed_at_iso}
+
+
+async def _replay_stream(record):
+    """Replay known events for reconnects without starting a second graph run."""
+    for event in record.events:
+        yield _event(event)
+    if not record.is_terminal:
+        yield _event({"type": "run_reconnect", "runId": record.run_id, "status": record.status})
+
+
 @router.post("/{repo_id}/runs", status_code=202)
 async def create_chat_run(repo_id: UUID, request: ChatRunRequest, db: AsyncSession = Depends(get_db)):
     """
@@ -52,17 +65,18 @@ async def create_chat_run(repo_id: UUID, request: ChatRunRequest, db: AsyncSessi
     """
     service = RepositoryChatService(db)
     try:
-        job, thread, mode, clone_path = await service.prepare(repo_id, request)
+        job, mode, clone_path = await service.prepare_run_context(repo_id, request)
     except ValueError as exc:
         raise HTTPException(status_code=409 if "준비" in str(exc) else 404, detail=str(exc)) from exc
 
     run_id = str(uuid.uuid4())
+    session_id = request.sessionId or uuid.uuid4()
+    prepared_request = request.model_copy(update={"sessionId": session_id})
     run_registry.create(
         run_id=run_id,
         repo_id=repo_id,
-        session_id=str(thread.id),
-        request=request,
-        thread=thread,
+        session_id=str(session_id),
+        request=prepared_request,
         job=job,
         clone_path=clone_path,
         mode=mode,
@@ -73,7 +87,7 @@ async def create_chat_run(repo_id: UUID, request: ChatRunRequest, db: AsyncSessi
         "message": "accepted",
         "data": {
             "runId": run_id,
-            "sessionId": str(thread.id),
+            "sessionId": str(session_id),
             "status": "queued",
             "streamUrl": f"/api/chat/{repo_id}/runs/{run_id}/stream",
             "statusUrl": f"/api/chat/{repo_id}/runs/{run_id}",
@@ -90,21 +104,27 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
     record = run_registry.get(run_id)
     if not record or record.repo_id != repo_id:
         raise HTTPException(status_code=404, detail="Run not found")
-    if record.status != "queued":
-        raise HTTPException(status_code=409, detail=f"Run is already {record.status}")
+    if not await record.claim_for_stream():
+        return StreamingResponse(
+            _replay_stream(record),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     request: ChatRunRequest = record.request
     clone_path = record.clone_path
     job = record.job
-    thread = record.thread
     mode = record.mode
     service = RepositoryChatService(db)
 
     async def stream():
+        thread = None
         try:
-            record.status = "running"
-            record.current_node = "graph_started"
-            record.started_at = time.time()
+            _, thread, _, _ = await service.prepare(
+                repo_id,
+                request,
+                commit_user_message=False,
+            )
             graph_started_event = {"type": "graph_started", "runId": run_id, "stateKeys": ["user_query"]}
             record.events.append(graph_started_event)
             yield _event(graph_started_event)
@@ -112,11 +132,12 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
             # Graph Stream
             async for event in service.run_agent_stream(repo_id, request.question, clone_path, run_id):
                 if record.cancel_event.is_set():
-                    record.status = "cancelled"
-                    record.completed_at = time.time()
-                    cancelled_event = {"type": "cancelled", "runId": run_id, "cancelledAt": record.completed_at_iso}
-                    record.events.append(cancelled_event)
+                    await record.mark_cancelled()
+                    cancelled_event = _cancelled_event(run_id, record)
+                    if not record.events or record.events[-1] != cancelled_event:
+                        record.events.append(cancelled_event)
                     yield _event(cancelled_event)
+                    await db.rollback()
                     return
 
                 if event.get("type") == "internal_state":
@@ -126,6 +147,14 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
                 record.events.append(event)
                 record.current_node = event.get("type")
                 yield _event(event)
+
+            if record.cancel_event.is_set():
+                await record.mark_cancelled()
+                cancelled_event = _cancelled_event(run_id, record)
+                record.events.append(cancelled_event)
+                yield _event(cancelled_event)
+                await db.rollback()
+                return
 
             record.status = "streaming"
             record.current_node = "answer_delta"
@@ -138,11 +167,12 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
                 mode=mode,
             ):
                 if record.cancel_event.is_set():
-                    record.status = "cancelled"
-                    record.completed_at = time.time()
-                    cancelled_event = {"type": "cancelled", "runId": run_id, "cancelledAt": record.completed_at_iso}
-                    record.events.append(cancelled_event)
+                    await record.mark_cancelled()
+                    cancelled_event = _cancelled_event(run_id, record)
+                    if not record.events or record.events[-1] != cancelled_event:
+                        record.events.append(cancelled_event)
                     yield _event(cancelled_event)
+                    await db.rollback()
                     return
 
                 if event.get("type") == "answer_delta":
@@ -150,8 +180,26 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
                 record.events.append(event)
                 yield _event(event)
 
-            # DB 저장
-            await service.persist_answer(thread, record.accumulated_answer, mode, record.worker_results)
+            if record.cancel_event.is_set():
+                await record.mark_cancelled()
+                cancelled_event = _cancelled_event(run_id, record)
+                record.events.append(cancelled_event)
+                yield _event(cancelled_event)
+                await db.rollback()
+                return
+
+            # DB 저장과 completed 전이를 같은 terminal lock 경계에서 처리한다.
+            async with record.transition_lock:
+                if record.is_terminal or record.cancel_event.is_set():
+                    cancelled_event = _cancelled_event(run_id, record)
+                    record.events.append(cancelled_event)
+                    yield _event(cancelled_event)
+                    await db.rollback()
+                    return
+                await service.persist_answer(thread, record.accumulated_answer, mode, record.worker_results)
+                record.status = "completed"
+                record.current_node = None
+                record.completed_at = time.time()
 
             # References
             record.references = _references_from_worker_results(record.worker_results)
@@ -160,23 +208,17 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
                 record.events.append(references_event)
                 yield _event(references_event)
 
-            record.status = "completed"
-            record.current_node = None
-            record.completed_at = time.time()
             completed_event = {"type": "completed", "runId": run_id, "status": "completed"}
             record.events.append(completed_event)
             yield _event(completed_event)
 
         except Exception as exc:
             logger.exception("[ChatRouter] SSE stream 오류 run=%s", run_id)
-            record.status = "failed"
-            record.error = str(exc)
-            record.completed_at = time.time()
+            await record.mark_failed(str(exc))
             failed_event = {"type": "failed", "runId": run_id, "error": str(exc)}
             record.events.append(failed_event)
             yield _event(failed_event)
-            if not record.accumulated_answer:
-                await db.rollback()
+            await db.rollback()
 
     return StreamingResponse(
         stream(),

@@ -113,8 +113,21 @@ def _analyze_directory_sync(clone_path: str) -> list[ParsedFile]:
             if file_count >= _MAX_FILES:
                 truncated = True
                 continue
+            try:
+                size = path.stat().st_size
+            except OSError:
+                size = 0
+            content = _read_text(path)
+            lines = len(content.splitlines()) if content else 0
             nodes.append(
-                ParsedFile(path=rel, file_type="FILE", depth=rel.count("/"), content=_read_text(path))
+                ParsedFile(
+                    path=rel,
+                    file_type="FILE",
+                    depth=rel.count("/"),
+                    content=content,
+                    lines=lines,
+                    size=size,
+                )
             )
             file_count += 1
 

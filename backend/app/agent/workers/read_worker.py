@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 
@@ -19,7 +20,7 @@ async def read_worker(state: CodeMapState) -> dict:
 
     logger.info("[ReadWorker] 시작 — path=%s", rel_path)
     started_event = {"type": "worker_started", "worker": "read", "target": rel_path or "."}
-    content = read_repository_file(clone_path, rel_path)
+    content = await asyncio.to_thread(read_repository_file, clone_path, rel_path)
     if not content:
         return {"worker_results": [], "events": [
             started_event,

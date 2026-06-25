@@ -7,7 +7,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "backend"))
@@ -29,10 +29,15 @@ class _FakeSettings:
         self.CLONE_BASE_DIR = clone_base_dir
 
 
+class _NoKeySettings(_FakeSettings):
+    OPENAI_API_KEY = _Secret("")
+
+
 class _FakeDB:
     def __init__(self):
         self.commits = 0
         self.flushes = 0
+        self.rollbacks = 0
 
     async def flush(self):
         self.flushes += 1
@@ -40,12 +45,48 @@ class _FakeDB:
     async def commit(self):
         self.commits += 1
 
+    async def rollback(self):
+        self.rollbacks += 1
+
 
 async def _async_value(value):
     return value
 
 
 class TestChatAnswerSafety(unittest.IsolatedAsyncioTestCase):
+    async def test_final_answer_uses_worker_results_when_compact_context_missing(self):
+        from app.chat.final_answer_agent import stream_final_answer
+
+        with patch("app.chat.final_answer_agent.get_settings", return_value=_NoKeySettings()):
+            events = [
+                event
+                async for event in stream_final_answer(
+                    repo_name="repo",
+                    user_query="where is login?",
+                    compact_context={},
+                    worker_results=[{
+                        "path": "app/auth.py",
+                        "lineStart": 3,
+                        "snippet": "def login(): pass",
+                        "metadata": {"worker": "read"},
+                    }],
+                    mode="standard",
+                )
+            ]
+
+        answer = "".join(event.get("content", "") for event in events)
+        self.assertIn("def login", answer)
+
+    async def test_references_preserve_zero_line_start(self):
+        from app.chat.router import _references_from_worker_results
+
+        references = _references_from_worker_results([
+            {"path": "app.py", "lineStart": 0, "snippet": "zero"},
+            {"path": "app.py", "lineStart": 1, "snippet": "one"},
+        ])
+
+        self.assertEqual([ref["line"] for ref in references], [0, 1])
+
     async def test_deep_mode_uses_gpt_4o_and_wraps_untrusted_evidence(self):
         from app.chat.final_answer_agent import stream_final_answer
 
@@ -232,6 +273,88 @@ class TestRunRegistry(unittest.TestCase):
         self.assertEqual(status["data"]["status"], "completed")
         self.assertEqual(status["data"]["state"]["workerResultCount"], 1)
         self.assertEqual(evidence["data"]["evidence"][0]["snippet"], "def login(): pass")
+
+
+class TestRunRegistryTransitions(unittest.IsolatedAsyncioTestCase):
+    async def test_claim_for_stream_allows_only_one_runner(self):
+        from app.chat.run_registry import RunRegistry
+
+        repo_id = uuid4()
+        record = RunRegistry().create(
+            run_id="run-1",
+            repo_id=repo_id,
+            session_id=str(uuid4()),
+            request=types.SimpleNamespace(question="hello"),
+        )
+
+        self.assertTrue(await record.claim_for_stream())
+        self.assertFalse(await record.claim_for_stream())
+        self.assertEqual(record.status, "running")
+
+    async def test_cancelled_run_cannot_be_completed_later(self):
+        from app.chat.run_registry import RunRegistry
+
+        record = RunRegistry().create(
+            run_id="run-1",
+            repo_id=uuid4(),
+            session_id=str(uuid4()),
+            request=types.SimpleNamespace(question="hello"),
+        )
+
+        self.assertTrue(await record.claim_for_stream())
+        self.assertTrue(await record.mark_cancelled())
+        self.assertFalse(await record.mark_completed())
+        self.assertEqual(record.status, "cancelled")
+
+    async def test_cleanup_old_removes_only_terminal_expired_runs(self):
+        from app.chat.run_registry import RunRegistry
+
+        registry = RunRegistry()
+        old_terminal = registry.create("old", uuid4(), str(uuid4()))
+        old_terminal.status = "completed"
+        old_terminal.created_at = 0
+        active = registry.create("active", uuid4(), str(uuid4()))
+        active.created_at = 0
+
+        self.assertEqual(registry.cleanup_old(max_age_seconds=1), 1)
+        self.assertIsNone(registry.get("old"))
+        self.assertIsNotNone(registry.get("active"))
+
+
+class TestChatRunCreation(unittest.IsolatedAsyncioTestCase):
+    async def test_create_chat_run_does_not_persist_user_message(self):
+        from app.chat import router as chat_router
+        from app.chat.run_registry import RunRegistry
+        from app.chat.schemas import ChatRunRequest
+
+        class FakeService:
+            def __init__(self, db):
+                self.db = db
+                self.prepare = AsyncMock()
+
+            async def prepare_run_context(self, repo_id, request):
+                return types.SimpleNamespace(repo_name="repo"), request.mode, "/tmp/repo"
+
+        registry = RunRegistry()
+        repo_id = uuid4()
+        db = _FakeDB()
+        with (
+            patch.object(chat_router, "RepositoryChatService", FakeService),
+            patch.object(chat_router, "run_registry", registry),
+        ):
+            response = await chat_router.create_chat_run(
+                repo_id,
+                ChatRunRequest(question="hello", mode="standard"),
+                db,
+            )
+
+        run_id = response["data"]["runId"]
+        record = registry.get(run_id)
+
+        self.assertIsNotNone(record)
+        self.assertEqual(response["data"]["sessionId"], record.session_id)
+        self.assertEqual(db.commits, 0)
+        self.assertEqual(db.flushes, 0)
 
 
 if __name__ == "__main__":

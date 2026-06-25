@@ -736,6 +736,8 @@ class AnalysisService:
                 logger.error("[RAG 인덱싱] rag_index 상태 기록 실패 job=%s: %s", job_id, _exc)
 
         try:
+            await _write_rag_index_status("in_progress")
+
             # 1. 분석 메타 조회 — 성공(COMPLETED) 건만 인덱싱한다.
             async with async_session_factory() as session:
                 repo = AnalysisJobRepository(session)

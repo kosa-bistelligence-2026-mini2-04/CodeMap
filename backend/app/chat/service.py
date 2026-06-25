@@ -52,6 +52,16 @@ class RepositoryChatService:
             await self.db.flush()
         return job, thread, request.mode, str(clone_path)
 
+    async def prepare_run_context(self, repo_id: UUID, request: ChatRunRequest):
+        """Run 생성 요청에서 DB 메시지 쓰기 없이 분석 job과 clone 경로만 검증한다."""
+        job = await self.job_repository.get_job_by_id(repo_id)
+        if not job:
+            raise ValueError("분석 프로젝트를 찾을 수 없습니다.")
+        clone_path = Path(self.settings.CLONE_BASE_DIR) / str(repo_id) / "repo"
+        if not clone_path.exists():
+            raise ValueError("저장소 스냅샷이 아직 준비되지 않았습니다.")
+        return job, request.mode, str(clone_path)
+
     async def run_agent(
         self,
         repo_id: UUID,

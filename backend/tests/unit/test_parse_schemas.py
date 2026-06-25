@@ -57,6 +57,8 @@ class RagSchemaContractTests(unittest.TestCase):
             file_type="FILE",
             depth=2,
             content="app = FastAPI()",
+            lines=1,
+            size=15,
         )
         result = rag_schemas.ParseResult(
             job_id=job_id,
@@ -86,6 +88,8 @@ class RagSchemaContractTests(unittest.TestCase):
         request = rag_schemas.EmbedRequest(job_id=result.job_id, files=result.files)
         self.assertEqual(request.job_id, job_id)
         self.assertEqual(request.files[0].path, "backend/app/main.py")
+        self.assertEqual(request.files[0].lines, 1)
+        self.assertEqual(request.files[0].size, 15)
         self.assertEqual(result.run_command_details.run, "uvicorn app.main:app")
         self.assertEqual(result.tech_stack_details[0].name, "FastAPI")
         self.assertEqual(result.language_composition[0].lines, 1)

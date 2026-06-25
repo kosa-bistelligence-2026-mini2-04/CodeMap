@@ -8,7 +8,6 @@ Run 상태 조회, 실행 취소, 근거(evidence) 조회를 담당합니다.
 from __future__ import annotations
 
 import logging
-import time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -56,9 +55,7 @@ async def cancel_run(
     if record.is_terminal:
         raise HTTPException(status_code=409, detail="Run already finished")
 
-    record.cancel_event.set()
-    record.status = "cancelled"
-    record.completed_at = time.time()
+    await record.mark_cancelled()
     return {
         "code": 200,
         "message": "cancelled",

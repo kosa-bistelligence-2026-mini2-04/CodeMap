@@ -48,6 +48,7 @@ class RunRecord:
 
     # 취소 제어
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
+    transition_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     @property
     def is_terminal(self) -> bool:
@@ -65,6 +66,48 @@ class RunRecord:
         if self.completed_at is None:
             return None
         return datetime.fromtimestamp(self.completed_at, tz=timezone.utc).isoformat()
+
+    async def claim_for_stream(self) -> bool:
+        """Atomically claim a queued run for the single active execution stream."""
+        async with self.transition_lock:
+            if self.status != "queued":
+                return False
+            self.status = "running"
+            self.current_node = "graph_started"
+            self.started_at = time.time()
+            return True
+
+    async def mark_cancelled(self) -> bool:
+        """Move to cancelled unless another terminal state already won."""
+        async with self.transition_lock:
+            if self.is_terminal:
+                return False
+            self.cancel_event.set()
+            self.status = "cancelled"
+            self.current_node = None
+            self.completed_at = time.time()
+            return True
+
+    async def mark_completed(self) -> bool:
+        """Move to completed only if cancellation/failure did not already win."""
+        async with self.transition_lock:
+            if self.is_terminal or self.cancel_event.is_set():
+                return False
+            self.status = "completed"
+            self.current_node = None
+            self.completed_at = time.time()
+            return True
+
+    async def mark_failed(self, error: str) -> bool:
+        """Move to failed unless a terminal state already won."""
+        async with self.transition_lock:
+            if self.is_terminal:
+                return False
+            self.status = "failed"
+            self.error = error
+            self.current_node = None
+            self.completed_at = time.time()
+            return True
 
     def to_status_response(self) -> dict:
         """GET /runs/{run_id} 응답용 dict."""
@@ -178,6 +221,13 @@ class RunRegistry:
         for rid in to_remove:
             del self._runs[rid]
         return len(to_remove)
+
+
+async def sweep_run_registry(interval_seconds: int = 300, max_age_seconds: int = 3600) -> None:
+    """Periodically prune terminal in-memory run records in single-process deployments."""
+    while True:
+        await asyncio.sleep(interval_seconds)
+        run_registry.cleanup_old(max_age_seconds=max_age_seconds)
 
 
 # 싱글톤 인스턴스
