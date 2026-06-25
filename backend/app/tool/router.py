@@ -5,12 +5,14 @@
 from __future__ import annotations
 
 import logging
+import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.database import get_db
+from app.tool.service import CodeMapToolService
 
 logger = logging.getLogger(__name__)
 
@@ -27,29 +29,37 @@ class ToolExecuteRequest(BaseModel):
 # ──────────────────────────────────────────────
 # MCP 도구 Job 실행 엔드포인트
 # ──────────────────────────────────────────────
-@router.post("/execute", status_code=501)
+@router.post("/execute")
 async def execute_tool_job(
     request: ToolExecuteRequest,
     db: AsyncSession = Depends(get_db),
 ):
     '''
     외부 혹은 에이전트로부터 요청받은 MCP 표준 I/O 도구 실행 요청을 처리합니다.
-    (Phase 2 실구현 연결 전까지 501/failed만 반환)
     '''
-    _ = db
+    job_id = _parse_uuid(request.job_id, "job_id")
+    run_id = _parse_uuid(request.run_id, "run_id")
     logger.info(
-        "[ToolRouter] 미구현 실행 요청 차단 — tool=%s, job_id=%s",
+        "[ToolRouter] 실행 요청 — tool=%s, job_id=%s",
         request.tool_name,
         request.job_id,
     )
 
-    return {
-        "code": 501,
-        "message": "not_implemented",
-        "status": "failed",
-        "data": {
-            "toolName": request.tool_name,
-            "jobId": request.job_id,
-            "runId": request.run_id,
-        },
-    }
+    try:
+        return await CodeMapToolService(db).execute_job(
+            job_id=job_id,
+            run_id=run_id,
+            tool_name=request.tool_name,
+            arguments=request.arguments,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _parse_uuid(value: str | None, field_name: str) -> uuid.UUID:
+    if not value:
+        return uuid.uuid4()
+    try:
+        return uuid.UUID(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"{field_name} must be a valid UUID") from exc
