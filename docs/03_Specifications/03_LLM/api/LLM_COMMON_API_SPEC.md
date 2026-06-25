@@ -66,6 +66,8 @@
 | `worker_started` | `worker`, `target` | worker 실행 시작 |
 | `worker_result` | `worker`, `resultCount`, `evidenceIds` | worker 결과 기록 |
 | `evidence_compacted` | `evidenceCount`, `compactContextReady` | evidence 정리 완료 |
+| `evaluator_decision` | `sufficient`, `missingInfo`, `nextPlanHint`, `reason`, `confidence` | 근거 충분성 판단 |
+| `replan_started` | `missingInfo`, `nextPlanHint`, `iteration`, `maxIterations` | 추가 탐색 계획 시작 |
 | `answer_delta` | `content` | 최종 답변 토큰 조각 |
 | `references` | `references[]` | 참조 파일 목록 |
 | `completed` | `runId`, `status` | 정상 종료 |

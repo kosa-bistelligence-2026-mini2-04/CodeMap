@@ -40,6 +40,40 @@
 - Next steps:
   - Push branch and open a PR after final reviewer-risk pass.
 
+## 2026-06-25 — Phase 2 evaluator decision and re-plan timeline
+
+- Current branch: `feat/phase2-evaluator-replan-loop`
+- Current goal: Finish oosuhada Phase 2 tasks from PR #126 follow-up: Evaluator judge prompt/schema and frontend timeline events.
+- Current status:
+  - Added `EvaluatorDecision` state shape with `sufficient`, `missingInfo`, `nextPlanHint`, `reason`, and `confidence`.
+  - Added Evaluator judge schema/prompt builder and `create_evaluator_llm()` factory.
+  - Updated `evaluator_node` to emit `evaluator_decision`; it emits `replan_started` when fallback judgment says evidence is insufficient and the retry limit allows another pass.
+  - Added the LangGraph conditional edge that routes Evaluator back to Planner until `max_replans` is reached.
+  - Updated chat stream types and `ChatInterface` to show `evaluator_decision` and `replan_started` in the exploration timeline.
+  - Updated LLM Evaluator, Agent, Chat, and Common API specs to include the Phase 2 event contract.
+- Validation:
+  - `backend/tests/unit`: 162 passed, 5 skipped with test-only PostgreSQL-form `DATABASE_URL`, `JWT_SECRET_KEY`, and `OPENAI_API_KEY`.
+  - `backend/.venv/bin/python -m compileall -q backend/app/agent backend/app/chat backend/app/tool` passed
+  - `eslint src/features/chat/api/chatApi.ts src/features/chat/components/ChatInterface.tsx` passed
+  - `next build --webpack` passed. Turbopack build was not used because the worktree borrows `node_modules` through a symlink and Turbopack rejects symlinks outside the project root.
+  - `git diff --check` passed
+  - Spec/code comparison for `evaluator_decision`, `replan_started`, `sufficient`, `missingInfo`, and `nextPlanHint` passed
+  - Real repo dogfood emitted `evaluator_decision` twice, emitted `replan_started` once, and recorded `compact_context.evaluatorDecision`
+- Files touched or likely relevant:
+  - `backend/app/agent/state.py`
+  - `backend/app/agent/llm_client.py`
+  - `backend/app/agent/nodes/evaluator_node.py`
+  - `backend/app/agent/service.py`
+  - `backend/tests/unit/test_agent.py`
+  - `backend/tests/unit/test_chat_issue_56.py`
+  - `frontend/src/features/chat/api/chatApi.ts`
+  - `frontend/src/features/chat/components/ChatInterface.tsx`
+  - `docs/03_Specifications/03_LLM/**`
+- Known issues:
+  - The current loop is intentionally capped at one re-plan pass by default (`max_replans=1`) to keep Phase 2 review scope bounded.
+- Next steps:
+  - Push branch and open a Draft PR after final reviewer-risk pass.
+
 ## 2026-06-25 — Run registry and Phase 1 stream contract alignment
 
 - Current branch: `refactor/split-core-to-infra-common`

@@ -5,6 +5,7 @@ AUTH 도메인 Service 계층 (PROJECT-AUTH)
 """
 
 import logging
+import hashlib
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -36,12 +37,22 @@ settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+def _prepare_password(plain: str) -> str:
+    return hashlib.sha256(plain.encode("utf-8")).hexdigest()
+
+
 def _hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    return pwd_context.hash(_prepare_password(plain))
 
 
 def _verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    prepared = _prepare_password(plain)
+    if pwd_context.verify(prepared, hashed):
+        return True
+    try:
+        return pwd_context.verify(plain, hashed)
+    except ValueError:
+        return False
 
 
 def _create_refresh_token(user_id: str, email: str) -> str:
@@ -120,13 +131,14 @@ class AuthService:
         await self.db.commit()
 
         logger.info("[AUTH] 로그인 성공: user_id=%s", user_id)
-        return LoginResponse(
+        response = LoginResponse(
             data=LoginData(
                 accessToken=access_token,
-                refreshToken=refresh_token,
                 expiresIn=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             )
         )
+        object.__setattr__(response, "refresh_token", refresh_token)
+        return response
 
     # ──────────────────────────────────────────────
     # 토큰 갱신 (PROJECT-AUTH-B-103)
@@ -183,13 +195,14 @@ class AuthService:
         await self.db.commit()
 
         logger.info("[AUTH] 토큰 갱신 (Rotation): user_id=%s", payload["sub"])
-        return RefreshResponse(
+        response = RefreshResponse(
             data=RefreshData(
                 accessToken=new_access_token,
-                refreshToken=new_refresh_token,
                 expiresIn=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             )
         )
+        object.__setattr__(response, "refresh_token", new_refresh_token)
+        return response
 
     # ──────────────────────────────────────────────
     # 로그아웃 (PROJECT-AUTH-B-105)

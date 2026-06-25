@@ -2,7 +2,7 @@
  * PROJECT-AUTH-F-103: 인증 상태 전역 관리 (Zustand)
  *
  * useAuthStore: { user, accessToken, isLoggedIn, login(), logout(), restoreSession() }
- * 페이지 새로고침 시 localStorage → store 자동 복원.
+ * 페이지 새로고침 시 httpOnly refresh cookie → access token 재발급으로 복원.
  */
 
 "use client";
@@ -14,6 +14,7 @@ import {
   refreshAccessToken,
   type LoginRequest,
 } from "@/features/auth/api/authApi";
+import { setAccessToken } from "@/features/auth/utils/tokenMemory";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ interface AuthState {
   /** 로그아웃: API 호출 + 토큰 제거 + store 초기화 */
   logout: () => Promise<void>;
 
-  /** 페이지 새로고침 시 localStorage → store 복원 */
+  /** 페이지 새로고침 시 refresh cookie → store 복원 */
   restoreSession: () => void;
 
   /** Access Token 만료 시 갱신 (fetch interceptor에서 호출) */
@@ -64,7 +65,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // 로그인
   // ──────────────────────────────────────────────
   login: async (payload: LoginRequest) => {
-    const resp = await apiLogin(payload); // 토큰은 authApi에서 localStorage에 저장
+    const resp = await apiLogin(payload);
     const { accessToken } = resp.data;
 
     const jwtPayload = parseJwtPayload(accessToken);
@@ -72,6 +73,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       ? { userId: jwtPayload.sub, email: jwtPayload.email }
       : null;
 
+    setAccessToken(accessToken);
     set({ accessToken, user, isLoggedIn: true });
   },
 
@@ -79,7 +81,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // 로그아웃
   // ──────────────────────────────────────────────
   logout: async () => {
-    await apiLogout(); // localStorage 토큰 제거 포함
+    await apiLogout(get().accessToken);
+    setAccessToken(null);
     set({ user: null, accessToken: null, isLoggedIn: false });
   },
 
@@ -88,25 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ──────────────────────────────────────────────
   restoreSession: () => {
     if (typeof window === "undefined") return;
-    const token = localStorage.getItem("cm-access-token");
-    if (!token) return;
-
-    const jwtPayload = parseJwtPayload(token);
-    if (!jwtPayload?.sub || !jwtPayload?.email) return;
-
-    // 만료 시간 확인
-    const payload = jwtPayload as { sub: string; email: string; exp?: number };
-    if (payload.exp && payload.exp * 1000 < Date.now()) {
-      // 만료 → refresh 시도
-      get().refreshToken();
-      return;
-    }
-
-    set({
-      accessToken: token,
-      user: { userId: payload.sub, email: payload.email },
-      isLoggedIn: true,
-    });
+    void get().refreshToken();
   },
 
   // ──────────────────────────────────────────────
@@ -115,6 +100,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshToken: async () => {
     const newToken = await refreshAccessToken();
     if (!newToken) {
+      setAccessToken(null);
       set({ user: null, accessToken: null, isLoggedIn: false });
       return null;
     }
@@ -125,6 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         ? { userId: jwtPayload.sub as string, email: jwtPayload.email as string }
         : null;
 
+    setAccessToken(newToken);
     set({ accessToken: newToken, user, isLoggedIn: true });
     return newToken;
   },

@@ -114,6 +114,8 @@
   - `worker_started` — 개별 워커 실행 시작
   - `worker_result` — 개별 워커 근거 수집
   - `evidence_compacted` — Evaluator 압축/충분성 평가 완료
+  - `evaluator_decision` — Evaluator의 `sufficient/missingInfo/nextPlanHint` 판단 결과
+  - `replan_started` — 반복 한도 내 근거 부족 시 Planner가 참고할 추가 탐색 힌트 발행
 - **Chat Application Layer 터미널 이벤트** (`chat/router.py`가 SSE stream에서 직접 발행):
   - `graph_started` — 그래프 실행 시작 (stream 핸들러 진입 시 발행)
   - `answer_delta` — Final Answer Agent 답변 토큰

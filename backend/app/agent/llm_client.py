@@ -21,6 +21,15 @@ def create_planner_llm() -> ChatOpenAI:
         temperature=0,
     )
 
+def create_evaluator_llm() -> ChatOpenAI:
+    """Create the deterministic evaluator judge model used for evidence sufficiency."""
+    settings = get_settings()
+    return ChatOpenAI(
+        model=settings.OPENAI_MODEL,
+        api_key=settings.OPENAI_API_KEY.get_secret_value(),
+        temperature=0,
+    )
+
 
 def create_final_answer_llm(*, mode: str = "quick", streaming: bool = True) -> ChatOpenAI:
     """Create the final-answer model used by the chat application layer."""
