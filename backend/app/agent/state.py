@@ -58,6 +58,8 @@ class CodeMapState(TypedDict):
     repo_id: str                      # 분석 대상 저장소 ID
     clone_path: str                   # 로컬 clone 경로
     run_id: str                       # Agent Run ID
+    session_id: str | None            # Chat session / LangGraph thread_id 매핑값
+    memory_context: dict              # DB에서 복원한 최근 대화 맥락
 
     # ── Planner Node 출력 ──────────────────────────────
     rewritten_query: str              # 오타 교정 및 의도 분석된 검색 쿼리
