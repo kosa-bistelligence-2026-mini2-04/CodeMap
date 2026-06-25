@@ -21,6 +21,8 @@ class ChatRepository:
             if thread:
                 return thread
         thread = Conversation(repo_id=repo_id, title=title[:160] or "새 대화")
+        if thread_id:
+            thread.id = thread_id
         self.db.add(thread)
         await self.db.flush()
         await self.db.refresh(thread)
