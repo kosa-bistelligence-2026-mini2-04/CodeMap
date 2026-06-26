@@ -1,0 +1,73 @@
+name: CI
+
+# 모든 PR과 main push에서 자동 실행되는 검증 워크플로우.
+# - backend: pytest(차단) + pyright 타입체크(현재 60건 정리 전까지 report-only)
+# - frontend: eslint + next build (초기 report-only)
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (pytest + pyright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m venv venv
+          venv/bin/pip install --upgrade pip
+          venv/bin/pip install -r requirements.txt
+
+      - name: pytest (unit)            # ✅ 차단: 실패 시 PR 머지 막힘
+        working-directory: backend
+        run: venv/bin/python -m pytest tests/unit -q
+
+      - name: pyright (type check)     # ⚠️ report-only: #152 양성 60건 정리 후 아래 줄 삭제하면 차단됨
+        continue-on-error: true
+        run: npx -y pyright@latest --pythonpath backend/venv/bin/python backend/app
+
+  frontend:
+    name: Frontend (lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: eslint                   # ⚠️ report-only (초기 안정화용)
+        continue-on-error: true
+        run: pnpm lint
+
+      - name: next build               # ⚠️ report-only (env 의존 시 조정 필요)
+        continue-on-error: true
+        run: pnpm build
