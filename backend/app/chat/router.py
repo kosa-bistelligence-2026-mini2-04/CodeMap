@@ -136,6 +136,7 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
                 clone_path,
                 run_id,
                 session_id=request.sessionId,
+                target_file=request.targetFile,
             ):
                 if record.cancel_event.is_set():
                     await record.mark_cancelled()

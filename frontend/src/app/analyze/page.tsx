@@ -89,6 +89,31 @@ function AnalyzeWorkspace() {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(searchParams.get("thread"));
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
+  const showConfirm = (title: string, message: string, showCancel: boolean = true) => {
+    return new Promise<boolean>((resolve) => {
+      setConfirmDialog({
+        isOpen: true,
+        title,
+        message,
+        onConfirm: () => {
+          setConfirmDialog(null);
+          resolve(true);
+        },
+        onCancel: showCancel ? () => {
+          setConfirmDialog(null);
+          resolve(false);
+        } : undefined,
+      });
+    });
+  };
 
   const loadJob = useCallback(async (id: string) => {
     try {
@@ -104,12 +129,10 @@ function AnalyzeWorkspace() {
             setReport(nextJob.report);
           }
         }
-        const ragStatus = nextJob.report?.rag_index?.status;
-        if (ragStatus === "pending" || ragStatus === "in_progress") {
-          setStatus("running"); // 백그라운드 임베딩 대기
-        } else {
-          setStatus("completed");
-        }
+        // RAG_INDEX 분리 (Issue #178)
+        // job 자체가 COMPLETED 라면 RAG 인덱싱 여부와 무관하게 즉시 리포트 화면을 열어준다.
+        // RAG 상태 표시는 화면 내 배너로 위임한다.
+        setStatus("completed");
       } else if (nextJob.status === "FAILED") {
         setStatus("failed");
         setError(nextJob.statusMessage || "분석에 실패했습니다.");
@@ -151,8 +174,10 @@ function AnalyzeWorkspace() {
         });
 
         if (valResp.data.isTruncated) {
-          window.alert(
-            `${valResp.data.warningMessage || "저장소가 너무 커서 분석을 진행할 수 없습니다."}`
+          await showConfirm(
+            isKo ? "분석 불가" : "Analysis Impossible",
+            valResp.data.warningMessage || (isKo ? "저장소가 너무 커서 분석을 진행할 수 없습니다." : "Repository is too large to analyze."),
+            false
           );
           setStatus("idle");
           setShowNewAnalysis(true);
@@ -160,8 +185,9 @@ function AnalyzeWorkspace() {
         }
 
         if (valResp.data.warningMessage) {
-          const proceed = window.confirm(
-            `${valResp.data.warningMessage}\n\n계속해서 분석을 진행하시겠습니까?`
+          const proceed = await showConfirm(
+            isKo ? "경고" : "Warning",
+            `${valResp.data.warningMessage}\n\n${isKo ? "계속해서 분석을 진행하시겠습니까?" : "Do you want to proceed with the analysis?"}`
           );
           if (!proceed) {
             setStatus("idle");
@@ -333,6 +359,7 @@ function AnalyzeWorkspace() {
             initialPromptKey={chatPromptNonce}
             onThreadChange={setThreadId}
             onReferenceClick={(file) => setSelectedFile(file)}
+            onClearContextFile={() => setSelectedFile(null)}
             expandHref={fullChatUrl}
           />
         </aside>
@@ -341,7 +368,7 @@ function AnalyzeWorkspace() {
       {mobileChatOpen && (
         <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm xl:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileChatOpen(false); }}>
           <div className="absolute inset-y-0 right-0 w-full max-w-[430px] border-l border-zinc-800 bg-zinc-950 shadow-2xl">
-            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file) => setSelectedFile(file)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
+            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file) => setSelectedFile(file)} onClearContextFile={() => setSelectedFile(null)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
           </div>
         </div>
       )}
@@ -363,6 +390,40 @@ function AnalyzeWorkspace() {
               ) : (
                 <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setMobileSidebarOpen(false); }} className="border-r-0" />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog && confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className={`w-full max-w-sm rounded-2xl border p-5 shadow-2xl ${isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-white"}`}>
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div>
+                <h3 className={`text-base font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>{confirmDialog.title}</h3>
+                <p className={`mt-1 text-sm leading-relaxed whitespace-pre-wrap ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+                  {confirmDialog.message}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              {confirmDialog.onCancel && (
+                <button
+                  onClick={confirmDialog.onCancel}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${isDark ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-zinc-100 text-zinc-600"}`}
+                >
+                  {isKo ? "취소" : "Cancel"}
+                </button>
+              )}
+              <button
+                onClick={confirmDialog.onConfirm}
+                className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600"
+              >
+                {isKo ? "확인" : "Confirm"}
+              </button>
             </div>
           </div>
         </div>

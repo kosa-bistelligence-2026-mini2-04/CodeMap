@@ -66,6 +66,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ──────────────────────────────────────────────
   login: async (payload: LoginRequest) => {
     const resp = await apiLogin(payload);
+    if (!resp.data) throw new Error("No data returned");
     const { accessToken } = resp.data;
 
     const jwtPayload = parseJwtPayload(accessToken);

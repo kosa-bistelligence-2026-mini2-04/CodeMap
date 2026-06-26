@@ -13,17 +13,16 @@ interface AgentExplorationTimelineProps {
 export function AgentExplorationTimeline({ steps, isStreaming }: AgentExplorationTimelineProps) {
   const { theme } = useApp();
   const isDark = theme === "dark";
-  const [isOpen, setIsOpen] = useState(isStreaming || steps.length > 0);
-  const [prevStepCount, setPrevStepCount] = useState(steps.length);
+  const [isOpen, setIsOpen] = useState(isStreaming);
   const [prevStreaming, setPrevStreaming] = useState(isStreaming);
 
-  // 새로운 스텝이 추가되거나 스트리밍이 시작되면 자동으로 열림
-  if (steps.length > prevStepCount || (isStreaming && !prevStreaming)) {
-    setPrevStepCount(steps.length);
-    setPrevStreaming(isStreaming);
-    if (!isOpen) setIsOpen(true);
+  // 답변 생성 중(isStreaming)에는 열어두고, 스트리밍 종료 시 자동으로 닫기
+  if (isStreaming && !prevStreaming) {
+    setPrevStreaming(true);
+    setIsOpen(true);
   } else if (!isStreaming && prevStreaming) {
-    setPrevStreaming(isStreaming);
+    setPrevStreaming(false);
+    setIsOpen(false);
   }
 
   if (!steps || steps.length === 0) return null;

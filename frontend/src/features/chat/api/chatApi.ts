@@ -9,6 +9,7 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   mode?: ChatMode;
+  contextFile?: string;
   explorationSteps?: string[];
   references?: CodeReference[];
   suggestions?: string[];
@@ -145,6 +146,7 @@ export async function* streamChat(
         question: message,
         mode: MODE_MAP[mode] || "lite",
         sessionId: options.threadId || undefined,
+        targetFile: options.contextFile || undefined,
       }),
     });
     if (!response.ok) {

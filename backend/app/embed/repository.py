@@ -104,8 +104,14 @@ class EmbedRepository:
                 "content": None,
                 "summary": file.summary,
                 "embedding": None,              # 파일 대표 노드는 임베딩 없음
-                # parse 단계 metadata(is_config 등)를 보존한 채 파일 노드 표식만 덧붙인다.
-                "file_metadata": {**(file.metadata or {}), "is_file_node": True},
+                # parse 단계 metadata(is_config 등)를 보존한 채 파일 노드 표식 및 메타데이터를 덧붙인다.
+                "file_metadata": {
+                    **(file.metadata or {}),
+                    "is_file_node": True,
+                    "lines": file.lines,
+                    "chars": file.chars,
+                    "size": file.size,
+                },
                 "language": file.language,
             })
 

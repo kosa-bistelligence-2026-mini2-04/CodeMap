@@ -32,11 +32,6 @@ type ModelOption = {
 const CUSTOM_MODELS: ModelOption[] = [
   { id: "gpt-4o-mini", label: "GPT-4o mini", tag: "fast" },
   { id: "gpt-4o", label: "GPT-4o" },
-  { id: "gpt-5.5", label: "GPT-5.5", tag: "thinking" },
-  { id: "claude-4.6-sonnet", label: "Claude Sonnet 4.6", tag: "thinking", disabled: true },
-  { id: "claude-4.6-opus", label: "Claude Opus 4.6", tag: "thinking", disabled: true },
-  { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro", disabled: true },
-  { id: "gemini-3.1-flash", label: "Gemini 3.1 Flash", tag: "fast", disabled: true },
 ];
 
 export function RepoInput({
