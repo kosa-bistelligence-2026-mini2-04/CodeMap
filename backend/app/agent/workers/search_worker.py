@@ -16,7 +16,7 @@ async def search_worker(state: CodeMapState) -> dict:
     """
     Run hybrid search for the current plan item and append raw evidence.
     """
-    item = state.get("_plan_item", {})
+    item = state.get("_plan_item") or {}
     query = item.get("query", state.get("rewritten_query", state["user_query"]))
     repo_id = state.get("repo_id", "")
     clone_path = state.get("clone_path", "")

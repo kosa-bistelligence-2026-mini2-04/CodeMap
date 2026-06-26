@@ -96,9 +96,11 @@ async def stream_final_answer(
     compact_context: dict,
     worker_results: list[dict],
     mode: str = "quick",
-) -> AsyncIterator[str]:
+) -> AsyncIterator[dict]:
     '''
     Final Answer Agent — SSE 이벤트 스트림 생성기.
+
+    각 항목은 `{"type": "answer_delta", "content": str}` 형태의 dict이다.
     '''
     settings = get_settings()
 
@@ -122,7 +124,16 @@ async def stream_final_answer(
                     content=f"저장소: {repo_name}\n\n질문: {safe_user_query}"
                 ),
             ]):
-                token = chunk.content
+                # chunk.content는 str 또는 멀티모달 list(content block)일 수 있다.
+                # list면 텍스트 블록만 결합해 항상 str로 정규화한다(str + list TypeError 방지).
+                raw = chunk.content
+                if isinstance(raw, list):
+                    token = "".join(
+                        part if isinstance(part, str) else str(part.get("text", ""))
+                        for part in raw
+                    )
+                else:
+                    token = raw if isinstance(raw, str) else ""
                 if token:
                     accumulated += token
                     yield {"type": "answer_delta", "content": token}

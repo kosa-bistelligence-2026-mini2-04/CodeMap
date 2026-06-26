@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 async def read_worker(state: CodeMapState) -> dict:
     """Read a bounded repository file for the current plan item."""
-    item = state.get("_plan_item", {})
+    item = state.get("_plan_item") or {}
     rel_path = item.get("path", "")
     clone_path = state.get("clone_path", "")
 

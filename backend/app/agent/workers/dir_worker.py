@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 async def dir_worker(state: CodeMapState) -> dict:
     """Run a bounded directory scan for the current plan item."""
-    item = state.get("_plan_item", {})
+    item = state.get("_plan_item") or {}
     rel_path = item.get("path", "")
     clone_path = state.get("clone_path", "")
 
