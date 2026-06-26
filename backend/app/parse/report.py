@@ -8,12 +8,14 @@ single place for the canonical keys used by future B-210 integration work.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Union
+
+JsonDict = dict[str, Union[str, int, float, bool, list, dict, None]]
 
 from app.parse.schemas import RunCommandSet
 
 
-def normalize_run_commands(value: Any) -> RunCommandSet:
+def normalize_run_commands(value: Union[JsonDict, list[Union[str, int, float, bool, dict, list, None]], None]) -> RunCommandSet:
     """Normalize legacy list or object run command shapes into RunCommandSet."""
     if isinstance(value, dict):
         return RunCommandSet(
@@ -38,12 +40,12 @@ def normalize_run_commands(value: Any) -> RunCommandSet:
     return RunCommandSet()
 
 
-def report_files(report_json: dict[str, Any]) -> list[dict[str, Any]]:
+def report_files(report_json: JsonDict) -> list[JsonDict]:
     files = report_json.get("files", [])
     return files if isinstance(files, list) else []
 
 
-def report_tech_stack(report_json: dict[str, Any]) -> list:
+def report_tech_stack(report_json: JsonDict) -> list:
     """Read canonical tech_stack, falling back to legacy analyzer stack."""
     stack = report_json.get("tech_stack")
     if stack is None:
@@ -51,7 +53,7 @@ def report_tech_stack(report_json: dict[str, Any]) -> list:
     return stack if isinstance(stack, list) else []
 
 
-def report_tech_stack_details(report_json: dict[str, Any]) -> list[dict[str, Any]]:
+def report_tech_stack_details(report_json: JsonDict) -> list[JsonDict]:
     stack = report_json.get("tech_stack_details")
     if isinstance(stack, list) and stack:
         return [item for item in stack if isinstance(item, dict)]
@@ -61,7 +63,7 @@ def report_tech_stack_details(report_json: dict[str, Any]) -> list[dict[str, Any
     ]
 
 
-def report_entry_points(report_json: dict[str, Any]) -> list:
+def report_entry_points(report_json: JsonDict) -> list:
     """Read canonical entry_points, falling back to legacy analyzer entrypoints."""
     entry_points = report_json.get("entry_points")
     if entry_points is None:
@@ -69,7 +71,7 @@ def report_entry_points(report_json: dict[str, Any]) -> list:
     return entry_points if isinstance(entry_points, list) else []
 
 
-def report_entry_point_details(report_json: dict[str, Any]) -> list[dict[str, Any]]:
+def report_entry_point_details(report_json: JsonDict) -> list[JsonDict]:
     entry_points = report_json.get("entry_point_details")
     if isinstance(entry_points, list) and entry_points:
         return [item for item in entry_points if isinstance(item, dict)]
@@ -79,21 +81,21 @@ def report_entry_point_details(report_json: dict[str, Any]) -> list[dict[str, An
     ]
 
 
-def report_readme_summary(report_json: dict[str, Any]) -> str:
+def report_readme_summary(report_json: JsonDict) -> str:
     readme = report_json.get("readme_summary")
     if readme is None:
         readme = report_json.get("executive_summary", "")
     return str(readme or "")
 
 
-def report_master_summary(report_json: dict[str, Any]) -> str:
+def report_master_summary(report_json: JsonDict) -> str:
     master = report_json.get("master_summary")
     if master is None:
         master = report_json.get("executive_summary", "")
     return str(master or "")
 
 
-def report_config_files(files: list[dict[str, Any]]) -> list[str]:
+def report_config_files(files: list[JsonDict]) -> list[str]:
     return [
         item["path"]
         for item in files
@@ -106,27 +108,27 @@ def report_config_files(files: list[dict[str, Any]]) -> list[str]:
     ]
 
 
-def report_directory_tree(report_json: dict[str, Any]) -> str | None:
+def report_directory_tree(report_json: JsonDict) -> str | None:
     tree = report_json.get("directory_tree")
     return str(tree) if tree else None
 
 
-def report_file_map(report_json: dict[str, Any]) -> list[dict[str, Any]]:
+def report_file_map(report_json: JsonDict) -> list[JsonDict]:
     file_map = report_json.get("file_map", [])
     return [item for item in file_map if isinstance(item, dict)] if isinstance(file_map, list) else []
 
 
-def report_heatmap(report_json: dict[str, Any]) -> list[dict[str, Any]]:
+def report_heatmap(report_json: JsonDict) -> list[JsonDict]:
     heatmap = report_json.get("heatmap", [])
     return [item for item in heatmap if isinstance(item, dict)] if isinstance(heatmap, list) else []
 
 
-def report_folder_summaries(report_json: dict[str, Any]) -> list[dict[str, Any]]:
+def report_folder_summaries(report_json: JsonDict) -> list[JsonDict]:
     summaries = report_json.get("folder_summaries", [])
     return [item for item in summaries if isinstance(item, dict)] if isinstance(summaries, list) else []
 
 
-def report_file_summaries(report_json: dict[str, Any]) -> list[dict[str, Any]]:
+def report_file_summaries(report_json: JsonDict) -> list[JsonDict]:
     summaries = report_json.get("file_summaries", [])
     if isinstance(summaries, list) and summaries:
         return [item for item in summaries if isinstance(item, dict)]

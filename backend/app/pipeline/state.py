@@ -13,6 +13,7 @@ from typing import Annotated, Any, Optional
 from typing_extensions import TypedDict
 
 from langgraph.graph.message import add_messages
+from langchain_core.messages import BaseMessage
 
 
 # [Sec09 - ShareState] 파이프라인 전 노드가 공유하는 상태 정의
@@ -28,7 +29,7 @@ class PipelineState(TypedDict):
 
     # [Sec09 - add_messages] LangChain 메시지 히스토리
     # 각 Agent의 응답이 누적되어 다음 노드에서 컨텍스트로 활용된다.
-    messages: Annotated[list[dict[str, Any]], add_messages]
+    messages: Annotated[list[BaseMessage], add_messages]
 
     # 분석 작업 식별자
     job_id: str

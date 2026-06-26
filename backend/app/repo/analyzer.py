@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Union
 
 
 IGNORED_DIRS = {
@@ -83,12 +83,12 @@ def _read_text(path: Path, limit: int = 160_000, root: Path | None = None) -> st
         return ""
 
 
-def scan_repository(root_path: str, repo_name: str) -> dict[str, Any]:
+def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int, list, dict]]:
     root = Path(root_path).resolve()
     if not root.exists():
         raise FileNotFoundError(f"Repository snapshot is unavailable: {root}")
 
-    files: list[dict[str, Any]] = []
+    files: list[dict[str, Union[str, int]]] = []
     languages: Counter[str] = Counter()
     stack: set[str] = set()
     entrypoints: list[str] = []
@@ -204,10 +204,10 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Any]:
     }
 
 
-def search_repository(root_path: str, query: str, limit: int = 6) -> list[dict[str, Any]]:
+def search_repository(root_path: str, query: str, limit: int = 6) -> list[dict[str, Union[str, int]]]:
     root = Path(root_path).resolve()
     terms = {token.lower() for token in TOKEN_RE.findall(query) if len(token) > 2}
-    results: list[tuple[int, dict[str, Any]]] = []
+    results: list[tuple[int, dict[str, Union[str, int]]]] = []
     for path in _iter_files(root, limit=900):
         relative = path.relative_to(root).as_posix()
         text = _read_text(path, limit=100_000)

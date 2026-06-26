@@ -84,7 +84,7 @@ def _deduplicate(results: list[WorkerResult]) -> list[WorkerResult]:
     return deduped
 
 
-def build_evaluator_messages(user_query: str, compact_context: dict) -> list[SystemMessage | HumanMessage]:
+def build_evaluator_messages(user_query: str, compact_context: dict[str, Any]) -> list[SystemMessage | HumanMessage]:
     """Build the LLM judge prompt for Phase 2 evidence sufficiency decisions."""
     return [
         SystemMessage(content=_EVALUATOR_SYSTEM_PROMPT),
@@ -96,7 +96,7 @@ def build_evaluator_messages(user_query: str, compact_context: dict) -> list[Sys
     ]
 
 
-def _fallback_evaluator_decision(user_query: str, compact_context: dict) -> EvaluatorDecision:
+def _fallback_evaluator_decision(user_query: str, compact_context: dict[str, Any]) -> EvaluatorDecision:
     """Deterministic decision used until the LLM judge is wired into the graph loop."""
     selected_count = int(compact_context.get("selectedEvidenceCount") or 0)
     grouped_by_file = compact_context.get("groupedByFile") or {}
@@ -119,7 +119,7 @@ def _fallback_evaluator_decision(user_query: str, compact_context: dict) -> Eval
     }
 
 
-def evaluator_node(state: CodeMapState) -> dict:
+def evaluator_node(state: CodeMapState) -> dict[str, Any]:
     """Build compact_context from raw worker_results."""
     raw_results: list[WorkerResult] = state.get("worker_results", [])
     logger.info("[Evaluator] 시작 — 원본 결과 수=%d", len(raw_results))

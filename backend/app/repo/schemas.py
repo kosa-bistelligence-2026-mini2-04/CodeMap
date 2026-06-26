@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, JsonValue
 
 from app.common.schemas import ErrorResponse
 
@@ -229,7 +229,7 @@ class JobStatusData(BaseModel):
     progress: int = Field(default=0, ge=0, le=100, description="전체 진행률")
     statusMessage: Optional[str] = Field(default=None, description="현재 상태 설명")
     model: str = Field(default="auto", description="분석 모델 정책")
-    report: Optional[dict[str, Any]] = Field(default=None, description="완료된 구조 분석 리포트")
+    report: Optional[dict[str, JsonValue]] = Field(default=None, description="완료된 구조 분석 리포트")
     createdAt: datetime = Field(
         description="작업 생성 시각"
     )

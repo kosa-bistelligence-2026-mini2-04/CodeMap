@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Union
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -52,7 +52,7 @@ def _strip_json_fence(raw: str) -> str:
     return text.strip()
 
 
-def _content_to_text(content: Any) -> str:
+def _content_to_text(content: Union[str, list, dict]) -> str:
     """Normalize LangChain string or multimodal list content into parseable text."""
     if isinstance(content, str):
         return content
@@ -108,7 +108,7 @@ def build_planner_messages(state: CodeMapState) -> list[SystemMessage | HumanMes
     ]
 
 
-async def planner_node(state: CodeMapState) -> dict:
+async def planner_node(state: CodeMapState) -> dict[str, Union[str, list, dict]]:
     """
     Planner LLM node.
 

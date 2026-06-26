@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import uuid
 from secrets import compare_digest
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/tools", tags=["tools"])
 
 class ToolExecuteRequest(BaseModel):
     tool_name: str
-    arguments: dict
+    arguments: dict[str, Any]
     job_id: str | None = None
     run_id: str | None = None
 
