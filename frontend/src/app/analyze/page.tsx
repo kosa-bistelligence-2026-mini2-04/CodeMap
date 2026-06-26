@@ -18,6 +18,7 @@ import {
 import { RepoInput, type RepoSource } from "@/features/repository/components/RepoInput";
 import { HistoryList } from "@/features/history/components/HistoryList";
 import { WorkspaceReport } from "@/features/analysis/components/WorkspaceReport";
+import { CodePreviewPanel } from "@/features/analysis/components/CodePreviewPanel";
 import { FileTree } from "@/features/chat/components/FileTree";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
@@ -318,7 +319,22 @@ function AnalyzeWorkspace() {
             </div>
           )}
 
-          {status === "completed" && report && <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={setSelectedFile} />}
+          {status === "completed" && report && (
+            <div className={`flex min-h-0 gap-0 ${selectedFile ? "h-full" : ""}`}>
+              <div className={`min-w-0 ${selectedFile ? "hidden xl:block xl:flex-1" : "flex-1"}`}>
+                <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={setSelectedFile} />
+              </div>
+              {selectedFile && jobId && (
+                <div className="w-full flex-1 xl:max-w-[600px]">
+                  <CodePreviewPanel
+                    jobId={jobId}
+                    filePath={selectedFile}
+                    onClose={() => setSelectedFile(null)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <aside className={`hidden w-[400px] shrink-0 border-l xl:block ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>

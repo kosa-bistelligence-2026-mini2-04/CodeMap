@@ -140,6 +140,38 @@ export function buildWsUrl(wsPath: string): string {
 }
 
 /**
+ * GET /api/repo/analysis/{jobId}/files/content — job 기준 파일 컨텐츠 조회
+ */
+export async function fetchFileContent(
+  jobId: string,
+  path: string,
+): Promise<{
+  data: {
+    path: string;
+    content: string;
+    language: string | null;
+    lines: number;
+    truncated: boolean;
+  };
+}> {
+  const resp = await fetch(
+    apiPath(
+      `/repo/analysis/${encodeURIComponent(jobId)}/files/content?path=${encodeURIComponent(path)}`,
+    ),
+    { headers: { Authorization: getAuthorizationHeader() } },
+  );
+
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(
+      errData?.message || `파일을 불러오지 못했습니다. (HTTP ${resp.status})`,
+    );
+  }
+
+  return await resp.json();
+}
+
+/**
  * POST /api/list/validate — 저장소 사전 검증
  */
 export async function validateRepository(
