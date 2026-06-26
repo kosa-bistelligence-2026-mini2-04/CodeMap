@@ -13,9 +13,34 @@ import { AgentExplorationTimeline } from "./AgentExplorationTimeline";
 interface ChatMessageProps {
   message: ChatMessageType;
   isStreaming?: boolean;
-  onReferenceClick?: (file: string, line: number) => void;
+  onReferenceClick?: (file: string, line?: number | null, lineEnd?: number | null) => void;
   onSuggestionSelect?: (question: string) => void;
 }
+
+type ChatReference = NonNullable<ChatMessageType["references"]>[number];
+
+const fileBasename = (path: string) => path.split("/").filter(Boolean).at(-1) || path;
+
+const normalizeLine = (value: unknown): number | null => (
+  typeof value === "number" && Number.isFinite(value) ? value : null
+);
+
+const getReferenceLineStart = (reference: ChatReference) => (
+  normalizeLine(reference.lineStart) ?? normalizeLine(reference.line)
+);
+
+const getReferenceLineEnd = (reference: ChatReference) => normalizeLine(reference.lineEnd);
+
+const getReferenceLineLabel = (reference: ChatReference) => {
+  if (reference.lineLabel) return reference.lineLabel;
+  const lineStart = getReferenceLineStart(reference);
+  const lineEnd = getReferenceLineEnd(reference);
+  if (lineStart === null) return "라인 미확인";
+  if (lineEnd !== null && lineEnd !== lineStart) return `L${lineStart}-${lineEnd}`;
+  return `L${lineStart}`;
+};
+
+const compactSnippet = (snippet?: string) => snippet?.replace(/\s+/g, " ").trim() || "";
 
 export const ChatMessageBubble = memo(function ChatMessageBubble({
   message,
@@ -23,9 +48,10 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
   onReferenceClick,
   onSuggestionSelect,
 }: ChatMessageProps) {
-  const { t } = useApp();
+  const { t, theme } = useApp();
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
+  const isDark = theme === "dark";
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);
@@ -154,19 +180,47 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
             </div>
 
             {message.references && message.references.length > 0 && !isStreaming && (
-              <div className="flex flex-wrap gap-1.5 border-t border-zinc-800/70 pt-3">
-                {message.references.map((reference) => (
-                  <button
-                    key={`${reference.file}:${reference.line}`}
-                    type="button"
-                    onClick={() => onReferenceClick?.(reference.file, reference.line)}
-                    className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-950/60 px-2 py-1 font-mono text-[9px] text-zinc-400 transition hover:border-blue-500/40 hover:text-blue-300"
-                    title={reference.snippet}
-                  >
-                    <FileCode2 className="size-3 shrink-0" />
-                    <span className="truncate">{reference.file}:{reference.line}</span>
-                  </button>
-                ))}
+              <div className={`flex flex-wrap gap-2 border-t pt-3 ${isDark ? "border-zinc-800/70" : "border-zinc-200"}`}>
+                {message.references.map((reference, index) => {
+                  const lineStart = getReferenceLineStart(reference);
+                  const lineEnd = getReferenceLineEnd(reference);
+                  const lineLabel = getReferenceLineLabel(reference);
+                  const basename = fileBasename(reference.file);
+                  const snippet = compactSnippet(reference.snippet);
+                  const title = [reference.file, lineLabel, snippet].filter(Boolean).join("\n");
+                  return (
+                    <button
+                      key={`${reference.file}:${lineLabel}:${index}`}
+                      type="button"
+                      onClick={() => onReferenceClick?.(reference.file, lineStart, lineEnd)}
+                      className={`inline-flex min-w-0 max-w-full flex-col items-start gap-1 rounded-lg border px-2.5 py-2 text-left font-mono transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                        isDark
+                          ? "border-blue-500/40 bg-blue-500/10 text-blue-100 hover:border-cyan-300/70 hover:bg-blue-500/15"
+                          : "border-blue-200 bg-blue-50 text-blue-950 hover:border-blue-400 hover:bg-blue-100"
+                      }`}
+                      title={title}
+                      aria-label={`근거 파일 ${basename}, ${lineLabel}, ${reference.file}`}
+                    >
+                      <span className="flex w-full min-w-0 items-center gap-1.5">
+                        <FileCode2 className={`size-3.5 shrink-0 ${isDark ? "text-cyan-300" : "text-blue-600"}`} />
+                        <span className="min-w-0 truncate text-[10px] font-bold">{basename}</span>
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                          isDark ? "bg-cyan-300/15 text-cyan-100" : "bg-blue-600 text-white"
+                        }`}>
+                          {lineLabel}
+                        </span>
+                      </span>
+                      <span className={`max-w-full truncate text-[9px] ${isDark ? "text-blue-100/75" : "text-blue-900/70"}`}>
+                        {reference.file}
+                      </span>
+                      {snippet && (
+                        <span className={`max-w-full truncate text-[9px] ${isDark ? "text-zinc-200/80" : "text-zinc-700"}`}>
+                          {snippet}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
