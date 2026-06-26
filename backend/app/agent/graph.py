@@ -31,6 +31,12 @@ def route_after_evaluator(state: CodeMapState) -> str:
     decision = state.get("evaluator_decision") or {}
     replan_count = int(state.get("replan_count") or 0)
     max_replans = int(state.get("max_replans") or 0)
+    # 한도 부등호 주의: evaluator_node는 *증가 전* 값으로 `replan_count < max_replans`를
+    # 판정해 should_replan일 때만 replan_count를 +1 증가시키고 replan_hint를 설정한다.
+    # 이 라우터는 그 *증가 후* 값을 읽으므로 `replan_count <= max_replans`가 맞다
+    # ((count_before + 1) <= max  ⟺  count_before < max). 부등호가 다른 것은 비교 대상이
+    # 증가 전/후로 다르기 때문이며 evaluator와 동일한 한도다(불일치 아님). replan_hint가
+    # should_replan일 때만 설정되므로 사실상 단일 신호로 게이트된다.
     if decision.get("sufficient") is False and state.get("replan_hint") and replan_count <= max_replans:
         return "planner_node"
     return END
