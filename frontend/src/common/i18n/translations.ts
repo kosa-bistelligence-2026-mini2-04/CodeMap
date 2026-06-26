@@ -13,6 +13,8 @@ export const translations = {
       chat: "Chat",
       launchApp: "Launch App",
       github: "GitHub",
+      signIn: "Sign In",
+      signUp: "Sign Up",
     },
 
     // ── Home hero ─────────────────────────────────────────────────────────────
@@ -400,6 +402,8 @@ export const translations = {
       chat: "채팅",
       launchApp: "앱 실행",
       github: "GitHub",
+      signIn: "로그인",
+      signUp: "회원가입",
     },
 
     // ── Home hero ─────────────────────────────────────────────────────────────
