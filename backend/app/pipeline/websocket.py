@@ -16,9 +16,9 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
 from app.infra.database import async_session_factory
-from app.repo.event_manager import event_manager
+from app.pipeline.event_manager import event_manager
 from app.repo.repository import AnalysisJobRepository
-from app.repo.schemas import JobStatus
+from app.pipeline.schemas import JobStatus
 
 logger = logging.getLogger(__name__)
 
