@@ -28,6 +28,7 @@
 | --- | --- | --- | --- | --- |
 | `question` | String | Y | - | 사용자 자연어 질문 |
 | `sessionId` | UUID | N | auto | 기존 대화 세션에 이어서 질문할 때 사용 |
+| `clientRequestId` | String | N | auto | Issue #173: 중복 submit 방지/idempotency 추적용 클라이언트 요청 ID |
 | `mode` | String | N | `standard` | `lite`, `standard`, `deep` |
 | `includeEvidence` | Boolean | N | true | 최종 응답에 evidence metadata 포함 여부 |
 | `maxToolCalls` | Integer | N | 8 | 전체 worker tool call 최대 횟수 |
@@ -44,6 +45,7 @@ Authorization: Bearer {access_token}
 
 {
   "question": "로그인 로직 어딨어?",
+  "clientRequestId": "chat-submit-20260626-001",
   "mode": "standard",
   "includeEvidence": true,
   "maxToolCalls": 8,
@@ -62,6 +64,7 @@ Authorization: Bearer {access_token}
 | `message` | String | `accepted` |
 | `data.runId` | UUID | 생성된 agent run ID |
 | `data.sessionId` | UUID | 대화 세션 ID |
+| `data.clientRequestId` | String | 요청에 사용된 클라이언트 요청 ID |
 | `data.status` | String | `queued` 또는 `running` |
 | `data.streamUrl` | String | SSE endpoint |
 | `data.statusUrl` | String | 상태 조회 endpoint |
@@ -77,6 +80,7 @@ Authorization: Bearer {access_token}
   "data": {
     "runId": "2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10",
     "sessionId": "a0de8d29-92a4-4fd6-a657-2d22f4c0cc75",
+    "clientRequestId": "chat-submit-20260626-001",
     "status": "queued",
     "streamUrl": "/api/chat/8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f/runs/2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10/stream",
     "statusUrl": "/api/chat/8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f/runs/2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10",
@@ -97,8 +101,17 @@ Authorization: Bearer {access_token}
 | 403 | `PRIVATE_RESOURCE_DENIED` | 권한 검증 | Phase 2: 다른 사용자의 private repo/chat 접근 |
 | 404 | `REPO_NOT_FOUND` | repo 조회 | 저장소 없음 |
 | 404 | `TARGET_FILE_NOT_FOUND` | 첨부 파일 검증 | repo workspace 또는 분석 결과에 없는 파일 |
+| 409 | `DUPLICATE_CHAT_RUN` | 중복 submit 검증 | 같은 `clientRequestId` 또는 동일 질문 run이 이미 생성/진행 중 |
 | 409 | `REPO_NOT_ANALYZED` | 사전 검증 | 분석/임베딩 미완료 |
 | 500 | `LLM_RUN_CREATE_FAILED` | run 생성 | run 생성 실패 |
+
+### Issue #173 404/409 방어 계약
+
+- 프론트는 `repo_id`를 현재 선택된 completed analysis job에서 가져와야 하며, 임의 문자열이나 GitHub repository ID를 사용하지 않습니다.
+- run 생성 성공 후에는 응답의 `streamUrl`, `statusUrl`, `evidenceUrl`을 사용합니다. legacy path를 조합해 호출하지 않습니다.
+- 분석 job이 존재하지 않으면 404 `REPO_NOT_FOUND`, 분석/임베딩이 끝나지 않았으면 409 `REPO_NOT_ANALYZED`를 반환합니다.
+- 같은 submit에 대해 `clientRequestId`가 중복되면 새 run을 만들지 않고 409 `DUPLICATE_CHAT_RUN` 또는 기존 run 정보를 반환하는 idempotent 정책 중 하나로 통일합니다.
+- 사용자가 빠르게 두 번 전송해도 프론트는 submit lock을 걸고, 백엔드는 `clientRequestId`로 한 번 더 방어합니다.
 
 ### targetFiles 처리 계약
 
@@ -280,4 +293,6 @@ sequenceDiagram
 | 401 | `UNAUTHORIZED` | 인증 검증 | 토큰 누락 또는 만료 |
 | 403 | `TEAM_ACCESS_DENIED` | 권한 검증 | Phase 2: run 대상 repo 또는 thread에 접근 권한 없음 |
 | 404 | `LLM_RUN_NOT_FOUND` | run 조회 | run 없음 |
+| 409 | `RUN_REPO_MISMATCH` | run/repo 검증 | run은 존재하지만 path의 `repo_id`와 연결되지 않음 |
+| 409 | `LLM_RUN_ALREADY_FINISHED` | 상태 검증 | 이미 완료/실패/취소된 run에 재스트림 또는 취소 요청 |
 | 500 | `AGENT_STREAM_FAILED` | stream 처리 | stream 초기화 또는 전송 실패 |

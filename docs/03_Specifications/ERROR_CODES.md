@@ -99,9 +99,12 @@
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | :--- | :--- | :--- | :--- |
 | 400 | `INVALID_CHAT_REQUEST` | 입력 검증 | 요청이 유효하지 않음 (예: 최대 길이 초과) |
+| 404 | `REPO_NOT_FOUND` | repo 조회 | repo_id가 존재하지 않거나 현재 사용자가 접근할 수 없음 |
 | 409 | `REPO_NOT_ANALYZED` | 사전 검증 | 임베딩 및 분석이 완료되지 않아 에이전트 실행 불가 |
 | 404 | `LLM_RUN_NOT_FOUND` | 상태 조회/스트림 | 존재하지 않는 run_id |
 | 404 | `AGENT_EVIDENCE_NOT_FOUND` | 근거 조회 | 존재하지 않거나 만료된 증거 데이터 |
+| 409 | `DUPLICATE_CHAT_RUN` | Run 생성 | 같은 clientRequestId 또는 동일 질문 run이 이미 생성/진행 중 |
+| 409 | `RUN_REPO_MISMATCH` | 상태 조회/스트림 | run_id는 존재하지만 path의 repo_id와 연결되지 않음 |
 | 409 | `LLM_RUN_ALREADY_FINISHED` | 취소/스트림 | 이미 종료된 run_id에 대한 요청 |
 | 409 | `AGENT_EVIDENCE_NOT_READY` | 근거 조회 | 아직 워커 수집이 완료되지 않아 Evidence 접근 불가 |
 | 500 | `LLM_RUN_CREATE_FAILED` | Run 생성 | LangGraph 초기화 및 Run 생성 실패 |
