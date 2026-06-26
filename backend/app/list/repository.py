@@ -68,12 +68,15 @@ class AnalysisJobListRepository:
         await self.db.refresh(job)
         return self._to_status_update_model(job)
 
-    async def delete_job(self, job_id: UUID) -> bool:
+    async def delete_job(self, job_id: UUID, user_id: UUID | None = None) -> bool:
         """분석 작업 엔티티를 삭제합니다."""
         stmt = select(AnalysisJob).where(AnalysisJob.id == job_id)
         result = await self.db.execute(stmt)
         job = result.scalar_one_or_none()
         if job:
+            if user_id and job.user_id and job.user_id != user_id:
+                # 권한이 없는 경우 조용히 False 반환하여 404/403 처리 유도 (서비스 단에서 처리)
+                return False
             await self.db.delete(job)
             await self.db.commit()
             return True

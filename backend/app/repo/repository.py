@@ -43,6 +43,8 @@ class AnalysisJobRepository:
         branch: str,
         model_used: str = "auto",
         force_refresh: bool = False,
+        user_id: Any | None = None,
+        is_private: bool = False,
     ) -> AnalysisJob:
         """
         새로운 분석 작업 레코드를 DB에 생성한다.
@@ -63,10 +65,13 @@ class AnalysisJobRepository:
             branch=branch,
             status=JobStatus.IN_PROGRESS.value,
             stage=None,
-            progress=0,
-            message="분석 작업이 등록되었습니다.",
             model_used=model_used,
             force_refresh=force_refresh,
+            user_id=user_id,
+            is_private=is_private,
+            progress=0,
+            message="분석 작업이 등록되었습니다.",
+
         )
         self.db.add(job) # DB에 INSERT 준비
         try:

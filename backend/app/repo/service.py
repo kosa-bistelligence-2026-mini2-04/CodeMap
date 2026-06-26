@@ -134,7 +134,7 @@ class AnalysisService:
     # ──────────────────────────────────────────
     # API-001: 프로젝트 등록 (분석 요청)
     # ──────────────────────────────────────────
-    async def register_analysis(self, request: AnalysisRequest, background_tasks: BackgroundTasks) -> AnalysisResponse:
+    async def register_analysis(self, request: AnalysisRequest, background_tasks: BackgroundTasks, user_id: Any | None = None) -> AnalysisResponse:
         """
         GitHub 저장소 분석 작업을 등록하고 job_id를 발급한다.
 
@@ -180,6 +180,8 @@ class AnalysisService:
             branch=branch,
             model_used=request.model,
             force_refresh=request.forceRefresh,
+            user_id=user_id,
+            is_private=request.isPrivate,
         )
 
         # 5. [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 실행

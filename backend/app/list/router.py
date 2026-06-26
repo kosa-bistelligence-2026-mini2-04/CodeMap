@@ -311,7 +311,8 @@ async def delete_analysis_job(
     current_user: Annotated[dict, Depends(get_current_user)],
     service: ListServiceDep,
 ):
-    success = await service.delete_job(job_id)
+    user_id = UUID(current_user["sub"]) if "sub" in current_user else None
+    success = await service.delete_job(job_id, user_id=user_id)
     if not success:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"success": True, "message": "Job deleted"}

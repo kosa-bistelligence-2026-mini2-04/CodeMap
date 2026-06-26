@@ -87,6 +87,7 @@ export interface AnalyzeRequest {
   branch?: string;
   model?: string;
   forceRefresh?: boolean;
+  isPrivate?: boolean;
 }
 
 export interface AnalysisData {

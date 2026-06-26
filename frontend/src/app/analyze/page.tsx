@@ -160,6 +160,7 @@ function AnalyzeWorkspace() {
     branch?: string;
     force_refresh?: boolean;
     model?: string;
+    is_private?: boolean;
   }) => {
     setStatus("running");
     setError(null);
@@ -203,6 +204,7 @@ function AnalyzeWorkspace() {
         branch: input.branch,
         model: input.model || "auto",
         forceRefresh: input.force_refresh || false,
+        isPrivate: input.is_private || false,
       });
       const id = response.data.jobId;
       setJobId(id);

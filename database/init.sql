@@ -21,6 +21,25 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
 ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS model_used VARCHAR(255) NOT NULL DEFAULT 'auto';
 ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS force_refresh BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS report_json JSONB;
+ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS user_id UUID;
+ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS team_id UUID;
+ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 2.5 Teams
+CREATE TABLE IF NOT EXISTS teams (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS team_members (
+    id UUID PRIMARY KEY,
+    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 
 -- 3. 소스코드 원문 테이블 (1: 파일 정보 및 원문 저장)
 CREATE TABLE IF NOT EXISTS source_files (
@@ -176,7 +195,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     role VARCHAR(20) NOT NULL,
     content TEXT NOT NULL,
     mode VARCHAR(20) NOT NULL DEFAULT 'quick',
-    references JSONB NOT NULL DEFAULT '[]'::jsonb,
+    "references" JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -192,7 +211,7 @@ END
 $$;
 
 -- 데이터베이스 및 스키마 권한 부여
-GRANT CONNECT ON DATABASE codemap TO codemap_service;
+GRANT CONNECT ON DATABASE codemap_db TO codemap_service;
 GRANT USAGE ON SCHEMA public TO codemap_service;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO codemap_service;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO codemap_service;

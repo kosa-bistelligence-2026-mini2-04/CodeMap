@@ -49,6 +49,7 @@ class AnalysisRequest(BaseModel):
 
     model: str = Field(default="auto", description="분석 모델 정책. 기본값은 자동 선택")
     forceRefresh: bool = Field(default=False, description="기존 스냅샷을 무시하고 새로 분석")
+    isPrivate: bool = Field(default=False, description="나만 보기 (Private) 분석 여부")
 
 
 # ──────────────────────────────────────────────

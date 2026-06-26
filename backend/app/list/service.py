@@ -109,9 +109,9 @@ class ListService:
         )
         return AnalysisJobStatusUpdateResult(job=job)
 
-    async def delete_job(self, job_id: UUID) -> bool:
+    async def delete_job(self, job_id: UUID, user_id: UUID | None = None) -> bool:
         """분석 이력을 삭제합니다."""
-        return await self.repository.delete_job(job_id)
+        return await self.repository.delete_job(job_id, user_id=user_id)
 
     def _to_db_status(self, status: str) -> str:
         """API 상태값을 DB 저장 상태값으로 변환합니다."""
@@ -197,7 +197,7 @@ class ListService:
             raise ValidationFailedError("GitHub 저장소 정보를 가져오는 중 서버 오류가 발생했습니다.") from exc
 
         # API-005 스펙 준수: 제한 기준 설정값 DTO 상시 반환용 기본 인스턴스 생성
-        limit = PreValidateLimit(fileCount=100, fileSizeKb=100)
+        limit = PreValidateLimit(fileCount=500, fileSizeKb=500)
 
         ## 이슈 #별도 제안: truncated 응답 처리
         ## GitHub Trees API는 큼 저장소에서 truncated=true를 내립니다.
@@ -220,7 +220,7 @@ class ListService:
         file_count = 0
         total_size = 0
         max_file_size = 0
-        any_file_exceeds_100kb = False
+        any_file_exceeds_limit = False
 
         for item in tree:
             if item.get("type") == "blob":
@@ -236,8 +236,8 @@ class ListService:
                 file_count += 1
                 total_size += size
                 max_file_size = max(max_file_size, size)
-                if size > 100 * 1024:
-                    any_file_exceeds_100kb = True
+                if size > 500 * 1024:
+                    any_file_exceeds_limit = True
 
         total_size_kb = (total_size + 1023) // 1024
         max_file_size_kb = (max_file_size + 1023) // 1024 if max_file_size > 0 else 0
@@ -249,14 +249,14 @@ class ListService:
         warning_message = None
         warning_code = None
 
-        if file_count > 100 and any_file_exceeds_100kb:
+        if file_count > 500 and any_file_exceeds_limit:
             warning_message = "저장소 파일 수와 개별 파일 용량 제한을 모두 초과하였습니다. 핵심 파일만 선별하여 분석을 진행해야 합니다."
             warning_code = "REPO_LIMIT_EXCEEDED"
-        elif file_count > 100:
-            warning_message = "저장소 파일 수가 100개를 초과합니다. 핵심 파일만 선별하여 분석을 진행해야 합니다."
+        elif file_count > 500:
+            warning_message = "저장소 파일 수가 500개를 초과합니다. 핵심 파일만 선별하여 분석을 진행해야 합니다."
             warning_code = "FILE_COUNT_EXCEEDED"
-        elif any_file_exceeds_100kb:
-            warning_message = "100KB를 초과하는 대용량 파일이 존재합니다. 해당 파일은 분석 대상에서 제외되거나 제한적으로 분석될 수 있습니다."
+        elif any_file_exceeds_limit:
+            warning_message = "500KB를 초과하는 대용량 파일이 존재합니다. 해당 파일은 분석 대상에서 제외되거나 제한적으로 분석될 수 있습니다."
             warning_code = "FILE_SIZE_EXCEEDED"
 
         is_valid = warning_message is None
