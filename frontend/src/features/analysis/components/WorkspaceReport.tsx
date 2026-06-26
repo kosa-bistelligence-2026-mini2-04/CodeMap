@@ -97,7 +97,7 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
       />
 
       {/* 새롭게 추가된 대시보드 시각화 컴포넌트 */}
-      <DashboardCharts />
+      <DashboardCharts report={report} />
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <section className={`rounded-2xl border p-5 shadow-sm ${card}`}>

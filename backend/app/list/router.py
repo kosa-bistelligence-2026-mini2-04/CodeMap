@@ -297,3 +297,23 @@ async def validate_repository(
         branch=request.branch,
     )
 
+# ──────────────────────────────────────────────
+# 분석 이력 삭제 API
+# DELETE /api/list/analysis/{job_id}
+# ──────────────────────────────────────────────
+@router.delete(
+    "/analysis/{job_id}",
+    summary="분석 이력 삭제",
+    description="선택한 분석 작업 이력을 삭제합니다.",
+)
+async def delete_analysis_job(
+    job_id: UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: ListServiceDep,
+):
+    success = await service.delete_job(job_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"success": True, "message": "Job deleted"}
+
+

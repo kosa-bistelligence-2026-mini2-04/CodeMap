@@ -13,6 +13,7 @@ interface RepoInputProps {
     branch?: string;
     force_refresh?: boolean;
     model?: string;
+    is_private?: boolean;
   }) => void;
   disabled?: boolean;
   defaultMode?: RepoSource;
@@ -47,6 +48,7 @@ export function RepoInput({
   const [model, setModel] = useState<"fast" | "thinking">("fast");
   const [customModel, setCustomModel] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [touched, setTouched] = useState(false);
   const inputId = useId();
   const forceId = useId();
@@ -72,6 +74,7 @@ export function RepoInput({
       branch: branch.trim() || undefined,
       force_refresh: forceRefresh,
       model: customModel.trim() || model,
+      is_private: isPrivate,
     });
   };
 
@@ -215,6 +218,21 @@ export function RepoInput({
               <span className="block text-[11px] font-medium">{t.repoInput.forceRefresh}</span>
               <span className="mt-0.5 block text-[10px] leading-relaxed text-zinc-500">
                 {t.repoInput.forceRefreshDesc}
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2.5 mt-3">
+            <input
+              type="checkbox"
+              checked={isPrivate}
+              onChange={(event) => setIsPrivate(event.target.checked)}
+              disabled={disabled}
+              className="mt-0.5 size-3.5 rounded border-zinc-600 bg-zinc-900 text-blue-500"
+            />
+            <span>
+              <span className="block text-[11px] font-medium">나만 보기 (Private)</span>
+              <span className="mt-0.5 block text-[10px] leading-relaxed text-zinc-500">
+                팀원들과 공유하지 않고 혼자만 볼 수 있는 분석 기록으로 저장합니다.
               </span>
             </span>
           </label>

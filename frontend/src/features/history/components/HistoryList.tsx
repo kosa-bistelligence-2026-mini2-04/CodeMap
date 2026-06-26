@@ -6,6 +6,8 @@ import { RefreshCw, CheckCircle2, XCircle, Clock, Github, FolderOpen } from "luc
 import type { RepoSource } from "@/features/repository/components/RepoInput";
 import { useApp } from "@/common/contexts/AppContext";
 import { fetchAnalysisHistory } from "@/features/analysis/api/api";
+import { deleteAnalysisJob } from "@/features/analysis/api/api";
+import { Trash2 } from "lucide-react";
 
 interface AnalysisRow {
   job_id: string;
@@ -72,6 +74,8 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
 
   const { theme, t } = useApp();
   const isDark = theme === "dark";
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | AnalysisRow["status"]>("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,6 +144,27 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
         </button>
       </div>
 
+      <div className={`border-b p-3 flex flex-col gap-2 ${headerBorderClass}`}>
+        <input
+          type="text"
+          placeholder="저장소 이름으로 검색..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className={`w-full rounded border px-2 py-1.5 text-[11px] ${isDark ? "bg-zinc-900 border-zinc-700 text-white placeholder-zinc-500 focus:border-blue-500" : "bg-white border-zinc-300 text-zinc-900 placeholder-zinc-400 focus:border-blue-500"}`}
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "all" | AnalysisRow["status"])}
+          className={`w-full rounded border px-2 py-1.5 text-[11px] ${isDark ? "bg-zinc-900 border-zinc-700 text-white focus:border-blue-500" : "bg-white border-zinc-300 text-zinc-900 focus:border-blue-500"}`}
+        >
+          <option value="all">모든 상태</option>
+          <option value="completed">완료됨</option>
+          <option value="running">분석 중</option>
+          <option value="queued">대기 중</option>
+          <option value="failed">실패함</option>
+        </select>
+      </div>
+
       <div>
         {error && (
           <p className="px-4 py-3 text-[11px] text-red-400 font-medium">{t.historyList.loadFailed} {error}</p>
@@ -153,7 +178,10 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
 
         <ul className={`max-h-[400px] overflow-y-auto divide-y transition-colors ${dividerClass}`}>
           <AnimatePresence initial={false}>
-            {items.map((it) => {
+            {items
+              .filter((it) => (statusFilter === "all" ? true : it.status === statusFilter))
+              .filter((it) => it.path.toLowerCase().includes(searchQuery.toLowerCase()))
+              .map((it) => {
               const cfg = STATUS_CONFIG[it.status];
               const StatusIcon = cfg.icon;
               const isGithub = it.source === "github";
@@ -196,6 +224,19 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
                         {it.total_pipeline_ms != null && (
                           <span className={isDark ? "text-zinc-600" : "text-zinc-400"}>{(it.total_pipeline_ms / 1000).toFixed(1)}s</span>
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm("이 분석 기록을 삭제하시겠습니까?")) {
+                              deleteAnalysisJob(it.job_id).then(load).catch(console.error);
+                            }
+                          }}
+                          className={`ml-2 p-1 rounded-md transition-colors ${isDark ? "hover:bg-zinc-700 hover:text-red-400" : "hover:bg-zinc-200 hover:text-red-500"}`}
+                          title="삭제"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
                     </div>
                   </button>

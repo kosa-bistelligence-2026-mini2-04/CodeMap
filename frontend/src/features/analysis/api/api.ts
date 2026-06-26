@@ -162,3 +162,20 @@ export async function validateRepository(
 
   return await resp.json();
 }
+
+/**
+ * DELETE /api/list/analysis/{jobId} — 분석 작업 삭제
+ */
+export async function deleteAnalysisJob(jobId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/list/analysis/${jobId}`), {
+    method: "DELETE",
+    headers: {
+      Authorization: getAuthorizationHeader(),
+    },
+  });
+
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.error || `Failed to delete analysis job: ${resp.status}`);
+  }
+}

@@ -27,6 +27,7 @@ from app.chat.run_registry import sweep_run_registry
 from app.agent.router import router as agent_router
 from app.parse.router import router as parse_router
 from app.tool.router import router as tool_router
+from app.team.router import router as team_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -133,3 +134,5 @@ app.include_router(parse_router)
 
 # MCP Tools API: Phase 2 실구현 전까지 단일 JSON body를 수신하되 501/failed만 반환한다.
 app.include_router(tool_router)
+
+app.include_router(team_router)

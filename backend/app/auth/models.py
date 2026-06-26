@@ -97,3 +97,51 @@ class RefreshToken(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+# ──────────────────────────────────────────────
+# teams 테이블
+# ──────────────────────────────────────────────
+class Team(Base):
+    """
+    팀 엔티티
+    """
+    __tablename__ = "teams"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+# ──────────────────────────────────────────────
+# team_members 테이블
+# ──────────────────────────────────────────────
+class TeamMember(Base):
+    """
+    팀 멤버 매핑 테이블 (회원 <-> 팀)
+    role: "owner", "member", "pending" 등
+    """
+    __tablename__ = "team_members"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    team_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(50), nullable=False, default="member")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
