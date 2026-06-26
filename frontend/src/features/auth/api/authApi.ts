@@ -61,6 +61,8 @@ export interface LogoutResponse {
 
 // ── API 함수 ─────────────────────────────────────────────────────────────────
 
+import { parseApiError } from "@/common/api/error";
+
 /**
  * 회원가입 (AUTH-API-001)
  * POST /api/auth/register
@@ -72,6 +74,9 @@ export async function register(payload: RegisterRequest): Promise<RegisterRespon
     credentials: "include",
     body: JSON.stringify(payload),
   });
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
   const data: RegisterResponse = await resp.json();
   if (!data.success) {
     throw new Error(data.message || `회원가입 실패`);
@@ -91,6 +96,9 @@ export async function login(payload: LoginRequest): Promise<LoginResponse> {
     credentials: "include",
     body: JSON.stringify(payload),
   });
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
   const data: LoginResponse = await resp.json();
   if (!data.success) {
     throw new Error(data.message || `로그인 실패`);
