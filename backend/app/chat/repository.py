@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chat.models import ChatMessage, Conversation
@@ -20,7 +21,6 @@ class ChatRepository:
             thread = result.scalar_one_or_none()
             if thread:
                 return thread
-        from sqlalchemy.exc import IntegrityError
         thread = Conversation(repo_id=repo_id, title=title[:160] or "새 대화")
         if thread_id:
             thread.id = thread_id
@@ -29,11 +29,16 @@ class ChatRepository:
             await self.db.flush()
         except IntegrityError:
             await self.db.rollback()
+            if not thread_id:
+                raise
             result = await self.db.execute(select(Conversation).where(
                 Conversation.id == thread_id,
                 Conversation.repo_id == repo_id,
             ))
-            return result.scalar_one()
+            existing_thread = result.scalar_one_or_none()
+            if existing_thread is None:
+                raise
+            return existing_thread
         await self.db.refresh(thread)
         return thread
 

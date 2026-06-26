@@ -83,6 +83,35 @@ def _summarize_prior_evidence(state: CodeMapState) -> list[dict]:
     return summaries
 
 
+def _with_target_file_plan(
+    plan: list[AccessPlanItem],
+    target_file: str | None,
+) -> list[AccessPlanItem]:
+    """Ensure a selected file is read before broader search plans run."""
+    if not target_file:
+        return plan
+
+    normalized_target = target_file.strip().replace("\\", "/")
+    if not normalized_target:
+        return plan
+
+    target_read: AccessPlanItem = {
+        "tool": "read",
+        "path": normalized_target,
+        "query": normalized_target,
+        "scope": "file",
+    }
+    remaining = [
+        item
+        for item in plan
+        if not (
+            item.get("tool") == "read"
+            and (item.get("path") or "").strip().replace("\\", "/") == normalized_target
+        )
+    ]
+    return [target_read, *remaining][:4]
+
+
 def build_planner_messages(state: CodeMapState) -> list[SystemMessage | HumanMessage]:
     """Build Planner prompt messages for both initial planning and Evaluator re-planning."""
     user_query = state["user_query"]
@@ -138,7 +167,9 @@ async def planner_node(state: CodeMapState) -> dict[str, Union[str, list, dict]]
             ],
         }
 
-    plan: list[AccessPlanItem] = data.get("access_plan", [])
+    raw_plan = data.get("access_plan", [])
+    plan: list[AccessPlanItem] = raw_plan if isinstance(raw_plan, list) else []
+    plan = _with_target_file_plan(plan, state.get("target_file"))
     logger.info("[Planner] 완료 — plan 항목 수=%d", len(plan))
 
     selected_workers = sorted({p.get("tool", "search") for p in plan})
