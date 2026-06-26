@@ -66,7 +66,15 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
         }}
       >
         {isUser ? (
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <div className="flex flex-col gap-2">
+            {message.contextFile && (
+              <div className="flex items-center gap-1.5 opacity-80">
+                <FileCode2 className="size-3 text-blue-400" />
+                <span className="font-mono text-[10px] text-zinc-300">{message.contextFile}</span>
+              </div>
+            )}
+            <p className="whitespace-pre-wrap">{message.content}</p>
+          </div>
         ) : (
           <div className="flex flex-col gap-3">
             {/* Agent Exploration Steps */}

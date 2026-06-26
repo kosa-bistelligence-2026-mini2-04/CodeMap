@@ -20,11 +20,20 @@ class ChatRepository:
             thread = result.scalar_one_or_none()
             if thread:
                 return thread
+        from sqlalchemy.exc import IntegrityError
         thread = Conversation(repo_id=repo_id, title=title[:160] or "새 대화")
         if thread_id:
             thread.id = thread_id
         self.db.add(thread)
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError:
+            await self.db.rollback()
+            result = await self.db.execute(select(Conversation).where(
+                Conversation.id == thread_id,
+                Conversation.repo_id == repo_id,
+            ))
+            return result.scalar_one()
         await self.db.refresh(thread)
         return thread
 

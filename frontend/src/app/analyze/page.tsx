@@ -333,6 +333,7 @@ function AnalyzeWorkspace() {
             initialPromptKey={chatPromptNonce}
             onThreadChange={setThreadId}
             onReferenceClick={(file) => setSelectedFile(file)}
+            onClearContextFile={() => setSelectedFile(null)}
             expandHref={fullChatUrl}
           />
         </aside>
@@ -341,7 +342,7 @@ function AnalyzeWorkspace() {
       {mobileChatOpen && (
         <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm xl:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileChatOpen(false); }}>
           <div className="absolute inset-y-0 right-0 w-full max-w-[430px] border-l border-zinc-800 bg-zinc-950 shadow-2xl">
-            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file) => setSelectedFile(file)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
+            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file) => setSelectedFile(file)} onClearContextFile={() => setSelectedFile(null)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
           </div>
         </div>
       )}

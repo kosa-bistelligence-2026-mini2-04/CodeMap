@@ -38,6 +38,7 @@ _PLANNER_SYSTEM = """
 - 최대 4개의 plan 항목을 수립하십시오.
 - path는 반드시 저장소 내 상대 경로만 허용합니다 (절대 경로 및 ../ 금지).
 - 재계획 입력이 있으면 이전 plan/evidence와 중복되는 탐색을 피하고 부족 정보에 직접 대응하십시오.
+- 사용자가 targetFile을 명시했다면, 반드시 해당 파일 경로를 대상으로 `read` 또는 `grep` 도구를 plan의 첫 번째 항목으로 포함하십시오.
 - 답변은 반드시 JSON만 출력하십시오.
 """
 
@@ -94,6 +95,7 @@ def build_planner_messages(state: CodeMapState) -> list[SystemMessage | HumanMes
         "sessionMemory": memory_context,
         "replan": bool(replan_hint),
         "replanCount": state.get("replan_count", 0),
+        "targetFile": state.get("target_file"),
         "evaluatorFeedback": {
             "missingInfo": evaluator_decision.get("missingInfo", []),
             "nextPlanHint": replan_hint or evaluator_decision.get("nextPlanHint"),
