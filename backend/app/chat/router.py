@@ -130,7 +130,13 @@ async def stream_chat_run(repo_id: UUID, run_id: str, db: AsyncSession = Depends
             yield _event(graph_started_event)
 
             # Graph Stream
-            async for event in service.run_agent_stream(repo_id, request.question, clone_path, run_id):
+            async for event in service.run_agent_stream(
+                repo_id,
+                request.question,
+                clone_path,
+                run_id,
+                session_id=request.sessionId,
+            ):
                 if record.cancel_event.is_set():
                     await record.mark_cancelled()
                     cancelled_event = _cancelled_event(run_id, record)

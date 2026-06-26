@@ -79,9 +79,15 @@ async def planner_node(state: CodeMapState) -> dict:
 
     try:
         llm = create_planner_llm()
+        memory_context = state.get("memory_context") or {}
+        payload = {
+            "userQuestion": state["user_query"],
+            "plannerQuery": planner_query,
+            "sessionMemory": memory_context,
+        }
         messages = [
             SystemMessage(content=_PLANNER_SYSTEM),
-            HumanMessage(content=f"사용자 질문: {planner_query}"),
+            HumanMessage(content=json.dumps(payload, ensure_ascii=False)),
         ]
         response = await llm.ainvoke(messages)
         data = json.loads(_strip_json_fence(_content_to_text(response.content)))

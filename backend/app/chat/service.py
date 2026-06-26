@@ -68,6 +68,7 @@ class RepositoryChatService:
         user_query: str,
         clone_path: str,
         mode: str = "quick",
+        session_id: UUID | None = None,
     ) -> dict:
         """
         LangGraph 멀티에이전트 워크플로우를 실행하고 최종 State를 반환.
@@ -85,6 +86,7 @@ class RepositoryChatService:
                 user_query=user_query,
                 clone_path=clone_path,
                 mode=mode,
+                session_id=session_id,
             )
 
         except Exception as exc:
@@ -144,6 +146,7 @@ class RepositoryChatService:
         user_query: str,
         clone_path: str,
         run_id: str,
+        session_id: UUID | None = None,
     ) -> AsyncIterator[dict]:
         from app.agent.service import CodeMapAgentService
 
@@ -153,6 +156,7 @@ class RepositoryChatService:
             user_query=user_query,
             clone_path=clone_path,
             run_id=run_id,
+            session_id=session_id,
         ):
             yield event
 

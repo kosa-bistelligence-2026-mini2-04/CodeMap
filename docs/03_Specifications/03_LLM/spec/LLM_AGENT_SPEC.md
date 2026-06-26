@@ -32,8 +32,8 @@
 | LLM-AGENT-B-202 | LangGraph `StateGraph` 구성 및 실행 흐름 | Backend | Phase 1 |
 | LLM-AGENT-B-203 | `dispatcher_node` 보안 검증 및 Send 병렬 fan-out | Backend | Phase 1 |
 | LLM-AGENT-B-204 | Thought Trace 이벤트 발행 (실시간 타임라인) | Backend | Phase 1 |
-| LLM-AGENT-B-301 | LangGraph 체크포인터 기반 멀티턴 상태 영속 | Backend | **Phase 2 (미구현)** |
-| LLM-AGENT-B-302 | 장기 기억(Long-term Memory) 및 외부 MCP 도구 확장 | Backend | **Phase 2 (미구현)** |
+| LLM-AGENT-B-301 | LangGraph thread_id 기반 멀티턴 상태 영속 | Backend | Phase 2 |
+| LLM-AGENT-B-302 | 장기 기억(Long-term Memory) 및 외부 MCP 도구 확장 | Backend | Phase 2 |
 
 ---
 
@@ -130,17 +130,19 @@
 
 ---
 
-## LLM-AGENT-B-301: LangGraph 체크포인터 기반 멀티턴 상태 영속 (Phase 2)
+## LLM-AGENT-B-301: LangGraph thread_id 기반 멀티턴 상태 영속 (Phase 2)
 
 ### 1. 설명
-동일 세션 내 연속 대화에서 이전 탐색 맥락을 LangGraph 레벨에서 유지하기 위한 체크포인터 도입.
+동일 세션 내 연속 대화에서 이전 탐색 맥락을 LangGraph 실행 입력과 `thread_id`에 연결한다.
 
 ### 2. 현황 및 입/출력 규격
-- **현재(Phase 1)**: 그래프는 `build_graph().compile()`로 **체크포인터 없이** 컴파일된다(매 실행 무상태). 멀티턴 맥락 연속성은 **Chat 도메인 DB**(`Conversation`/`ChatMessage`, `thread_id` 기준 — `chat/repository.py`)로 관리되며, LangGraph 자체 상태는 영속되지 않는다.
-- **Phase 2 목표**: `AsyncPostgresSaver` 등 PostgreSQL 기반 체크포인터를 `.compile(checkpointer=...)`에 주입하고, 사용자 `sessionId`를 LangGraph `thread_id`로 매핑.
+- **현재 구현**: Chat 도메인 DB(`Conversation`/`ChatMessage`, `sessionId` 기준 — `chat/repository.py`)에서 최근 메시지를 복원해 `CodeMapState.memory_context`에 주입한다.
+- **LangGraph 실행 config**: 사용자 `sessionId`를 `configurable.thread_id`로 전달한다. `sessionId`가 없으면 `run_id`를 thread_id로 사용한다.
+- **Planner 입력**: `planner_node`는 `memory_context`를 LLM 입력 payload의 `sessionMemory`로 받아 후속 질문의 생략된 맥락을 보정한다.
 
 ### 3. 완료 조건
-- (Phase 2) 동일 `thread_id` 재실행 시 직전 State(`worker_results` 등)가 복원되어 증분 탐색이 가능해야 한다.
+- 동일 `sessionId`로 새 run을 만들면 DB에 저장된 이전 user/assistant 메시지 요약이 agent state에 복원되어야 한다.
+- LangGraph 실행 config의 `thread_id`가 동일 `sessionId`로 고정되어야 한다.
 
 ---
 
@@ -150,11 +152,12 @@
 세션 경계를 넘는 재사용 지식과 외부 도구 바인딩.
 
 ### 2. 입/출력 규격 (Phase 2 목표)
-- **장기 기억**: 자주 조회되는 핵심 모듈·설계 가이드를 장기 기억 스토어에 적재해 Planner 입력으로 재사용.
+- **장기 기억**: 최근 대화 메시지와 assistant reference 수를 `memory_context`로 요약해 Planner 입력으로 재사용한다.
 - **외부 도구 Job**: `tool/router.py` HTTP 수신 엔드포인트를 통해 외부 Issue/문서 저장소 등을 워커로 바인딩(MCP-style I/O 인터페이스).
 
 ### 3. 완료 조건
-- (Phase 2) 신규 도구를 `AccessPlanItem.tool` 값으로 추가하고 워커 노드를 등록하면 그래프 변경 없이 fan-out 대상에 포함되어야 한다.
+- 후속 질문은 같은 `sessionId`의 이전 대화 요약을 Planner 입력에서 참조할 수 있어야 한다.
+- 신규 외부 도구 확장은 `LLM_TOOL_SPEC.md`의 MCP-style Job 인터페이스를 통해 연결한다.
 
 ---
 

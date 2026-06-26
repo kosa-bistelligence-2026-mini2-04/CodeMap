@@ -11,6 +11,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from uuid import UUID
 from unittest.mock import AsyncMock, patch, MagicMock
 
 # backend를 sys.path에 추가
@@ -26,6 +27,8 @@ class TestCodeMapState(unittest.TestCase):
             "user_query": "로그인 코드 어디에 있어?",
             "repo_id": "test-repo",
             "clone_path": "/tmp/repo",
+            "session_id": "session-1",
+            "memory_context": {"messages": []},
             "rewritten_query": "login authentication",
             "access_plan": [],
             "security_result": {"approved": [], "rejected": []},
@@ -38,6 +41,7 @@ class TestCodeMapState(unittest.TestCase):
             "final_answer": None,
         }
         self.assertEqual(state["user_query"], "로그인 코드 어디에 있어?")
+        self.assertEqual(state["session_id"], "session-1")
         self.assertIsNone(state["final_answer"])
 
     def test_worker_result_structure(self):
@@ -310,6 +314,8 @@ class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
             "repo_id": "r1",
             "clone_path": "/tmp",
             "run_id": "run1",
+            "session_id": "session-1",
+            "memory_context": {"messages": []},
             "rewritten_query": "",
             "access_plan": [],
             "security_result": {"approved": [], "rejected": []},
@@ -331,6 +337,76 @@ class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["rewritten_query"], "stream 이벤트 처리 위치")
         self.assertEqual(result["access_plan"][0]["tool"], "search")
         self.assertEqual(result["events"][0]["type"], "planner_plan")
+
+    async def test_planner_prompt_includes_session_memory_context(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        captured_messages = []
+
+        class FakePlannerLLM:
+            async def ainvoke(self, messages):
+                captured_messages.extend(messages)
+                return MagicMock(content='{"rewritten_query":"auth follow up","access_plan":[{"tool":"search","path":null,"query":"auth follow up","scope":"chunk"}]}')
+
+        state = {
+            "user_query": "그럼 토큰 갱신은?",
+            "repo_id": "r1",
+            "clone_path": "/tmp",
+            "run_id": "run1",
+            "session_id": "session-1",
+            "memory_context": {
+                "messages": [
+                    {"role": "user", "content": "로그인 코드는 어디야?", "mode": "standard", "referenceCount": 0},
+                    {"role": "assistant", "content": "auth/router.py를 보세요", "mode": "standard", "referenceCount": 1},
+                ],
+                "messageCount": 2,
+            },
+            "rewritten_query": "",
+            "access_plan": [],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "evaluator_decision": None,
+            "replan_count": 0,
+            "max_replans": 1,
+            "replan_hint": None,
+            "final_answer": None,
+        }
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", return_value=FakePlannerLLM()):
+            await planner_node(state)
+
+        self.assertIn("로그인 코드는 어디야?", captured_messages[1].content)
+        self.assertIn("auth/router.py", captured_messages[1].content)
+
+
+class TestAgentServiceSessionMemory(unittest.IsolatedAsyncioTestCase):
+    async def test_initial_state_restores_recent_session_messages(self):
+        from app.agent.service import CodeMapAgentService
+
+        service = CodeMapAgentService(MagicMock())
+        repo_id = UUID("00000000-0000-0000-0000-000000000111")
+        session_id = UUID("00000000-0000-0000-0000-000000000222")
+
+        with patch.object(service, "_load_memory_context", AsyncMock(return_value={
+            "sessionId": str(session_id),
+            "messageCount": 1,
+            "messages": [{"role": "user", "content": "이전 질문", "mode": "standard", "referenceCount": 0}],
+        })):
+            state = await service._build_initial_state(
+                repo_id=repo_id,
+                user_query="후속 질문",
+                clone_path="/tmp/repo",
+                run_id="run1",
+                session_id=session_id,
+            )
+
+        self.assertEqual(state["session_id"], str(session_id))
+        self.assertEqual(state["memory_context"]["messages"][0]["content"], "이전 질문")
+        self.assertEqual(service._graph_config(session_id=session_id, run_id="run1")["configurable"]["thread_id"], str(session_id))
 
 
 class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
