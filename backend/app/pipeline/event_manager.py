@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import AsyncGenerator
 from uuid import UUID
 
-from app.repo.schemas import ProgressEvent, JobStatus, PipelineStage
+from app.pipeline.schemas import ProgressEvent, JobStatus, PipelineStage
 
 logger = logging.getLogger(__name__)
 
