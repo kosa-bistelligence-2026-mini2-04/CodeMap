@@ -306,10 +306,8 @@ class TestReplanRouting(unittest.TestCase):
 
 
 class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
-    async def test_planner_falls_back_when_llm_cannot_be_created(self):
-        from app.agent.nodes.planner_node import planner_node
-
-        state = {
+    def _base_state(self):
+        return {
             "user_query": "stream 이벤트 처리 위치",
             "repo_id": "r1",
             "clone_path": "/tmp",
@@ -330,6 +328,11 @@ class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
             "replan_hint": None,
             "final_answer": None,
         }
+
+    async def test_planner_falls_back_when_llm_cannot_be_created(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        state = self._base_state()
 
         with patch("app.agent.nodes.planner_node.create_planner_llm", side_effect=RuntimeError("missing key")):
             result = await planner_node(state)
@@ -383,6 +386,73 @@ class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
         self.assertIn("auth/router.py", captured_messages[1].content)
 
 
+    def test_build_planner_messages_includes_replan_feedback_and_prior_evidence(self):
+        from app.agent.nodes.planner_node import build_planner_messages
+
+        state = self._base_state()
+        state["replan_count"] = 1
+        state["replan_hint"] = "backend/app/chat/router.py에서 SSE 이벤트 처리 확인"
+        state["evaluator_decision"] = {
+            "sufficient": False,
+            "missingInfo": ["SSE stream 이벤트 처리 위치"],
+            "nextPlanHint": "backend/app/chat/router.py read",
+            "reason": "경로 근거가 부족함",
+            "confidence": 0.4,
+        }
+        state["access_plan"] = [
+            {"tool": "search", "path": None, "query": "stream 이벤트", "scope": "chunk"},
+        ]
+        state["worker_results"] = [{
+            "id": "ev_1",
+            "path": "frontend/src/features/chat/api/chatApi.ts",
+            "lineStart": 1,
+            "lineEnd": 20,
+            "score": None,
+            "snippet": "raw snippet should not be copied into planner prompt",
+            "metadata": {"worker": "search", "tool": "keyword_search", "query": "stream 이벤트"},
+        }]
+
+        messages = build_planner_messages(state)
+        payload = messages[1].content
+
+        self.assertIn('"replan": true', payload)
+        self.assertIn("SSE stream 이벤트 처리 위치", payload)
+        self.assertIn("frontend/src/features/chat/api/chatApi.ts", payload)
+        self.assertNotIn("raw snippet should not be copied", payload)
+
+    async def test_planner_parses_text_blocks_from_list_content(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        class FakePlannerLLM:
+            async def ainvoke(self, _messages):
+                return MagicMock(content=[{
+                    "type": "text",
+                    "text": '{"rewritten_query":"auth flow","access_plan":[{"tool":"read","path":"app/auth.py","query":"auth","scope":"file"}]}',
+                }])
+
+        state = {
+            "user_query": "auth?",
+            "repo_id": "r1",
+            "clone_path": "/tmp/repo",
+            "run_id": "run1",
+            "rewritten_query": "",
+            "access_plan": [],
+            "security_result": {"approved": [], "rejected": []},
+            "worker_results": [],
+            "events": [],
+            "errors": [],
+            "durations": {},
+            "compact_context": {},
+            "final_answer": None,
+        }
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", return_value=FakePlannerLLM()):
+            result = await planner_node(state)
+
+        self.assertEqual(result["rewritten_query"], "auth flow")
+        self.assertEqual(result["access_plan"][0]["path"], "app/auth.py")
+
+
 class TestAgentServiceSessionMemory(unittest.IsolatedAsyncioTestCase):
     async def test_initial_state_restores_recent_session_messages(self):
         from app.agent.service import CodeMapAgentService
@@ -409,32 +479,6 @@ class TestAgentServiceSessionMemory(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service._graph_config(session_id=session_id, run_id="run1")["configurable"]["thread_id"], str(session_id))
 
 
-class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
-    async def test_planner_falls_back_when_llm_cannot_be_created(self):
-        from app.agent.nodes.planner_node import planner_node
-
-        state = {
-            "user_query": "stream 이벤트 처리 위치",
-            "repo_id": "r1",
-            "clone_path": "/tmp",
-            "run_id": "run1",
-            "rewritten_query": "",
-            "access_plan": [],
-            "security_result": {"approved": [], "rejected": []},
-            "worker_results": [],
-            "events": [],
-            "errors": [],
-            "durations": {},
-            "compact_context": {},
-            "final_answer": None,
-        }
-
-        with patch("app.agent.nodes.planner_node.create_planner_llm", side_effect=RuntimeError("missing key")):
-            result = await planner_node(state)
-
-        self.assertEqual(result["rewritten_query"], "stream 이벤트 처리 위치")
-        self.assertEqual(result["access_plan"][0]["tool"], "search")
-        self.assertEqual(result["events"][0]["type"], "planner_plan")
 
 
 class TestWorkerEvents(unittest.IsolatedAsyncioTestCase):
@@ -504,38 +548,6 @@ class TestWorkerEvents(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(to_thread.await_count, 1)
 
 
-class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
-    async def test_planner_parses_text_blocks_from_list_content(self):
-        from app.agent.nodes.planner_node import planner_node
-
-        class FakePlannerLLM:
-            async def ainvoke(self, _messages):
-                return MagicMock(content=[{
-                    "type": "text",
-                    "text": '{"rewritten_query":"auth flow","access_plan":[{"tool":"read","path":"app/auth.py","query":"auth","scope":"file"}]}',
-                }])
-
-        state = {
-            "user_query": "auth?",
-            "repo_id": "r1",
-            "clone_path": "/tmp/repo",
-            "run_id": "run1",
-            "rewritten_query": "",
-            "access_plan": [],
-            "security_result": {"approved": [], "rejected": []},
-            "worker_results": [],
-            "events": [],
-            "errors": [],
-            "durations": {},
-            "compact_context": {},
-            "final_answer": None,
-        }
-
-        with patch("app.agent.nodes.planner_node.create_planner_llm", return_value=FakePlannerLLM()):
-            result = await planner_node(state)
-
-        self.assertEqual(result["rewritten_query"], "auth flow")
-        self.assertEqual(result["access_plan"][0]["path"], "app/auth.py")
 
 
 class TestRepositoryToolBoundaries(unittest.TestCase):

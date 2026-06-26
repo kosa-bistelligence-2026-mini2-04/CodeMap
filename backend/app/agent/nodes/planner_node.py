@@ -37,6 +37,7 @@ _PLANNER_SYSTEM = """
 규칙:
 - 최대 4개의 plan 항목을 수립하십시오.
 - path는 반드시 저장소 내 상대 경로만 허용합니다 (절대 경로 및 ../ 금지).
+- 재계획 입력이 있으면 이전 plan/evidence와 중복되는 탐색을 피하고 부족 정보에 직접 대응하십시오.
 - 답변은 반드시 JSON만 출력하십시오.
 """
 
@@ -68,6 +69,45 @@ def _content_to_text(content: Any) -> str:
     return str(content)
 
 
+def _summarize_prior_evidence(state: CodeMapState) -> list[dict]:
+    """Build a compact evidence summary for re-planning without sending raw snippets."""
+    summaries: list[dict] = []
+    for result in state.get("worker_results", [])[:8]:
+        summaries.append({
+            "path": result.get("path"),
+            "worker": result.get("metadata", {}).get("worker"),
+            "tool": result.get("metadata", {}).get("tool"),
+            "query": result.get("metadata", {}).get("query"),
+        })
+    return summaries
+
+
+def build_planner_messages(state: CodeMapState) -> list[SystemMessage | HumanMessage]:
+    """Build Planner prompt messages for both initial planning and Evaluator re-planning."""
+    user_query = state["user_query"]
+    replan_hint = state.get("replan_hint")
+    evaluator_decision = state.get("evaluator_decision") or {}
+    memory_context = state.get("memory_context") or {}
+    payload = {
+        "userQuestion": user_query,
+        "plannerQuery": replan_hint or user_query,
+        "sessionMemory": memory_context,
+        "replan": bool(replan_hint),
+        "replanCount": state.get("replan_count", 0),
+        "evaluatorFeedback": {
+            "missingInfo": evaluator_decision.get("missingInfo", []),
+            "nextPlanHint": replan_hint or evaluator_decision.get("nextPlanHint"),
+            "reason": evaluator_decision.get("reason"),
+        },
+        "previousPlan": state.get("access_plan", []),
+        "priorEvidence": _summarize_prior_evidence(state),
+    }
+    return [
+        SystemMessage(content=_PLANNER_SYSTEM),
+        HumanMessage(content=json.dumps(payload, ensure_ascii=False)),
+    ]
+
+
 async def planner_node(state: CodeMapState) -> dict:
     """
     Planner LLM node.
@@ -79,16 +119,7 @@ async def planner_node(state: CodeMapState) -> dict:
 
     try:
         llm = create_planner_llm()
-        memory_context = state.get("memory_context") or {}
-        payload = {
-            "userQuestion": state["user_query"],
-            "plannerQuery": planner_query,
-            "sessionMemory": memory_context,
-        }
-        messages = [
-            SystemMessage(content=_PLANNER_SYSTEM),
-            HumanMessage(content=json.dumps(payload, ensure_ascii=False)),
-        ]
+        messages = build_planner_messages(state)
         response = await llm.ainvoke(messages)
         data = json.loads(_strip_json_fence(_content_to_text(response.content)))
     except Exception as exc:

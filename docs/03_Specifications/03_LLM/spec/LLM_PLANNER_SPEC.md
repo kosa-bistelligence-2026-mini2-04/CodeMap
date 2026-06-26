@@ -33,7 +33,7 @@
 
 ### 2. 입/출력 규격
 - **Input**: `user_query`(사용자 원본 질문)
-  - (저장소 요약/대화 맥락 주입은 **구현 예정** — 현재 노드는 `user_query`만 LLM에 전달)
+  - `build_planner_messages(state)`가 최초 계획과 재계획 입력을 동일한 JSON payload로 구성한다.
 - **Output**: State 갱신 `{ rewritten_query, access_plan, events }`
   - `access_plan: list[AccessPlanItem]`, 각 항목 `{tool: "search"|"dir"|"grep"|"read", path: str|null, query: str, scope: "chunk"|"file"|"directory"}`
   - LLM 원문에 ` ```json ` 코드블록이 있으면 제거 후 파싱
@@ -76,9 +76,10 @@ LLM 호출·JSON 파싱이 실패해도 그래프가 중단되지 않도록, 안
 LLM-EVALUATOR가 근거 부족으로 `re-plan`을 결정한 경우, 그 피드백을 입력으로 받아 추가 탐색 계획을 재수립합니다.
 
 ### 2. 입/출력 규격 (Phase 2 목표)
-- **Input(추가 예정)**: 직전 `worker_results` 요약, Evaluator의 `feedback`(부족한 정보 설명)
+- **Input**: `user_query`, `replan_hint`, `replan_count`, 직전 `access_plan`, 직전 `worker_results` 요약, Evaluator의 `missingInfo`/`nextPlanHint`/`reason`
 - **Output**: 보강된 `access_plan`(중복 탐색 회피)
-- **현황**: 현재 `planner_node`는 `user_query`만 읽는 단발 계획 수립이며, 피드백 입력 경로는 미구현.
+- **현황**: `planner_node`는 `build_planner_messages(state)`를 통해 최초 계획과 재계획을 같은 LLM 호출 경로로 처리한다. 재계획 입력이 있으면 system prompt가 이전 plan/evidence와 중복되는 탐색을 피하고 부족 정보에 직접 대응하도록 지시한다.
 
 ### 3. 완료 조건
-- (Phase 2) Evaluator `re-plan` → Planner 재진입 루프가 최대 반복 한도 내에서 수렴해야 한다.
+- Evaluator `re-plan` → Planner 재진입 루프가 최대 반복 한도 내에서 수렴해야 한다.
+- Planner prompt에는 직전 raw snippet 전체가 아니라 path/worker/tool/query 요약만 포함되어 토큰 낭비와 민감정보 노출 위험을 줄인다.
