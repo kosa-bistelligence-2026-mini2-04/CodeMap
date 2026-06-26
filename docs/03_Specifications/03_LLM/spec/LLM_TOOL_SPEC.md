@@ -6,7 +6,7 @@
 
 `LLM-TOOL`은 RAG 검색, 디렉토리 조회, Grep 검색, 파일 읽기 등 소스코드 탐색 도구의 **실제 실행**을 담당하는 결정론적 계층입니다. 결과를 요약하지 않고 **Raw Data를 그대로 `worker_results`에 병합(fan-in)**합니다.
 
-> **구현 구조(중요)**: LangGraph 워커는 `backend/app/agent/workers/{search,dir,grep,read}_worker.py`에 분리되어 있고, 실제 결정론적 도구 실행은 `backend/app/tool/`의 `hybrid_search.py`, `rrf.py`, `dir_scan.py`, `grep_scan.py`, `file_read.py`에 둡니다. `backend/app/tool/`의 `CodeMapToolService`는 **MCP-style 외부 도구 Job 인터페이스**로, 인터페이스/DTO는 설계 확정 상태이나 실제 외부 Job 라우팅은 501 응답 단계입니다.
+> **구현 구조(중요)**: LangGraph 워커는 `backend/app/agent/workers/{search,dir,grep,read}_worker.py`에 분리되어 있고, 실제 결정론적 도구 실행은 `backend/app/tool/`의 `hybrid_search.py`, `rrf.py`, `dir_scan.py`, `grep_scan.py`, `file_read.py`에 둡니다. `backend/app/tool/`의 `CodeMapToolService`는 **MCP-style 외부 도구 Job 인터페이스**로, 단일 JSON Job을 내부 결정론적 도구로 라우팅합니다.
 
 | 구분 | 기준 |
 | --- | --- |
@@ -24,7 +24,7 @@
 | LLM-TOOL-B-201 | 단일 목적 Worker 실행 (search/dir/grep/read) | Backend | Phase 1 |
 | LLM-TOOL-B-202 | RAG RRF 하이브리드 검색 (pgvector + BM25) | Backend | Phase 1 |
 | LLM-TOOL-B-203 | 경로 보안 검증 및 자원 제한 | Backend | Phase 1 |
-| LLM-TOOL-B-204 | MCP-style 외부 도구 Job 인터페이스 | Backend | Phase 2 (인터페이스 설계 확정 / 라우팅 구현 예정) |
+| LLM-TOOL-B-204 | MCP-style 외부 도구 Job 인터페이스 | Backend | Phase 2 |
 
 ---
 
@@ -93,11 +93,13 @@
 
 ### 2. 입/출력 규격
 - **요청 계약**: `POST /tools/execute`는 `{tool_name, arguments}`(+`job_id`, `run_id`)를 **단일 JSON body**로 수신한다 — 전용 Pydantic 요청 스키마로 받으며, 개별 필드를 쿼리 파라미터로 분산 수신하지 않는다(외부 MCP가 JSON 객체 하나로 전송 시 `422` 방지).
+- **인증 정책**: 내부 MCP/agent 전용 API로 간주하며, `Authorization: Bearer {SERVICE_TOKEN}`이 설정값과 일치할 때만 실행한다. 토큰 누락 또는 불일치 시 `401`을 반환한다.
 - **`execute_job(job_id, run_id, tool_name, arguments)`** — `tool_name` 분기: `vector_search` | `file_read` | `dir_scan` | `grep_scan` (미지원 시 `ValueError`)
-- **반환 DTO**: `{evidence_id, job_id, status("success"|"failed"), path, line_start, line_end, snippet, score, metadata}`
-- **현황**: `/tools/execute`와 `CodeMapToolService.execute_job`은 실구현 연결 전까지 **501/failed**로 응답합니다. B-201/B-202의 실제 워커·하이브리드 검색을 외부 Job 인터페이스에 연결하는 작업은 Phase 2 후속입니다.
+- **반환 DTO**: `{code, message, status, data:{jobId, runId, toolName, results:[WorkerResult...]}}`
+- **현황**: `/tools/execute`는 `CodeMapToolService.execute_job`을 호출해 B-201/B-202의 내부 결정론적 도구를 동일 `WorkerResult` 규격으로 반환합니다.
 
 ### 3. 완료 조건
-- **실구현 연결 전에는 `status:"success"`를 반환하지 않는다** — 라우터를 미등록하거나 `501 Not Implemented`/`failed`로 명확히 응답하여, 호출자가 더미 응답을 실제 근거로 오인하지 않도록 한다.
 - 요청은 단일 JSON body(Pydantic 스키마)로만 수신한다.
-- (Phase 2) `execute_job`이 B-201 워커/B-202 하이브리드 검색 실구현을 호출해 동일 `WorkerResult` 규격으로 반환하고, 그때부터만 `success`를 반환한다.
+- 실제 도구 실행은 서비스 토큰 검증 후에만 수행한다.
+- `execute_job`이 B-201 워커/B-202 하이브리드 검색 실구현을 호출해 동일 `WorkerResult` 규격으로 반환하고, 실구현 결과에 대해서만 `success`를 반환한다.
+- 미지원 `tool_name`은 `400`으로 거부하고, 잘못된 UUID는 `422`로 거부한다.
