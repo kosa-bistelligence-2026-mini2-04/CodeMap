@@ -134,7 +134,7 @@ class AnalysisService:
     # ──────────────────────────────────────────
     # API-001: 프로젝트 등록 (분석 요청)
     # ──────────────────────────────────────────
-    async def register_analysis(self, request: AnalysisRequest, background_tasks: BackgroundTasks, user_id: Any | None = None) -> AnalysisResponse:
+    async def register_analysis(self, request: AnalysisRequest, background_tasks: BackgroundTasks, user_id: UUID | None = None) -> AnalysisResponse:
         """
         GitHub 저장소 분석 작업을 등록하고 job_id를 발급한다.
 
