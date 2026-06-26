@@ -1,7 +1,8 @@
 """
-DOCS-GEN 서비스 계층 (DOCS-GEN-B-301, DOCS-GEN-API-002)
+DOCS-GEN 서비스 계층 (DOCS-GEN-B-301, DOCS-GEN-API-001, 002)
 
 - save_onboarding_doc: 생성된 Markdown을 DB에 저장 (B-301)
+- get_onboarding_doc: 저장된 가이드북 조회 (API-001)
 - validate_and_queue_doc_generation: 가이드북 생성 사전 검증 (API-002)
 """
 
@@ -17,10 +18,12 @@ from app.common.exceptions import (
     DatabaseSaveFailedError,
     DocsAlreadyExistsError,
     DocsGenerationInProgressError,
+    DocsNotFoundError,
     RepoNotFoundError,
 )
 from app.gen.models import OnboardingDoc
 from app.gen.repository import GenDocRepository
+from app.gen.schemas import DocGetJsonData, DocGetMarkdownData
 from app.infra.config import get_settings
 from app.repo.schemas import JobStatus
 
@@ -36,6 +39,7 @@ async def save_onboarding_doc(
     job_id: UUID,
     content: str,
     version: int,
+    report_json: dict | None = None,
 ) -> OnboardingDoc:
     '''
     온보딩 가이드북 Markdown을 PostgreSQL docs 테이블에 저장한다.
@@ -46,11 +50,12 @@ async def save_onboarding_doc(
       3. commit 후 저장된 엔티티 반환
 
     Args:
-        db:      AsyncSession (외부 주입)
-        repo_id: 대상 저장소 ID (analysis_jobs.id)
-        job_id:  문서 생성을 트리거한 분석 작업 ID
-        content: 저장할 Markdown 가이드북 전문
-        version: 가이드북 버전 번호
+        db:          AsyncSession (외부 주입)
+        repo_id:     대상 저장소 ID (analysis_jobs.id)
+        job_id:      문서 생성을 트리거한 분석 작업 ID
+        content:     저장할 Markdown 가이드북 전문
+        version:     가이드북 버전 번호
+        report_json: master_report JSON 원본 (format=json 조회용, 선택)
 
     Returns:
         저장된 OnboardingDoc 엔티티
@@ -76,6 +81,7 @@ async def save_onboarding_doc(
             job_id=job_id,
             content=content,
             version=version,
+            report_json=report_json,
         )
         await db.commit()
         logger.info(
@@ -90,6 +96,86 @@ async def save_onboarding_doc(
             repo_id, version, exc,
         )
         raise DatabaseSaveFailedError() from exc
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-001: 온보딩 가이드북 조회
+# ──────────────────────────────────────────────────────────────
+async def get_onboarding_doc(
+    db: AsyncSession,
+    repo_id: UUID,
+    fmt: str = "markdown",
+) -> DocGetMarkdownData | DocGetJsonData:
+    '''
+    저장된 온보딩 가이드북을 조회하고 format에 따라 응답 데이터를 반환한다.
+
+    DOCS-GEN-B-101 구현:
+      1. repo_id 존재 여부 확인 (없으면 404 RepoNotFoundError)
+      2. 활성 문서 조회 (없으면 404 DocsNotFoundError)
+      3. format=markdown → Markdown 전문 반환
+      4. format=json → report_json 기반 구조화 데이터 반환
+
+    Args:
+        db:      AsyncSession (외부 주입)
+        repo_id: 대상 저장소 ID (analysis_jobs.id)
+        fmt:     응답 형식 ("markdown" 또는 "json", 기본값: "markdown")
+
+    Returns:
+        DocGetMarkdownData (format=markdown) 또는 DocGetJsonData (format=json)
+
+    Raises:
+        RepoNotFoundError (404): repo_id에 해당하는 저장소가 없을 때
+        DocsNotFoundError (404): 활성 가이드북이 아직 생성되지 않았을 때
+    '''
+    repo = GenDocRepository(db)
+
+    ## 1. 저장소 존재 여부 확인
+    analysis_job = await repo.get_repo_by_id(repo_id)
+    if analysis_job is None:
+        logger.warning("[DOCS-GEN-API-001] 저장소 없음 | repo_id=%s", repo_id)
+        raise RepoNotFoundError()
+
+    ## 2. 활성 문서 조회
+    doc = await repo.get_active_by_repo_id(repo_id)
+    if doc is None:
+        logger.warning("[DOCS-GEN-API-001] 가이드북 없음 | repo_id=%s", repo_id)
+        raise DocsNotFoundError()
+
+    ## 3. format=json: report_json 기반 구조화 데이터 반환
+    if fmt == "json":
+        report = doc.report_json or {}
+        guide = report.get("guide") or {}
+        folder_items = [
+            {"path": k, "description": v}
+            for k, v in (report.get("file_map") or {}).items()
+        ]
+        logger.info(
+            "[DOCS-GEN-API-001] JSON 조회 완료 | repo_id=%s version=%d",
+            repo_id, doc.version,
+        )
+        return DocGetJsonData(
+            summary=report.get("summary"),
+            stack=report.get("stack") or [],
+            reading_order=guide.get("reading_order") or [],
+            danger_files=guide.get("risk_files") or [],
+            core_flow=guide.get("flow_explanation"),
+            folder_summaries=folder_items,
+            generated_at=doc.created_at,
+            version=doc.version,
+        )
+
+    ## 4. format=markdown (기본): Markdown 전문 반환
+    logger.info(
+        "[DOCS-GEN-API-001] Markdown 조회 완료 | repo_id=%s version=%d",
+        repo_id, doc.version,
+    )
+    return DocGetMarkdownData(
+        repo_id=repo_id,
+        repo_name=getattr(analysis_job, "repo_name", "") or "",
+        content=doc.content,
+        generated_at=doc.created_at,
+        version=doc.version,
+    )
 
 
 # ──────────────────────────────────────────────────────────────

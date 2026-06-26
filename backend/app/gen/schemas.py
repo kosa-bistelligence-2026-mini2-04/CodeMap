@@ -1,9 +1,11 @@
 """
-DOCS-GEN API 요청/응답 스키마 (DOCS-GEN-API-002, 005)
+DOCS-GEN API 요청/응답 스키마 (DOCS-GEN-API-001, 002, 005)
 
 DOCS_API_SPEC.md 기준 Request/Response DTO를 정의한다.
 """
 
+from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -82,3 +84,59 @@ class DocTriggerResponse(BaseModel):
     code: int = Field(default=202, description="HTTP 상태 코드")
     message: str = Field(default="accepted", description="처리 결과 메시지")
     data: DocTriggerData
+
+
+# ──────────────────────────────────────────────
+# DOCS-GEN-API-001: 온보딩 가이드북 조회 응답
+# ──────────────────────────────────────────────
+class DocGetMarkdownData(BaseModel):
+    '''GET /api/gen/docs/{repo_id}?format=markdown 응답 data 필드'''
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    repo_id: UUID = Field(alias="repoId", description="저장소 ID")
+    repo_name: str = Field(alias="repoName", description="저장소 이름")
+    content: str = Field(description="온보딩 가이드북 Markdown 전문")
+    generated_at: datetime = Field(
+        alias="generatedAt", description="가이드북 생성 시각"
+    )
+    version: int = Field(description="가이드북 버전 번호")
+
+
+class DocGetMarkdownResponse(BaseModel):
+    '''GET /api/gen/docs/{repo_id}?format=markdown 성공 응답 (200 OK)'''
+
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="처리 결과 메시지")
+    data: DocGetMarkdownData
+
+
+class DocGetJsonData(BaseModel):
+    '''GET /api/gen/docs/{repo_id}?format=json 응답 data 필드'''
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    summary: Any = Field(default=None, description="프로젝트 요약 정보")
+    stack: list[Any] = Field(default_factory=list, description="기술 스택 목록")
+    reading_order: list[Any] = Field(
+        alias="readingOrder", default_factory=list, description="추천 파일 읽기 순서"
+    )
+    danger_files: list[Any] = Field(
+        alias="dangerFiles", default_factory=list, description="주의/위험 파일 목록"
+    )
+    core_flow: Any = Field(alias="coreFlow", default=None, description="핵심 실행 플로우")
+    folder_summaries: list[Any] = Field(
+        alias="folderSummaries", default_factory=list, description="폴더 구조 요약"
+    )
+    generated_at: datetime = Field(
+        alias="generatedAt", description="가이드북 생성 시각"
+    )
+    version: int = Field(description="가이드북 버전 번호")
+
+
+class DocGetJsonResponse(BaseModel):
+    '''GET /api/gen/docs/{repo_id}?format=json 성공 응답 (200 OK)'''
+
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="처리 결과 메시지")
+    data: DocGetJsonData
