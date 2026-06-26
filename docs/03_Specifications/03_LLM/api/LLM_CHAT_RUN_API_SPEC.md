@@ -141,9 +141,28 @@ data: {"evidenceCount":5,"compactContextReady":true}
 event: answer_delta
 data: {"content":"로그인 로직은 "}
 
+event: references
+data: {"items":[{"evidenceId":"ev_001","file":"backend/app/auth/router.py","lineStart":42,"lineEnd":58,"snippet":"@router.post('/login')"}]}
+
 event: completed
 data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","status":"completed"}
 ```
+
+### references 이벤트 계약
+
+Issue #158, #161에 따라 `references` 이벤트는 답변 본문 citation, 근거 칩, 코드 프리뷰 line 이동이 공유하는 단일 근거 계약입니다.
+
+| 필드명 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| items[].evidenceId | String | Y | worker/evaluator가 부여한 근거 ID |
+| items[].file | String | Y | repo 내부 상대 파일 경로 |
+| items[].lineStart | Integer \| null | N | 근거 시작 라인. 알 수 없으면 null |
+| items[].lineEnd | Integer \| null | N | 근거 종료 라인. 알 수 없으면 null |
+| items[].lineLabel | String | N | line 정보가 없을 때 `라인 미확인` 등 UI 표시값 |
+| items[].snippet | String | N | 짧은 미리보기 코드 |
+| items[].score | Number | N | 검색/평가 점수 |
+
+`lineStart`/`lineEnd`가 없을 때는 0 또는 1을 임의로 넣지 않습니다. 프론트는 line 값이 null이면 파일만 열고 라인 하이라이트를 생략합니다.
 
 ### 연동 흐름 다이어그램
 

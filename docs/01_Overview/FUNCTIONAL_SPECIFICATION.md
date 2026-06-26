@@ -309,7 +309,7 @@ MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 
 | `DOCS-GEN-F-205` | DOCS | GEN | Frontend | 주의/위험 소스코드 및 다음 행동 가이드 경고창 | 설정 파일 유출 위험이나 복잡도가 너무 높은 병목 코드 등 수정 시작 전 주의해야 할 위험 요소를 경고해 주는 모달/경고 카드 컴포넌트 |
 | `DOCS-GUARD-B-201` | DOCS | GUARD | Backend | 민감정보 마스킹 | API key, token, password pattern 탐지 시 원문 제거. report 생성 전 report에 민감정보 원문 미노출하도록 검증 |
 
-### 🥈 Phase 2: 고도화 추가 기능 (26개)
+### 🥈 Phase 2: 고도화 추가 기능 (40개)
 
 | 기능 ID | 카테고리 | 도메인(모듈) | 구분 | 기능명 | 상세 설명 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -321,6 +321,14 @@ MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 
 | `PROJECT-TEAM-B-101` | PROJECT | TEAM | Backend | 팀 생성 및 멤버십 관리 | 팀 workspace 생성, 멤버 목록, owner/member role 관리 |
 | `PROJECT-TEAM-B-102` | PROJECT | TEAM | Backend | 팀 초대/수락 API | 이메일 기반 초대 생성, pending/accepted/declined 상태 전이 |
 | `PROJECT-TEAM-B-203` | PROJECT | TEAM | Backend | 개인/팀 기록 권한 필터링 | private 분석/채팅은 생성자만, team 분석/채팅은 active member만 조회 가능하게 제한 |
+| `PROJECT-REPO-B-206` | PROJECT | REPO | Backend | Windows 로컬 업로드 경로 방어 | Issue #156: 경로 길이, 예약 파일명, 권한, symlink/junction 실패를 파일 단위로 분류 |
+| `PROJECT-REPO-F-204` | PROJECT | REPO | Frontend | 로컬 업로드 제외 사유 표시 UI | Issue #156: 업로드 가능/제외 파일 수와 제외 사유별 카운트 표시 |
+| `PROJECT-REPO-B-402` | PROJECT | REPO | Backend | job scoped 파일 코드 읽기 API | Issue #160/#161: 코드 프리뷰와 근거 라인 이동을 위한 안전한 파일 읽기 |
+| `PROJECT-LIST-F-204` | PROJECT | LIST | Frontend | 분석 완료 화면 History 접근 유지 | Issue #162: Repository 패널이 보이는 상태에서도 HistoryList 접근 유지 |
+| `PROJECT-ANALYZE-F-101` | PROJECT | ANALYZE | Frontend | Repository 코드 프리뷰 | Issue #160: 파일 클릭 시 실제 코드 표시 |
+| `PROJECT-ANALYZE-F-102` | PROJECT | ANALYZE | Frontend | 근거 라인 이동/하이라이트 | Issue #161: 근거 파일 클릭 시 해당 줄로 이동 |
+| `PROJECT-ANALYZE-F-103` | PROJECT | ANALYZE | Frontend | Repository/History 동시 접근 | Issue #162: Repository와 검색 기록을 같은 화면에서 접근 |
+| `PROJECT-ANALYZE-F-104` | PROJECT | ANALYZE | Frontend | 실제 report 기반 DashboardCharts | Issue #163: mock 차트를 실제 분석 데이터로 대체 |
 | `PROJECT-PIPELINE-B-201` | PROJECT |  | Backend | Service | 분석 단계 상태 관리 |
 | `PROJECT-PIPELINE-B-202` | PROJECT |  | Backend | Service | 비동기 깊은 분석 파이프라인 |
 | `PROJECT-PIPELINE-B-203` | PROJECT |  | Backend | Service | 파이프라인 외부 연동 |
@@ -332,8 +340,14 @@ MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 
 | `RAG-GRAPH-F-201` | RAG |  | Frontend | UI Component | 의존성 관계 그래프 UI |
 | `RAG-PARSE-B-211` | RAG |  | Backend | Service | 위험 신호 태깅 |
 | `RAG-PARSE-B-212` | RAG |  | Backend | Service | 기술 스택 점수화 |
+| `RAG-PARSE-B-213` | RAG | PARSE | Backend | 파일 line/character count 추출 | Issue #167/#168: 파일별 라인 수와 글자 수 메타데이터 저장 |
 | `RAG-PARSE-F-202` | RAG |  | Frontend | UI Component | heatmap용 risk score 생성 |
+| `RAG-PARSE-F-203` | RAG | PARSE | Frontend | 파일 메타데이터 UI 노출 | Issue #167/#168: 파일 트리/프리뷰/대시보드에서 메타데이터 활용 |
 | `LLM-MEMORY-B-201` | LLM | MEMORY | Backend | Service | 장기 기억 (Long-term Memory) |
+| `LLM-CHAT-F-207` | LLM | CHAT | Frontend | 답변 자동 스크롤 제어 | Issue #157: 스트리밍 완료 후 과도한 하단 스크롤 방지 |
+| `LLM-CHAT-F-208` | LLM | CHAT | Frontend | 근거 칩 대비/가독성 개선 | Issue #159: 파일명/라인 번호/상태를 읽기 쉽게 표시 |
+| `LLM-CHAT-F-209` | LLM | CHAT | Frontend | 사고 과정 토글 상태 전이 | Issue #165/#166: 생성 중 open, 완료 후 collapsed |
+| `LLM-CHAT-F-210` | LLM | CHAT | Frontend | 근거 없음 claim 단위 표시 | Issue #158: 근거 부족 상태를 전체 답변이 아닌 주장 단위로 표현 |
 | `LLM-WORKER-B-206` | LLM | WORKER | Backend | Service | 허용된 외부 도구 worker 확장 |
 | `LLM-WORKER-B-207` | LLM | WORKER | Backend | Service | 선택형 reasoning worker 고도화 |
 | `DOCS-GEN-B-208` | DOCS |  | Backend | Service | 추천 작업 생성 |
