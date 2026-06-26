@@ -84,7 +84,7 @@ class AuthService:
         existing = await self.repo.get_user_by_email(email)
         if existing:
             logger.error("[AUTH] 회원가입 실패 (이메일 중복): %s", email)
-            return RegisterResponse(success=False, message="이미 가입된 이메일입니다.")
+            return RegisterResponse(success=False, message="이미 가입된 이메일입니다.", error_code="EMAIL_ALREADY_EXISTS")
 
         hashed = _hash_password(password)
         try:
@@ -93,7 +93,7 @@ class AuthService:
         except IntegrityError:
             await self.db.rollback()
             logger.error("[AUTH] 회원가입 실패 (동시성 중복): %s", email)
-            return RegisterResponse(success=False, message="이미 가입된 이메일입니다.")
+            return RegisterResponse(success=False, message="이미 가입된 이메일입니다.", error_code="EMAIL_ALREADY_EXISTS")
 
         logger.info("[AUTH] 회원가입 완료: user_id=%s", user.id)
         return RegisterResponse(
@@ -111,7 +111,7 @@ class AuthService:
         user = await self.repo.get_user_by_email(email)
         if not user or not _verify_password(password, user.hashed_password):
             logger.warning("[AUTH] 로그인 실패 (자격증명 불일치): %s", email)
-            return LoginResponse(success=False, message="이메일 또는 비밀번호가 올바르지 않습니다.")
+            return LoginResponse(success=False, message="이메일 또는 비밀번호가 올바르지 않습니다.", error_code="INVALID_CREDENTIALS")
 
         user_id = str(user.id)
         access_token = create_access_token(user_id=user_id, email=user.email)

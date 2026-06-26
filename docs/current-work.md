@@ -1,5 +1,37 @@
 # Current Work
 
+## 2026-06-26 — Issue #157/#159 chat UI scroll and reference chip polish
+
+- Current branch: `fix/chat-scroll-reference-chips`
+- Current goal: Resolve chat auto-scroll overrun and improve reference chip contrast/readability for `LLM-CHAT-F-207` and `LLM-CHAT-F-208`.
+- Current status:
+  - Replaced unconditional `messagesEndRef.scrollIntoView()` with container-based near-bottom auto-scroll, user scroll lock, and a "최신 답변" jump button.
+  - Coalesced scroll requests through animation frames and uses direct `scrollTop` assignment for deterministic bottom jumps.
+  - Reworked reference chips to show basename, line label, full path, snippet preview, high-contrast dark/light colors, title, aria-label, and focus-visible ring.
+  - Extended the frontend `CodeReference` contract to tolerate both existing `line` payloads and spec-aligned `lineStart`/`lineEnd`/`lineLabel` payloads.
+- Files touched or likely relevant:
+  - `frontend/src/features/chat/components/ChatInterface.tsx`
+  - `frontend/src/features/chat/components/ChatMessage.tsx`
+  - `frontend/src/common/types/contracts.ts`
+- Commands run:
+  - `env -u GITHUB_TOKEN gh auth status`
+  - `env -u GITHUB_TOKEN gh issue view 157 --json number,title,state,body,labels,assignees,comments,url`
+  - `env -u GITHUB_TOKEN gh issue view 159 --json number,title,state,body,labels,assignees,comments,url`
+  - `./node_modules/.bin/eslint src/features/chat/components/ChatInterface.tsx src/features/chat/components/ChatMessage.tsx src/common/types/contracts.ts`
+  - `./node_modules/.bin/tsc --noEmit --pretty false`
+  - `./node_modules/.bin/next build --webpack`
+  - `git diff --check`
+- Validation:
+  - Focused lint/typecheck/build passed.
+  - Browser verified `/chat?preview=1&repo_id=preview-*` and `/analyze?preview=1`: no Next error overlay, reference chips render with basename/line/path/snippet, and compact panel renders the improved chip.
+  - Browser verified long chat scroll behavior: initial auto-scroll settles at bottom, manual upward scroll shows "최신 답변", and clicking it returns to bottom and hides the button.
+  - Spec/code comparison covered `FUNCTIONAL_SPECIFICATION.md` entries `LLM-CHAT-F-207` and `LLM-CHAT-F-208`, `LLM_CHAT_RUN_API_SPEC.md` references contract, and `PROJECT_ANALYZE_SPEC.md` line-unknown rule.
+- Known issues:
+  - Full `./node_modules/.bin/eslint` still fails on unrelated existing `no-explicit-any` errors in `frontend/src/app/(auth)/signin/page.tsx` and `frontend/src/app/(auth)/signup/page.tsx`.
+  - Browser console shows an existing unauthenticated 401 request on preview pages; no Next error overlay was present.
+- Next steps:
+  - Commit the two issue-scoped changes, push the branch, and open a PR with the repo template.
+
 ## 2026-06-26 — PR #189 Timeline render-phase review fix
 
 - Current branch: `feat/chat-ui-enhancements`

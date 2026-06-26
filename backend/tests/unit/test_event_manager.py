@@ -2,8 +2,8 @@ import asyncio
 import unittest
 from datetime import datetime, timezone
 
-from app.repo.event_manager import EventManager
-from app.repo.schemas import JobStatus, PipelineStage, ProgressEvent
+from app.pipeline.event_manager import EventManager
+from app.pipeline.schemas import JobStatus, PipelineStage, ProgressEvent
 
 
 def progress_event(status: JobStatus = JobStatus.IN_PROGRESS) -> ProgressEvent:

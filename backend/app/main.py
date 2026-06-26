@@ -16,17 +16,19 @@ from sqlalchemy import text
 
 # Import model classes to ensure they register on Base.metadata
 from app.embed.models import CodeNode, Dependency
+from app.gen.models import OnboardingDoc  # noqa: F401 — docs 테이블 Base 등록용
 
 from app.auth.router import router as auth_router
 from app.list.router import router as list_router
 from app.list.websocket import ws_router as list_ws_router
 from app.repo.router import router as repo_router
-from app.repo.websocket import ws_router as repo_ws_router
+from app.pipeline.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
 from app.chat.run_registry import sweep_run_registry
 from app.agent.router import router as agent_router
 from app.parse.router import router as parse_router
 from app.tool.router import router as tool_router
+from app.gen.router import router as gen_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -133,3 +135,6 @@ app.include_router(parse_router)
 
 # MCP Tools API: Phase 2 실구현 전까지 단일 JSON body를 수신하되 501/failed만 반환한다.
 app.include_router(tool_router)
+
+# DOCS-GEN API: 온보딩 가이드북 생성 및 저장 (DOCS-GEN-API-005)
+app.include_router(gen_router)

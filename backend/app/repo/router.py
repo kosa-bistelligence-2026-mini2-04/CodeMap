@@ -31,7 +31,7 @@ from app.common.exceptions import (
     JobNotFoundError,
     WorkspaceNotReadyError,
 )
-from app.repo.event_manager import event_manager
+from app.pipeline.event_manager import event_manager
 from app.repo.schemas import (
     AnalysisRequest,
     AnalysisResponse,

@@ -38,7 +38,7 @@ from app.common.exceptions import (
     PipelineStartFailedError,
     RepositoryNotFoundError,
 )
-from app.repo.event_manager import event_manager
+from app.pipeline.event_manager import event_manager
 from app.repo.models import AnalysisJob
 from app.repo.local_upload import save_local_upload
 from app.repo.repository import AnalysisJobRepository
