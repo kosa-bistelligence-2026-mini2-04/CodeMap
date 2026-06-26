@@ -6,11 +6,12 @@ import Link from "next/link";
 import { useApp } from "@/common/contexts/AppContext";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { register } from "@/features/auth/api/authApi";
+import { ApiError } from "@/common/api/error";
 import { AlertTriangle, Mail, Lock, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { theme } = useApp();
+  const { theme, t } = useApp();
   const isDark = theme === "dark";
   const login = useAuthStore((state) => state.login);
 
@@ -21,16 +22,20 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  // Validation status
+  const isPasswordLongEnough = password.length >= 8;
+  const doPasswordsMatch = password === confirmPassword && password.length > 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (password !== confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다.");
+    if (!doPasswordsMatch) {
+      setError(t.auth.signup.passwordMismatch);
       return;
     }
-    if (password.length < 8) {
-      setError("비밀번호는 최소 8자 이상이어야 합니다.");
+    if (!isPasswordLongEnough) {
+      setError(t.auth.signup.passwordTooShort);
       return;
     }
 
@@ -49,9 +54,14 @@ export default function SignUpPage() {
         router.push("/analyze");
       }, 1000);
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "회원가입에 실패했습니다.";
-      setError(errorMsg);
-    } finally {
+      if (err instanceof ApiError) {
+        const localizedMsg = t.auth.errors[err.code as keyof typeof t.auth.errors];
+        setError(localizedMsg || err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(t.auth.errors.default);
+      }
       setIsLoading(false);
     }
   };
@@ -102,7 +112,7 @@ export default function SignUpPage() {
             isDark ? "text-white" : "text-zinc-900"
           }`}
         >
-          새 계정 만들기
+          {t.nav.signUp}
         </h2>
 
         {error && (
@@ -164,6 +174,12 @@ export default function SignUpPage() {
                 placeholder="최소 8자 이상"
               />
             </div>
+            {password.length > 0 && (
+              <p className={`mt-1.5 text-[10px] flex items-center gap-1 ${isPasswordLongEnough ? "text-emerald-500" : "text-amber-500"}`}>
+                {isPasswordLongEnough ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                {isPasswordLongEnough ? t.auth.signup.passwordLengthOk : t.auth.signup.passwordTooShort}
+              </p>
+            )}
           </div>
 
           <div>
@@ -188,11 +204,17 @@ export default function SignUpPage() {
                 placeholder="••••••••"
               />
             </div>
+            {confirmPassword.length > 0 && (
+              <p className={`mt-1.5 text-[10px] flex items-center gap-1 ${doPasswordsMatch ? "text-emerald-500" : "text-red-500"}`}>
+                {doPasswordsMatch ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                {doPasswordsMatch ? t.auth.signup.passwordMatchOk : t.auth.signup.passwordMismatch}
+              </p>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={isLoading || !email || !password || !confirmPassword}
+            disabled={isLoading || !email || !password || !confirmPassword || !isPasswordLongEnough || !doPasswordsMatch}
             className={`w-full mt-2 flex justify-center items-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
               isDark
                 ? "bg-white text-black hover:bg-zinc-200 disabled:bg-zinc-800 disabled:text-zinc-500"
@@ -221,7 +243,7 @@ export default function SignUpPage() {
               isDark ? "text-white" : "text-zinc-900"
             }`}
           >
-            로그인
+            {t.nav.signIn}
           </Link>
         </p>
       </div>

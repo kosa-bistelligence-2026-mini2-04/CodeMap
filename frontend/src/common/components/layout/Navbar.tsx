@@ -84,6 +84,8 @@ export function Navbar() {
                   ? "bg-zinc-800 text-white hover:bg-zinc-700"
                   : "bg-zinc-100 text-black hover:bg-zinc-200")
               }
+              title={t.nav.signOut}
+              aria-label={t.nav.signOut}
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
@@ -202,10 +204,11 @@ export function Navbar() {
                   ? "bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700 hover:text-white"
                   : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-black")
               }
-              title="Sign out"
+              title={t.nav.signOut}
+              aria-label={t.nav.signOut}
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline-block">Sign out</span>
+              <span className="hidden sm:inline-block">{t.nav.signOut}</span>
             </button>
             ) : (
               <>

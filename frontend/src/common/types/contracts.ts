@@ -407,10 +407,15 @@ export type StreamPhase =
   | 'complete';
 
 export interface CodeReference {
+  evidenceId?: string;
   file: string;
-  line: number;
-  snippet: string;
-  language: string;
+  line?: number | null;
+  lineStart?: number | null;
+  lineEnd?: number | null;
+  lineLabel?: string;
+  snippet?: string;
+  language?: string;
+  score?: number;
 }
 
 

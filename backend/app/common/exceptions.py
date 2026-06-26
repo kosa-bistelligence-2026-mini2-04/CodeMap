@@ -416,3 +416,20 @@ def _format_validation_field(location: object) -> str | None:
         return None
     filtered = [str(item) for item in location if item not in {"body", "query", "path", "header"}]
     return ".".join(filtered) if filtered else None
+
+
+# ──────────────────────────────────────────────
+# DOCS-GEN 도메인 예외 (DOCS_API_SPEC.md 기준)
+# ──────────────────────────────────────────────
+class RepoNotFoundError(CodeMapException):
+    """저장소(repo_id)가 존재하지 않을 때 발생 (404)"""
+
+    def __init__(self, message: str = "저장소를 찾을 수 없습니다."):
+        super().__init__(404, "REPO_NOT_FOUND", message)
+
+
+class DatabaseSaveFailedError(CodeMapException):
+    """문서 DB 저장 중 오류 발생 시 (500)"""
+
+    def __init__(self, message: str = "문서 저장 중 오류가 발생했습니다."):
+        super().__init__(500, "DATABASE_SAVE_FAILED", message)

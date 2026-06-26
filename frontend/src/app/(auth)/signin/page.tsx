@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useApp } from "@/common/contexts/AppContext";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import { ApiError } from "@/common/api/error";
 import { AlertTriangle, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { theme } = useApp();
+  const { theme, t } = useApp();
   const isDark = theme === "dark";
   const login = useAuthStore((state) => state.login);
 
@@ -27,8 +28,14 @@ export default function SignInPage() {
       await login({ email, password });
       router.push("/analyze"); // 로그인 성공 시 프로젝트 분석 페이지로
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "로그인에 실패했습니다. 자격 증명을 확인해주세요.";
-      setError(errorMsg);
+      if (err instanceof ApiError) {
+        const localizedMsg = t.auth.errors[err.code as keyof typeof t.auth.errors];
+        setError(localizedMsg || err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(t.auth.errors.default);
+      }
     } finally {
       setIsLoading(false);
     }
