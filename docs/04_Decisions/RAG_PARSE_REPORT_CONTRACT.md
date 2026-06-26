@@ -36,6 +36,21 @@ B-210 통합에서 사용할 객체형 필드를 함께 둔다.
 | `file_map` | API-005 파일별 코드맵 항목 |
 | `directory_tree` | API-001/API-003에서 재사용할 트리 텍스트 |
 
+### `file_map` 파일 메타데이터 확장
+
+Issue #167, #168에 따라 `file_map` 각 항목은 파일 규모 지표를 포함한다.
+
+| 필드 | 목적 |
+|---|---|
+| `path` | repo 내부 상대 파일 경로 |
+| `summary` | 파일 단위 요약 |
+| `language` | 감지된 언어 |
+| `line_count` | 파일 총 라인 수 |
+| `character_count` | 디코딩된 텍스트 기준 글자 수 |
+| `is_binary` | 바이너리 또는 텍스트 표시 불가 여부 |
+
+프론트 타입에서는 camelCase(`lineCount`, `characterCount`, `isBinary`)로 노출할 수 있으나, 저장 계약은 snake_case를 기준으로 한다. DashboardCharts 실제 데이터 연결(Issue #163)은 이 값과 `language_composition`을 우선 사용한다.
+
 ## 호환 정책
 
 B-210 통합 전까지는 기존 분석 잡이 legacy `report_json`을 저장할 수

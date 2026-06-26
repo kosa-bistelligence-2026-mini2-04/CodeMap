@@ -1,5 +1,34 @@
 # Current Work
 
+## 2026-06-26 — PR #169 UI/UX audit issue sync
+
+- Current branch: `codex/issue-docs-spec-sync`
+- Current goal: Keep PR #169 as the documentation hub for issue-driven product/spec updates.
+- Current status:
+  - Created non-overlapping follow-up issues #174-#181 from the project-wide UI/UX and logic audit.
+  - Excluded areas already covered by #156-#173, including chat scroll/evidence/attachments, Repository preview/line jump, analyze mock charts, Windows local upload, and team/private sharing.
+  - Updated product specs so #174-#181 have traceable feature IDs and API/error contracts before implementation begins.
+- Files touched or likely relevant:
+  - `docs/01_Overview/FUNCTIONAL_SPECIFICATION.md`
+  - `docs/02_Architecture/ARCHITECTURE.md`
+  - `docs/03_Specifications/01_Project/spec/PROJECT_AUTH_SPEC.md`
+  - `docs/03_Specifications/01_Project/spec/PROJECT_ANALYZE_SPEC.md`
+  - `docs/03_Specifications/01_Project/spec/PROJECT_CORE_SPEC.md`
+  - `docs/03_Specifications/01_Project/spec/PROJECT_LIST_SPEC.md`
+  - `docs/03_Specifications/01_Project/api/PROJECT_LIST_API_SPEC.md`
+  - `docs/03_Specifications/01_Project/api/PROJECT_REPO_API_SPEC.md`
+  - `docs/03_Specifications/03_LLM/api/LLM_COMMON_API_SPEC.md`
+  - `docs/03_Specifications/ERROR_CODES.md`
+  - `docs/04_Decisions/ERROR_HANDLING.md`
+- Validation:
+  - `rg`로 Issue #174-#181과 신규 기능 ID가 문서에 연결되는지 확인.
+  - `python3`로 Phase 2 기능 인덱스 53개 행 카운트 확인.
+  - `git diff --check` 통과.
+- Known issues:
+  - Existing untracked files `backend/run_analysis.py`, `backend/seed.py`, `backend/test_chat.py` are unrelated and must not be staged for PR #169.
+- Next steps:
+  - Commit, push, and update PR #169 body with #174-#181 mappings.
+
 ## 2026-06-25 — Phase 1 run stream UI hardening
 
 - Current branch: `feat/phase1-agent-run-hardening`

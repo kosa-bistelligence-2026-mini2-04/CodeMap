@@ -51,6 +51,7 @@ backend/app/
 │   └── workers/          #    search/dir/grep/read 단일 목적 worker adapters
 ├── tool/                 # 🔧 도구 도메인 (검색 알고리즘 + MCP I/O)
 ├── auth/                 # 🔐 인증 도메인
+├── team/                 # 👥 팀 workspace, 초대, 멤버십, 공유 범위 도메인 (Phase 2)
 ├── chat/                 # 💬 채팅 대화 도메인 (Final Answer 생성 및 스트리밍)
 │   ├── final_answer_agent.py # 최종 답변 정제 에이전트
 │   └── ...
@@ -78,6 +79,12 @@ backend/app/
   * `workers/`: `search_worker.py`, `dir_worker.py`, `grep_worker.py`, `read_worker.py`처럼 단일 목적 worker adapter만 둡니다.
   * `llm_client.py`: 모델 생성 factory만 담당하고, node 책임을 흡수하지 않습니다.
 * **`app/tool` (도구 도메인)**: RAG 검색 알고리즘(Hybrid Search, RRF), 파일 읽기, grep, 디렉토리 스캔과 MCP I/O 외부 인터페이스를 제공합니다.
+* **`app/team` (팀 workspace 도메인, Phase 2)**: 팀 생성, 초대/수락, 멤버십, 개인/private 기록과 팀 공유 기록의 visibility 정책을 담당합니다. LIST/REPO/CHAT 도메인은 `repo_id`만 신뢰하지 않고 `analysis_jobs.created_by_user_id`, `visibility`, `team_id`와 팀 멤버십을 함께 확인해야 합니다.
+* **`app/repo` 파일 프리뷰 경계**: `/analyze` 코드 프리뷰와 채팅 근거 라인 이동은 `repo` 도메인의 job-scoped 파일 읽기 API를 통해서만 workspace 파일에 접근합니다. `tool/file_read.py` 같은 내부 worker 도구를 사용자-facing API로 직접 노출하지 않습니다.
+* **`/analyze` 화면 조합 책임**: `PROJECT_ANALYZE_SPEC.md`가 report, repository tree, code preview, history, compact chat의 화면 상태 연결을 정의합니다. 백엔드는 REPO/LIST/CHAT/RAG-PARSE 계약을 제공하고 화면 배치는 프론트가 조합합니다.
+* **Frontend API error boundary (Issue #176)**: `features/*/api` client는 서버 envelope를 직접 화면에 넘기지 않고, 공통 parser를 통해 `{ status, code, message, field, retryable }` 형태로 정규화합니다. 사용자-facing 문구와 field-level 오류 표시 책임은 UI 계층에 둡니다.
+* **Accessibility/i18n baseline (Issue #180)**: `common/components`의 버튼, 모달, toast, banner는 accessible name, focus-visible, keyboard navigation, `prefers-reduced-motion` fallback을 기본 계약으로 가집니다. 화면 문구와 `html lang`은 제품 기본 언어와 일치해야 합니다.
+* **LLM model catalog boundary (Issue #181)**: 프론트 모델 선택지는 `LLM_COMMON_API_SPEC.md`의 모델 카탈로그 또는 동일 내용을 공유하는 정적 계약을 기준으로 구성합니다. 백엔드 allowlist와 UI 옵션을 별도 하드코딩해 unsupported model 선택 실패가 뒤늦게 발생하지 않게 합니다.
 
 ---
 

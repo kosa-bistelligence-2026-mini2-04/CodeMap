@@ -1,6 +1,6 @@
 # LLM 공통 API 명세서
 
-> **도메인**: LLM | **범위**: Common Contract | **최종 업데이트**: 2026-06-25
+> **도메인**: LLM | **범위**: Common Contract | **최종 업데이트**: 2026-06-26
 
 ## 공통 응답 형식
 
@@ -98,3 +98,63 @@
 | `AGENT_EVIDENCE_NOT_READY` | 409 | reasoning에 필요한 evidence 미준비 |
 | `AGENT_TOOL_POLICY_FAILED` | 500 | 외부 도구 정책 조회 실패 |
 | `AGENT_REASONING_FAILED` | 500 | 선택형 reasoning worker 실패 |
+
+## 모델 카탈로그 계약
+
+Issue #181에 따라 프론트 모델 선택 UI와 백엔드 모델 검증은 같은 카탈로그를 기준으로 동작해야 합니다. 구현 방식은 `GET /api/llm/models` 또는 빌드 시 공유되는 정적 계약 중 하나를 선택할 수 있으나, 사용자에게 보이는 선택지와 backend allowlist가 어긋나서는 안 됩니다.
+
+### LLM-COMMON-API-001: 모델 카탈로그 조회
+
+| 항목 | 값 |
+| --- | --- |
+| Method | `GET` |
+| Endpoint | `/api/llm/models` |
+| 관련 기능 ID | `LLM-COMMON-B-201`, `LLM-COMMON-F-201` |
+| 상태 | 제안 |
+
+**성공 응답 — 200 OK**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "defaultModel": "gpt-4o",
+    "models": [
+      {
+        "id": "gpt-4o",
+        "label": "GPT-4o",
+        "provider": "openai",
+        "capabilities": ["planner", "answer", "tool-calling"],
+        "enabled": true,
+        "disabledReason": null
+      }
+    ]
+  }
+}
+```
+
+**필드 규칙**
+
+| 필드 | 설명 |
+| --- | --- |
+| `id` | API 요청에 사용할 model id. backend allowlist와 동일해야 함 |
+| `label` | UI 표시명 |
+| `provider` | 모델 제공자 |
+| `capabilities` | `planner`, `answer`, `embedding`, `summarization` 등 역할 |
+| `enabled` | 현재 환경에서 선택 가능 여부 |
+| `disabledReason` | 비활성 모델의 사용자 안내 문구 |
+
+**에러 응답**
+
+| HTTP Status | Error Code | 설명 |
+| --- | --- | --- |
+| 400 | `UNSUPPORTED_MODEL` | 요청한 model id가 backend allowlist에 없음 |
+| 422 | `MODEL_DISABLED` | 카탈로그에는 있으나 현재 환경에서 비활성화된 모델 |
+| 500 | `MODEL_CATALOG_UNAVAILABLE` | 모델 카탈로그 조회 실패 |
+
+**클라이언트 기준**
+
+- enabled model만 primary selectable로 보여줍니다.
+- disabled model은 선택 불가 상태와 `disabledReason`을 함께 표시합니다.
+- unsupported model 요청 실패는 분석/채팅 실패 뒤늦은 에러가 아니라 입력 검증 오류로 처리합니다.

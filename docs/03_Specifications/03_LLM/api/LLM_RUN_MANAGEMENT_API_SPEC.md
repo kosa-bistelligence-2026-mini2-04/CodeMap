@@ -16,6 +16,14 @@
 
 ### 응답
 
+### 사전 검증
+
+Issue #173에 따라 상태 조회는 `run_id`만 단독으로 신뢰하지 않고 path의 `repo_id`와 run metadata의 repo/job ID가 일치하는지 함께 확인합니다.
+
+- `repo_id`가 존재하지 않으면 404 `REPO_NOT_FOUND`
+- `run_id`가 존재하지 않으면 404 `LLM_RUN_NOT_FOUND`
+- `run_id`는 존재하지만 path의 `repo_id`와 연결되지 않으면 409 `RUN_REPO_MISMATCH`
+
 #### 성공 응답 - 200 OK
 
 | 필드명 | 타입 | 설명 |
@@ -105,7 +113,9 @@
 
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | --- | --- | --- | --- |
+| 404 | `REPO_NOT_FOUND` | repo 조회 | repo_id가 존재하지 않음 |
 | 404 | `LLM_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
+| 409 | `RUN_REPO_MISMATCH` | run/repo 검증 | run은 존재하지만 path의 repo_id와 연결되지 않음 |
 | 409 | `LLM_RUN_ALREADY_FINISHED` | 상태 검증 | 이미 completed/failed/cancelled 상태 |
 
 ---
@@ -154,5 +164,7 @@
 
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | --- | --- | --- | --- |
+| 404 | `REPO_NOT_FOUND` | repo 조회 | repo_id가 존재하지 않음 |
 | 404 | `LLM_RUN_NOT_FOUND` | run 조회 | run_id가 존재하지 않음 |
 | 404 | `AGENT_EVIDENCE_NOT_FOUND` | evidence 조회 | State에 evidence가 없음 |
+| 409 | `RUN_REPO_MISMATCH` | run/repo 검증 | run은 존재하지만 path의 repo_id와 연결되지 않음 |

@@ -1,6 +1,6 @@
 # PROJECT LIST API 명세서
 
-> **최종 업데이트**: 2026-06-19
+> **최종 업데이트**: 2026-06-26
 
 
 ## API 목록
@@ -13,6 +13,8 @@
 | PROJECT-LIST-API-004 | `GET` | `/api/list/analysis/{job_id}` | 특정 분석 작업 상세 조회 | - | 시작 전 |
 | PROJECT-LIST-API-005 | `POST` | `/api/list/validate` | 저장소 검증 (API-002 참조) | - | 시작 전 |
 | PROJECT-LIST-API-006 | `PATCH` | `/api/list/analysis/{job_id}/status` | 분석 작업 상태 수동 업데이트 | - | 시작 전 |
+| PROJECT-LIST-API-007 | `POST` | `/api/list/analysis/{job_id}/retry` | 실패 분석 작업 재시도 | - | 제안 |
+| PROJECT-LIST-API-008 | `DELETE` | `/api/list/analysis/{job_id}` | 분석 이력 삭제 또는 숨김 | - | 제안 |
 
 ---
 
@@ -45,6 +47,11 @@
 | --- | --- | --- | --- | --- |
 | page | Integer | 선택 | 1 | 조회할 페이지 번호 |
 | limit | Integer | 선택 | 10 | 페이지당 반환할 이력 수 |
+| scope | String | 선택 | private | Phase 2: `private`, `team`, `all` |
+| teamId | UUID | 조건부 | null | Phase 2: `scope=team`일 때 조회할 팀 ID |
+| query | String | 선택 | null | Issue #177: repoName 또는 repoUrl 검색어 |
+| status | String | 선택 | null | Issue #177: `queued`, `running`, `completed`, `failed` 필터 |
+| sort | String | 선택 | `updatedAt:desc` | Issue #177: `updatedAt`, `createdAt`, `status` 기준 정렬 |
 
 **요청 예시**
 ```
@@ -71,14 +78,22 @@ Authorization: Bearer eyJhbGci...
 | data.jobs[].progress | Integer | 작업 진행률 (0~100) |
 | data.jobs[].failedAgent | String | 실패한 에이전트명 (실패 시에만, 그 외 null) |
 | data.jobs[].errorMessage | String | 구체적인 에러 메시지 (실패 시에만, 그 외 null) |
+| data.jobs[].canRetry | Boolean | Issue #177: 실패 job 재시도 가능 여부 |
+| data.jobs[].canDelete | Boolean | Issue #177: 현재 사용자의 삭제/숨김 가능 여부 |
 | data.jobs[].createdAt | String (ISO 8601) | 작업 생성 시각 |
 | data.jobs[].updatedAt | String (ISO 8601) | 작업 최종 변경 시각 |
+| data.jobs[].visibility | String | Phase 2: `private` 또는 `team` |
+| data.jobs[].teamId | String(UUID) \| null | Phase 2: 팀 공유 분석이면 팀 ID |
+
+> Phase 2 권한 계약: `scope=private`는 현재 사용자가 생성한 private job만 반환합니다. `scope=team`은 `teamId`의 active member에게만 결과를 반환합니다. `scope=all`은 private 결과와 접근 가능한 team 결과를 합칩니다. 자세한 기준은 `PROJECT_TEAM_SPEC.md`와 `PROJECT_TEAM_API_SPEC.md`를 따릅니다.
 
 **에러 응답**
 
 | HTTP Status | Error Code | 설명 |
 | --- | --- | --- |
 | 401 | UNAUTHORIZED | 토큰이 누락되었거나 만료됨 |
+| 403 | TEAM_ACCESS_DENIED | Phase 2: 요청한 팀 기록에 접근 권한이 없음 |
+| 400 | INVALID_HISTORY_FILTER | Issue #177: 허용되지 않은 status/sort/query 조건 |
 | 500 | DATABASE_ERROR | 데이터베이스 조회 중 예외 발생 |
 
 
@@ -249,4 +264,86 @@ PROJECT-LIST-API-002와 동일한 엔드포인트. 명세 작성 예정.
 
 > ⚠️ 명세 미작성 — 추후 업데이트 예정
 
+---
 
+## PROJECT-LIST-API-007: 실패 분석 작업 재시도
+
+Issue #177에 따라 실패한 분석 job을 사용자가 History에서 다시 실행할 수 있게 합니다. 재시도는 기존 job을 덮어쓰지 않고 새 job을 생성하거나, 구현 정책에 따라 retryOfJobId를 가진 새 실행 단위로 분리합니다.
+
+### 기본 정보
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `POST` |
+| Endpoint | `/api/list/analysis/{job_id}/retry` |
+| 관련 기능 ID | PROJECT-LIST-F-205 |
+| 상태 | 제안 |
+
+### 요청 (Request)
+
+| 파라미터 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| job_id | String (UUID) | Y | 재시도할 failed job ID |
+
+### 응답 (Response)
+
+**성공 응답 — 201 Created**
+
+| 필드명 | 타입 | 설명 |
+| --- | --- | --- |
+| code | Integer | 201 |
+| message | String | "created" |
+| data.jobId | String(UUID) | 새로 생성된 분석 job ID |
+| data.retryOfJobId | String(UUID) | 원본 failed job ID |
+| data.status | String | `queued` 또는 `running` |
+
+**에러 응답**
+
+| HTTP Status | Error Code | 설명 |
+| --- | --- | --- |
+| 403 | FORBIDDEN | 현재 사용자가 해당 job을 재시도할 권한이 없음 |
+| 404 | JOB_NOT_FOUND | 원본 job을 찾을 수 없음 |
+| 409 | JOB_NOT_RETRYABLE | failed 상태가 아니거나 재시도 가능한 오류가 아님 |
+| 500 | DATABASE_ERROR | 재시도 job 생성 실패 |
+
+---
+
+## PROJECT-LIST-API-008: 분석 이력 삭제 또는 숨김
+
+Issue #177에 따라 사용자가 History에서 불필요한 분석 이력을 삭제하거나 숨김 처리할 수 있게 합니다. 팀 공유 이력의 물리 삭제는 권한 정책에 따라 owner/admin으로 제한하고, 일반 멤버는 개인 view에서 숨김 처리만 허용할 수 있습니다.
+
+### 기본 정보
+
+| 항목 | 내용 |
+| --- | --- |
+| Method | `DELETE` |
+| Endpoint | `/api/list/analysis/{job_id}` |
+| 관련 기능 ID | PROJECT-LIST-F-205 |
+| 상태 | 제안 |
+
+### 요청 (Request)
+
+| 파라미터 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| job_id | String (UUID) | Y | 삭제 또는 숨김 처리할 job ID |
+| mode | String | 선택 | `hide` 또는 `delete`; 기본값은 권한에 따라 서버가 결정 |
+
+### 응답 (Response)
+
+**성공 응답 — 200 OK**
+
+| 필드명 | 타입 | 설명 |
+| --- | --- | --- |
+| code | Integer | 200 |
+| message | String | "success" |
+| data.jobId | String(UUID) | 처리된 job ID |
+| data.mode | String | `hide` 또는 `delete` |
+
+**에러 응답**
+
+| HTTP Status | Error Code | 설명 |
+| --- | --- | --- |
+| 403 | FORBIDDEN | 삭제 또는 숨김 권한이 없음 |
+| 404 | JOB_NOT_FOUND | job을 찾을 수 없음 |
+| 409 | JOB_DELETE_CONFLICT | running job 등 삭제할 수 없는 상태 |
+| 500 | DATABASE_ERROR | 삭제 또는 숨김 처리 실패 |
