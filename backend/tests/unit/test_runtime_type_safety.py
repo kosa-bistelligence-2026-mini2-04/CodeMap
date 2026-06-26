@@ -72,7 +72,7 @@ def test_parseresult_strict_validation():
 # 2. 극한 데이터(Payload Too Large / Crash 유발) 테스트
 # ──────────────────────────────────────────────
 def test_payload_too_large_string():
-    """매우 긴 문자열(Payload Too Large) 주입 시 Pydantic 검증 동작 및 병목 체크"""
+    """매우 긴 문자열 주입 시 Pydantic의 파싱 정상 동작(거부하지 않고 수용) 및 타입 힌트 유지 확인"""
     large_string = "A" * 10_000_000  # 10MB 크기의 문자열
     
     parsed = ParsedFile(
@@ -99,7 +99,7 @@ def test_payload_too_large_string():
         )
 
 def test_deeply_nested_dict():
-    """무한 재귀를 유발할 수 있는 악성 깊은 딕셔너리 주입 시 방어 체크"""
+    """무한 재귀를 유발할 수 있는 악성 깊은 딕셔너리 주입 시 파이썬 엔진 크래시 없이 정상 수용되는지 확인 (Pydantic 코어 안정성)"""
     # 딕셔너리 깊이 2000 생성
     deep_dict = {}
     current = deep_dict
@@ -116,9 +116,9 @@ def test_deeply_nested_dict():
         "session_id": "sess_1",
         "clone_path": "/tmp/clone",
         "user_query": "What is this?",
-        "worker_results": [{"id": f"res_{i}", "path": None, "lineStart": None, "lineEnd": None, "score": None, "snippet": "foo", "metadata": {}} for i in range(100_000)], # 대용량 리스트
+        "worker_results": [], 
         "search_history": [],
-        "compact_context": {},
+        "compact_context": deep_dict, # 깊은 재귀 딕셔너리 할당
         "memory_context": {},
         "rewritten_query": "",
         "access_plan": [],
@@ -135,13 +135,9 @@ def test_deeply_nested_dict():
         "errors": []
     }
 
-    # 파싱 완료되거나 극한 깊이 확인
-    try:
-        parsed = adapter.validate_python(record_data)
-        assert len(parsed["worker_results"]) == 100_000
-    except (ValidationError, RecursionError):
-        # 깊이 제한으로 인한 Validation 에러나 Recursion 에러는 정상 방어된 것으로 간주
-        pass
+    # Pydantic V2(Rust 코어)는 Any/dict 타입에 대해 깊은 재귀 데이터도 크래시(RecursionError) 없이 정상적으로 수용함
+    parsed = adapter.validate_python(record_data)
+    assert parsed["compact_context"] is not None
 
 def test_large_list_of_objects():
     """요소가 비정상적으로 많은 리스트 주입 시(OOM / 성능 지연 방어)"""

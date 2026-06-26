@@ -18,10 +18,11 @@ from app.parse.schemas import RunCommandSet
 def normalize_run_commands(value: Union[JsonDict, list[Union[str, int, float, bool, dict, list, None]], None]) -> RunCommandSet:
     """Normalize legacy list or object run command shapes into RunCommandSet."""
     if isinstance(value, dict):
+        build_val = value.get("build")
         return RunCommandSet(
             install=str(value.get("install") or ""),
             run=str(value.get("run") or ""),
-            build=value.get("build"),
+            build=str(build_val) if build_val is not None else None,
         )
     if isinstance(value, list):
         build_cmd = next(
@@ -42,7 +43,9 @@ def normalize_run_commands(value: Union[JsonDict, list[Union[str, int, float, bo
 
 def report_files(report_json: JsonDict) -> list[JsonDict]:
     files = report_json.get("files", [])
-    return files if isinstance(files, list) else []
+    if isinstance(files, list):
+        return [item for item in files if isinstance(item, dict)]
+    return []
 
 
 def report_tech_stack(report_json: JsonDict) -> list:
@@ -96,44 +99,56 @@ def report_master_summary(report_json: JsonDict) -> str:
 
 
 def report_config_files(files: list[JsonDict]) -> list[str]:
-    return [
-        item["path"]
-        for item in files
-        if (
-            isinstance(item, dict)
-            and item.get("path")
-            and isinstance(item.get("metadata"), dict)
-            and item["metadata"].get("is_config")
-        )
-    ]
+    result: list[str] = []
+    for item in files:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        if not path:
+            continue
+        metadata = item.get("metadata")
+        if isinstance(metadata, dict) and metadata.get("is_config"):
+            result.append(str(path))
+    return result
 
 
 def report_directory_tree(report_json: JsonDict) -> str | None:
     tree = report_json.get("directory_tree")
-    return str(tree) if tree else None
+    return str(tree) if tree is not None else None
 
 
 def report_file_map(report_json: JsonDict) -> list[JsonDict]:
     file_map = report_json.get("file_map", [])
-    return [item for item in file_map if isinstance(item, dict)] if isinstance(file_map, list) else []
+    if isinstance(file_map, list):
+        return [item for item in file_map if isinstance(item, dict)]
+    return []
 
 
 def report_heatmap(report_json: JsonDict) -> list[JsonDict]:
     heatmap = report_json.get("heatmap", [])
-    return [item for item in heatmap if isinstance(item, dict)] if isinstance(heatmap, list) else []
+    if isinstance(heatmap, list):
+        return [item for item in heatmap if isinstance(item, dict)]
+    return []
 
 
 def report_folder_summaries(report_json: JsonDict) -> list[JsonDict]:
     summaries = report_json.get("folder_summaries", [])
-    return [item for item in summaries if isinstance(item, dict)] if isinstance(summaries, list) else []
+    if isinstance(summaries, list):
+        return [item for item in summaries if isinstance(item, dict)]
+    return []
 
 
 def report_file_summaries(report_json: JsonDict) -> list[JsonDict]:
     summaries = report_json.get("file_summaries", [])
     if isinstance(summaries, list) and summaries:
         return [item for item in summaries if isinstance(item, dict)]
-    return [
-        {"path": item["path"], "summary": item.get("summary") or ""}
-        for item in report_files(report_json)
-        if isinstance(item, dict) and item.get("path") and item.get("summary")
-    ]
+    
+    result: list[JsonDict] = []
+    for item in report_files(report_json):
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        summary = item.get("summary")
+        if path and summary:
+            result.append({"path": path, "summary": summary or ""})
+    return result
