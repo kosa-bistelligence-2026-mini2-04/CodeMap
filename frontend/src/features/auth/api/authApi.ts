@@ -19,6 +19,7 @@ export interface RegisterResponse {
   success: boolean;
   code: number;
   message: string;
+  error_code?: string;
   data: {
     userId: string;
     email: string;
@@ -34,6 +35,7 @@ export interface LoginResponse {
   success: boolean;
   code: number;
   message: string;
+  error_code?: string;
   data: {
     accessToken: string;
     expiresIn: number;
@@ -61,7 +63,7 @@ export interface LogoutResponse {
 
 // ── API 함수 ─────────────────────────────────────────────────────────────────
 
-import { parseApiError } from "@/common/api/error";
+import { parseApiError, ApiError } from "@/common/api/error";
 
 /**
  * 회원가입 (AUTH-API-001)
@@ -79,7 +81,11 @@ export async function register(payload: RegisterRequest): Promise<RegisterRespon
   }
   const data: RegisterResponse = await resp.json();
   if (!data.success) {
-    throw new Error(data.message || `회원가입 실패`);
+    throw new ApiError(200, {
+      code: data.code,
+      message: data.message || `회원가입 실패`,
+      error: data.error_code ? { code: data.error_code } : undefined,
+    });
   }
   return data;
 }
@@ -101,7 +107,11 @@ export async function login(payload: LoginRequest): Promise<LoginResponse> {
   }
   const data: LoginResponse = await resp.json();
   if (!data.success) {
-    throw new Error(data.message || `로그인 실패`);
+    throw new ApiError(200, {
+      code: data.code,
+      message: data.message || `로그인 실패`,
+      error: data.error_code ? { code: data.error_code } : undefined,
+    });
   }
   return data;
 }
