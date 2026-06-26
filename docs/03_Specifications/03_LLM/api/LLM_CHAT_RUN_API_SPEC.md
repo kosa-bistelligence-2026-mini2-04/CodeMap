@@ -32,6 +32,7 @@
 | `includeEvidence` | Boolean | N | true | 최종 응답에 evidence metadata 포함 여부 |
 | `maxToolCalls` | Integer | N | 8 | 전체 worker tool call 최대 횟수 |
 | `timeoutSeconds` | Integer | N | 30 | run 전체 timeout |
+| `targetFiles` | String[] | N | [] | Issue #172: 사용자가 질문에 첨부한 repo 내부 상대 파일 경로 목록 |
 
 #### 요청 예시
 
@@ -46,7 +47,8 @@ Authorization: Bearer {access_token}
   "mode": "standard",
   "includeEvidence": true,
   "maxToolCalls": 8,
-  "timeoutSeconds": 30
+  "timeoutSeconds": 30,
+  "targetFiles": ["backend/app/auth/router.py"]
 }
 ```
 
@@ -64,6 +66,7 @@ Authorization: Bearer {access_token}
 | `data.streamUrl` | String | SSE endpoint |
 | `data.statusUrl` | String | 상태 조회 endpoint |
 | `data.evidenceUrl` | String | evidence 조회 endpoint |
+| `data.targetFiles` | String[] | 검증 후 run에 연결된 첨부 파일 경로 목록 |
 
 #### 응답 예시
 
@@ -77,7 +80,8 @@ Authorization: Bearer {access_token}
     "status": "queued",
     "streamUrl": "/api/chat/8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f/runs/2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10/stream",
     "statusUrl": "/api/chat/8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f/runs/2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10",
-    "evidenceUrl": "/api/chat/8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f/runs/2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10/evidence"
+    "evidenceUrl": "/api/chat/8cfd0f7b-3ec3-42e3-97c4-8f4b4cc9390f/runs/2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10/evidence",
+    "targetFiles": ["backend/app/auth/router.py"]
   }
 }
 ```
@@ -87,12 +91,23 @@ Authorization: Bearer {access_token}
 | HTTP Status | Error Code | 발생 시점 | 설명 |
 | --- | --- | --- | --- |
 | 400 | `INVALID_CHAT_REQUEST` | body 검증 | 질문 누락, mode 오류, 옵션 상한 초과 |
+| 400 | `INVALID_TARGET_FILE` | 첨부 파일 검증 | path traversal, 절대 경로, 빈 경로 |
 | 401 | `UNAUTHORIZED` | 인증 검증 | 토큰 누락 또는 만료 |
 | 403 | `TEAM_ACCESS_DENIED` | 권한 검증 | Phase 2: 팀 공유 repo의 active member가 아님 |
 | 403 | `PRIVATE_RESOURCE_DENIED` | 권한 검증 | Phase 2: 다른 사용자의 private repo/chat 접근 |
 | 404 | `REPO_NOT_FOUND` | repo 조회 | 저장소 없음 |
+| 404 | `TARGET_FILE_NOT_FOUND` | 첨부 파일 검증 | repo workspace 또는 분석 결과에 없는 파일 |
 | 409 | `REPO_NOT_ANALYZED` | 사전 검증 | 분석/임베딩 미완료 |
 | 500 | `LLM_RUN_CREATE_FAILED` | run 생성 | run 생성 실패 |
+
+### targetFiles 처리 계약
+
+Issue #170, #172에 따라 `targetFiles`는 채팅 입력 UI, 사용자 메시지 렌더링, backend run context가 공유하는 단일 source of truth입니다.
+
+- 프론트는 파일 칩의 `x` 버튼을 누르면 `targetFiles` 배열에서 해당 경로를 제거한 뒤 run 요청을 보냅니다.
+- 사용자 메시지 저장/렌더링은 전송 시점의 `targetFiles` snapshot을 사용합니다.
+- 백엔드는 검증된 `targetFiles`만 run/session metadata에 저장하고 agent context에 전달합니다.
+- `targetFiles`는 repo 내부 상대 경로만 허용하며, `PROJECT-REPO-API-010`의 파일 path 검증 정책을 재사용합니다.
 
 ---
 
@@ -138,6 +153,9 @@ data: {"worker":"grep","resultCount":3,"evidenceIds":["ev_001","ev_002","ev_003"
 event: evidence_compacted
 data: {"evidenceCount":5,"compactContextReady":true}
 
+event: no_evidence
+data: {"reason":"no_search_results","message":"현재 저장소에서 질문과 관련된 코드를 찾지 못했습니다.","suggestedActions":["retry_with_keywords","attach_file"]}
+
 event: answer_delta
 data: {"content":"로그인 로직은 "}
 
@@ -163,6 +181,18 @@ Issue #158, #161에 따라 `references` 이벤트는 답변 본문 citation, 근
 | items[].score | Number | N | 검색/평가 점수 |
 
 `lineStart`/`lineEnd`가 없을 때는 0 또는 1을 임의로 넣지 않습니다. 프론트는 line 값이 null이면 파일만 열고 라인 하이라이트를 생략합니다.
+
+### no_evidence 이벤트 계약
+
+Issue #171에 따라 RAG 검색 결과가 없는 상태는 실패 이벤트와 분리합니다.
+
+| 필드명 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| reason | String | Y | `no_search_results`, `low_confidence`, `filtered_by_policy` 등 |
+| message | String | Y | 사용자에게 보여줄 친화적 안내 문구 |
+| suggestedActions | String[] | N | `retry_with_keywords`, `attach_file`, `ask_general_followup` 등 |
+
+프론트는 `no_evidence`를 받으면 failed UI가 아니라 empty state를 렌더링합니다. 일반 지식 fallback은 사용자가 명시적으로 선택한 follow-up run에서만 수행합니다.
 
 ### 연동 흐름 다이어그램
 

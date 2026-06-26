@@ -309,7 +309,7 @@ MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 
 | `DOCS-GEN-F-205` | DOCS | GEN | Frontend | 주의/위험 소스코드 및 다음 행동 가이드 경고창 | 설정 파일 유출 위험이나 복잡도가 너무 높은 병목 코드 등 수정 시작 전 주의해야 할 위험 요소를 경고해 주는 모달/경고 카드 컴포넌트 |
 | `DOCS-GUARD-B-201` | DOCS | GUARD | Backend | 민감정보 마스킹 | API key, token, password pattern 탐지 시 원문 제거. report 생성 전 report에 민감정보 원문 미노출하도록 검증 |
 
-### 🥈 Phase 2: 고도화 추가 기능 (40개)
+### 🥈 Phase 2: 고도화 추가 기능 (44개)
 
 | 기능 ID | 카테고리 | 도메인(모듈) | 구분 | 기능명 | 상세 설명 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -348,6 +348,10 @@ MVP(최소 기능 제품) 구현을 위한 **Phase 1(핵심 기능)**과 이후 
 | `LLM-CHAT-F-208` | LLM | CHAT | Frontend | 근거 칩 대비/가독성 개선 | Issue #159: 파일명/라인 번호/상태를 읽기 쉽게 표시 |
 | `LLM-CHAT-F-209` | LLM | CHAT | Frontend | 사고 과정 토글 상태 전이 | Issue #165/#166: 생성 중 open, 완료 후 collapsed |
 | `LLM-CHAT-F-210` | LLM | CHAT | Frontend | 근거 없음 claim 단위 표시 | Issue #158: 근거 부족 상태를 전체 답변이 아닌 주장 단위로 표현 |
+| `LLM-CHAT-B-211` | LLM | CHAT | Backend | 선택 파일 기반 target context 주입 | Issue #172: 첨부 파일을 run payload와 agent context에 반영 |
+| `LLM-CHAT-F-211` | LLM | CHAT | Frontend | 선택 파일 칩 제거 상태 동기화 | Issue #170: 파일 칩 x 버튼 클릭 시 selected file 배열에서 제거 |
+| `LLM-CHAT-F-212` | LLM | CHAT | Frontend | 사용자 메시지 첨부 파일 표시 | Issue #172: 질문 말풍선에 첨부 파일 badge/chip 표시 |
+| `LLM-CHAT-F-213` | LLM | CHAT | Frontend | 검색 결과 없음 empty state | Issue #171: 근거 없음 단문 대신 안내 문구와 후속 액션 제공 |
 | `LLM-WORKER-B-206` | LLM | WORKER | Backend | Service | 허용된 외부 도구 worker 확장 |
 | `LLM-WORKER-B-207` | LLM | WORKER | Backend | Service | 선택형 reasoning worker 고도화 |
 | `DOCS-GEN-B-208` | DOCS |  | Backend | Service | 추천 작업 생성 |
