@@ -1,5 +1,29 @@
 # Current Work
 
+## 2026-06-26 — PR #189 Timeline render-phase review fix
+
+- Current branch: `feat/chat-ui-enhancements`
+- Current goal: Address smmini's additional PR #189 review comment about Timeline render-phase state updates.
+- Current status:
+  - Confirmed the earlier `target_file` deterministic Planner fix is already present in commit `98f7b62`.
+  - Removed render-body `setState` calls from `AgentExplorationTimeline`.
+  - Moved streaming/open-state synchronization behind a `useEffect` timer callback so React render-phase and hook lint warnings are avoided.
+- Files touched or likely relevant:
+  - `frontend/src/features/chat/components/AgentExplorationTimeline.tsx`
+- Commands run:
+  - `env -u GITHUB_TOKEN gh pr view 189 --repo kosa-bistelligence-2026-mini2-04/CodeMap --json ...`
+  - `cd frontend && ./node_modules/.bin/eslint src/features/chat/components/AgentExplorationTimeline.tsx`
+  - `cd frontend && ./node_modules/.bin/next build --webpack`
+  - `git diff --check`
+- Validation:
+  - Targeted ESLint passed.
+  - `next build --webpack` passed.
+  - `git diff --check` passed.
+- Known issues:
+  - Existing unrelated local modifications and untracked helper files remain unstaged.
+- Next steps:
+  - Commit, push, and leave a PR comment summarizing the additional Timeline fix.
+
 ## 2026-06-26 — PR #189 targetFile review fix
 
 - Current branch: `feat/chat-ui-enhancements`
