@@ -50,6 +50,7 @@ class ParsedFile(BaseModel):
     depth: int = Field(description="루트로부터의 깊이")
     content: str | None = Field(default=None, description="파일 원문 (디렉토리는 None)")
     lines: int = Field(default=0, ge=0, description="전체 라인 수")
+    chars: int = Field(default=0, ge=0, description="글자 수 (len(content))")
     size: int = Field(default=0, ge=0, description="파일 크기(bytes)")
     summary: str | None = Field(default=None, description="Bottom-up 요약 (RAG-PARSE-B-209)")
     chunks: list[CodeChunk] = Field(default_factory=list, description="AST 청크 목록")

@@ -26,8 +26,8 @@ export default function SignInPage() {
     try {
       await login({ email, password });
       router.push("/analyze"); // 로그인 성공 시 프로젝트 분석 페이지로
-    } catch (err: any) {
-      const errorMsg = err.message || "로그인에 실패했습니다. 자격 증명을 확인해주세요.";
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "로그인에 실패했습니다. 자격 증명을 확인해주세요.";
       setError(errorMsg);
     } finally {
       setIsLoading(false);
