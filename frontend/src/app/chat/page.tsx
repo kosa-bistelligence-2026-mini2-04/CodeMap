@@ -57,6 +57,7 @@ function ChatContent() {
             preview={preview}
             contextFile={activeFile}
             onReferenceClick={(file) => setActiveFile(file)}
+            onClearContextFile={() => setActiveFile(null)}
           />
         </div>
       </div>

@@ -32,6 +32,7 @@ interface ChatInterfaceProps {
   onReferenceClick?: (file: string, line: number) => void;
   expandHref?: string;
   onClose?: () => void;
+  onClearContextFile?: () => void;
 }
 
 const generateId = () => {
@@ -62,6 +63,7 @@ export function ChatInterface({
   onReferenceClick,
   expandHref,
   onClose,
+  onClearContextFile,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -122,7 +124,7 @@ export function ChatInterface({
     const content = (text || input).trim();
     if (!content || isStreaming || !repoId) return;
     const userMessage: ChatMessage = {
-      id: generateId(), role: "user", content, timestamp: Date.now(), mode,
+      id: generateId(), role: "user", content, timestamp: Date.now(), mode, contextFile: contextFile || undefined,
     };
     const assistantId = generateId();
     setMessages((current) => [...current, userMessage, {
@@ -304,7 +306,7 @@ export function ChatInterface({
                   <span className={`shrink-0 rounded bg-blue-500/10 px-1 py-0.5 text-[8px] font-bold text-blue-400 ${isDark ? "" : ""}`}>CONTEXT</span>
                   <span className={`truncate font-mono text-[10px] ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{contextFile}</span>
                 </div>
-                <button onClick={() => onReferenceClick?.(contextFile, 1)} className={`shrink-0 rounded p-1 transition ${isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"}`}><X className="size-3" /></button>
+                <button onClick={() => onClearContextFile?.()} className={`shrink-0 rounded p-1 transition ${isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"}`}><X className="size-3" /></button>
               </div>
             )}
             <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(); } }} placeholder={isStreaming ? "답변을 생성하는 중입니다..." : "이 저장소에 대해 무엇이든 물어보세요"} disabled={isStreaming} className={`min-h-[44px] w-full resize-none bg-transparent px-2 py-1 text-sm outline-none placeholder:text-zinc-600 disabled:opacity-50 ${isDark ? "text-zinc-200" : "text-zinc-900"}`} rows={Math.min(5, input.split("\n").length || 1)} />

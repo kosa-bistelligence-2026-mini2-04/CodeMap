@@ -23,6 +23,7 @@ def test_codemapstate_type_safety():
         "session_id": "sess_1",
         "clone_path": "/tmp/clone",
         "user_query": "What is this?",
+        "target_file": None,
         "context_files": [],
         "worker_results": [],
         "search_history": [],
@@ -116,6 +117,7 @@ def test_deeply_nested_dict():
         "session_id": "sess_1",
         "clone_path": "/tmp/clone",
         "user_query": "What is this?",
+        "target_file": None,
         "worker_results": [],
         "search_history": [],
         "compact_context": deep_dict, # 깊은 재귀 딕셔너리 할당
@@ -150,6 +152,7 @@ def test_large_list_of_objects():
         "session_id": "sess_1",
         "clone_path": "/tmp/clone",
         "user_query": "What is this?",
+        "target_file": None,
         "worker_results": [{"id": f"res_{i}", "path": None, "lineStart": None, "lineEnd": None, "score": None, "snippet": "foo", "metadata": {}} for i in range(100_000)], # 대용량 리스트
         "search_history": [],
         "compact_context": {},

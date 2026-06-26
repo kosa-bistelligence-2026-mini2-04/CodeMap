@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BrainCircuit, CheckCircle2, ChevronDown, Sparkles } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
@@ -13,18 +13,18 @@ interface AgentExplorationTimelineProps {
 export function AgentExplorationTimeline({ steps, isStreaming }: AgentExplorationTimelineProps) {
   const { theme } = useApp();
   const isDark = theme === "dark";
-  const [isOpen, setIsOpen] = useState(isStreaming || steps.length > 0);
-  const [prevStepCount, setPrevStepCount] = useState(steps.length);
-  const [prevStreaming, setPrevStreaming] = useState(isStreaming);
+  const [isOpen, setIsOpen] = useState(isStreaming);
 
-  // 새로운 스텝이 추가되거나 스트리밍이 시작되면 자동으로 열림
-  if (steps.length > prevStepCount || (isStreaming && !prevStreaming)) {
-    setPrevStepCount(steps.length);
-    setPrevStreaming(isStreaming);
-    if (!isOpen) setIsOpen(true);
-  } else if (!isStreaming && prevStreaming) {
-    setPrevStreaming(isStreaming);
-  }
+  // 답변 생성 중(isStreaming)에는 열어두고, 스트리밍 종료 시 자동으로 닫기
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setIsOpen(isStreaming);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isStreaming]);
 
   if (!steps || steps.length === 0) return null;
 
