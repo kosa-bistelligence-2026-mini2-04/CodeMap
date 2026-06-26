@@ -16,12 +16,13 @@ export interface RegisterRequest {
 }
 
 export interface RegisterResponse {
+  success: boolean;
   code: number;
   message: string;
   data: {
     userId: string;
     email: string;
-  };
+  } | null;
 }
 
 export interface LoginRequest {
@@ -30,24 +31,27 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
+  success: boolean;
   code: number;
   message: string;
   data: {
     accessToken: string;
     expiresIn: number;
-  };
+  } | null;
 }
 
 export interface RefreshResponse {
+  success: boolean;
   code: number;
   message: string;
   data: {
     accessToken: string;
     expiresIn: number;
-  };
+  } | null;
 }
 
 export interface LogoutResponse {
+  success: boolean;
   code: number;
   message: string;
   data: null;
@@ -68,11 +72,11 @@ export async function register(payload: RegisterRequest): Promise<RegisterRespon
     credentials: "include",
     body: JSON.stringify(payload),
   });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `회원가입 실패 (HTTP ${resp.status})`);
+  const data: RegisterResponse = await resp.json();
+  if (!data.success) {
+    throw new Error(data.message || `회원가입 실패`);
   }
-  return resp.json();
+  return data;
 }
 
 /**
@@ -87,11 +91,11 @@ export async function login(payload: LoginRequest): Promise<LoginResponse> {
     credentials: "include",
     body: JSON.stringify(payload),
   });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `로그인 실패 (HTTP ${resp.status})`);
+  const data: LoginResponse = await resp.json();
+  if (!data.success) {
+    throw new Error(data.message || `로그인 실패`);
   }
-  return resp.json();
+  return data;
 }
 
 /**
@@ -110,6 +114,9 @@ export async function refreshAccessToken(): Promise<string | null> {
       return null;
     }
     const data: RefreshResponse = await resp.json();
+    if (!data.success || !data.data) {
+      return null;
+    }
     return data.data.accessToken;
   } catch {
     return null;

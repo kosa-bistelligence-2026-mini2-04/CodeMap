@@ -21,9 +21,10 @@ class RegisterData(BaseModel):
 
 
 class RegisterResponse(BaseModel):
+    success: bool = True
     code: int = 201
     message: str = "created"
-    data: RegisterData
+    data: RegisterData | None = None
 
 
 # ──────────────────────────────────────────────
@@ -40,9 +41,10 @@ class LoginData(BaseModel):
 
 
 class LoginResponse(BaseModel):
+    success: bool = True
     code: int = 200
     message: str = "success"
-    data: LoginData
+    data: LoginData | None = None
 
 
 # ──────────────────────────────────────────────
@@ -58,15 +60,17 @@ class RefreshData(BaseModel):
 
 
 class RefreshResponse(BaseModel):
+    success: bool = True
     code: int = 200
     message: str = "success"
-    data: RefreshData
+    data: RefreshData | None = None
 
 
 # ──────────────────────────────────────────────
 # AUTH-API-004: 로그아웃
 # ──────────────────────────────────────────────
 class LogoutResponse(BaseModel):
+    success: bool = True
     code: int = 200
     message: str = "success"
     data: None = None

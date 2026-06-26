@@ -64,18 +64,21 @@ def _refresh_token_from(request_body: RefreshRequest | None, request: Request) -
 @router.post(
     "/register",
     response_model=RegisterResponse,
-    status_code=201,
     summary="회원가입",
-    description="이메일 + 비밀번호로 신규 계정 생성. 비밀번호는 bcrypt로 해싱 저장.",
+    description="이메일 + 비밀번호로 신규 계정 생성. 비밀번호는 bcrypt로 해싱 저장. (Application Level Error 적용으로 200 응답)",
 )
 async def register(
     request: RegisterRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> RegisterResponse:
-    return await AuthService(db).register(
+    result = await AuthService(db).register(
         email=request.email,
         password=request.password,
     )
+    if result.success and result.code == 201:
+        response.status_code = 201
+    return result
 
 
 # ──────────────────────────────────────────────
@@ -96,7 +99,10 @@ async def login(
         email=request.email,
         password=request.password,
     )
-    _set_refresh_cookie(response, getattr(result, "refresh_token"))
+    if result.success:
+        refresh_token = getattr(result, "refresh_token", None)
+        if refresh_token:
+            _set_refresh_cookie(response, refresh_token)
     return result
 
 
@@ -116,7 +122,10 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db),
 ) -> RefreshResponse:
     result = await AuthService(db).refresh(refresh_token=_refresh_token_from(request_body, request))
-    _set_refresh_cookie(response, getattr(result, "refresh_token"))
+    if result.success:
+        refresh_token_val = getattr(result, "refresh_token", None)
+        if refresh_token_val:
+            _set_refresh_cookie(response, refresh_token_val)
     return result
 
 
