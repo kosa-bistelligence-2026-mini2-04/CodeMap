@@ -59,6 +59,7 @@ class CodeMapState(TypedDict):
     clone_path: str                   # 로컬 clone 경로
     run_id: str                       # Agent Run ID
     session_id: str | None            # Chat session / LangGraph thread_id 매핑값
+    target_file: str | None           # 사용자가 지정한 타겟 파일 경로
     memory_context: dict[str, Any]              # DB에서 복원한 최근 대화 맥락
 
     # ── Planner Node 출력 ──────────────────────────────

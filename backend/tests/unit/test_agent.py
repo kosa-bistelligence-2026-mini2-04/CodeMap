@@ -391,6 +391,7 @@ class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
             "clone_path": "/tmp",
             "run_id": "run1",
             "session_id": "session-1",
+            "target_file": None,
             "memory_context": {"messages": []},
             "rewritten_query": "",
             "access_plan": [],
@@ -418,6 +419,78 @@ class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["rewritten_query"], "stream 이벤트 처리 위치")
         self.assertEqual(result["access_plan"][0]["tool"], "search")
         self.assertEqual(result["events"][0]["type"], "planner_plan")
+
+    async def test_planner_fallback_reads_target_file_first(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        state = self._base_state()
+        state["target_file"] = "frontend/src/features/chat/components/ChatInterface.tsx"
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", side_effect=RuntimeError("missing key")):
+            result = await planner_node(state)
+
+        self.assertEqual(result["access_plan"][0], {
+            "tool": "read",
+            "path": "frontend/src/features/chat/components/ChatInterface.tsx",
+            "query": "frontend/src/features/chat/components/ChatInterface.tsx",
+            "scope": "file",
+        })
+        self.assertEqual(result["access_plan"][1]["tool"], "search")
+        self.assertIn("read", result["events"][0]["selectedWorkers"])
+        self.assertIn(
+            "frontend/src/features/chat/components/ChatInterface.tsx",
+            result["events"][0]["allowedPaths"],
+        )
+
+    async def test_planner_prepends_target_file_when_llm_omits_it(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        class FakePlannerLLM:
+            async def ainvoke(self, _messages):
+                content = (
+                    '{"rewritten_query":"chat context",'
+                    '"access_plan":[{"tool":"search","path":null,'
+                    '"query":"chat context","scope":"chunk"}]}'
+                )
+                return MagicMock(content=content)
+
+        state = self._base_state()
+        state["target_file"] = "backend/app/chat/router.py"
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", return_value=FakePlannerLLM()):
+            result = await planner_node(state)
+
+        self.assertEqual(result["access_plan"][0]["tool"], "read")
+        self.assertEqual(result["access_plan"][0]["path"], "backend/app/chat/router.py")
+        self.assertEqual(result["access_plan"][1]["tool"], "search")
+
+    async def test_planner_does_not_duplicate_existing_target_read(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        class FakePlannerLLM:
+            async def ainvoke(self, _messages):
+                content = (
+                    '{"rewritten_query":"chat context",'
+                    '"access_plan":['
+                    '{"tool":"read","path":"backend/app/chat/router.py","query":"router","scope":"file"},'
+                    '{"tool":"search","path":null,"query":"chat context","scope":"chunk"}'
+                    ']}'
+                )
+                return MagicMock(content=content)
+
+        state = self._base_state()
+        state["target_file"] = "backend/app/chat/router.py"
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", return_value=FakePlannerLLM()):
+            result = await planner_node(state)
+
+        target_reads = [
+            item
+            for item in result["access_plan"]
+            if item["tool"] == "read" and item["path"] == "backend/app/chat/router.py"
+        ]
+        self.assertEqual(len(target_reads), 1)
+        self.assertEqual(result["access_plan"][0]["query"], "backend/app/chat/router.py")
 
     async def test_planner_prompt_includes_session_memory_context(self):
         from app.agent.nodes.planner_node import planner_node

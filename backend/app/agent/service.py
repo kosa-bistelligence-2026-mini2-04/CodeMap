@@ -54,6 +54,7 @@ class CodeMapAgentService:
         clone_path: str,
         mode: str = "quick",
         session_id: UUID | None = None,
+        target_file: str | None = None,
     ) -> dict:
         '''
         LangGraph 워크플로우를 실행하고 최종 compact_context 및 worker_results를 반환합니다.
@@ -65,6 +66,7 @@ class CodeMapAgentService:
                 clone_path=clone_path,
                 run_id="",
                 session_id=session_id,
+                target_file=target_file,
             )
             final_state = await compiled_graph.ainvoke(
                 initial_state,
@@ -93,6 +95,7 @@ class CodeMapAgentService:
         clone_path: str,
         run_id: str,
         session_id: UUID | None,
+        target_file: str | None = None,
     ) -> CodeMapState:
         memory_context = await self._load_memory_context(repo_id, session_id, current_query=user_query)
         return {
@@ -101,6 +104,7 @@ class CodeMapAgentService:
                 "clone_path": clone_path,
                 "run_id": run_id,
                 "session_id": str(session_id) if session_id else None,
+                "target_file": target_file,
                 "memory_context": memory_context,
                 "rewritten_query": "",
                 "access_plan": [],
@@ -160,6 +164,7 @@ class CodeMapAgentService:
         clone_path: str,
         run_id: str,
         session_id: UUID | None = None,
+        target_file: str | None = None,
     ) -> AsyncIterator[dict]:
         '''
         LangGraph 워크플로우를 스트리밍하여 실행 중간 이벤트를 발행합니다.
@@ -170,6 +175,7 @@ class CodeMapAgentService:
             clone_path=clone_path,
             run_id=run_id,
             session_id=session_id,
+            target_file=target_file,
         )
 
         compact_context = {}

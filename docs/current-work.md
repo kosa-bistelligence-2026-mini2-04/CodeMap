@@ -1,5 +1,59 @@
 # Current Work
 
+## 2026-06-26 — PR #189 Timeline render-phase review fix
+
+- Current branch: `feat/chat-ui-enhancements`
+- Current goal: Address smmini's additional PR #189 review comment about Timeline render-phase state updates.
+- Current status:
+  - Confirmed the earlier `target_file` deterministic Planner fix is already present in commit `98f7b62`.
+  - Removed render-body `setState` calls from `AgentExplorationTimeline`.
+  - Moved streaming/open-state synchronization behind a `useEffect` timer callback so React render-phase and hook lint warnings are avoided.
+- Files touched or likely relevant:
+  - `frontend/src/features/chat/components/AgentExplorationTimeline.tsx`
+- Commands run:
+  - `env -u GITHUB_TOKEN gh pr view 189 --repo kosa-bistelligence-2026-mini2-04/CodeMap --json ...`
+  - `cd frontend && ./node_modules/.bin/eslint src/features/chat/components/AgentExplorationTimeline.tsx`
+  - `cd frontend && ./node_modules/.bin/next build --webpack`
+  - `git diff --check`
+- Validation:
+  - Targeted ESLint passed.
+  - `next build --webpack` passed.
+  - `git diff --check` passed.
+- Known issues:
+  - Existing unrelated local modifications and untracked helper files remain unstaged.
+- Next steps:
+  - Commit, push, and leave a PR comment summarizing the additional Timeline fix.
+
+## 2026-06-26 — PR #189 targetFile review fix
+
+- Current branch: `feat/chat-ui-enhancements`
+- Current goal: Address woovii000's CHANGES_REQUESTED review on PR #189.
+- Current status:
+  - Confirmed GitHub CLI works through keyring with `GITHUB_TOKEN` unset.
+  - Added deterministic Planner plan enrichment so `target_file` always prepends a `read` plan before broader search plans.
+  - Hardened chat thread `IntegrityError` recovery to retry lookup only when `thread_id` exists and to re-raise when no competing thread is found.
+- Files touched or likely relevant:
+  - `backend/app/agent/nodes/planner_node.py`
+  - `backend/app/chat/repository.py`
+  - `backend/tests/unit/test_agent.py`
+- Commands run:
+  - `env -u GITHUB_TOKEN gh auth status`
+  - `env -u GITHUB_TOKEN gh pr view 189 --repo kosa-bistelligence-2026-mini2-04/CodeMap --json ...`
+  - `env -u GITHUB_TOKEN python3 /Users/gabriel/.codex/plugins/cache/openai-curated/github/3fdeeb49/skills/gh-address-comments/scripts/fetch_comments.py`
+  - `backend/.venv/bin/python -m pytest backend/tests/unit/test_agent.py::TestPlannerNode -v`
+  - `backend/.venv/bin/python -m pytest backend/tests/unit -v --tb=short`
+  - `backend/.venv/bin/python -m compileall -q backend/app/agent backend/app/chat`
+  - `git diff --check`
+- Validation:
+  - `TestPlannerNode`: 7 passed.
+  - `backend/tests/unit`: 209 passed, 5 skipped.
+  - `compileall` and `git diff --check` passed.
+- Known issues:
+  - Existing untracked files `backend/run_analysis.py`, `backend/seed.py`, `backend/test_chat.py`, and `pr_body.md` are unrelated.
+  - Existing local frontend edits in `frontend/src/app/analyze/page.tsx` and `frontend/src/features/repository/components/RepoInput.tsx` are unrelated and were not staged.
+- Next steps:
+  - Commit, push, and leave a PR comment summarizing the fix and validation.
+
 ## 2026-06-26 — PR #169 UI/UX audit issue sync
 
 - Current branch: `codex/issue-docs-spec-sync`
