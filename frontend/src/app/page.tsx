@@ -11,6 +11,7 @@ import { InteractiveDemo } from "@/features/landing/components/InteractiveDemo";
 import { SecurityBanner } from "@/common/components/ui/SecurityBanner";
 import { CodeMapFooter } from "@/common/components/layout/CodeMapFooter";
 import { useApp } from "@/common/contexts/AppContext";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { RepositoryLauncher } from "@/features/landing/components/RepositoryLauncher";
 import { TrendingRepos } from "@/features/landing/components/TrendingRepos";
 
@@ -24,6 +25,7 @@ export default function Home() {
   const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(null);
   const router = useRouter();
   const { theme, t } = useApp();
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
   const isDark = theme === "dark";
 
@@ -283,10 +285,10 @@ export default function Home() {
           <p className={`text-lg mb-8 ${textSec}`}>{t.cta.subtitle}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/analyze"
+              href={isLoggedIn ? "/analyze" : "/signup"}
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold transition-colors group cm-btn-primary"
             >
-              {t.cta.primary}
+              {isLoggedIn ? t.cta.primary : t.nav.signUp}
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link

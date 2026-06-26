@@ -46,18 +46,26 @@ class AuthRegisterTests(unittest.TestCase):
 
     @patch("app.auth.router.AuthService")
     def test_register_email_already_exists(self, mock_service_class):
-        """중복 이메일 가입 → 409 EMAIL_ALREADY_EXISTS"""
-        from app.common.exceptions import EmailAlreadyExistsError
+        """중복 이메일 가입 → 200 + success=False + error_code=EMAIL_ALREADY_EXISTS"""
+        from app.auth.schemas import RegisterResponse
 
         mock_svc = mock_service_class.return_value
-        mock_svc.register = AsyncMock(side_effect=EmailAlreadyExistsError())
+        mock_svc.register = AsyncMock(
+            return_value=RegisterResponse(
+                success=False,
+                message="이미 가입된 이메일입니다.",
+                error_code="EMAIL_ALREADY_EXISTS",
+            )
+        )
 
         resp = self.client.post(
             "/api/auth/register",
             json={"email": "exists@example.com", "password": "password123"},
         )
-        self.assertEqual(resp.status_code, 409)
-        self.assertEqual(resp.json()["error"]["code"], "EMAIL_ALREADY_EXISTS")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertFalse(data["success"])
+        self.assertEqual(data["error_code"], "EMAIL_ALREADY_EXISTS")
 
     def test_register_password_too_short(self):
         """비밀번호 8자 미만 → 422 Validation Error"""
@@ -104,18 +112,26 @@ class AuthLoginTests(unittest.TestCase):
 
     @patch("app.auth.router.AuthService")
     def test_login_invalid_credentials(self, mock_service_class):
-        """잘못된 비밀번호 → 401 INVALID_CREDENTIALS"""
-        from app.common.exceptions import InvalidCredentialsError
+        """잘못된 비밀번호 → 200 + success=False + error_code=INVALID_CREDENTIALS"""
+        from app.auth.schemas import LoginResponse
 
         mock_svc = mock_service_class.return_value
-        mock_svc.login = AsyncMock(side_effect=InvalidCredentialsError())
+        mock_svc.login = AsyncMock(
+            return_value=LoginResponse(
+                success=False,
+                message="이메일 또는 비밀번호가 올바르지 않습니다.",
+                error_code="INVALID_CREDENTIALS",
+            )
+        )
 
         resp = self.client.post(
             "/api/auth/login",
             json={"email": "test@example.com", "password": "wrongpassword"},
         )
-        self.assertEqual(resp.status_code, 401)
-        self.assertEqual(resp.json()["error"]["code"], "INVALID_CREDENTIALS")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertFalse(data["success"])
+        self.assertEqual(data["error_code"], "INVALID_CREDENTIALS")
 
 
 class AuthRefreshTests(unittest.TestCase):
