@@ -160,6 +160,50 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
         self.assertEqual(res["security_result"]["approved"], [])
         self.assertFalse(res["events"][0]["allowed"])
 
+    def test_dispatcher_skips_duplicate_searches_within_plan(self):
+        """동일 plan 안의 중복 (tool,target) 항목은 1회로 접힌다(#149)."""
+        from app.agent.nodes.dispatcher_node import dispatcher_node
+
+        state = {
+            "clone_path": "/tmp",
+            "access_plan": [
+                {"tool": "search", "path": None, "query": "login flow", "scope": "chunk"},
+                {"tool": "search", "path": None, "query": "login flow", "scope": "chunk"},  # 중복
+                {"tool": "read", "path": "app/main.py", "query": "", "scope": "file"},
+                {"tool": "read", "path": "app/main.py", "query": "", "scope": "file"},       # 중복
+            ],
+            "worker_results": [],
+        }
+
+        res = dispatcher_node(state)
+
+        self.assertEqual(len(res["security_result"]["approved"]), 2)  # search 1 + read 1
+        self.assertEqual(res["events"][0]["dedupedCount"], 2)
+
+    def test_dispatcher_skips_already_executed_searches(self):
+        """이전 반복의 worker_results와 동일한 path/query는 재계획에서 스킵된다(#149)."""
+        from app.agent.nodes.dispatcher_node import dispatcher_node
+
+        state = {
+            "clone_path": "/tmp",
+            "access_plan": [
+                {"tool": "search", "path": None, "query": "login flow", "scope": "chunk"},  # 이미 실행됨
+                {"tool": "read", "path": "app/new.py", "query": "", "scope": "file"},        # 신규
+            ],
+            # search/grep은 metadata.query=query, dir/read는 metadata.query=path 로 저장됨
+            "worker_results": [
+                {"id": "ev1", "path": "app/auth.py", "lineStart": 1, "lineEnd": 2,
+                 "score": 0.9, "snippet": "...", "metadata": {"worker": "search", "query": "login flow"}},
+            ],
+        }
+
+        res = dispatcher_node(state)
+
+        approved = res["security_result"]["approved"]
+        self.assertEqual(len(approved), 1)
+        self.assertEqual(approved[0]["path"], "app/new.py")
+        self.assertEqual(res["events"][0]["dedupedCount"], 1)
+
     def test_fanout_blocks_unregistered_tools(self):
         """미등록 tool은 LangGraph Send 대상에서 제외됩니다."""
         from app.agent.nodes.dispatcher_node import _ALLOWED_WORKERS, fanout_to_workers
