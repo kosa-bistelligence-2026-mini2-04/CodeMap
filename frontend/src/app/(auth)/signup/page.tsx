@@ -26,11 +26,11 @@ export default function SignUpPage() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError("비밀번호가 일치하지 않습니다.");
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+      setError("비밀번호는 최소 8자 이상이어야 합니다.");
       return;
     }
 
@@ -48,8 +48,8 @@ export default function SignUpPage() {
       setTimeout(() => {
         router.push("/analyze");
       }, 1000);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to create an account. Please try again.";
+    } catch (err: any) {
+      const errorMsg = err.message || "계정 생성에 실패했습니다. 다시 시도해주세요.";
       setError(errorMsg);
       setIsLoading(false);
     }
@@ -77,10 +77,10 @@ export default function SignUpPage() {
         >
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
           <h2 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-black"}`}>
-            Welcome to CodeMap AI!
+            CodeMap AI에 오신 것을 환영합니다!
           </h2>
           <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-            Your account has been created. Redirecting...
+            계정이 성공적으로 생성되었습니다. 이동 중입니다...
           </p>
         </div>
       </div>
@@ -101,7 +101,7 @@ export default function SignUpPage() {
             isDark ? "text-white" : "text-zinc-900"
           }`}
         >
-          Create your account
+          새 계정 만들기
         </h2>
 
         {error && (
@@ -125,7 +125,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              Email address
+              이메일 주소
             </label>
             <div className="relative">
               <Mail className={iconClass} />
@@ -148,7 +148,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              Password
+              비밀번호
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -160,7 +160,7 @@ export default function SignUpPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={inputClass}
-                placeholder="At least 8 characters"
+                placeholder="최소 8자 이상"
               />
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              Confirm Password
+              비밀번호 확인
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -202,7 +202,7 @@ export default function SignUpPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                Sign up <ArrowRight className="w-4 h-4" />
+                가입하기 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
@@ -213,14 +213,14 @@ export default function SignUpPage() {
             isDark ? "text-zinc-400" : "text-zinc-500"
           }`}
         >
-          Already have an account?{" "}
+          이미 계정이 있으신가요?{" "}
           <Link
             href="/signin"
             className={`font-semibold hover:underline ${
               isDark ? "text-white" : "text-zinc-900"
             }`}
           >
-            Sign in
+            로그인
           </Link>
         </p>
       </div>

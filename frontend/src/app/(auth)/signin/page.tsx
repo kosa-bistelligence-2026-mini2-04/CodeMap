@@ -26,8 +26,8 @@ export default function SignInPage() {
     try {
       await login({ email, password });
       router.push("/analyze"); // 로그인 성공 시 프로젝트 분석 페이지로
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to sign in. Please check your credentials.";
+    } catch (err: any) {
+      const errorMsg = err.message || "로그인에 실패했습니다. 자격 증명을 확인해주세요.";
       setError(errorMsg);
     } finally {
       setIsLoading(false);
@@ -58,7 +58,7 @@ export default function SignInPage() {
             isDark ? "text-white" : "text-zinc-900"
           }`}
         >
-          Sign in to your account
+          계정에 로그인하세요
         </h2>
 
         {error && (
@@ -82,7 +82,7 @@ export default function SignInPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              Email address
+              이메일 주소
             </label>
             <div className="relative">
               <Mail className={iconClass} />
@@ -105,7 +105,7 @@ export default function SignInPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              Password
+              비밀번호
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -134,7 +134,7 @@ export default function SignInPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                Sign in <ArrowRight className="w-4 h-4" />
+                로그인 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
@@ -145,14 +145,14 @@ export default function SignInPage() {
             isDark ? "text-zinc-400" : "text-zinc-500"
           }`}
         >
-          {"Don't have an account?"}{" "}
+          {"계정이 없으신가요?"}{" "}
           <Link
             href="/signup"
             className={`font-semibold hover:underline ${
               isDark ? "text-white" : "text-zinc-900"
             }`}
           >
-            Sign up
+            회원가입
           </Link>
         </p>
       </div>
