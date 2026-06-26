@@ -1,17 +1,20 @@
 """
-DOCS-GEN API 라우터 (DOCS-GEN-API-001, 002, 003, 005)
+DOCS-GEN API 라우터 (DOCS-GEN-API-001~005)
 
-GET  /api/gen/docs/{repo_id}      — 온보딩 가이드북 조회 (API-001)
-POST /api/gen/docs/{repo_id}      — 가이드북 생성 트리거 (API-002)
-PUT  /api/gen/docs/{repo_id}      — 가이드북 재생성 (API-003)
-POST /api/gen/docs/{repo_id}/save — Markdown DB 저장 (API-005, 내부용)
+GET  /api/gen/docs/{repo_id}          — 온보딩 가이드북 조회 (API-001)
+POST /api/gen/docs/{repo_id}          — 가이드북 생성 트리거 (API-002)
+PUT  /api/gen/docs/{repo_id}          — 가이드북 재생성 (API-003)
+GET  /api/gen/docs/{repo_id}/download — 가이드북 파일 다운로드 (API-004)
+POST /api/gen/docs/{repo_id}/save     — Markdown DB 저장 (API-005, 내부용)
 """
 
 import logging
+import re
 from typing import Literal, Union
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.database import get_db
@@ -29,11 +32,13 @@ from app.gen.schemas import (
     DocTriggerResponse,
 )
 from app.gen.service import (
+    get_doc_download_content,
     get_onboarding_doc,
     rebuild_onboarding_doc,
     save_onboarding_doc,
     validate_and_queue_doc_generation,
 )
+from app.common.exceptions import FileGenerationFailedError
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +173,53 @@ async def rebuild_doc(
             previous_version=previous_version,
             new_version=new_version,
         )
+    )
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-004: 가이드북 파일 다운로드
+# ──────────────────────────────────────────────────────────────
+@router.get(
+    "/{repo_id}/download",
+    status_code=status.HTTP_200_OK,
+    response_class=Response,
+    summary="온보딩 가이드북 파일 다운로드 (DOCS-GEN-API-004)",
+)
+async def download_doc(
+    repo_id: UUID,
+    format: Literal["md", "pdf"] = Query(default="md", description="다운로드 형식"),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    '''
+    온보딩 가이드북을 파일로 다운로드한다.
+
+    - format=md(기본): Markdown 파일 (.md) 다운로드
+    - format=pdf: 현재 미지원 (500 FILE_GENERATION_FAILED)
+
+    에러 응답:
+    - 404 REPO_NOT_FOUND:         저장소 없음
+    - 404 DOCS_NOT_FOUND:         가이드북 미생성
+    - 500 FILE_GENERATION_FAILED: 파일 생성 오류 (PDF 미지원 포함)
+    '''
+    if format == "pdf":
+        logger.warning("[DOCS-GEN-API-004] PDF 미지원 | repo_id=%s", repo_id)
+        raise FileGenerationFailedError("PDF 다운로드는 현재 지원되지 않습니다.")
+
+    content, repo_name = await get_doc_download_content(db=db, repo_id=repo_id)
+
+    ## 파일명 특수문자 제거 (Content-Disposition 헤더 안전성)
+    safe_name = re.sub(r"[^\w\-]", "_", repo_name)
+    filename = f"{safe_name}_onboarding.md"
+
+    logger.info(
+        "[DOCS-GEN-API-004] 다운로드 응답 | repo_id=%s filename=%s",
+        repo_id, filename,
+    )
+
+    return Response(
+        content=content.encode("utf-8"),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

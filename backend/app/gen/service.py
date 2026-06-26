@@ -1,10 +1,11 @@
 """
-DOCS-GEN 서비스 계층 (DOCS-GEN-B-301, DOCS-GEN-API-001, 002, 003)
+DOCS-GEN 서비스 계층 (DOCS-GEN-B-301, DOCS-GEN-API-001~004)
 
 - save_onboarding_doc: 생성된 Markdown을 DB에 저장 (B-301)
 - get_onboarding_doc: 저장된 가이드북 조회 (API-001)
 - validate_and_queue_doc_generation: 가이드북 생성 사전 검증 (API-002)
 - rebuild_onboarding_doc: 기존 문서 소프트 삭제 후 재생성 큐잉 (API-003)
+- get_doc_download_content: 다운로드용 Markdown 내용 조회 (API-004)
 """
 
 import logging
@@ -357,3 +358,51 @@ async def rebuild_onboarding_doc(
         repo_id, previous_version, new_version,
     )
     return analysis_job.id, previous_version, new_version
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-004: 가이드북 파일 다운로드 (F-201)
+# ──────────────────────────────────────────────────────────────
+async def get_doc_download_content(
+    db: AsyncSession,
+    repo_id: UUID,
+) -> tuple[str, str]:
+    '''
+    다운로드용 온보딩 가이드북 Markdown 내용과 저장소 이름을 반환한다.
+
+    DOCS-GEN-F-201 구현:
+      1. repo_id 존재 여부 확인 (404 REPO_NOT_FOUND)
+      2. 활성 문서 조회 (404 DOCS_NOT_FOUND)
+      3. (markdown_content, repo_name) 튜플 반환
+
+    Args:
+        db:      AsyncSession (외부 주입)
+        repo_id: 대상 저장소 ID
+
+    Returns:
+        (content, repo_name) 튜플
+
+    Raises:
+        RepoNotFoundError (404):  저장소가 없을 때
+        DocsNotFoundError (404):  활성 가이드북이 없을 때
+    '''
+    repo = GenDocRepository(db)
+
+    ## 1. 저장소 존재 여부 확인
+    analysis_job = await repo.get_repo_by_id(repo_id)
+    if analysis_job is None:
+        logger.warning("[DOCS-GEN-API-004] 저장소 없음 | repo_id=%s", repo_id)
+        raise RepoNotFoundError()
+
+    ## 2. 활성 문서 조회
+    doc = await repo.get_active_by_repo_id(repo_id)
+    if doc is None:
+        logger.warning("[DOCS-GEN-API-004] 가이드북 없음 | repo_id=%s", repo_id)
+        raise DocsNotFoundError()
+
+    repo_name = getattr(analysis_job, "repo_name", "") or "onboarding"
+    logger.info(
+        "[DOCS-GEN-API-004] 다운로드 준비 | repo_id=%s version=%d",
+        repo_id, doc.version,
+    )
+    return doc.content, repo_name
