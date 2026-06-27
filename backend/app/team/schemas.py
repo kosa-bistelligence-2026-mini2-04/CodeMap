@@ -58,3 +58,34 @@ class AcceptInviteResponse(BaseModel):
 class DeclineInviteResponse(BaseModel):
     inviteId: uuid.UUID
     status: str
+
+
+# ──────────────────────────────────────────────
+# G3-A: 팀 운영 응답 스키마
+# (PROJECT-TEAM-API-008~011)
+# ──────────────────────────────────────────────
+class RemoveMemberResponse(BaseModel):
+    userId: uuid.UUID
+    status: str
+
+
+class LeaveTeamResponse(BaseModel):
+    teamId: uuid.UUID
+    status: str
+
+
+class SentInviteItem(BaseModel):
+    inviteId: uuid.UUID
+    email: str
+    status: str
+    expiresAt: datetime
+    invitedByEmail: str | None = None
+
+
+class SentInviteListResponse(BaseModel):
+    invites: list[SentInviteItem]
+
+
+class CancelInviteResponse(BaseModel):
+    inviteId: uuid.UUID
+    status: str

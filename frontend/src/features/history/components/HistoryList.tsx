@@ -11,6 +11,7 @@ import { Trash2 } from "lucide-react";
 
 interface AnalysisRow {
   job_id: string;
+  project_name: string;
   source: RepoSource;
   path: string;
   status: "queued" | "running" | "completed" | "failed";
@@ -22,6 +23,7 @@ interface AnalysisRow {
   force_refresh: boolean;
   visibility: "private" | "team";
   team_id: string | null;
+  team_name?: string | null;
 }
 
 export interface HistoryListProps {
@@ -30,12 +32,19 @@ export interface HistoryListProps {
   refreshToken?: number;
   scope?: "private" | "team" | "all";
   teamId?: string | null;
+  teamName?: string | null;
 }
 
 function shortenPath(p: string, maxLen = 32): string {
   const normalized = p.replace(/\\/g, "/");
   if (normalized.length <= maxLen) return normalized;
   return "..." + normalized.slice(-(maxLen - 3));
+}
+
+function projectNameFromPath(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/\.git$/, "");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.at(-1) || normalized || "Project";
 }
 
 function formatRelativeTime(unixSeconds: number): string {
@@ -71,7 +80,7 @@ function normalizeStatus(status: string): AnalysisRow["status"] {
   return "failed"; // 알 수 없는 상태는 failed로 안전하게 처리
 }
 
-export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "all", teamId = null }: HistoryListProps) {
+export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "all", teamId = null, teamName = null }: HistoryListProps) {
   const [items, setItems] = useState<AnalysisRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +99,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
         const normalizedStatus = normalizeStatus(job.status);
         return {
           job_id: job.jobId,
+          project_name: projectNameFromPath(job.repoUrl),
           source: job.repoUrl.startsWith("https://") ? "github" : "local",
           path: job.repoUrl,
           status: normalizedStatus,
@@ -101,6 +111,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
           force_refresh: false,
           visibility: job.visibility,
           team_id: job.teamId,
+          team_name: job.visibility === "team" ? teamName : null,
         };
       }));
     } catch (requestError) {
@@ -109,7 +120,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
     } finally {
       setLoading(false);
     }
-  }, [scope, teamId, t.historyList.loadFailed]);
+  }, [scope, teamId, teamName, t.historyList.loadFailed]);
 
   useEffect(() => {
     queueMicrotask(() => void load());
@@ -131,6 +142,18 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
   const pathClass = isDark ? "text-zinc-200" : "text-zinc-700";
   const timeClass = isDark ? "text-zinc-600" : "text-zinc-400";
   const dividerClass = isDark ? "divide-zinc-800/60" : "divide-zinc-100";
+  const filteredItems = items
+    .filter((it) => (statusFilter === "all" ? true : it.status === statusFilter))
+    .filter((it) => it.path.toLowerCase().includes(searchQuery.toLowerCase()));
+  const groupedItems = filteredItems.reduce<Array<{ projectName: string; rows: AnalysisRow[] }>>(
+    (groups, item) => {
+      const existing = groups.find((group) => group.projectName === item.project_name);
+      if (existing) existing.rows.push(item);
+      else groups.push({ projectName: item.project_name, rows: [item] });
+      return groups;
+    },
+    [],
+  );
 
   return (
     <div className={`border rounded-2xl backdrop-blur-sm overflow-hidden transition-colors ${containerClass}`}>
@@ -182,12 +205,16 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
           </div>
         )}
 
-        <ul className={`max-h-[400px] overflow-y-auto divide-y transition-colors ${dividerClass}`}>
+        <ul className={`max-h-[400px] overflow-y-auto transition-colors`}>
           <AnimatePresence initial={false}>
-            {items
-              .filter((it) => (statusFilter === "all" ? true : it.status === statusFilter))
-              .filter((it) => it.path.toLowerCase().includes(searchQuery.toLowerCase()))
-              .map((it) => {
+            {groupedItems.map((group) => (
+              <li key={group.projectName} className={`border-b last:border-b-0 ${isDark ? "border-zinc-800/60" : "border-zinc-100"}`}>
+                <div className={`flex items-center justify-between px-4 py-2 text-[10px] font-bold ${isDark ? "bg-zinc-950/50 text-zinc-500" : "bg-zinc-50 text-zinc-500"}`}>
+                  <span className="truncate">{group.projectName}</span>
+                  <span>{group.rows.length}</span>
+                </div>
+                <ul className={`divide-y ${dividerClass}`}>
+                  {group.rows.map((it) => {
               const cfg = STATUS_CONFIG[it.status];
               const StatusIcon = cfg.icon;
               const isGithub = it.source === "github";
@@ -230,7 +257,10 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
                         {it.total_pipeline_ms != null && (
                           <span className={isDark ? "text-zinc-600" : "text-zinc-400"}>{(it.total_pipeline_ms / 1000).toFixed(1)}s</span>
                         )}
-                        <span className={isDark ? "text-zinc-700" : "text-zinc-500"}>{it.visibility === "team" ? "Team" : "Private"}</span>
+                        {it.visibility === "team" && it.team_name && (
+                          <span className={isDark ? "text-zinc-600" : "text-zinc-500"}>{it.team_name}</span>
+                        )}
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${it.visibility === "team" ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"}`}>{it.visibility === "team" ? "TEAM" : "PRIVATE"}</span>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -249,7 +279,10 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
                   </button>
                 </motion.li>
               );
-            })}
+                  })}
+                </ul>
+              </li>
+            ))}
           </AnimatePresence>
         </ul>
       </div>

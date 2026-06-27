@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.infra.database import get_db
 from app.infra.auth import get_current_user
 from app.auth.models import User, Team, TeamMember, TeamInvite
+from app.team.guards import guard_last_owner, guard_not_self
 from app.team.schemas import (
     TeamCreate,
     TeamResponse,
@@ -17,6 +18,11 @@ from app.team.schemas import (
     TeamInviteListResponse,
     AcceptInviteResponse,
     DeclineInviteResponse,
+    RemoveMemberResponse,
+    LeaveTeamResponse,
+    SentInviteItem,
+    SentInviteListResponse,
+    CancelInviteResponse,
 )
 import uuid
 
@@ -72,6 +78,18 @@ def _team_response(team: Team, member: TeamMember) -> TeamResponse:
 def _aware(dt: datetime) -> datetime:
     ## DB에서 naive로 돌아오는 경우를 대비해 UTC로 보정 후 비교
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+async def _count_active_owners(db: AsyncSession, team_id: uuid.UUID) -> int:
+    """팀의 active owner 수를 반환한다."""
+    result = await db.execute(
+        select(TeamMember).where(
+            TeamMember.team_id == team_id,
+            TeamMember.role == "owner",
+            TeamMember.status == "active",
+        )
+    )
+    return len(result.scalars().all())
 
 
 @router.post("", response_model=TeamResponse)
@@ -314,3 +332,124 @@ async def decline_invite(
     invite.status = "declined"
     await db.commit()
     return DeclineInviteResponse(inviteId=invite.id, status=invite.status)
+
+
+# ──────────────────────────────────────────────
+# PROJECT-TEAM-API-008: 멤버 추방 (owner only)
+# soft delete — status='removed', 이력/외래키 보존
+# ──────────────────────────────────────────────
+@router.delete("/{team_id}/members/{user_id}", response_model=RemoveMemberResponse)
+async def remove_member(
+    team_id: uuid.UUID,
+    user_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    caller_id = _current_user_id(current_user)
+    await _require_member(db, team_id, caller_id, owner_only=True)
+
+    guard_not_self(caller_id, user_id)
+
+    result = await db.execute(
+        select(TeamMember).where(
+            TeamMember.team_id == team_id,
+            TeamMember.user_id == user_id,
+            TeamMember.status == "active",
+        )
+    )
+    target = result.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="TEAM_MEMBER_NOT_FOUND")
+
+    if target.role == "owner":
+        owner_count = await _count_active_owners(db, team_id)
+        guard_last_owner(owner_count)
+
+    target.status = "removed"
+    await db.commit()
+    return RemoveMemberResponse(userId=user_id, status="removed")
+
+
+# ──────────────────────────────────────────────
+# PROJECT-TEAM-API-009: 팀 탈퇴 (본인)
+# 마지막 owner는 탈퇴 불가 — 409 LAST_OWNER_CANNOT_LEAVE
+# ──────────────────────────────────────────────
+@router.post("/{team_id}/leave", response_model=LeaveTeamResponse)
+async def leave_team(
+    team_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = _current_user_id(current_user)
+    member = await _require_member(db, team_id, user_id)
+
+    if member.role == "owner":
+        owner_count = await _count_active_owners(db, team_id)
+        guard_last_owner(owner_count)
+
+    member.status = "removed"
+    await db.commit()
+    return LeaveTeamResponse(teamId=team_id, status="removed")
+
+
+# ──────────────────────────────────────────────
+# PROJECT-TEAM-API-010: 보낸 초대 목록 (owner only)
+# pending + 만료 안 된 초대만 반환
+# ──────────────────────────────────────────────
+@router.get("/{team_id}/invites", response_model=SentInviteListResponse)
+async def list_sent_invites(
+    team_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = _current_user_id(current_user)
+    await _require_member(db, team_id, user_id, owner_only=True)
+
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(TeamInvite, User)
+        .join(User, User.id == TeamInvite.invited_by_user_id, isouter=True)
+        .where(TeamInvite.team_id == team_id, TeamInvite.status == "pending")
+        .order_by(TeamInvite.created_at.desc())
+    )
+    invites = []
+    for invite, inviter in result.all():
+        if _aware(invite.expires_at) < now:
+            continue
+        invites.append(
+            SentInviteItem(
+                inviteId=invite.id,
+                email=invite.email,
+                status=invite.status,
+                expiresAt=invite.expires_at,
+                invitedByEmail=inviter.email if inviter else None,
+            )
+        )
+    return SentInviteListResponse(invites=invites)
+
+
+# ──────────────────────────────────────────────
+# PROJECT-TEAM-API-011: 초대 취소 (해당 팀 owner)
+# 이미 처리된 초대 취소 시 409 TEAM_INVITE_ALREADY_USED
+# ──────────────────────────────────────────────
+@invite_router.post("/{invite_id}/cancel", response_model=CancelInviteResponse)
+async def cancel_invite(
+    invite_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id = _current_user_id(current_user)
+
+    result = await db.execute(select(TeamInvite).where(TeamInvite.id == invite_id))
+    invite = result.scalar_one_or_none()
+    if invite is None:
+        raise HTTPException(status_code=404, detail="TEAM_INVITE_NOT_FOUND")
+
+    await _require_member(db, invite.team_id, user_id, owner_only=True)
+
+    if invite.status != "pending":
+        raise HTTPException(status_code=409, detail="TEAM_INVITE_ALREADY_USED")
+
+    invite.status = "cancelled"
+    await db.commit()
+    return CancelInviteResponse(inviteId=invite.id, status="cancelled")
