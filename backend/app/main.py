@@ -22,7 +22,7 @@ from app.auth.router import router as auth_router
 from app.list.router import router as list_router
 from app.list.websocket import ws_router as list_ws_router
 from app.repo.router import router as repo_router
-from app.repo.websocket import ws_router as repo_ws_router
+from app.pipeline.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
 from app.chat.run_registry import sweep_run_registry
 from app.agent.router import router as agent_router

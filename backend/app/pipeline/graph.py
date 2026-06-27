@@ -26,7 +26,7 @@ from app.pipeline.nodes import (
     report_node,
 )
 from app.pipeline.state import PipelineState
-from app.repo.schemas import JobStatus
+from app.pipeline.schemas import JobStatus
 
 logger = logging.getLogger(__name__)
 

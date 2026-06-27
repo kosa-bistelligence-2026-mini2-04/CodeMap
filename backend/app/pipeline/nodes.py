@@ -36,10 +36,10 @@ from pydantic import BaseModel, ValidationError
 from app.infra.config import get_settings
 from app.infra.database import async_session_factory
 from app.repo.analyzer import scan_repository
-from app.repo.event_manager import event_manager
+from app.pipeline.event_manager import event_manager
 from app.pipeline.state import PipelineState
 from app.repo.repository import AnalysisJobRepository
-from app.repo.schemas import JobStatus, PipelineStage, ProgressEvent
+from app.pipeline.schemas import JobStatus, PipelineStage, ProgressEvent
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

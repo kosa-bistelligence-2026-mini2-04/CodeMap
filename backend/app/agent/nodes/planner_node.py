@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Union
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -38,6 +38,7 @@ _PLANNER_SYSTEM = """
 - 최대 4개의 plan 항목을 수립하십시오.
 - path는 반드시 저장소 내 상대 경로만 허용합니다 (절대 경로 및 ../ 금지).
 - 재계획 입력이 있으면 이전 plan/evidence와 중복되는 탐색을 피하고 부족 정보에 직접 대응하십시오.
+- 사용자가 targetFile을 명시했다면, 반드시 해당 파일 경로를 대상으로 `read` 또는 `grep` 도구를 plan의 첫 번째 항목으로 포함하십시오.
 - 답변은 반드시 JSON만 출력하십시오.
 """
 
@@ -52,7 +53,7 @@ def _strip_json_fence(raw: str) -> str:
     return text.strip()
 
 
-def _content_to_text(content: Any) -> str:
+def _content_to_text(content: Union[str, list, dict]) -> str:
     """Normalize LangChain string or multimodal list content into parseable text."""
     if isinstance(content, str):
         return content
@@ -82,6 +83,35 @@ def _summarize_prior_evidence(state: CodeMapState) -> list[dict]:
     return summaries
 
 
+def _with_target_file_plan(
+    plan: list[AccessPlanItem],
+    target_file: str | None,
+) -> list[AccessPlanItem]:
+    """Ensure a selected file is read before broader search plans run."""
+    if not target_file:
+        return plan
+
+    normalized_target = target_file.strip().replace("\\", "/")
+    if not normalized_target:
+        return plan
+
+    target_read: AccessPlanItem = {
+        "tool": "read",
+        "path": normalized_target,
+        "query": normalized_target,
+        "scope": "file",
+    }
+    remaining = [
+        item
+        for item in plan
+        if not (
+            item.get("tool") == "read"
+            and (item.get("path") or "").strip().replace("\\", "/") == normalized_target
+        )
+    ]
+    return [target_read, *remaining][:4]
+
+
 def build_planner_messages(state: CodeMapState) -> list[SystemMessage | HumanMessage]:
     """Build Planner prompt messages for both initial planning and Evaluator re-planning."""
     user_query = state["user_query"]
@@ -94,6 +124,7 @@ def build_planner_messages(state: CodeMapState) -> list[SystemMessage | HumanMes
         "sessionMemory": memory_context,
         "replan": bool(replan_hint),
         "replanCount": state.get("replan_count", 0),
+        "targetFile": state.get("target_file"),
         "evaluatorFeedback": {
             "missingInfo": evaluator_decision.get("missingInfo", []),
             "nextPlanHint": replan_hint or evaluator_decision.get("nextPlanHint"),
@@ -108,7 +139,7 @@ def build_planner_messages(state: CodeMapState) -> list[SystemMessage | HumanMes
     ]
 
 
-async def planner_node(state: CodeMapState) -> dict:
+async def planner_node(state: CodeMapState) -> dict[str, Union[str, list, dict]]:
     """
     Planner LLM node.
 
@@ -136,7 +167,9 @@ async def planner_node(state: CodeMapState) -> dict:
             ],
         }
 
-    plan: list[AccessPlanItem] = data.get("access_plan", [])
+    raw_plan = data.get("access_plan", [])
+    plan: list[AccessPlanItem] = raw_plan if isinstance(raw_plan, list) else []
+    plan = _with_target_file_plan(plan, state.get("target_file"))
     logger.info("[Planner] 완료 — plan 항목 수=%d", len(plan))
 
     selected_workers = sorted({p.get("tool", "search") for p in plan})

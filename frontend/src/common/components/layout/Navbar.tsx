@@ -84,6 +84,8 @@ export function Navbar() {
                   ? "bg-zinc-800 text-white hover:bg-zinc-700"
                   : "bg-zinc-100 text-black hover:bg-zinc-200")
               }
+              title={t.nav.signOut}
+              aria-label={t.nav.signOut}
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
@@ -93,11 +95,24 @@ export function Navbar() {
             <Link
               href="/signin"
               className={
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all " +
-                (isDark ? "text-zinc-300 hover:text-white" : "text-zinc-600 hover:text-black")
+                "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border cursor-pointer hover:scale-105 active:scale-95 " +
+                (isDark
+                  ? "border-zinc-700 bg-zinc-900/40 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-900/60 hover:text-white"
+                  : "border-zinc-300 bg-white/60 text-zinc-600 hover:border-zinc-400 hover:bg-white/80 hover:text-zinc-900 shadow-sm")
               }
             >
-              Sign in
+              {t.nav.signIn}
+            </Link>
+            <Link
+              href="/signup"
+              className={
+                "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border cursor-pointer hover:scale-105 active:scale-95 " +
+                (isDark
+                  ? "border-zinc-700 bg-zinc-900/40 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-900/60 hover:text-white"
+                  : "border-zinc-300 bg-white/60 text-zinc-600 hover:border-zinc-400 hover:bg-white/80 hover:text-zinc-900 shadow-sm")
+              }
+            >
+              {t.nav.signUp}
             </Link>
             <Link
               href="/analyze"
@@ -189,31 +204,35 @@ export function Navbar() {
                   ? "bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700 hover:text-white"
                   : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-black")
               }
-              title="Sign out"
+              title={t.nav.signOut}
+              aria-label={t.nav.signOut}
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline-block">Sign out</span>
+              <span className="hidden sm:inline-block">{t.nav.signOut}</span>
             </button>
             ) : (
               <>
                 <Link
                   href="/signin"
-                  className={`text-xs font-bold transition-all px-2 py-1.5 ${
-                    isDark ? "text-zinc-300 hover:text-white" : "text-zinc-600 hover:text-black"
-                  }`}
+                  className={
+                    "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border cursor-pointer hover:scale-105 active:scale-95 " +
+                    (isDark
+                      ? "border-zinc-700 bg-zinc-900/40 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-900/60 hover:text-white"
+                      : "border-zinc-300 bg-white/60 text-zinc-600 hover:border-zinc-400 hover:bg-white/80 hover:text-zinc-900 shadow-sm")
+                  }
                 >
-                  Sign in
+                  {t.nav.signIn}
                 </Link>
                 <Link
                   href="/signup"
                   className={
-                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm " +
+                    "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border cursor-pointer hover:scale-105 active:scale-95 " +
                     (isDark
-                      ? "bg-white text-black hover:bg-zinc-200"
-                      : "bg-black text-white hover:bg-zinc-800")
+                      ? "border-zinc-700 bg-zinc-900/40 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-900/60 hover:text-white"
+                      : "border-zinc-300 bg-white/60 text-zinc-600 hover:border-zinc-400 hover:bg-white/80 hover:text-zinc-900 shadow-sm")
                   }
                 >
-                  Sign up
+                  {t.nav.signUp}
                 </Link>
               </>
             )}

@@ -13,6 +13,9 @@ export const translations = {
       chat: "Chat",
       launchApp: "Launch App",
       github: "GitHub",
+      signIn: "Sign In",
+      signUp: "Sign Up",
+      signOut: "Sign Out",
     },
 
     // ── Home hero ─────────────────────────────────────────────────────────────
@@ -390,6 +393,39 @@ export const translations = {
         subtitle: "Choose a suggestion below or type your own question",
       },
     },
+
+    // ── Auth ──────────────────────────────────────────────────────────────────
+    auth: {
+      errors: {
+        INVALID_EMAIL: "The email format is invalid.",
+        PASSWORD_TOO_SHORT: "The password must be at least 8 characters.",
+        PASSWORD_RULE_VIOLATION: "The password does not meet the requirements.",
+        INVALID_CREDENTIALS: "The email or password does not match.",
+        USER_NOT_FOUND: "No account found with this email.",
+        EMAIL_ALREADY_EXISTS: "This email is already registered.",
+        default: "Authentication failed. Please try again.",
+      },
+      signup: {
+        passwordMismatch: "Passwords do not match.",
+        passwordTooShort: "Password must be at least 8 characters.",
+        passwordLengthOk: "Password length is sufficient",
+        passwordMatchOk: "Passwords match",
+      },
+      signInTitle: "Sign in to your account",
+      signUpTitle: "Create a new account",
+      emailLabel: "Email Address",
+      emailPlaceholder: "you@example.com",
+      passwordLabel: "Password",
+      passwordPlaceholder: "••••••••",
+      passwordMinPlaceholder: "At least 8 characters",
+      confirmPasswordLabel: "Confirm Password",
+      signInBtn: "Sign In",
+      signUpBtn: "Sign Up",
+      noAccount: "Don't have an account?",
+      haveAccount: "Already have an account?",
+      signUpSuccessTitle: "Welcome to CodeMap AI!",
+      signUpSuccessDesc: "Your account has been created successfully. Redirecting...",
+    },
   },
 
   ko: {
@@ -400,6 +436,9 @@ export const translations = {
       chat: "채팅",
       launchApp: "앱 실행",
       github: "GitHub",
+      signIn: "로그인",
+      signUp: "회원가입",
+      signOut: "로그아웃",
     },
 
     // ── Home hero ─────────────────────────────────────────────────────────────
@@ -775,6 +814,39 @@ export const translations = {
         title: "대화를 시작하세요",
         subtitle: "아래 추천 질문을 선택하거나 직접 질문을 입력하세요",
       },
+    },
+
+    // ── Auth ──────────────────────────────────────────────────────────────────
+    auth: {
+      errors: {
+        INVALID_EMAIL: "이메일 형식이 올바르지 않습니다.",
+        PASSWORD_TOO_SHORT: "비밀번호는 최소 8자 이상이어야 합니다.",
+        PASSWORD_RULE_VIOLATION: "비밀번호가 서비스 규칙을 만족하지 않습니다.",
+        INVALID_CREDENTIALS: "이메일 또는 비밀번호가 일치하지 않습니다.",
+        USER_NOT_FOUND: "해당 이메일로 등록된 계정을 찾을 수 없습니다.",
+        EMAIL_ALREADY_EXISTS: "이미 등록된 이메일입니다.",
+        default: "인증에 실패했습니다. 다시 시도해주세요.",
+      },
+      signup: {
+        passwordMismatch: "비밀번호가 일치하지 않습니다.",
+        passwordTooShort: "비밀번호는 최소 8자 이상이어야 합니다.",
+        passwordLengthOk: "비밀번호 길이가 적절합니다",
+        passwordMatchOk: "비밀번호가 일치합니다",
+      },
+      signInTitle: "계정에 로그인하세요",
+      signUpTitle: "새 계정 만들기",
+      emailLabel: "이메일 주소",
+      emailPlaceholder: "you@example.com",
+      passwordLabel: "비밀번호",
+      passwordPlaceholder: "••••••••",
+      passwordMinPlaceholder: "최소 8자 이상",
+      confirmPasswordLabel: "비밀번호 확인",
+      signInBtn: "로그인",
+      signUpBtn: "가입하기",
+      noAccount: "계정이 없으신가요?",
+      haveAccount: "이미 계정이 있으신가요?",
+      signUpSuccessTitle: "CodeMap AI에 오신 것을 환영합니다!",
+      signUpSuccessDesc: "계정이 성공적으로 생성되었습니다. 이동 중입니다...",
     },
   },
 } as const;

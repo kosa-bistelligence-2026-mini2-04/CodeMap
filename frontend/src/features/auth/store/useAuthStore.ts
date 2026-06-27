@@ -66,6 +66,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ──────────────────────────────────────────────
   login: async (payload: LoginRequest) => {
     const resp = await apiLogin(payload);
+    if (!resp.data) {
+      throw new Error("서버 응답에 인증 토큰이 포함되어 있지 않습니다.");
+    }
     const { accessToken } = resp.data;
 
     const jwtPayload = parseJwtPayload(accessToken);

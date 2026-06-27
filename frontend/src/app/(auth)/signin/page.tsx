@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useApp } from "@/common/contexts/AppContext";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import { ApiError } from "@/common/api/error";
 import { AlertTriangle, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { theme } = useApp();
+  const { theme, t } = useApp();
   const isDark = theme === "dark";
   const login = useAuthStore((state) => state.login);
 
@@ -26,9 +27,15 @@ export default function SignInPage() {
     try {
       await login({ email, password });
       router.push("/analyze"); // 로그인 성공 시 프로젝트 분석 페이지로
-    } catch (err: any) {
-      const errorMsg = err.message || "로그인에 실패했습니다. 자격 증명을 확인해주세요.";
-      setError(errorMsg);
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        const localizedMsg = t.auth.errors[err.code as keyof typeof t.auth.errors];
+        setError(localizedMsg || err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(t.auth.errors.default);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +65,7 @@ export default function SignInPage() {
             isDark ? "text-white" : "text-zinc-900"
           }`}
         >
-          계정에 로그인하세요
+          {t.auth.signInTitle}
         </h2>
 
         {error && (
@@ -82,7 +89,7 @@ export default function SignInPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              이메일 주소
+              {t.auth.emailLabel}
             </label>
             <div className="relative">
               <Mail className={iconClass} />
@@ -93,7 +100,7 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
-                placeholder="you@example.com"
+                placeholder={t.auth.emailPlaceholder}
               />
             </div>
           </div>
@@ -105,7 +112,7 @@ export default function SignInPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              비밀번호
+              {t.auth.passwordLabel}
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -116,7 +123,7 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={inputClass}
-                placeholder="••••••••"
+                placeholder={t.auth.passwordPlaceholder}
               />
             </div>
           </div>
@@ -134,7 +141,7 @@ export default function SignInPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                로그인 <ArrowRight className="w-4 h-4" />
+                {t.auth.signInBtn} <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
@@ -145,14 +152,14 @@ export default function SignInPage() {
             isDark ? "text-zinc-400" : "text-zinc-500"
           }`}
         >
-          {"계정이 없으신가요?"}{" "}
+          {t.auth.noAccount}{" "}
           <Link
             href="/signup"
             className={`font-semibold hover:underline ${
               isDark ? "text-white" : "text-zinc-900"
             }`}
           >
-            회원가입
+            {t.nav.signUp}
           </Link>
         </p>
       </div>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Download, Expand, LockKeyhole, MessageSquareText, Send, Trash2, X } from "lucide-react";
+import { ArrowDown, Download, Expand, LockKeyhole, MessageSquareText, Send, Trash2, X } from "lucide-react";
 import { ModeSelector } from "./ModeSelector";
 import { SuggestionChips } from "./SuggestionChips";
 import { ChatMessageBubble } from "./ChatMessage";
@@ -29,9 +29,10 @@ interface ChatInterfaceProps {
   initialPromptKey?: number;
   contextFile?: string | null;
   onThreadChange?: (threadId: string) => void;
-  onReferenceClick?: (file: string, line: number) => void;
+  onReferenceClick?: (file: string, line?: number | null, lineEnd?: number | null) => void;
   expandHref?: string;
   onClose?: () => void;
+  onClearContextFile?: () => void;
 }
 
 const generateId = () => {
@@ -49,6 +50,12 @@ const appendExplorationStep = (
   ? { ...message, explorationSteps: [...(message.explorationSteps || []), step] }
   : message);
 
+const NEAR_BOTTOM_THRESHOLD_PX = 96;
+
+const isNearScrollBottom = (element: HTMLElement) => (
+  element.scrollHeight - element.scrollTop - element.clientHeight <= NEAR_BOTTOM_THRESHOLD_PX
+);
+
 export function ChatInterface({
   repoId,
   repoName = "현재 프로젝트",
@@ -62,6 +69,7 @@ export function ChatInterface({
   onReferenceClick,
   expandHref,
   onClose,
+  onClearContextFile,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -72,8 +80,14 @@ export function ChatInterface({
   const { theme } = useApp();
   const isDark = theme === "dark";
   const [activeThreadId, setActiveThreadId] = useState<string | null>(threadId || null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const userScrollIntentRef = useRef(false);
+  const [userPausedScroll, setUserPausedScroll] = useState(false);
+  const [showScrollToLatest, setShowScrollToLatest] = useState(false);
 
   useEffect(() => {
     if (!repoId) return;
@@ -114,20 +128,93 @@ export function ChatInterface({
     return () => cancelAnimationFrame(frame);
   }, [initialPrompt, initialPromptKey]);
 
+  const scrollToLatest = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    if (scrollFrameRef.current !== null) {
+      cancelAnimationFrame(scrollFrameRef.current);
+    }
+    const applyBottomScroll = () => {
+      if (behavior === "auto") {
+        container.scrollTop = container.scrollHeight;
+        return;
+      }
+      container.scrollTo({
+        top: Math.max(container.scrollHeight - container.clientHeight, 0),
+        behavior,
+      });
+    };
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      applyBottomScroll();
+      scrollFrameRef.current = requestAnimationFrame(() => {
+        applyBottomScroll();
+        scrollFrameRef.current = null;
+      });
+    });
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const nearBottom = isNearScrollBottom(container);
+    if (nearBottom) {
+      userScrollIntentRef.current = false;
+      shouldAutoScrollRef.current = true;
+      setUserPausedScroll(false);
+      setShowScrollToLatest(false);
+      return;
+    }
+    if (userScrollIntentRef.current) {
+      shouldAutoScrollRef.current = false;
+      setUserPausedScroll(true);
+      setShowScrollToLatest(messages.length > 0);
+    }
+  }, [messages.length]);
+
+  const markUserScrollIntent = () => {
+    userScrollIntentRef.current = true;
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamPhase]);
+    return () => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !messages.length) return;
+    if (userPausedScroll || !shouldAutoScrollRef.current) {
+      setShowScrollToLatest(!isNearScrollBottom(container));
+      return;
+    }
+    scrollToLatest(isStreaming ? "auto" : "smooth");
+  }, [isStreaming, messages, scrollToLatest, streamPhase, userPausedScroll]);
+
+  const jumpToLatest = () => {
+    shouldAutoScrollRef.current = true;
+    userScrollIntentRef.current = false;
+    setUserPausedScroll(false);
+    setShowScrollToLatest(false);
+    scrollToLatest("auto");
+  };
 
   const handleSend = useCallback(async (text?: string) => {
     const content = (text || input).trim();
     if (!content || isStreaming || !repoId) return;
     const userMessage: ChatMessage = {
-      id: generateId(), role: "user", content, timestamp: Date.now(), mode,
+      id: generateId(), role: "user", content, timestamp: Date.now(), mode, contextFile: contextFile || undefined,
     };
     const assistantId = generateId();
     setMessages((current) => [...current, userMessage, {
       id: assistantId, role: "assistant", content: "", timestamp: Date.now(), mode,
     }]);
+    shouldAutoScrollRef.current = true;
+    userScrollIntentRef.current = false;
+    setUserPausedScroll(false);
+    setShowScrollToLatest(false);
     setInput("");
     setIsStreaming(true);
     setStreamPhase(null);
@@ -219,6 +306,10 @@ export function ChatInterface({
     if (isStreaming) return;
     setMessages([]);
     setActiveThreadId(null);
+    shouldAutoScrollRef.current = true;
+    userScrollIntentRef.current = false;
+    setUserPausedScroll(false);
+    setShowScrollToLatest(false);
     if (repoId) window.localStorage.removeItem(`codemap-chat:${repoId}`);
   };
 
@@ -248,7 +339,7 @@ export function ChatInterface({
 
   const empty = messages.length === 0;
   return (
-    <section className={`flex h-full min-h-0 flex-col ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"} ${compact ? "" : "h-[calc(100vh-3.5rem)]"}`}>
+    <section className={`relative flex h-full min-h-0 flex-col ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"} ${compact ? "" : "h-[calc(100vh-3.5rem)]"}`}>
       <header className={`shrink-0 border-b px-3.5 py-2.5 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2"><MessageSquareText className="size-3.5 shrink-0 text-blue-400" /><h2 className="truncate text-xs font-bold">CodeMap AI chat</h2>{preview && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">PREVIEW</span>}</div>
@@ -265,7 +356,16 @@ export function ChatInterface({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-3.5 py-4">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        onWheel={markUserScrollIntent}
+        onTouchMove={markUserScrollIntent}
+        onPointerDown={markUserScrollIntent}
+        onKeyDown={markUserScrollIntent}
+        data-chat-scroll-container
+        className="flex-1 overflow-y-auto px-3.5 py-4"
+      >
         <div className={`mx-auto flex flex-col gap-6 ${compact ? "max-w-xl" : "max-w-3xl"}`}>
           <AnimatePresence mode="wait">
             {empty ? (
@@ -295,6 +395,26 @@ export function ChatInterface({
         </div>
       </div>
 
+      <AnimatePresence>
+        {showScrollToLatest && (
+          <motion.button
+            type="button"
+            onClick={jumpToLatest}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className={`absolute bottom-[6.75rem] right-4 z-10 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+              isDark
+                ? "border-blue-400/40 bg-zinc-900/95 text-blue-100 hover:border-blue-300 hover:bg-blue-950"
+                : "border-blue-200 bg-white/95 text-blue-700 hover:border-blue-300 hover:bg-blue-50"
+            }`}
+          >
+            <ArrowDown className="size-3" />
+            최신 답변
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       <footer className={`shrink-0 border-t ${isDark ? "border-zinc-800" : "border-zinc-200"} px-3.5 py-3`}>
         <div className={`p-4 ${isDark ? "" : "bg-white"}`}>
           <div className={`relative flex flex-col rounded-xl border p-2 focus-within:ring-1 ${isDark ? "border-zinc-800 bg-zinc-900 focus-within:border-zinc-700 focus-within:ring-zinc-700" : "border-zinc-200 bg-zinc-50 focus-within:border-zinc-300 focus-within:ring-zinc-300"}`}>
@@ -304,7 +424,7 @@ export function ChatInterface({
                   <span className={`shrink-0 rounded bg-blue-500/10 px-1 py-0.5 text-[8px] font-bold text-blue-400 ${isDark ? "" : ""}`}>CONTEXT</span>
                   <span className={`truncate font-mono text-[10px] ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{contextFile}</span>
                 </div>
-                <button onClick={() => onReferenceClick?.(contextFile, 1)} className={`shrink-0 rounded p-1 transition ${isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"}`}><X className="size-3" /></button>
+                <button onClick={() => onClearContextFile?.()} className={`shrink-0 rounded p-1 transition ${isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"}`}><X className="size-3" /></button>
               </div>
             )}
             <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(); } }} placeholder={isStreaming ? "답변을 생성하는 중입니다..." : "이 저장소에 대해 무엇이든 물어보세요"} disabled={isStreaming} className={`min-h-[44px] w-full resize-none bg-transparent px-2 py-1 text-sm outline-none placeholder:text-zinc-600 disabled:opacity-50 ${isDark ? "text-zinc-200" : "text-zinc-900"}`} rows={Math.min(5, input.split("\n").length || 1)} />

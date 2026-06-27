@@ -147,6 +147,7 @@ class RepositoryChatService:
         clone_path: str,
         run_id: str,
         session_id: UUID | None = None,
+        target_file: str | None = None,
     ) -> AsyncIterator[dict]:
         from app.agent.service import CodeMapAgentService
 
@@ -157,6 +158,7 @@ class RepositoryChatService:
             clone_path=clone_path,
             run_id=run_id,
             session_id=session_id,
+            target_file=target_file,
         ):
             yield event
 

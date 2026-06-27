@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.database import async_session_factory, get_db
 from app.common.exceptions import JobAlreadyDoneError, JobNotFoundError
-from app.repo.event_manager import event_manager
+from app.pipeline.event_manager import event_manager
 from app.repo.schemas import (
     AnalysisRequest,
     AnalysisResponse,

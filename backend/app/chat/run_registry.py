@@ -11,8 +11,11 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from app.repo.models import AnalysisJob
 
 
 @dataclass
@@ -25,8 +28,8 @@ class RunRecord:
 
     # 실행 준비 데이터 (create_chat_run에서 저장)
     request: Any = None  # ChatRunRequest
-    thread: Any = None
-    job: Any = None
+    thread: dict[str, Any] = field(default_factory=dict)
+    job: AnalysisJob | None = None
     clone_path: str = ""
     mode: str = "standard"
 
@@ -38,11 +41,11 @@ class RunRecord:
     completed_at: float | None = None
 
     # 실행 결과 (stream 중 누적, 완료 후 보존)
-    worker_results: list[dict] = field(default_factory=list)
-    compact_context: dict = field(default_factory=dict)
+    worker_results: list[dict[str, Any]] = field(default_factory=list)
+    compact_context: dict[str, Any] = field(default_factory=dict)
     accumulated_answer: str = ""
-    references: list[dict] = field(default_factory=list)
-    events: list[dict] = field(default_factory=list)
+    references: list[dict[str, Any]] = field(default_factory=list)
+    events: list[dict[str, Any]] = field(default_factory=list)
     durations: dict[str, float] = field(default_factory=dict)
     error: str | None = None
 
@@ -109,7 +112,7 @@ class RunRecord:
             self.completed_at = time.time()
             return True
 
-    def to_status_response(self) -> dict:
+    def to_status_response(self) -> dict[str, Any]:
         """GET /runs/{run_id} 응답용 dict."""
         state_keys = ["user_query"]
         if self.compact_context:
@@ -160,7 +163,7 @@ class RunRecord:
         include_raw_snippet: bool = False,
         worker_filter: str | None = None,
         limit: int = 20,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """GET /runs/{run_id}/evidence 응답용 dict."""
         evidence = self.worker_results
         if worker_filter:

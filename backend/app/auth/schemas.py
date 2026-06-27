@@ -24,6 +24,7 @@ class RegisterResponse(BaseModel):
     success: bool = True
     code: int = 201
     message: str = "created"
+    error_code: str | None = None
     data: RegisterData | None = None
 
 
@@ -44,6 +45,7 @@ class LoginResponse(BaseModel):
     success: bool = True
     code: int = 200
     message: str = "success"
+    error_code: str | None = None
     data: LoginData | None = None
 
 

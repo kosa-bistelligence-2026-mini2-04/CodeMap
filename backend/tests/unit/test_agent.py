@@ -160,6 +160,50 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
         self.assertEqual(res["security_result"]["approved"], [])
         self.assertFalse(res["events"][0]["allowed"])
 
+    def test_dispatcher_skips_duplicate_searches_within_plan(self):
+        """동일 plan 안의 중복 (tool,target) 항목은 1회로 접힌다(#149)."""
+        from app.agent.nodes.dispatcher_node import dispatcher_node
+
+        state = {
+            "clone_path": "/tmp",
+            "access_plan": [
+                {"tool": "search", "path": None, "query": "login flow", "scope": "chunk"},
+                {"tool": "search", "path": None, "query": "login flow", "scope": "chunk"},  # 중복
+                {"tool": "read", "path": "app/main.py", "query": "", "scope": "file"},
+                {"tool": "read", "path": "app/main.py", "query": "", "scope": "file"},       # 중복
+            ],
+            "worker_results": [],
+        }
+
+        res = dispatcher_node(state)
+
+        self.assertEqual(len(res["security_result"]["approved"]), 2)  # search 1 + read 1
+        self.assertEqual(res["events"][0]["dedupedCount"], 2)
+
+    def test_dispatcher_skips_already_executed_searches(self):
+        """이전 반복의 worker_results와 동일한 path/query는 재계획에서 스킵된다(#149)."""
+        from app.agent.nodes.dispatcher_node import dispatcher_node
+
+        state = {
+            "clone_path": "/tmp",
+            "access_plan": [
+                {"tool": "search", "path": None, "query": "login flow", "scope": "chunk"},  # 이미 실행됨
+                {"tool": "read", "path": "app/new.py", "query": "", "scope": "file"},        # 신규
+            ],
+            # search/grep은 metadata.query=query, dir/read는 metadata.query=path 로 저장됨
+            "worker_results": [
+                {"id": "ev1", "path": "app/auth.py", "lineStart": 1, "lineEnd": 2,
+                 "score": 0.9, "snippet": "...", "metadata": {"worker": "search", "query": "login flow"}},
+            ],
+        }
+
+        res = dispatcher_node(state)
+
+        approved = res["security_result"]["approved"]
+        self.assertEqual(len(approved), 1)
+        self.assertEqual(approved[0]["path"], "app/new.py")
+        self.assertEqual(res["events"][0]["dedupedCount"], 1)
+
     def test_fanout_blocks_unregistered_tools(self):
         """미등록 tool은 LangGraph Send 대상에서 제외됩니다."""
         from app.agent.nodes.dispatcher_node import _ALLOWED_WORKERS, fanout_to_workers
@@ -347,6 +391,7 @@ class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
             "clone_path": "/tmp",
             "run_id": "run1",
             "session_id": "session-1",
+            "target_file": None,
             "memory_context": {"messages": []},
             "rewritten_query": "",
             "access_plan": [],
@@ -374,6 +419,78 @@ class TestPlannerNode(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["rewritten_query"], "stream 이벤트 처리 위치")
         self.assertEqual(result["access_plan"][0]["tool"], "search")
         self.assertEqual(result["events"][0]["type"], "planner_plan")
+
+    async def test_planner_fallback_reads_target_file_first(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        state = self._base_state()
+        state["target_file"] = "frontend/src/features/chat/components/ChatInterface.tsx"
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", side_effect=RuntimeError("missing key")):
+            result = await planner_node(state)
+
+        self.assertEqual(result["access_plan"][0], {
+            "tool": "read",
+            "path": "frontend/src/features/chat/components/ChatInterface.tsx",
+            "query": "frontend/src/features/chat/components/ChatInterface.tsx",
+            "scope": "file",
+        })
+        self.assertEqual(result["access_plan"][1]["tool"], "search")
+        self.assertIn("read", result["events"][0]["selectedWorkers"])
+        self.assertIn(
+            "frontend/src/features/chat/components/ChatInterface.tsx",
+            result["events"][0]["allowedPaths"],
+        )
+
+    async def test_planner_prepends_target_file_when_llm_omits_it(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        class FakePlannerLLM:
+            async def ainvoke(self, _messages):
+                content = (
+                    '{"rewritten_query":"chat context",'
+                    '"access_plan":[{"tool":"search","path":null,'
+                    '"query":"chat context","scope":"chunk"}]}'
+                )
+                return MagicMock(content=content)
+
+        state = self._base_state()
+        state["target_file"] = "backend/app/chat/router.py"
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", return_value=FakePlannerLLM()):
+            result = await planner_node(state)
+
+        self.assertEqual(result["access_plan"][0]["tool"], "read")
+        self.assertEqual(result["access_plan"][0]["path"], "backend/app/chat/router.py")
+        self.assertEqual(result["access_plan"][1]["tool"], "search")
+
+    async def test_planner_does_not_duplicate_existing_target_read(self):
+        from app.agent.nodes.planner_node import planner_node
+
+        class FakePlannerLLM:
+            async def ainvoke(self, _messages):
+                content = (
+                    '{"rewritten_query":"chat context",'
+                    '"access_plan":['
+                    '{"tool":"read","path":"backend/app/chat/router.py","query":"router","scope":"file"},'
+                    '{"tool":"search","path":null,"query":"chat context","scope":"chunk"}'
+                    ']}'
+                )
+                return MagicMock(content=content)
+
+        state = self._base_state()
+        state["target_file"] = "backend/app/chat/router.py"
+
+        with patch("app.agent.nodes.planner_node.create_planner_llm", return_value=FakePlannerLLM()):
+            result = await planner_node(state)
+
+        target_reads = [
+            item
+            for item in result["access_plan"]
+            if item["tool"] == "read" and item["path"] == "backend/app/chat/router.py"
+        ]
+        self.assertEqual(len(target_reads), 1)
+        self.assertEqual(result["access_plan"][0]["query"], "backend/app/chat/router.py")
 
     async def test_planner_prompt_includes_session_memory_context(self):
         from app.agent.nodes.planner_node import planner_node

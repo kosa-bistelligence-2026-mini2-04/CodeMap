@@ -11,6 +11,7 @@ class ChatRunRequest(BaseModel):
     includeEvidence: bool = True
     maxToolCalls: int = Field(default=8, ge=1, le=20)
     timeoutSeconds: int = Field(default=30, ge=5, le=120)
+    targetFile: str | None = None
 
 
 class ThreadSummary(BaseModel):

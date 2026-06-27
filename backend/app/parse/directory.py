@@ -119,6 +119,7 @@ def _analyze_directory_sync(clone_path: str) -> list[ParsedFile]:
                 size = 0
             content = _read_text(path)
             lines = len(content.splitlines()) if content else 0
+            chars = len(content) if content else 0
             nodes.append(
                 ParsedFile(
                     path=rel,
@@ -126,6 +127,7 @@ def _analyze_directory_sync(clone_path: str) -> list[ParsedFile]:
                     depth=rel.count("/"),
                     content=content,
                     lines=lines,
+                    chars=chars,
                     size=size,
                 )
             )

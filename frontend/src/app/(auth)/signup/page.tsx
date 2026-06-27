@@ -6,11 +6,12 @@ import Link from "next/link";
 import { useApp } from "@/common/contexts/AppContext";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { register } from "@/features/auth/api/authApi";
+import { ApiError } from "@/common/api/error";
 import { AlertTriangle, Mail, Lock, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { theme } = useApp();
+  const { theme, t } = useApp();
   const isDark = theme === "dark";
   const login = useAuthStore((state) => state.login);
 
@@ -21,16 +22,20 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  // Validation status
+  const isPasswordLongEnough = password.length >= 8;
+  const doPasswordsMatch = password === confirmPassword && password.length > 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (password !== confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다.");
+    if (!doPasswordsMatch) {
+      setError(t.auth.signup.passwordMismatch);
       return;
     }
-    if (password.length < 8) {
-      setError("비밀번호는 최소 8자 이상이어야 합니다.");
+    if (!isPasswordLongEnough) {
+      setError(t.auth.signup.passwordTooShort);
       return;
     }
 
@@ -48,9 +53,15 @@ export default function SignUpPage() {
       setTimeout(() => {
         router.push("/analyze");
       }, 1000);
-    } catch (err: any) {
-      const errorMsg = err.message || "계정 생성에 실패했습니다. 다시 시도해주세요.";
-      setError(errorMsg);
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        const localizedMsg = t.auth.errors[err.code as keyof typeof t.auth.errors];
+        setError(localizedMsg || err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(t.auth.errors.default);
+      }
       setIsLoading(false);
     }
   };
@@ -77,10 +88,10 @@ export default function SignUpPage() {
         >
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
           <h2 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-black"}`}>
-            CodeMap AI에 오신 것을 환영합니다!
+            {t.auth.signUpSuccessTitle}
           </h2>
           <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-            계정이 성공적으로 생성되었습니다. 이동 중입니다...
+            {t.auth.signUpSuccessDesc}
           </p>
         </div>
       </div>
@@ -101,7 +112,7 @@ export default function SignUpPage() {
             isDark ? "text-white" : "text-zinc-900"
           }`}
         >
-          새 계정 만들기
+          {t.nav.signUp}
         </h2>
 
         {error && (
@@ -125,7 +136,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              이메일 주소
+              {t.auth.emailLabel}
             </label>
             <div className="relative">
               <Mail className={iconClass} />
@@ -136,7 +147,7 @@ export default function SignUpPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
-                placeholder="you@example.com"
+                placeholder={t.auth.emailPlaceholder}
               />
             </div>
           </div>
@@ -148,7 +159,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              비밀번호
+              {t.auth.passwordLabel}
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -160,9 +171,15 @@ export default function SignUpPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={inputClass}
-                placeholder="최소 8자 이상"
+                placeholder={t.auth.passwordMinPlaceholder}
               />
             </div>
+            {password.length > 0 && (
+              <p className={`mt-1.5 text-[10px] flex items-center gap-1 ${isPasswordLongEnough ? "text-emerald-500" : "text-amber-500"}`}>
+                {isPasswordLongEnough ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                {isPasswordLongEnough ? t.auth.signup.passwordLengthOk : t.auth.signup.passwordTooShort}
+              </p>
+            )}
           </div>
 
           <div>
@@ -172,7 +189,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              비밀번호 확인
+              {t.auth.confirmPasswordLabel}
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -184,14 +201,20 @@ export default function SignUpPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className={inputClass}
-                placeholder="••••••••"
+                placeholder={t.auth.passwordPlaceholder}
               />
             </div>
+            {confirmPassword.length > 0 && (
+              <p className={`mt-1.5 text-[10px] flex items-center gap-1 ${doPasswordsMatch ? "text-emerald-500" : "text-red-500"}`}>
+                {doPasswordsMatch ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                {doPasswordsMatch ? t.auth.signup.passwordMatchOk : t.auth.signup.passwordMismatch}
+              </p>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={isLoading || !email || !password || !confirmPassword}
+            disabled={isLoading || !email || !password || !confirmPassword || !isPasswordLongEnough || !doPasswordsMatch}
             className={`w-full mt-2 flex justify-center items-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
               isDark
                 ? "bg-white text-black hover:bg-zinc-200 disabled:bg-zinc-800 disabled:text-zinc-500"
@@ -202,7 +225,7 @@ export default function SignUpPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                가입하기 <ArrowRight className="w-4 h-4" />
+                {t.auth.signUpBtn} <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
@@ -213,14 +236,14 @@ export default function SignUpPage() {
             isDark ? "text-zinc-400" : "text-zinc-500"
           }`}
         >
-          이미 계정이 있으신가요?{" "}
+          {t.auth.haveAccount}{" "}
           <Link
             href="/signin"
             className={`font-semibold hover:underline ${
               isDark ? "text-white" : "text-zinc-900"
             }`}
           >
-            로그인
+            {t.nav.signIn}
           </Link>
         </p>
       </div>

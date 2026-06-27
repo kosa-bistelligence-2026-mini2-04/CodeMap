@@ -63,9 +63,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("cm-theme", theme);
   }, [theme, mounted]);
 
-  // Persist locale
+  // Persist locale and update HTML lang
   useEffect(() => {
     if (!mounted) return;
+    document.documentElement.lang = locale;
     localStorage.setItem("cm-locale", locale);
   }, [locale, mounted]);
 
