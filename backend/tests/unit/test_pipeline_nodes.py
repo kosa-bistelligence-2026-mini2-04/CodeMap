@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from app.pipeline import nodes
 from app.pipeline.graph import AnalysisPipelineSupervisor, _check_failure
@@ -55,15 +55,22 @@ class PipelineSupervisorTests(unittest.IsolatedAsyncioTestCase):
 class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):
     async def test_code_map_node_persists_grounded_scan(self):
         report = {"stats": {"files": 3}, "entrypoints": ["app/main.py"]}
+        mock_service = AsyncMock()
+        mock_service.execute_analysis_and_persist = AsyncMock(return_value=report)
+
+        mock_session_ctx = MagicMock()
+        mock_session_ctx.__aenter__.return_value = AsyncMock()
+
         with (
-            patch.object(nodes, "scan_repository", return_value=report),
-            patch.object(nodes, "_update_db", AsyncMock()) as update,
+            patch("app.repo.service.AnalysisService", return_value=mock_service),
             patch.object(nodes, "_publish", AsyncMock()),
+            patch.object(nodes, "async_session_factory", return_value=mock_session_ctx),
         ):
             result = await nodes.code_map_node(pipeline_state())
+
         self.assertEqual(result["analysis_report"], report)
         self.assertEqual(result["progress"], 55)
-        self.assertEqual(update.await_args.kwargs["report_json"], report)
+        mock_service.execute_analysis_and_persist.assert_called_once()
 
     async def test_document_and_onboarding_nodes_enrich_report(self):
         state = pipeline_state(analysis_report={"entrypoints": ["a.py", "b.py", "c.py"]})

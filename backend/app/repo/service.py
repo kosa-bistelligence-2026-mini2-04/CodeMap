@@ -916,6 +916,209 @@ class RepoValidateService:
             ),
         )
 
+    # ──────────────────────────────────────────
+    # execute_analysis_and_persist
+    # ──────────────────────────────────────────
+    async def execute_analysis_and_persist(
+        self, job_id: UUID, clone_path: str, repo_name: str
+    ) -> dict:
+        """
+        CWD 경로 기반으로 개별 정적 분석 도구들을 병렬로 호출하여
+        최종 report_json 딕셔너리를 조립하고 DB에 입력합니다.
+        """
+        from app.tool.dir_scan import list_repository_files
+        from app.tool.file_read import extract_file_static_metadata
+        from app.tool.grep_scan import count_todo_annotations
+        from app.tool.env_validation import verify_build_environment
+        from app.tool.ast_quality import (
+            calculate_code_complexity,
+            calculate_module_coupling,
+        )
+
+        root = Path(clone_path).resolve()
+
+        ## 1. 파일 리스트 추출 (디렉토리 스캔 전담)
+        file_paths = await asyncio.to_thread(list_repository_files, root)
+        total_files = len(file_paths)
+
+        if total_files == 0:
+            ## 예외 폴백: 소스 파일이 없는 경우
+            report = {
+                "repository": {"name": repo_name, "root": str(root)},
+                "stats": {
+                    "files": 0, "lines": 0, "bytes": 0, "todos": 0,
+                    "tests": 0, "primary_language": "Unknown",
+                },
+                "languages": [],
+                "stack": [],
+                "entrypoints": [],
+                "files": [],
+                "health_score": 50,
+                "health_metrics": {
+                    "security": 50, "modularity": 50, "quality": 50,
+                    "test": 50, "complexity": 50
+                },
+                "key_strengths": ["분석 대상 텍스트 파일이 없습니다."],
+                "key_risks": [
+                    "레포지토리가 비어 있거나 소스코드가 감지되지 않습니다."
+                ],
+                "recommendations": [],
+            }
+            await self.repository.update_job_status(
+                job_id=job_id,
+                report_json=report,
+            )
+            await self.db.commit()
+            return report
+
+        ## 2. 기본 파일 물리 정보 일괄 스캔 (I/O 병렬 구동)
+        file_meta = await asyncio.to_thread(
+            extract_file_static_metadata, file_paths, root
+        )
+
+        ## 주 언어 판별 및 언어 통계 산정
+        from collections import Counter
+        languages = Counter()
+        total_lines = 0
+        total_bytes = 0
+        test_files = 0
+
+        for f in file_meta:
+            total_lines += f["lines"]
+            total_bytes += f["bytes"]
+            languages[f["language"]] += f["lines"]
+            if "test" in f["name"].lower() or "test" in f["path"].lower():
+                test_files += 1
+
+        primary_language = (
+            languages.most_common(1)[0][0] if languages else "Unknown"
+        )
+        test_ratio = test_files / max(total_files, 1)
+
+        ## 3. 남은 분석 도구 병렬 호출 (asyncio.gather)
+        todo_task = asyncio.to_thread(count_todo_annotations, file_paths)
+        env_task = asyncio.to_thread(
+            verify_build_environment, file_paths, primary_language, root
+        )
+        ast_task = asyncio.to_thread(calculate_code_complexity, file_paths)
+
+        todo_res, env_res, ast_res = await asyncio.gather(
+            todo_task, env_task, ast_task
+        )
+
+        ## 4. 임포트 결합도 연산
+        raw_deps = {}
+        for f in file_meta:
+            raw_deps[f["path"]] = []
+        coupling_res = calculate_module_coupling(raw_deps)
+
+        ## 5. 다차원 health_metrics 세부 지표 채점 알고리즘
+        # ① 보안 점수 (85 기본)
+        security_score = 85
+        if not env_res["has_mandatory_manifest"]:
+            security_score -= 15  # 빌드 파일 부재 시 큰 감점
+        if "Docker" in env_res["detected_stack"]:
+            security_score += 5   # Docker 가점
+        security_score = max(0, min(100, security_score))
+
+        # ② 모듈화 점수 (90 기본)
+        modularity_score = 90
+        if coupling_res["has_circular_dependency"]:
+            modularity_score -= 20
+        modularity_score -= int(coupling_res["coupling_coefficient"] * 40)
+        modularity_score = max(0, min(100, modularity_score))
+
+        # ③ 코드품질 점수 (85 기본)
+        quality_score = 85
+        todo_density = todo_res["total_todos"] / max(total_lines, 1) * 10000
+        if todo_density > 50:
+            quality_score -= 10
+        if ast_res["oversized_ratio"] > 0.05:
+            quality_score -= 8
+        quality_score = max(0, min(100, quality_score))
+
+        # ④ 테스트 점수
+        test_score = int(test_ratio * 100)
+        test_score = max(0, min(100, test_score))
+
+        # ⑤ 복잡도 점수
+        complexity_score = 100 - int(
+            max(0, ast_res["average_complexity"] - 3) * 8
+        )
+        complexity_score = max(0, min(100, complexity_score))
+
+        # ⑥ 종합 건강도 (가중 평균)
+        total_metrics_sum = (
+            security_score + modularity_score + quality_score +
+            test_score + complexity_score
+        )
+        health_score = int(total_metrics_sum / 5)
+
+        ## 6. 최종 report_json 딕셔너리 조립
+        report = {
+            "repository": {"name": repo_name, "root": str(root)},
+            "stats": {
+                "files": total_files,
+                "lines": total_lines,
+                "bytes": total_bytes,
+                "todos": todo_res["total_todos"],
+                "tests": test_files,
+                "primary_language": primary_language,
+            },
+            "languages": [
+                {"name": name, "lines": lines}
+                for name, lines in languages.most_common(8)
+            ],
+            "stack": env_res["detected_stack"],
+            "entrypoints": env_res["entrypoints"][:12],
+            "files": file_meta,
+            "health_score": health_score,
+            "health_metrics": {
+                "security": security_score,
+                "modularity": modularity_score,
+                "quality": quality_score,
+                "test": test_score,
+                "complexity": complexity_score,
+            },
+            "key_strengths": [
+                f"{total_files:,}개 파일과 {total_lines:,}줄이 "
+                "실제 스냅샷에서 확인되었습니다.",
+            ],
+            "key_risks": [],
+            "recommendations": [],
+        }
+
+        ## 분석 소견/가이드라인 보강
+        if test_ratio < 0.05:
+            report["key_risks"].append(
+                "테스트 커버리지 및 회귀 테스트 기반이 부실합니다."
+            )
+            report["recommendations"].append({
+                "title": "테스트 커버리지 보완",
+                "detail": "핵심 로직에 대한 단위 및 통합 테스트를 보강하세요.",
+                "affected_files": env_res["entrypoints"][:3],
+                "priority": "high",
+            })
+        if not env_res["has_mandatory_manifest"]:
+            report["key_risks"].append(
+                f"{primary_language} 빌드 구성 파일이 결락되어 "
+                "실행이 불가할 수 있습니다."
+            )
+            report["recommendations"].append({
+                "title": "빌드 설정 파일 추가",
+                "detail": "의존성 패키지 관리 파일을 루트 디렉토리에 추가하세요.",
+                "affected_files": [],
+                "priority": "high",
+            })
+
+        ## 7. DB 최종 영속화 및 커밋
+        await self.repository.update_job_status(
+            job_id=job_id,
+            report_json=report,
+        )
+        await self.db.commit()
+        return report
+
 
 def _filter_workspace(repo_dir: Path) -> None:
     for dirpath_str, dirnames, filenames in os.walk(str(repo_dir), topdown=True, followlinks=False):

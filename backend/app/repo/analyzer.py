@@ -84,118 +84,154 @@ def _read_text(path: Path, limit: int = 160_000, root: Path | None = None) -> st
 
 
 def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int, list, dict]]:
+    from app.tool.dir_scan import list_repository_files
+    from app.tool.file_read import extract_file_static_metadata
+    from app.tool.grep_scan import count_todo_annotations
+    from app.tool.env_validation import verify_build_environment
+    from app.tool.ast_quality import calculate_code_complexity
+
     root = Path(root_path).resolve()
     if not root.exists():
         raise FileNotFoundError(f"Repository snapshot is unavailable: {root}")
 
-    files: list[dict[str, Union[str, int]]] = []
-    languages: Counter[str] = Counter()
-    stack: set[str] = set()
-    entrypoints: list[str] = []
-    todo_count = 0
+    file_paths = list_repository_files(root)
+    file_meta = extract_file_static_metadata(file_paths, root)
+
+    from collections import Counter
+    languages = Counter()
     total_lines = 0
     total_bytes = 0
     test_files = 0
-    oversized: list[str] = []
 
-    for path in _iter_files(root):
-        relative = path.relative_to(root).as_posix()
-        text = _read_text(path)
-        line_count = text.count("\n") + (1 if text else 0)
-        size = path.stat().st_size
-        language = LANGUAGE_BY_SUFFIX.get(path.suffix.lower(), "Config")
-        languages[language] += line_count or 1
-        total_lines += line_count
-        total_bytes += size
-        todo_count += len(re.findall(r"\b(?:TODO|FIXME|HACK)\b", text, re.IGNORECASE))
-        if "test" in path.name.lower() or "tests" in path.parts:
+    for f in file_meta:
+        total_lines += f["lines"]
+        total_bytes += f["bytes"]
+        languages[f["language"]] += f["lines"]
+        if "test" in f["name"].lower() or "test" in f["path"].lower():
             test_files += 1
-        if line_count > 700:
-            oversized.append(relative)
-        if path.name.lower() in ENTRYPOINT_NAMES:
-            entrypoints.append(relative)
-        if path.name in STACK_SIGNALS:
-            stack.add(STACK_SIGNALS[path.name])
 
-        files.append({
-            "path": relative,
-            "name": path.name,
-            "language": language,
-            "lines": line_count,
-            "size": size,
-            "kind": "test" if ("test" in path.name.lower() or "tests" in path.parts) else "source",
-        })
+    primary_language = (
+        languages.most_common(1)[0][0] if languages else "Unknown"
+    )
+    test_ratio = test_files / max(len(file_meta), 1)
 
-    primary_language = languages.most_common(1)[0][0] if languages else "Unknown"
-    test_ratio = test_files / max(len(files), 1)
-    # [TODO] 건강도(Health Score) 산정 로직 재정의 논의 필요
-    # 현재는 단순 감점(파일 누락, 파일 크기, TODO 개수) 방식으로 하드코딩 되어 있습니다.
-    # 향후 `보안`, `코드품질`, `모듈화`, `테스트 커버리지` 등 다차원 레이더 차트를 위한 지표로 세분화해야 합니다.
+    todo_res = count_todo_annotations(file_paths)
+    env_res = verify_build_environment(file_paths, primary_language, root)
+    ast_res = calculate_code_complexity(file_paths)
+
     health_score = 84
     if test_ratio < 0.05:
         health_score -= 10
-    if oversized:
-        health_score -= min(8, len(oversized) * 2)
-    if todo_count > 20:
+    if ast_res["oversized_files"]:
+        health_score -= min(8, len(ast_res["oversized_files"]) * 2)
+    if todo_res["total_todos"] > 20:
         health_score -= 5
     health_score = max(35, min(96, health_score))
 
     strengths = [
-        f"{len(files):,}개 텍스트 파일과 {total_lines:,}줄을 실제 저장소 스냅샷에서 확인했습니다.",
-        f"주요 언어는 {primary_language}이며 {len(languages)}개 언어·설정 유형이 감지되었습니다.",
+        f"{len(file_meta):,}개 텍스트 파일과 {total_lines:,}줄을 "
+        "실제 저장소 스냅샷에서 확인했습니다.",
+        f"주요 언어는 {primary_language}이며 {len(languages)}개 언어·설정 "
+        "유형이 감지되었습니다.",
     ]
-    if stack:
-        strengths.append(f"{', '.join(sorted(stack))} 기반의 실행 구성이 명확하게 감지됩니다.")
+    if env_res["detected_stack"]:
+        joined_stack = ", ".join(sorted(env_res["detected_stack"]))
+        strengths.append(
+            f"{joined_stack} 기반의 실행 구성이 명확하게 감지됩니다."
+        )
     if test_ratio >= 0.08:
-        strengths.append(f"테스트 관련 파일 {test_files}개가 있어 변경 검증 기반이 마련되어 있습니다.")
+        strengths.append(
+            f"테스트 관련 파일 {test_files}개가 있어 변경 검증 기반이 "
+            "마련되어 있습니다."
+        )
 
-    risks: list[str] = []
+    risks = []
     if test_ratio < 0.05:
-        risks.append("감지된 테스트 파일 비율이 낮아 핵심 흐름의 회귀 테스트 범위를 확인해야 합니다.")
-    if oversized:
-        risks.append(f"700줄을 넘는 대형 파일 {len(oversized)}개가 있어 책임 분리 검토가 필요합니다.")
-    if todo_count:
-        risks.append(f"TODO/FIXME/HACK 표식 {todo_count}개가 남아 있어 기술 부채 우선순위를 정해야 합니다.")
+        risks.append(
+            "감지된 테스트 파일 비율이 낮아 핵심 흐름의 회귀 테스트 "
+            "범위를 확인해야 합니다."
+        )
+    if ast_res["oversized_files"]:
+        cnt = len(ast_res["oversized_files"])
+        risks.append(
+            f"700줄을 넘는 대형 파일 {cnt}개가 있어 책임 분리 "
+            "검토가 필요합니다."
+        )
+    if todo_res["total_todos"]:
+        cnt = todo_res["total_todos"]
+        risks.append(
+            f"TODO/FIXME/HACK 표식 {cnt}개가 남아 있어 "
+            "기술 부채 우선순위를 정해야 합니다."
+        )
     if not risks:
-        risks.append("정적 구조상 즉시 드러나는 고위험 신호는 적지만 런타임·권한 경계 검증은 별도로 필요합니다.")
+        risks.append(
+            "정적 구조상 즉시 드러나는 고위험 신호는 적지만 런타임·권한 "
+            "경계 검증은 별도로 필요합니다."
+        )
 
     recommendations = []
     if test_ratio < 0.05:
         recommendations.append({
             "title": "핵심 사용자 흐름에 회귀 테스트 추가",
-            "detail": "진입점과 API 경계를 중심으로 최소 통합 테스트를 먼저 추가하세요.",
-            "affected_files": entrypoints[:4], "priority": "high",
+            "detail": (
+                "진입점과 API 경계를 중심으로 최소 통합 테스트를 "
+                "먼저 추가하세요."
+            ),
+            "affected_files": env_res["entrypoints"][:4], "priority": "high",
         })
-    if oversized:
+    if ast_res["oversized_files"]:
         recommendations.append({
             "title": "대형 모듈의 책임 경계 점검",
-            "detail": "변경 빈도가 높은 대형 파일부터 UI·도메인·인프라 책임을 분리하세요.",
-            "affected_files": oversized[:5], "priority": "medium",
+            "detail": (
+                "변경 빈도가 높은 대형 파일부터 UI·도메인·인프라 "
+                "책임을 분리하세요."
+            ),
+            "affected_files": ast_res["oversized_files"][:5],
+            "priority": "medium",
         })
     recommendations.append({
         "title": "분석 결과를 대화형 검증으로 연결",
-        "detail": "리포트의 각 근거 파일을 채팅에서 재질문하고 코드 인용으로 확인하세요.",
-        "affected_files": entrypoints[:3], "priority": "medium",
+        "detail": (
+            "리포트의 각 근거 파일을 채팅에서 재질문하고 "
+            "코드 인용으로 확인하세요."
+        ),
+        "affected_files": env_res["entrypoints"][:3], "priority": "medium",
     })
 
+    files = []
+    for f in file_meta:
+        files.append({
+            "path": f["path"],
+            "name": f["name"],
+            "language": f["language"],
+            "lines": f["lines"],
+            "size": f["bytes"],
+            "kind": "test" if (
+                "test" in f["name"].lower() or "test" in f["path"].lower()
+            ) else "source",
+        })
+
     files.sort(key=lambda item: (item["path"].count("/"), item["path"]))
-    # [TODO] Git Commit Log 분석을 통한 Contributor 통계 추출 로직 추가
-    # 대시보드 시각화(기여자 비율, 파이/도넛 차트) 및 코드 변경 빈도(Churn) 히트맵을 위해
-    # 분석 시점에 로컬 .git 로그나 GitHub API를 연동하여 기여자 메타데이터를 수집하는 범위 확정이 필요합니다.
+
     return {
         "repository": {"name": repo_name, "root": str(root)},
         "stats": {
             "files": len(files), "lines": total_lines, "bytes": total_bytes,
-            "tests": test_files, "todos": todo_count, "primary_language": primary_language,
+            "tests": test_files, "todos": todo_res["total_todos"],
+            "primary_language": primary_language,
         },
-        "languages": [{"name": name, "lines": lines} for name, lines in languages.most_common(8)],
-        "stack": sorted(stack),
-        "entrypoints": entrypoints[:12],
+        "languages": [
+            {"name": name, "lines": lines}
+            for name, lines in languages.most_common(8)
+        ],
+        "stack": env_res["detected_stack"],
+        "entrypoints": env_res["entrypoints"][:12],
         "files": files,
         "health_score": health_score,
         "executive_summary": (
-            f"{repo_name}은(는) {primary_language} 중심의 코드베이스입니다. "
-            f"실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
+            f"{repo_name}은(는) {primary_language} 중심의 "
+            "코드베이스입니다. 실제 파일 구조, 진입점, 구성 파일과 "
+            "유지보수 신호를 기준으로 분석했습니다."
         ),
         "key_strengths": strengths,
         "key_risks": risks,
