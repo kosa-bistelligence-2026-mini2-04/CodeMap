@@ -44,6 +44,8 @@ export function CodePreviewPanel({
 
     setLoadState("loading");
     setContent("");
+    setErrorMessage("");
+    setCopied(false);
 
     fetchFileContent(jobId, filePath, controller.signal)
       .then((res) => {
