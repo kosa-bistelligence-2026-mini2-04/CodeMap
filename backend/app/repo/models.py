@@ -8,7 +8,7 @@ PostgreSQL 테이블에 매핑하는 SQLAlchemy ORM 모델을 정의한다.
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, String, Integer, Text, DateTime, Index, text
+from sqlalchemy import Boolean, String, Integer, Text, DateTime, Index, text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
@@ -43,6 +43,17 @@ class AnalysisJob(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+
+    # 사용자 고유 ID (인증/권한 검증용)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+    # 팀 고유 ID (팀 워크스페이스 격리용)
+    team_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # 개인(Private) 여부 (true면 본인만 접근 가능)
+    is_private: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # GitHub 저장소 전체 URL - https://github.com/owner/repo
     repo_url: Mapped[str] = mapped_column(Text, nullable=False)

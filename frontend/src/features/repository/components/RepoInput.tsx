@@ -13,11 +13,16 @@ interface RepoInputProps {
     branch?: string;
     force_refresh?: boolean;
     model?: string;
+    visibility?: "private" | "team";
+    team_id?: string | null;
   }) => void;
   disabled?: boolean;
   defaultMode?: RepoSource;
   initialPath?: string;
   initialMode?: RepoSource;
+  visibility?: "private" | "team";
+  selectedTeamId?: string | null;
+  selectedTeamName?: string | null;
 }
 
 const GITHUB_URL = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+?(?:\.git)?\/?$/;
@@ -38,6 +43,9 @@ export function RepoInput({
   onSubmit,
   disabled = false,
   initialPath,
+  visibility = "private",
+  selectedTeamId = null,
+  selectedTeamName = null,
 }: RepoInputProps) {
   const { theme, t } = useApp();
   const isDark = theme === "dark";
@@ -72,6 +80,8 @@ export function RepoInput({
       branch: branch.trim() || undefined,
       force_refresh: forceRefresh,
       model: customModel.trim() || model,
+      visibility,
+      team_id: visibility === "team" ? selectedTeamId : null,
     });
   };
 
@@ -218,6 +228,18 @@ export function RepoInput({
               </span>
             </span>
           </label>
+          <div className={`mt-3 rounded-lg border px-3 py-2 ${isDark ? "border-zinc-800 bg-zinc-950/60" : "border-zinc-200 bg-white"}`}>
+            <span>
+              <span className="block text-[11px] font-medium">
+                {visibility === "team" ? "팀 워크스페이스 공유" : "개인 Private 워크스페이스"}
+              </span>
+              <span className="mt-0.5 block text-[10px] leading-relaxed text-zinc-500">
+                {visibility === "team"
+                  ? `${selectedTeamName || "선택한 팀"} 멤버에게만 분석 기록과 채팅을 공유합니다.`
+                  : "본인 계정에서만 분석 기록과 채팅을 볼 수 있습니다."}
+              </span>
+            </span>
+          </div>
         </div>
       </details>
 

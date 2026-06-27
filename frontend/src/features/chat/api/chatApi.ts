@@ -1,5 +1,6 @@
 import type { ChatMode, CodeReference, StreamPhase } from "@/common/types/contracts";
 import { apiPath } from "@/features/analysis/api/api";
+import { getAccessToken } from "@/features/auth/utils/tokenMemory";
 
 export type { ChatMode, StreamPhase };
 
@@ -124,6 +125,11 @@ const MODE_MAP: Record<ChatMode, string> = {
   deep: "deep",
 };
 
+function authHeaders(): HeadersInit {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 /**
  * 2단계 Run API를 사용하여 채팅을 스트리밍합니다.
  *
@@ -141,7 +147,7 @@ export async function* streamChat(
   try {
     const response = await fetch(apiPath(`/chat/${repoId}/runs`), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         question: message,
         mode: MODE_MAP[mode] || "lite",
@@ -170,7 +176,9 @@ export async function* streamChat(
   // Step 2: SSE 스트리밍
   let streamResponse: Response;
   try {
-    streamResponse = await fetch(apiPath(runData.streamUrl.replace("/api", "")));
+    streamResponse = await fetch(apiPath(runData.streamUrl.replace("/api", "")), {
+      headers: authHeaders(),
+    });
   } catch {
     yield { type: "error", error: "스트리밍 연결에 실패했습니다." };
     return;
@@ -202,7 +210,9 @@ export async function* streamChat(
 }
 
 export async function fetchThread(repoId: string, threadId: string): Promise<ChatMessage[]> {
-  const response = await fetch(apiPath(`/chat/${repoId}/threads/${threadId}`));
+  const response = await fetch(apiPath(`/chat/${repoId}/threads/${threadId}`), {
+    headers: authHeaders(),
+  });
   if (!response.ok) return [];
   const payload = await response.json();
   return (payload.items || []).map((item: Record<string, unknown>) => ({

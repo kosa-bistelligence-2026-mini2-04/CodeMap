@@ -15,6 +15,8 @@ class AnalysisJobListModel:
     progress: int
     failed_agent: Optional[str]
     error_message: Optional[str]
+    visibility: str
+    team_id: UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -32,6 +34,8 @@ class AnalysisJobDetailModel:
     current_step: Optional[str]
     progress: int
     message: Optional[str]
+    visibility: str
+    team_id: UUID | None
     created_at: datetime
     updated_at: datetime
 
