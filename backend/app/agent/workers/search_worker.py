@@ -42,7 +42,7 @@ async def search_worker(state: CodeMapState) -> dict:
                     WorkerResult(
                         id=f"ev_{uuid.uuid4().hex[:8]}",
                         path=file_path or None,
-                        lineStart=None,
+                        lineStart=hit.get("start_line"),
                         lineEnd=None,
                         score=rrf,
                         snippet=content,

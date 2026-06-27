@@ -294,7 +294,7 @@ async def vector_search(
         meta = node.file_metadata or {}
         results.append({
             "file": node.path,
-            "line": meta.get("start_line", 1),
+            "line": meta.get("start_line"),
             "snippet": node.content or "",
             "score": round(1.0 - distance, 4),
         })

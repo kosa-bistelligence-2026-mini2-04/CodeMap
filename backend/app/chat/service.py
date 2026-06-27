@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chat._reference_utils import build_reference
 from app.chat.repository import ChatRepository
 from app.chat.schemas import ChatRunRequest
 from app.common import access
@@ -209,7 +210,7 @@ class RepositoryChatService:
     ) -> None:
         """어시스턴트 응답과 참조 파일 목록을 DB에 저장."""
         references = [
-            {"file": r.get("path", ""), "line": 0, "snippet": r.get("snippet", "")[:200]}
+            build_reference(r.get("path", ""), r.get("lineStart"), r.get("snippet", ""), max_snippet=200)
             for r in worker_results
             if r.get("path")
         ]
