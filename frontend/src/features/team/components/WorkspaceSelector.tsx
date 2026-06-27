@@ -143,11 +143,15 @@ export function WorkspaceSelector({
   // 선택된 팀의 멤버/보낸 초대를 로드한다.
   useEffect(() => {
     if (!selectedTeamId) {
-      setMembers([]);
-      setSentInvites([]);
+      queueMicrotask(() => {
+        setMembers([]);
+        setSentInvites([]);
+      });
       return;
     }
-    void loadTeamDetail(selectedTeamId, isOwner);
+    queueMicrotask(() => {
+      void loadTeamDetail(selectedTeamId, isOwner);
+    });
   }, [selectedTeamId, isOwner, loadTeamDetail]);
 
   const handleCreateTeam = async () => {
