@@ -287,10 +287,12 @@ export async function declineInvite(inviteId: string): Promise<void> {
 export async function fetchFileContent(
   repoId: string,
   path: string,
+  signal?: AbortSignal,
 ): Promise<FileContent> {
   const params = new URLSearchParams({ path });
   const resp = await fetch(apiPath(`/parse/${repoId}/file?${params.toString()}`), {
     headers: getAuthorizationHeaders(),
+    signal,
   });
   if (!resp.ok) {
     const errData = await resp.json().catch(() => ({}));

@@ -1,10 +1,15 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.database import get_db
-from app.common.exceptions import ParseResultNotFoundError, RepositoryNotFoundError
+from app.infra.auth import get_current_user_optional
+from app.common.access import can_access_job
+from app.common.exceptions import ParseResultNotFoundError, RepositoryNotFoundError, JobNotFoundError
+from app.embed.models import CodeNode
 from app.parse.report import (
     normalize_run_commands,
     report_config_files,
@@ -21,10 +26,17 @@ from app.parse.report import (
     report_tech_stack,
     report_tech_stack_details,
 )
+from app.parse.schemas import FileContentResponse, FileSymbolItem
 from app.repo.repository import AnalysisJobRepository
 
 
 router = APIRouter(prefix="/api/parse/analysis", tags=["RAG Parse"])
+
+
+# ──────────────────────────────────────────────
+# file_router — G1-A: 파일 원문 + 심볼 조회 API
+# ──────────────────────────────────────────────
+file_router = APIRouter(prefix="/api/parse", tags=["RAG Parse"])
 
 
 def _build_directory_tree(files: list[dict], repo_name: str) -> str:
@@ -195,3 +207,84 @@ async def get_parse_summary(
             "fileSummaries": report_file_summaries(rj) if include_file else [],
         },
     }
+
+
+@file_router.get("/{repo_id}/file", response_model=FileContentResponse)
+async def get_file_content(
+    repo_id: UUID,
+    path: str = Query(..., description="저장소 루트 기준 상대 경로"),
+    current_user: Annotated[dict | None, Depends(get_current_user_optional)] = None,
+    db: AsyncSession = Depends(get_db),
+) -> FileContentResponse:
+    """파일 원문과 심볼 목록을 반환한다 (G1-A).
+
+    - 접근 제어: can_access_job 통과 못 하면 404 은닉.
+    - 파일 원문: type='FILE' CodeNode의 content.
+    - 심볼: type='CHUNK' CodeNode의 file_metadata에서 추출.
+    - 디스크 접근 없음 — DB content만 사용.
+    """
+    job_repo = AnalysisJobRepository(db)
+    job = await job_repo.get_job_by_id(repo_id)
+
+    current_user_id = UUID(current_user["sub"]) if current_user and "sub" in current_user else None
+    if not job or not await can_access_job(db, job, current_user_id):
+        raise JobNotFoundError()
+
+    ## FILE 노드에서 원문·언어 조회
+    file_result = await db.execute(
+        select(CodeNode).where(
+            CodeNode.job_id == repo_id,
+            CodeNode.path == path,
+            CodeNode.type == "FILE",
+        )
+    )
+    file_node = file_result.scalar_one_or_none()
+    if file_node is None or file_node.content is None:
+        raise JobNotFoundError(f"파일을 찾을 수 없습니다: {path}")
+
+    content: str = file_node.content
+    language: str | None = file_node.language or (
+        (file_node.file_metadata or {}).get("language")
+    )
+    line_count: int = content.count("\n") + 1
+
+    ## CHUNK 노드에서 심볼 목록 조회
+    chunks_result = await db.execute(
+        select(CodeNode)
+        .where(
+            CodeNode.job_id == repo_id,
+            CodeNode.path == path,
+            CodeNode.type == "CHUNK",
+        )
+        .order_by(CodeNode.chunk_index)
+    )
+    chunk_nodes = chunks_result.scalars().all()
+
+    symbols: list[FileSymbolItem] = []
+    for node in chunk_nodes:
+        meta = node.file_metadata or {}
+        symbol_name: str | None = meta.get("symbol")
+        ## symbol 없는 청크는 건너뜀 (익명 모듈 블록 등)
+        if not symbol_name:
+            continue
+        chunk_type: str = meta.get("chunk_type") or "other"
+        start_line: int | None = meta.get("start_line")
+        end_line: int | None = meta.get("end_line")
+        if start_line is None or end_line is None:
+            continue
+        symbols.append(
+            FileSymbolItem(
+                name=symbol_name,
+                kind=chunk_type,
+                startLine=start_line,
+                endLine=end_line,
+            )
+        )
+
+    return FileContentResponse(
+        path=path,
+        language=language,
+        lineCount=line_count,
+        content=content,
+        symbols=symbols,
+    )

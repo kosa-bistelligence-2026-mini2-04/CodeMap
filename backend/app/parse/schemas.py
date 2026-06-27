@@ -179,6 +179,30 @@ class ParseResult(BaseModel):
     files: list[ParsedFile] = Field(default_factory=list, description="파싱된 파일/디렉토리 노드")
 
 
+# ──────────────────────────────────────────────
+# FileContentResponse / FileSymbolItem — G1-A 파일 조회 API 계약
+# ──────────────────────────────────────────────
+class FileSymbolItem(BaseModel):
+    """파일 내 심볼 항목 (함수·클래스·모듈 단위)."""
+
+    name: str = Field(description="심볼명 (함수·클래스·모듈 이름)")
+    kind: str = Field(description="심볼 종류 (function/class/module/other)")
+    startLine: int = Field(description="시작 라인 (1-base)")
+    endLine: int = Field(description="끝 라인 (1-base)")
+
+
+class FileContentResponse(BaseModel):
+    """GET /api/parse/{repo_id}/file 응답 계약 (G1-A)."""
+
+    path: str = Field(description="저장소 루트 기준 상대 경로")
+    language: str | None = Field(default=None, description="프로그래밍 언어")
+    lineCount: int = Field(description="전체 라인 수")
+    content: str = Field(description="파일 원문")
+    symbols: list[FileSymbolItem] = Field(
+        default_factory=list, description="파일 내 심볼 목록"
+    )
+
+
 class EmbedRequest(BaseModel):
     """PARSE → EMBED 인계 요청 (RAG-EMBED-B-201)."""
 

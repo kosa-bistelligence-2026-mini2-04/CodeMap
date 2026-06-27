@@ -26,7 +26,7 @@ from app.pipeline.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
 from app.chat.run_registry import sweep_run_registry
 from app.agent.router import router as agent_router
-from app.parse.router import router as parse_router
+from app.parse.router import router as parse_router, file_router as parse_file_router
 from app.tool.router import router as tool_router
 from app.gen.router import router as gen_router
 from app.team.router import router as team_router
@@ -134,6 +134,7 @@ app.include_router(agent_router)
 
 # RAG-PARSE 분석 API (API-001 등)
 app.include_router(parse_router)
+app.include_router(parse_file_router)
 
 # MCP Tools API: Phase 2 실구현 전까지 단일 JSON body를 수신하되 501/failed만 반환한다.
 app.include_router(tool_router)
