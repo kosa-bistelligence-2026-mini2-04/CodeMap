@@ -72,10 +72,20 @@ class ListService:
     def __init__(self, db: AsyncSession):
         self.repository = AnalysisJobListRepository(db)
 
-    async def get_analysis_jobs(self, page: int, limit: int) -> AnalysisJobListResult:
-        """전체 건수와 현재 페이지의 분석 작업 목록을 함께 반환합니다."""
-        total_count = await self.repository.count_analysis_jobs()
-        jobs = await self.repository.find_analysis_jobs(page=page, limit=limit)
+    async def get_analysis_jobs(
+        self,
+        page: int,
+        limit: int,
+        current_user_id: UUID | None = None,
+    ) -> AnalysisJobListResult:
+        """접근 가능한 분석 작업 목록을 반환합니다.
+
+        Private job은 소유자에게만 포함됩니다.
+        """
+        total_count = await self.repository.count_analysis_jobs(current_user_id=current_user_id)
+        jobs = await self.repository.find_analysis_jobs(
+            page=page, limit=limit, current_user_id=current_user_id
+        )
         return AnalysisJobListResult(
             total_count=total_count,
             page=page,
@@ -83,9 +93,18 @@ class ListService:
             jobs=jobs,
         )
 
-    async def get_analysis_job_detail(self, job_id: UUID) -> AnalysisJobDetailResult:
-        """특정 분석 작업의 상세 상태와 메타데이터를 조회합니다."""
-        job = await self.repository.find_analysis_job_detail(job_id)
+    async def get_analysis_job_detail(
+        self,
+        job_id: UUID,
+        current_user_id: UUID | None = None,
+    ) -> AnalysisJobDetailResult:
+        """특정 분석 작업의 상세 상태와 메타데이터를 조회합니다.
+
+        Private job은 소유자에게만 반환됩니다.
+        """
+        job = await self.repository.find_analysis_job_detail(
+            job_id, current_user_id=current_user_id
+        )
         return AnalysisJobDetailResult(job=job)
 
     async def update_analysis_job_status(

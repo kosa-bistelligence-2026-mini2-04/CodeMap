@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import defer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,28 +19,62 @@ class AnalysisJobListRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def count_analysis_jobs(self) -> int:
-        """전체 분석 작업 수를 조회합니다."""
-        result = await self.db.execute(select(func.count()).select_from(AnalysisJob))
+    async def count_analysis_jobs(self, current_user_id: UUID | None = None) -> int:
+        """접근 가능한 분석 작업 수를 조회합니다.
+
+        Private job은 소유자만 카운트에 포함됩니다.
+        """
+        private_filter = (
+            or_(AnalysisJob.is_private == False, AnalysisJob.user_id == current_user_id)
+            if current_user_id is not None
+            else AnalysisJob.is_private == False
+        )
+        result = await self.db.execute(
+            select(func.count()).select_from(AnalysisJob).where(private_filter)
+        )
         return result.scalar_one()
 
-    async def find_analysis_jobs(self, page: int, limit: int) -> list[AnalysisJobListModel]:
-        """페이지 번호와 페이지 크기에 맞춰 분석 작업 목록을 조회합니다."""
+    async def find_analysis_jobs(
+        self,
+        page: int,
+        limit: int,
+        current_user_id: UUID | None = None,
+    ) -> list[AnalysisJobListModel]:
+        """페이지 번호와 페이지 크기에 맞춰 분석 작업 목록을 조회합니다.
+
+        Private job은 소유자만 조회됩니다.
+        """
         offset = (page - 1) * limit
+        private_filter = (
+            or_(AnalysisJob.is_private == False, AnalysisJob.user_id == current_user_id)
+            if current_user_id is not None
+            else AnalysisJob.is_private == False
+        )
         result = await self.db.execute(
             select(AnalysisJob)
             .options(defer(AnalysisJob.report_json))
+            .where(private_filter)
             .order_by(AnalysisJob.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
         return [self._to_list_model(job) for job in result.scalars().all()]
 
-    async def find_analysis_job_detail(self, job_id: UUID) -> AnalysisJobDetailModel | None:
-        """분석 작업 고유 ID로 상세 정보를 조회합니다."""
+    async def find_analysis_job_detail(
+        self,
+        job_id: UUID,
+        current_user_id: UUID | None = None,
+    ) -> AnalysisJobDetailModel | None:
+        """분석 작업 고유 ID로 상세 정보를 조회합니다.
+
+        Private job은 소유자만 조회할 수 있으며, 그 외에는 None을 반환합니다.
+        """
         result = await self.db.execute(select(AnalysisJob).where(AnalysisJob.id == job_id))
         job = result.scalar_one_or_none()
         if job is None:
+            return None
+        ## Private job은 소유자 외에 존재 자체를 노출하지 않음
+        if job.is_private and job.user_id != current_user_id:
             return None
         return self._to_detail_model(job)
 
@@ -69,18 +103,22 @@ class AnalysisJobListRepository:
         return self._to_status_update_model(job)
 
     async def delete_job(self, job_id: UUID, user_id: UUID | None = None) -> bool:
-        """분석 작업 엔티티를 삭제합니다."""
+        """분석 작업 엔티티를 삭제합니다.
+
+        소유자가 있는 job은 소유자만 삭제할 수 있습니다.
+        소유자가 없는 레거시 job은 인증된 사용자라면 누구든 삭제할 수 있습니다.
+        """
         stmt = select(AnalysisJob).where(AnalysisJob.id == job_id)
         result = await self.db.execute(stmt)
         job = result.scalar_one_or_none()
-        if job:
-            if user_id and job.user_id and job.user_id != user_id:
-                # 권한이 없는 경우 조용히 False 반환하여 404/403 처리 유도 (서비스 단에서 처리)
-                return False
-            await self.db.delete(job)
-            await self.db.commit()
-            return True
-        return False
+        if job is None:
+            return False
+        ## 소유자가 지정된 job은 소유자 본인만 삭제 가능
+        if job.user_id is not None and (user_id is None or job.user_id != user_id):
+            return False
+        await self.db.delete(job)
+        await self.db.commit()
+        return True
 
     def _to_list_model(self, job: AnalysisJob) -> AnalysisJobListModel:
         """DB 엔티티를 목록 API 내부 모델로 변환합니다."""

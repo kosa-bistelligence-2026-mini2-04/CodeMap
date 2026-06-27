@@ -16,12 +16,12 @@ import logging
 from uuid import UUID
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.database import async_session_factory, get_db
-from app.common.exceptions import JobAlreadyDoneError, JobNotFoundError
+from app.common.exceptions import build_error_response, JobAlreadyDoneError, JobNotFoundError
 from app.pipeline.event_manager import event_manager
 from app.repo.schemas import (
     AnalysisRequest,
@@ -146,8 +146,19 @@ async def register_analysis(
     Onboarding Guide → Report 저장 순서로 비동기 처리되며,
     각 단계의 진행 상태는 WebSocket으로 실시간 push된다.
     """
+    ## isPrivate=true인데 인증 사용자가 없으면 소유자를 특정할 수 없으므로 거부
+    if request.isPrivate and current_user is None:
+        raise HTTPException(
+            status_code=400,
+            detail=build_error_response(
+                status_code=400,
+                message="나만 보기(Private) 분석은 로그인 후 사용할 수 있습니다.",
+                error_code="PRIVATE_REQUIRES_AUTH",
+                field="isPrivate",
+            ),
+        )
     service = AnalysisService(db)
-    user_id = current_user.get("sub") if current_user else None
+    user_id = UUID(current_user["sub"]) if current_user and "sub" in current_user else None
     return await service.register_analysis(request, background_tasks, user_id=user_id)
 
 

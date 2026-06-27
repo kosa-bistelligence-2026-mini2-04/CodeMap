@@ -154,6 +154,29 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email);
 
+-- 9.1 FK 후행 추가: users 테이블 생성 이후에 참조 제약을 걸어야 하므로 여기에 배치.
+-- DO $$ … EXCEPTION WHEN duplicate_object THEN NULL 패턴으로 재실행 시 오류 방지.
+DO $$ BEGIN
+    ALTER TABLE analysis_jobs
+        ADD CONSTRAINT fk_analysis_jobs_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE analysis_jobs
+        ADD CONSTRAINT fk_analysis_jobs_team_id
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE team_members
+        ADD CONSTRAINT fk_team_members_user_id
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN

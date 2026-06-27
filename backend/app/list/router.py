@@ -90,7 +90,10 @@ async def get_analysis_jobs(
 ) -> AnalysisJobListResponse:
     """PROJECT-LIST-API-001 명세의 분석 이력 목록 응답을 반환합니다."""
     try:
-        result = await service.get_analysis_jobs(page=page, limit=limit)
+        current_user_id = UUID(current_user["sub"]) if "sub" in current_user else None
+        result = await service.get_analysis_jobs(
+            page=page, limit=limit, current_user_id=current_user_id
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -148,7 +151,10 @@ async def get_analysis_job_detail(
         ) from exc
 
     try:
-        result = await service.get_analysis_job_detail(job_id=job_uuid)
+        current_user_id = UUID(current_user["sub"]) if "sub" in current_user else None
+        result = await service.get_analysis_job_detail(
+            job_id=job_uuid, current_user_id=current_user_id
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
