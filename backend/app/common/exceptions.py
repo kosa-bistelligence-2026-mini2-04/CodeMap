@@ -433,3 +433,34 @@ class DatabaseSaveFailedError(CodeMapException):
 
     def __init__(self, message: str = "문서 저장 중 오류가 발생했습니다."):
         super().__init__(500, "DATABASE_SAVE_FAILED", message)
+
+
+# ──────────────────────────────────────────────
+# DOCS-GEN-API-002: 가이드북 생성 트리거 관련 예외
+# ──────────────────────────────────────────────
+class DocsAlreadyExistsError(CodeMapException):
+    """가이드북이 이미 존재하고 force=false인 경우 (409)"""
+
+    def __init__(self, message: str = "가이드북이 이미 존재합니다. 덮어쓰려면 force=true를 사용하세요."):
+        super().__init__(409, "DOCS_ALREADY_EXISTS", message)
+
+
+class DocsGenerationInProgressError(CodeMapException):
+    """가이드북 생성이 이미 진행 중일 때 (409)"""
+
+    def __init__(self, message: str = "가이드북 생성이 이미 진행 중입니다."):
+        super().__init__(409, "DOCS_GENERATION_IN_PROGRESS", message)
+
+
+class AnalysisNotCompletedError(CodeMapException):
+    """RAG 파이프라인(Parse/Embed)이 완료되지 않았을 때 (422)"""
+
+    def __init__(self, message: str = "분석 파이프라인이 아직 완료되지 않았습니다."):
+        super().__init__(422, "ANALYSIS_NOT_COMPLETED", message)
+
+
+class DocsGenerationFailedError(CodeMapException):
+    """가이드북 생성 중 LLM 오류 발생 시 (500)"""
+
+    def __init__(self, message: str = "가이드북 생성 중 오류가 발생했습니다."):
+        super().__init__(500, "DOCS_GENERATION_FAILED", message)
