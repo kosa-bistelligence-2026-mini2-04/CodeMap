@@ -81,11 +81,11 @@ class TestChatAnswerSafety(unittest.IsolatedAsyncioTestCase):
         from app.chat.router import _references_from_worker_results
 
         references = _references_from_worker_results([
-            {"path": "app.py", "lineStart": 0, "snippet": "zero"},
-            {"path": "app.py", "lineStart": 1, "snippet": "one"},
+            {"path": "app.py", "lineStart": 0, "lineEnd": None, "snippet": "zero"},
+            {"path": "app.py", "lineStart": 1, "lineEnd": None, "snippet": "one"},
         ])
 
-        self.assertEqual([ref["line"] for ref in references], [0, 1])
+        self.assertEqual([ref["lineStart"] for ref in references], [0, 1])
 
     async def test_deep_mode_uses_gpt_4o_and_wraps_untrusted_evidence(self):
         from app.chat.final_answer_agent import stream_final_answer

@@ -253,3 +253,27 @@ class PipelineStartResponse(BaseModel):
     data: PipelineStartData
 
 
+# ──────────────────────────────────────────────
+# API-FILE: 파일 컨텐츠 조회 응답 DTO
+# ──────────────────────────────────────────────
+class FileContentData(BaseModel):
+    """GET /api/repo/analysis/{job_id}/files/content 성공 응답의 data 필드 스키마"""
+    path: str = Field(description="저장소 내 상대 경로")
+    content: str = Field(description="파일 텍스트 내용")
+    language: Optional[str] = Field(default=None, description="감지된 언어")
+    lines: int = Field(description="총 줄 수")
+    truncated: bool = Field(
+        default=False,
+        description="파일 크기 초과로 내용이 잘렸는지 여부",
+    )
+
+
+class FileContentResponse(BaseModel):
+    """
+    GET /api/repo/analysis/{job_id}/files/content 성공 응답 스키마 (200 OK)
+    """
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="응답 메시지")
+    data: FileContentData
+
+

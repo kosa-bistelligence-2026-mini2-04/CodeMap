@@ -27,22 +27,27 @@ def _event(payload: dict) -> str:
 
 def _references_from_worker_results(worker_results: list[dict]) -> list[dict]:
     references: list[dict] = []
-    seen: set[tuple[str, int]] = set()
+    ## (file_path, lineStart | None) 쌍으로 중복 제거 — None 포함 허용
+    seen: set[tuple[str, int | None]] = set()
     for result in worker_results:
         file_path = result.get("path")
         if not file_path:
             continue
         line_start = result.get("lineStart")
-        line = line_start if line_start is not None else 1
-        key = (str(file_path), int(line))
+        line_start = int(line_start) if line_start is not None else None
+        line_end = result.get("lineEnd")
+        line_end = int(line_end) if line_end is not None else None
+        key = (str(file_path), line_start)
         if key in seen:
             continue
         seen.add(key)
-        references.append({
+        ref: dict = {
             "file": str(file_path),
-            "line": int(line),
+            "lineStart": line_start,
+            "lineEnd": line_end,
             "snippet": str(result.get("snippet", ""))[:240],
-        })
+        }
+        references.append(ref)
     return references
 
 
