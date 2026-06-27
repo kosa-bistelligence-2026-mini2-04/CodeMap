@@ -275,6 +275,27 @@ class TestFileContentSuccess(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["data"]["language"], "typescript")
 
+    def test_html_file_language_detected_without_dot_prefix(self):
+        source = "<main>Hello</main>\n"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / _JOB_ID_STR / "repo"
+            workspace.mkdir(parents=True)
+            (workspace / "index.html").write_text(source, encoding="utf-8")
+
+            app, settings_patcher = _make_app(tmpdir)
+            client = TestClient(app, raise_server_exceptions=False)
+
+            with _mock_job_status_ok():
+                resp = client.get(
+                    f"/api/repo/analysis/{_JOB_ID_STR}/files/content",
+                    params={"path": "index.html"},
+                )
+
+            settings_patcher.stop()
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["data"]["language"], "html")
+
     def test_unknown_extension_language_is_none(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir) / _JOB_ID_STR / "repo"

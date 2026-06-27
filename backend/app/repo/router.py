@@ -387,7 +387,7 @@ _EXT_TO_LANGUAGE: dict[str, str] = {
     ".java": "java", ".kt": "kotlin", ".kts": "kotlin",
     ".go": "go", ".rs": "rust", ".cpp": "cpp", ".c": "c",
     ".cs": "csharp", ".rb": "ruby", ".php": "php",
-    ".html": ".html", ".css": "css", ".scss": "scss",
+    ".html": "html", ".css": "css", ".scss": "scss",
     ".json": "json", ".yaml": "yaml", ".yml": "yaml",
     ".toml": "toml", ".xml": "xml", ".md": "markdown",
     ".sh": "bash", ".sql": "sql",
