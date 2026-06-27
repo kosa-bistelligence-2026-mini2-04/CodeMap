@@ -101,8 +101,8 @@ class ProgressChannelAuthTests(unittest.TestCase):
 
         client = TestClient(app_with(ws_router))
         with self.assertRaises(WebSocketDisconnect) as ctx:
-            with client.websocket_connect("/ws/list/progress/not-a-uuid"):
-                pass
+            with client.websocket_connect("/ws/list/progress/not-a-uuid") as ws:
+                ws.receive_text()
         self.assertEqual(ctx.exception.code, 4004)
 
     def test_ws_forbidden_closes_4403(self):
@@ -114,8 +114,8 @@ class ProgressChannelAuthTests(unittest.TestCase):
                 with patch("app.list.websocket.AnalysisJobRepository", FakeJobRepo):
                     with patch("app.list.websocket.access.can_access_job", new=AsyncMock(return_value=False)):
                         with self.assertRaises(WebSocketDisconnect) as ctx:
-                            with client.websocket_connect(f"/ws/list/progress/{JOB_ID}?token=bad"):
-                                pass
+                            with client.websocket_connect(f"/ws/list/progress/{JOB_ID}?token=bad") as ws:
+                                ws.receive_text()
         self.assertEqual(ctx.exception.code, 4403)
 
     def test_ws_authorized_receives_current_status(self):

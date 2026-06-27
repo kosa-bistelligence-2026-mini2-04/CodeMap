@@ -1,5 +1,6 @@
 import types
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -50,8 +51,16 @@ class FakeSession:
     async def flush(self):
         pass
 
-    def add(self, *_args, **_kwargs):
-        pass
+    def add(self, obj, *_args, **_kwargs):
+        if getattr(obj, "id", None) is None:
+            obj.id = uuid.uuid4()
+        if (
+            obj.__class__.__name__ == "TeamInvite"
+            and getattr(obj, "expires_at", None) is None
+        ):
+            obj.expires_at = (
+                datetime.now(timezone.utc) + timedelta(days=7)
+            )
 
 
 class AsyncSessionFactory:
