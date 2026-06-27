@@ -35,7 +35,7 @@ class FakeListService:
         self.missing_status = missing_status
         self.status_update_args = None
 
-    async def get_analysis_jobs(self, page: int, limit: int) -> AnalysisJobListResult:
+    async def get_analysis_jobs(self, page: int, limit: int, current_user_id: UUID | None = None) -> AnalysisJobListResult:
         if self.fail:
             raise RuntimeError("database unavailable")
         return AnalysisJobListResult(
@@ -57,7 +57,7 @@ class FakeListService:
             ],
         )
 
-    async def get_analysis_job_detail(self, job_id: UUID) -> AnalysisJobDetailResult:
+    async def get_analysis_job_detail(self, job_id: UUID, current_user_id: UUID | None = None) -> AnalysisJobDetailResult:
         if self.fail:
             raise RuntimeError("database unavailable")
         if self.missing_detail:

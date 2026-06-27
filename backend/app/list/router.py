@@ -89,8 +89,13 @@ async def get_analysis_jobs(
     limit: Annotated[int, Query(ge=1, description="페이지당 반환할 이력 수")] = 10,
 ) -> AnalysisJobListResponse:
     """PROJECT-LIST-API-001 명세의 분석 이력 목록 응답을 반환합니다."""
+    ## UUID 파싱은 서비스 호출과 분리: ValueError가 DATABASE_ERROR로 잘못 매핑되는 것을 방지
+    sub = current_user.get("sub") if current_user else None
     try:
-        current_user_id = UUID(current_user["sub"]) if "sub" in current_user else None
+        current_user_id: UUID | None = UUID(sub) if sub else None
+    except (ValueError, AttributeError):
+        current_user_id = None
+    try:
         result = await service.get_analysis_jobs(
             page=page, limit=limit, current_user_id=current_user_id
         )
@@ -150,8 +155,13 @@ async def get_analysis_job_detail(
             ),
         ) from exc
 
+    ## UUID 파싱은 서비스 호출과 분리
+    sub = current_user.get("sub") if current_user else None
     try:
-        current_user_id = UUID(current_user["sub"]) if "sub" in current_user else None
+        current_user_id: UUID | None = UUID(sub) if sub else None
+    except (ValueError, AttributeError):
+        current_user_id = None
+    try:
         result = await service.get_analysis_job_detail(
             job_id=job_uuid, current_user_id=current_user_id
         )
