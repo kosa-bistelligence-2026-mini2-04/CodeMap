@@ -230,7 +230,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
                         {it.total_pipeline_ms != null && (
                           <span className={isDark ? "text-zinc-600" : "text-zinc-400"}>{(it.total_pipeline_ms / 1000).toFixed(1)}s</span>
                         )}
-                        <span className={isDark ? "text-zinc-700" : "text-zinc-500"}>{it.visibility === "team" ? "Team" : "Private"}</span>
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${it.visibility === "team" ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"}`}>{it.visibility === "team" ? "TEAM" : "PRIVATE"}</span>
                         <button
                           type="button"
                           onClick={(e) => {

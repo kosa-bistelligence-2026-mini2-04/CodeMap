@@ -26,6 +26,7 @@ import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
 import { getRagIndexBanner } from "@/features/analysis/utils/ragIndexStatus.mjs";
 import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
 import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
+import { AccountFooter } from "@/features/workspace/components/AccountFooter";
 import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
 import type { FileSymbol } from "@/common/types/contracts";
@@ -133,17 +134,20 @@ function AnalyzeWorkspace() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className={`hidden w-[290px] shrink-0 border-r lg:block ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-          {showNewAnalysis || !report ? (
-            <div className={`h-full overflow-y-auto p-3 ${isDark ? "bg-zinc-950" : "bg-white"}`}>
-              {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
-              {workspaceSelector}
-              <RepoInput onSubmit={submit} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeamName} />
-              <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
-            </div>
-          ) : (
-            <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); }} className="border-r-0" />
-          )}
+        <aside className={`hidden w-[290px] shrink-0 flex-col border-r lg:flex ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {showNewAnalysis || !report ? (
+              <div className={`h-full overflow-y-auto p-3 ${isDark ? "bg-zinc-950" : "bg-white"}`}>
+                {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
+                {workspaceSelector}
+                <RepoInput onSubmit={submit} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeamName} />
+                <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
+              </div>
+            ) : (
+              <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); }} className="border-r-0" />
+            )}
+          </div>
+          <AccountFooter isDark={isDark} isKo={isKo} />
         </aside>
 
         <section className={`min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>

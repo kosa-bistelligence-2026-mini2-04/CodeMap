@@ -14,6 +14,8 @@ import type {
   PreValidateResponse,
   TeamWorkspace,
   TeamInviteItem,
+  TeamMemberInfo,
+  SentInvite,
 } from "@/common/types/contracts";
 import { getAccessToken } from "@/features/auth/utils/tokenMemory";
 
@@ -277,6 +279,74 @@ export async function declineInvite(inviteId: string): Promise<void> {
   if (!resp.ok) {
     const errData = await resp.json().catch(() => ({}));
     throw new Error(errData?.message || errData?.detail || `Failed to decline invite: ${resp.status}`);
+  }
+}
+
+// ──────────────────────────────────────────────
+// G3-B: 팀 운영 (멤버 조회/추방/탈퇴, 보낸 초대 목록/취소)
+// ──────────────────────────────────────────────
+export async function fetchTeamMembers(teamId: string): Promise<TeamMemberInfo[]> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/members`), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (resp.status === 401 || resp.status === 403 || resp.status === 404) return [];
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to fetch members: ${resp.status}`);
+  }
+  const payload = await resp.json();
+  const rows = Array.isArray(payload) ? payload : payload.members || payload.data?.members || [];
+  return rows.map((m: Record<string, unknown>) => ({
+    userId: String(m.userId ?? m.user_id ?? ""),
+    email: String(m.email ?? ""),
+    role: String(m.role ?? "member"),
+    status: String(m.status ?? "active"),
+  })) as TeamMemberInfo[];
+}
+
+export async function removeTeamMember(teamId: string, userId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/members/${userId}`), {
+    method: "DELETE",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to remove member: ${resp.status}`);
+  }
+}
+
+export async function leaveTeam(teamId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/leave`), {
+    method: "POST",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to leave team: ${resp.status}`);
+  }
+}
+
+export async function fetchSentInvites(teamId: string): Promise<SentInvite[]> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/invites`), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (resp.status === 401 || resp.status === 403 || resp.status === 404) return [];
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to fetch sent invites: ${resp.status}`);
+  }
+  const payload = await resp.json();
+  return (payload.invites || payload.data?.invites || []) as SentInvite[];
+}
+
+export async function cancelInvite(inviteId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/team-invites/${inviteId}/cancel`), {
+    method: "POST",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to cancel invite: ${resp.status}`);
   }
 }
 
