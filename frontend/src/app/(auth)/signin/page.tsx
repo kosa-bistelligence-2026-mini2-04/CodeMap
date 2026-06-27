@@ -65,7 +65,7 @@ export default function SignInPage() {
             isDark ? "text-white" : "text-zinc-900"
           }`}
         >
-          계정에 로그인하세요
+          {t.auth.signInTitle}
         </h2>
 
         {error && (
@@ -89,7 +89,7 @@ export default function SignInPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              이메일 주소
+              {t.auth.emailLabel}
             </label>
             <div className="relative">
               <Mail className={iconClass} />
@@ -100,7 +100,7 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
-                placeholder="you@example.com"
+                placeholder={t.auth.emailPlaceholder}
               />
             </div>
           </div>
@@ -112,7 +112,7 @@ export default function SignInPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              비밀번호
+              {t.auth.passwordLabel}
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -123,7 +123,7 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={inputClass}
-                placeholder="••••••••"
+                placeholder={t.auth.passwordPlaceholder}
               />
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function SignInPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                로그인 <ArrowRight className="w-4 h-4" />
+                {t.auth.signInBtn} <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
@@ -152,14 +152,14 @@ export default function SignInPage() {
             isDark ? "text-zinc-400" : "text-zinc-500"
           }`}
         >
-          {"계정이 없으신가요?"}{" "}
+          {t.auth.noAccount}{" "}
           <Link
             href="/signup"
             className={`font-semibold hover:underline ${
               isDark ? "text-white" : "text-zinc-900"
             }`}
           >
-            회원가입
+            {t.nav.signUp}
           </Link>
         </p>
       </div>

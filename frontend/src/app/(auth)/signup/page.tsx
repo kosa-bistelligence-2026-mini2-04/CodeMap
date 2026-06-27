@@ -88,10 +88,10 @@ export default function SignUpPage() {
         >
           <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
           <h2 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-black"}`}>
-            CodeMap AI에 오신 것을 환영합니다!
+            {t.auth.signUpSuccessTitle}
           </h2>
           <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-            계정이 성공적으로 생성되었습니다. 이동 중입니다...
+            {t.auth.signUpSuccessDesc}
           </p>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              이메일 주소
+              {t.auth.emailLabel}
             </label>
             <div className="relative">
               <Mail className={iconClass} />
@@ -147,7 +147,7 @@ export default function SignUpPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
-                placeholder="you@example.com"
+                placeholder={t.auth.emailPlaceholder}
               />
             </div>
           </div>
@@ -159,7 +159,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              비밀번호
+              {t.auth.passwordLabel}
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -171,7 +171,7 @@ export default function SignUpPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={inputClass}
-                placeholder="최소 8자 이상"
+                placeholder={t.auth.passwordMinPlaceholder}
               />
             </div>
             {password.length > 0 && (
@@ -189,7 +189,7 @@ export default function SignUpPage() {
                 isDark ? "text-zinc-400" : "text-zinc-600"
               }`}
             >
-              비밀번호 확인
+              {t.auth.confirmPasswordLabel}
             </label>
             <div className="relative">
               <Lock className={iconClass} />
@@ -201,7 +201,7 @@ export default function SignUpPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className={inputClass}
-                placeholder="••••••••"
+                placeholder={t.auth.passwordPlaceholder}
               />
             </div>
             {confirmPassword.length > 0 && (
@@ -225,7 +225,7 @@ export default function SignUpPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                가입하기 <ArrowRight className="w-4 h-4" />
+                {t.auth.signUpBtn} <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
@@ -236,7 +236,7 @@ export default function SignUpPage() {
             isDark ? "text-zinc-400" : "text-zinc-500"
           }`}
         >
-          이미 계정이 있으신가요?{" "}
+          {t.auth.haveAccount}{" "}
           <Link
             href="/signin"
             className={`font-semibold hover:underline ${
