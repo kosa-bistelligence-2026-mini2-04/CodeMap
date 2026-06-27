@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chat._reference_utils import references_from_worker_results as _references_from_worker_results
 from app.chat.repository import ChatRepository
 from app.chat.run_registry import run_registry
 from app.chat.schemas import ChatRunRequest
@@ -33,25 +34,6 @@ def _event(payload: dict) -> str:
     return f"event: {event_type}\ndata: {data}\n\n"
 
 
-def _references_from_worker_results(worker_results: list[dict]) -> list[dict]:
-    references: list[dict] = []
-    seen: set[tuple[str, int]] = set()
-    for result in worker_results:
-        file_path = result.get("path")
-        if not file_path:
-            continue
-        line_start = result.get("lineStart")
-        line = line_start if line_start is not None else 1
-        key = (str(file_path), int(line))
-        if key in seen:
-            continue
-        seen.add(key)
-        references.append({
-            "file": str(file_path),
-            "line": int(line),
-            "snippet": str(result.get("snippet", ""))[:240],
-        })
-    return references
 
 
 def _cancelled_event(run_id: str, record) -> dict:

@@ -47,7 +47,8 @@ async def hybrid_search(
     Hybrid Search (pgvector + BM25 + RRF).
 
     반환: top_n개 결과 목록
-    [{"file_path", "content", "summary", "rrf_score", "semantic_rank", "bm25_rank"}]
+    [{"file_path", "content", "summary", "rrf_score", "semantic_rank", "bm25_rank", "start_line"}]
+    start_line은 코드 청크 시작 라인 번호. DB에 없으면 None.
 
     폴백 전략:
       - 시맨틱 결과 없으면 → 빈 리스트 반환 (caller에서 키워드 검색 폴백)
@@ -76,6 +77,7 @@ async def hybrid_search(
                 "summary": "",  # vector_search가 summary를 주지 않으므로 빈 문자열
                 "distance": 1.0 - res.get("score", 0.0),
                 "rank": rank,
+                "start_line": res.get("line"),  ## chunk start_line (None이면 null 유지)
             })
             
     except Exception as exc:
