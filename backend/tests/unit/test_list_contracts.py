@@ -35,7 +35,14 @@ class FakeListService:
         self.missing_status = missing_status
         self.status_update_args = None
 
-    async def get_analysis_jobs(self, page: int, limit: int, current_user_id: UUID | None = None) -> AnalysisJobListResult:
+    async def get_analysis_jobs(
+        self,
+        page: int,
+        limit: int,
+        current_user_id: UUID | None = None,
+        scope: str = "all",
+        team_id: UUID | None = None,
+    ) -> AnalysisJobListResult:
         if self.fail:
             raise RuntimeError("database unavailable")
         return AnalysisJobListResult(
@@ -51,6 +58,8 @@ class FakeListService:
                     progress=100,
                     failed_agent=None,
                     error_message=None,
+                    visibility="private",
+                    team_id=None,
                     created_at=TEST_CREATED_AT,
                     updated_at=TEST_UPDATED_AT,
                 )
@@ -73,6 +82,8 @@ class FakeListService:
                 current_step="CODE_MAP",
                 progress=45,
                 message="코드 구조를 분석하는 중입니다.",
+                visibility="private",
+                team_id=None,
                 created_at=TEST_CREATED_AT,
                 updated_at=TEST_UPDATED_AT,
             )

@@ -50,6 +50,8 @@ class AnalysisRequest(BaseModel):
     model: str = Field(default="auto", description="분석 모델 정책. 기본값은 자동 선택")
     forceRefresh: bool = Field(default=False, description="기존 스냅샷을 무시하고 새로 분석")
     isPrivate: bool = Field(default=False, description="나만 보기 (Private) 분석 여부")
+    visibility: str = Field(default="private", description="분석 공개 범위: private 또는 team")
+    teamId: UUID | None = Field(default=None, description="팀 공유 분석 대상 팀 ID")
 
 
 # ──────────────────────────────────────────────
@@ -252,5 +254,4 @@ class PipelineStartResponse(BaseModel):
     code: int = Field(default=202, description="HTTP 상태 코드")
     message: str = Field(default="accepted", description="응답 메시지")
     data: PipelineStartData
-
 

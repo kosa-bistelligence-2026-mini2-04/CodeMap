@@ -30,12 +30,15 @@ class RepositoryChatService:
         repo_id: UUID,
         request: ChatRunRequest,
         *,
+        current_user_id: UUID | None = None,
         commit_user_message: bool = True,
     ):
         """스레드 생성, 사용자 메시지 저장 후 job/thread/mode를 반환."""
         job = await self.job_repository.get_job_by_id(repo_id)
         if not job:
             raise ValueError("분석 프로젝트를 찾을 수 없습니다.")
+        if not await self.can_access_job(job, current_user_id):
+            raise PermissionError("분석 프로젝트에 접근할 수 없습니다.")
         clone_path = Path(self.settings.CLONE_BASE_DIR) / str(repo_id) / "repo"
         if not clone_path.exists():
             raise ValueError("저장소 스냅샷이 아직 준비되지 않았습니다.")
@@ -52,15 +55,35 @@ class RepositoryChatService:
             await self.db.flush()
         return job, thread, request.mode, str(clone_path)
 
-    async def prepare_run_context(self, repo_id: UUID, request: ChatRunRequest):
+    async def prepare_run_context(
+        self,
+        repo_id: UUID,
+        request: ChatRunRequest,
+        current_user_id: UUID | None = None,
+    ):
         """Run 생성 요청에서 DB 메시지 쓰기 없이 분석 job과 clone 경로만 검증한다."""
         job = await self.job_repository.get_job_by_id(repo_id)
         if not job:
             raise ValueError("분석 프로젝트를 찾을 수 없습니다.")
+        if not await self.can_access_job(job, current_user_id):
+            raise PermissionError("분석 프로젝트에 접근할 수 없습니다.")
         clone_path = Path(self.settings.CLONE_BASE_DIR) / str(repo_id) / "repo"
         if not clone_path.exists():
             raise ValueError("저장소 스냅샷이 아직 준비되지 않았습니다.")
         return job, request.mode, str(clone_path)
+
+    async def can_access_job(self, job, current_user_id: UUID | None) -> bool:
+        team_id = getattr(job, "team_id", None)
+        user_id = getattr(job, "user_id", None)
+        is_private = bool(getattr(job, "is_private", False))
+        if team_id is not None:
+            return (
+                current_user_id is not None
+                and await self.job_repository.user_has_team_access(team_id, current_user_id)
+            )
+        if user_id is not None:
+            return current_user_id == user_id
+        return not is_private
 
     async def run_agent(
         self,

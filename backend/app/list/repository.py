@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import defer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.list.models import (
     AnalysisJobStatusUpdateModel,
 )
 from app.repo.models import AnalysisJob
+from app.auth.models import TeamMember
 
 
 class AnalysisJobListRepository:
@@ -19,18 +20,53 @@ class AnalysisJobListRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def count_analysis_jobs(self, current_user_id: UUID | None = None) -> int:
+    def _access_filter(
+        self,
+        current_user_id: UUID | None,
+        scope: str = "all",
+        team_id: UUID | None = None,
+    ):
+        if current_user_id is None:
+            return and_(
+                AnalysisJob.user_id.is_(None),
+                AnalysisJob.team_id.is_(None),
+                AnalysisJob.is_private == False,
+            )
+
+        private_filter = and_(
+            AnalysisJob.team_id.is_(None),
+            AnalysisJob.user_id == current_user_id,
+        )
+        team_filter = and_(
+            AnalysisJob.team_id.is_not(None),
+            exists().where(
+                TeamMember.team_id == AnalysisJob.team_id,
+                TeamMember.user_id == current_user_id,
+                TeamMember.status == "active",
+            ),
+        )
+        if team_id is not None:
+            team_filter = and_(team_filter, AnalysisJob.team_id == team_id)
+        if scope == "private":
+            return private_filter
+        if scope == "team":
+            return team_filter
+        return or_(private_filter, team_filter)
+
+    async def count_analysis_jobs(
+        self,
+        current_user_id: UUID | None = None,
+        scope: str = "all",
+        team_id: UUID | None = None,
+    ) -> int:
         """접근 가능한 분석 작업 수를 조회합니다.
 
         Private job은 소유자만 카운트에 포함됩니다.
         """
-        private_filter = (
-            or_(AnalysisJob.is_private == False, AnalysisJob.user_id == current_user_id)
-            if current_user_id is not None
-            else AnalysisJob.is_private == False
-        )
         result = await self.db.execute(
-            select(func.count()).select_from(AnalysisJob).where(private_filter)
+            select(func.count()).select_from(AnalysisJob).where(
+                self._access_filter(current_user_id, scope=scope, team_id=team_id)
+            )
         )
         return result.scalar_one()
 
@@ -39,21 +75,18 @@ class AnalysisJobListRepository:
         page: int,
         limit: int,
         current_user_id: UUID | None = None,
+        scope: str = "all",
+        team_id: UUID | None = None,
     ) -> list[AnalysisJobListModel]:
         """페이지 번호와 페이지 크기에 맞춰 분석 작업 목록을 조회합니다.
 
         Private job은 소유자만 조회됩니다.
         """
         offset = (page - 1) * limit
-        private_filter = (
-            or_(AnalysisJob.is_private == False, AnalysisJob.user_id == current_user_id)
-            if current_user_id is not None
-            else AnalysisJob.is_private == False
-        )
         result = await self.db.execute(
             select(AnalysisJob)
             .options(defer(AnalysisJob.report_json))
-            .where(private_filter)
+            .where(self._access_filter(current_user_id, scope=scope, team_id=team_id))
             .order_by(AnalysisJob.created_at.desc())
             .offset(offset)
             .limit(limit)
@@ -73,10 +106,29 @@ class AnalysisJobListRepository:
         job = result.scalar_one_or_none()
         if job is None:
             return None
-        ## Private job은 소유자 외에 존재 자체를 노출하지 않음
-        if job.is_private and job.user_id != current_user_id:
+        if not await self.can_access_job(job, current_user_id):
             return None
         return self._to_detail_model(job)
+
+    async def can_access_job(
+        self,
+        job: AnalysisJob,
+        current_user_id: UUID | None,
+    ) -> bool:
+        if job.team_id is not None:
+            if current_user_id is None:
+                return False
+            result = await self.db.execute(
+                select(TeamMember.id).where(
+                    TeamMember.team_id == job.team_id,
+                    TeamMember.user_id == current_user_id,
+                    TeamMember.status == "active",
+                )
+            )
+            return result.scalar_one_or_none() is not None
+        if job.user_id is not None:
+            return job.user_id == current_user_id
+        return not job.is_private
 
     async def update_analysis_job_status(
         self,
@@ -131,6 +183,8 @@ class AnalysisJobListRepository:
             progress=job.progress,
             failed_agent=job.stage if is_failed else None,
             error_message=job.message if is_failed else None,
+            visibility="team" if job.team_id is not None else "private",
+            team_id=job.team_id,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )
@@ -147,6 +201,8 @@ class AnalysisJobListRepository:
             current_step=job.stage,
             progress=job.progress,
             message=job.message,
+            visibility="team" if job.team_id is not None else "private",
+            team_id=job.team_id,
             created_at=job.created_at,
             updated_at=job.updated_at,
         )

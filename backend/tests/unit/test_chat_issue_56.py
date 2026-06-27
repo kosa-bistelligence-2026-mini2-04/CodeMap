@@ -335,7 +335,7 @@ class TestChatRunCreation(unittest.IsolatedAsyncioTestCase):
                 self.db = db
                 self.prepare = AsyncMock()
 
-            async def prepare_run_context(self, repo_id, request):
+            async def prepare_run_context(self, repo_id, request, current_user_id=None):
                 return types.SimpleNamespace(repo_name="repo"), request.mode, "/tmp/repo"
 
         registry = RunRegistry()

@@ -87,6 +87,8 @@ async def get_analysis_jobs(
     service: ListServiceDep,
     page: Annotated[int, Query(ge=1, description="조회할 페이지 번호")] = 1,
     limit: Annotated[int, Query(ge=1, description="페이지당 반환할 이력 수")] = 10,
+    scope: Annotated[str, Query(pattern="^(private|team|all)$", description="조회 범위")] = "all",
+    teamId: Annotated[UUID | None, Query(description="특정 팀 기록 조회")] = None,
 ) -> AnalysisJobListResponse:
     """PROJECT-LIST-API-001 명세의 분석 이력 목록 응답을 반환합니다."""
     ## UUID 파싱은 서비스 호출과 분리: ValueError가 DATABASE_ERROR로 잘못 매핑되는 것을 방지
@@ -97,7 +99,11 @@ async def get_analysis_jobs(
         current_user_id = None
     try:
         result = await service.get_analysis_jobs(
-            page=page, limit=limit, current_user_id=current_user_id
+            page=page,
+            limit=limit,
+            current_user_id=current_user_id,
+            scope=scope,
+            team_id=teamId,
         )
     except Exception as exc:
         raise HTTPException(
@@ -332,5 +338,4 @@ async def delete_analysis_job(
     if not success:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"success": True, "message": "Job deleted"}
-
 

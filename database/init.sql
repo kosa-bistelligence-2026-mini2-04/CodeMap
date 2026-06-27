@@ -29,6 +29,7 @@ ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL D
 CREATE TABLE IF NOT EXISTS teams (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    created_by_user_id UUID,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -37,9 +38,12 @@ CREATE TABLE IF NOT EXISTS team_members (
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     user_id UUID NOT NULL,
     role VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS created_by_user_id UUID;
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active';
 
 -- 3. 소스코드 원문 테이블 (1: 파일 정보 및 원문 저장)
 CREATE TABLE IF NOT EXISTS source_files (
@@ -171,11 +175,21 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+    ALTER TABLE teams
+        ADD CONSTRAINT fk_teams_created_by_user_id
+        FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
     ALTER TABLE team_members
         ADD CONSTRAINT fk_team_members_user_id
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+CREATE INDEX IF NOT EXISTS idx_team_members_user_status ON team_members (user_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_team_members_team_user ON team_members (team_id, user_id);
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

@@ -20,12 +20,16 @@ interface AnalysisRow {
   error_message: string | null;
   model_used: string | null;
   force_refresh: boolean;
+  visibility: "private" | "team";
+  team_id: string | null;
 }
 
 export interface HistoryListProps {
   onSelect: (jobId: string) => void;
   activeJobId?: string | null;
   refreshToken?: number;
+  scope?: "private" | "team" | "all";
+  teamId?: string | null;
 }
 
 function shortenPath(p: string, maxLen = 32): string {
@@ -67,7 +71,7 @@ function normalizeStatus(status: string): AnalysisRow["status"] {
   return "failed"; // 알 수 없는 상태는 failed로 안전하게 처리
 }
 
-export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: HistoryListProps) {
+export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "all", teamId = null }: HistoryListProps) {
   const [items, setItems] = useState<AnalysisRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +85,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchAnalysisHistory(1, 30);
+      const response = await fetchAnalysisHistory(1, 30, scope, teamId);
       setItems(response.data.jobs.map((job) => {
         const normalizedStatus = normalizeStatus(job.status);
         return {
@@ -95,6 +99,8 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
           error_message: job.errorMessage,
           model_used: null,
           force_refresh: false,
+          visibility: job.visibility,
+          team_id: job.teamId,
         };
       }));
     } catch (requestError) {
@@ -103,7 +109,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
     } finally {
       setLoading(false);
     }
-  }, [t.historyList.loadFailed]);
+  }, [scope, teamId, t.historyList.loadFailed]);
 
   useEffect(() => {
     queueMicrotask(() => void load());
@@ -224,6 +230,7 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0 }: History
                         {it.total_pipeline_ms != null && (
                           <span className={isDark ? "text-zinc-600" : "text-zinc-400"}>{(it.total_pipeline_ms / 1000).toFixed(1)}s</span>
                         )}
+                        <span className={isDark ? "text-zinc-700" : "text-zinc-500"}>{it.visibility === "team" ? "Team" : "Private"}</span>
                         <button
                           type="button"
                           onClick={(e) => {

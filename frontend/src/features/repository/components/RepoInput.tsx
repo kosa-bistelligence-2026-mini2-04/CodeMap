@@ -13,12 +13,16 @@ interface RepoInputProps {
     branch?: string;
     force_refresh?: boolean;
     model?: string;
-    is_private?: boolean;
+    visibility?: "private" | "team";
+    team_id?: string | null;
   }) => void;
   disabled?: boolean;
   defaultMode?: RepoSource;
   initialPath?: string;
   initialMode?: RepoSource;
+  visibility?: "private" | "team";
+  selectedTeamId?: string | null;
+  selectedTeamName?: string | null;
 }
 
 const GITHUB_URL = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+?(?:\.git)?\/?$/;
@@ -39,6 +43,9 @@ export function RepoInput({
   onSubmit,
   disabled = false,
   initialPath,
+  visibility = "private",
+  selectedTeamId = null,
+  selectedTeamName = null,
 }: RepoInputProps) {
   const { theme, t } = useApp();
   const isDark = theme === "dark";
@@ -48,7 +55,6 @@ export function RepoInput({
   const [model, setModel] = useState<"fast" | "thinking">("fast");
   const [customModel, setCustomModel] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(false);
   const [touched, setTouched] = useState(false);
   const inputId = useId();
   const forceId = useId();
@@ -74,7 +80,8 @@ export function RepoInput({
       branch: branch.trim() || undefined,
       force_refresh: forceRefresh,
       model: customModel.trim() || model,
-      is_private: isPrivate,
+      visibility,
+      team_id: visibility === "team" ? selectedTeamId : null,
     });
   };
 
@@ -221,21 +228,18 @@ export function RepoInput({
               </span>
             </span>
           </label>
-          <label className="flex cursor-pointer items-start gap-2.5 mt-3">
-            <input
-              type="checkbox"
-              checked={isPrivate}
-              onChange={(event) => setIsPrivate(event.target.checked)}
-              disabled={disabled}
-              className="mt-0.5 size-3.5 rounded border-zinc-600 bg-zinc-900 text-blue-500"
-            />
+          <div className={`mt-3 rounded-lg border px-3 py-2 ${isDark ? "border-zinc-800 bg-zinc-950/60" : "border-zinc-200 bg-white"}`}>
             <span>
-              <span className="block text-[11px] font-medium">나만 보기 (Private)</span>
+              <span className="block text-[11px] font-medium">
+                {visibility === "team" ? "팀 워크스페이스 공유" : "개인 Private 워크스페이스"}
+              </span>
               <span className="mt-0.5 block text-[10px] leading-relaxed text-zinc-500">
-                팀원들과 공유하지 않고 혼자만 볼 수 있는 분석 기록으로 저장합니다.
+                {visibility === "team"
+                  ? `${selectedTeamName || "선택한 팀"} 멤버에게만 분석 기록과 채팅을 공유합니다.`
+                  : "본인 계정에서만 분석 기록과 채팅을 볼 수 있습니다."}
               </span>
             </span>
-          </label>
+          </div>
         </div>
       </details>
 

@@ -154,9 +154,31 @@ class AnalysisService:
 
         # 2. 브랜치 미입력 시 git이 원격 기본 브랜치를 자동 선택한다.
         branch = request.branch or "default"
+        visibility = request.visibility or ("private" if request.isPrivate else "team" if request.teamId else "private")
+        if visibility not in {"private", "team"}:
+            raise CodeMapException(400, "INVALID_VISIBILITY", "visibility는 private 또는 team이어야 합니다.")
+        if visibility == "team":
+            if user_id is None:
+                raise CodeMapException(400, "TEAM_REQUIRES_AUTH", "팀 공유 분석은 로그인 후 사용할 수 있습니다.")
+            if request.teamId is None:
+                raise CodeMapException(400, "TEAM_ID_REQUIRED", "팀 공유 분석에는 teamId가 필요합니다.")
+            if not await self.repository.user_has_team_access(request.teamId, user_id):
+                raise CodeMapException(403, "TEAM_ACCESS_DENIED", "해당 팀에 접근할 수 없습니다.")
+            team_id = request.teamId
+            is_private = False
+        else:
+            if user_id is None:
+                raise CodeMapException(400, "PRIVATE_REQUIRES_AUTH", "개인 분석은 로그인 후 사용할 수 있습니다.")
+            team_id = None
+            is_private = True
 
         # 3. 동일 저장소(레포)에 대한 중복 분석이 있는지 확인
-        duplicate = await self.repository.check_duplicate_job(request.repoUrl, branch)
+        duplicate = await self.repository.check_duplicate_job(
+            request.repoUrl,
+            branch,
+            user_id=user_id,
+            team_id=team_id,
+        )
         if duplicate:
             return AnalysisResponse(
                 code=201,
@@ -181,7 +203,8 @@ class AnalysisService:
             model_used=request.model,
             force_refresh=request.forceRefresh,
             user_id=user_id,
-            is_private=request.isPrivate,
+            is_private=is_private,
+            team_id=team_id,
         )
 
         # 5. [Sec09 - supervisor.run()] 백그라운드에서 LangGraph 파이프라인 실행
@@ -212,6 +235,9 @@ class AnalysisService:
         relative_paths: list[str],
         model: str,
         background_tasks: BackgroundTasks,
+        user_id: UUID | None = None,
+        visibility: str = "private",
+        team_id: UUID | None = None,
     ) -> AnalysisResponse:
         """Store a browser-selected directory and start the standard analysis pipeline."""
         repo_name = Path(folder_name).name.strip()[:255]
@@ -219,6 +245,17 @@ class AnalysisService:
             raise CodeMapException(400, "INVALID_FOLDER_NAME", "올바른 폴더 이름이 필요합니다.")
 
         source_id = uuid4()
+        if visibility == "team":
+            if user_id is None or team_id is None:
+                raise CodeMapException(400, "TEAM_ID_REQUIRED", "팀 공유 분석에는 teamId가 필요합니다.")
+            if not await self.repository.user_has_team_access(team_id, user_id):
+                raise CodeMapException(403, "TEAM_ACCESS_DENIED", "해당 팀에 접근할 수 없습니다.")
+            is_private = False
+        else:
+            if user_id is None:
+                raise CodeMapException(400, "PRIVATE_REQUIRES_AUTH", "개인 분석은 로그인 후 사용할 수 있습니다.")
+            team_id = None
+            is_private = True
         job = await self.repository.create_job(
             repo_url=f"local-upload://{source_id}/{repo_name}",
             repo_name=repo_name,
@@ -226,6 +263,9 @@ class AnalysisService:
             branch="workspace",
             model_used=model or "auto",
             force_refresh=False,
+            user_id=user_id,
+            is_private=is_private,
+            team_id=team_id,
         )
         workspace = Path(settings.CLONE_BASE_DIR) / str(job.id) / "repo"
         file_count, total_bytes = await save_local_upload(
@@ -263,7 +303,7 @@ class AnalysisService:
     # ──────────────────────────────────────────
     # API-003: 분석 작업 상태 및 메타데이터 조회
     # ──────────────────────────────────────────
-    async def get_job_status(self, job_id: UUID) -> JobStatusResponse:
+    async def get_job_status(self, job_id: UUID, current_user_id: UUID | None = None) -> JobStatusResponse:
         """
         job_id에 해당하는 분석 작업의 현재 상태와 메타데이터를 반환한다.
 
@@ -278,6 +318,8 @@ class AnalysisService:
         """
         job = await self.repository.get_job_by_id(job_id)
         if not job:
+            raise JobNotFoundError()
+        if not await self.can_access_job(job, current_user_id):
             raise JobNotFoundError()
 
         import os
@@ -305,6 +347,19 @@ class AnalysisService:
                 updatedAt=job.updated_at,
             ),
         )
+
+    async def can_access_job(self, job, current_user_id: UUID | None) -> bool:
+        team_id = getattr(job, "team_id", None)
+        user_id = getattr(job, "user_id", None)
+        is_private = bool(getattr(job, "is_private", False))
+        if team_id is not None:
+            return (
+                current_user_id is not None
+                and await self.repository.user_has_team_access(team_id, current_user_id)
+            )
+        if user_id is not None:
+            return current_user_id == user_id
+        return not is_private
 
     # ──────────────────────────────────────────
     # API-004: 특정 job 기준 저장소 clone 실행

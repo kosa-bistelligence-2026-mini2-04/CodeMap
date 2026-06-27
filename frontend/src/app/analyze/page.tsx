@@ -13,6 +13,7 @@ import {
   PanelRightOpen,
   Plus,
   ScanSearch,
+  Users,
   X,
 } from "lucide-react";
 import { RepoInput, type RepoSource } from "@/features/repository/components/RepoInput";
@@ -21,13 +22,14 @@ import { WorkspaceReport } from "@/features/analysis/components/WorkspaceReport"
 import { FileTree } from "@/features/chat/components/FileTree";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
-import { fetchJobStatus, fetchParseDetails, startAnalysis, validateRepository } from "@/features/analysis/api/api";
+import { createTeam, fetchJobStatus, fetchParseDetails, fetchTeams, inviteTeamMember, startAnalysis, validateRepository } from "@/features/analysis/api/api";
 import { getRagIndexBanner } from "@/features/analysis/utils/ragIndexStatus.mjs";
 import type {
   JobStatusData,
   ParseDetails,
   WorkspaceFile,
   WorkspaceReport as WorkspaceReportData,
+  TeamWorkspace,
 } from "@/common/types/contracts";
 import { useApp } from "@/common/contexts/AppContext";
 
@@ -89,6 +91,13 @@ function AnalyzeWorkspace() {
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(searchParams.get("thread"));
+  const [teams, setTeams] = useState<TeamWorkspace[]>([]);
+  const [workspaceScope, setWorkspaceScope] = useState<"private" | "team">("private");
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -114,6 +123,130 @@ function AnalyzeWorkspace() {
       });
     });
   };
+
+  const loadTeams = useCallback(async () => {
+    try {
+      const nextTeams = await fetchTeams();
+      setTeams(nextTeams);
+      setSelectedTeamId((current) => current || nextTeams[0]?.teamId || nextTeams[0]?.id || null);
+    } catch (requestError) {
+      setWorkspaceError(requestError instanceof Error ? requestError.message : "팀 목록을 불러오지 못했습니다.");
+    }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadTeams());
+  }, [loadTeams]);
+
+  const selectedTeam = teams.find((team) => (team.teamId || team.id) === selectedTeamId) || null;
+
+  const handleCreateTeam = async () => {
+    const name = newTeamName.trim();
+    if (!name || workspaceBusy) return;
+    setWorkspaceBusy(true);
+    setWorkspaceError(null);
+    try {
+      const team = await createTeam(name);
+      const teamId = team.teamId || team.id;
+      setTeams((current) => [team, ...current.filter((item) => (item.teamId || item.id) !== teamId)]);
+      setSelectedTeamId(teamId);
+      setWorkspaceScope("team");
+      setNewTeamName("");
+    } catch (requestError) {
+      setWorkspaceError(requestError instanceof Error ? requestError.message : "팀을 생성하지 못했습니다.");
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
+  const handleInviteMember = async () => {
+    const email = inviteEmail.trim();
+    if (!selectedTeamId || !email || workspaceBusy) return;
+    setWorkspaceBusy(true);
+    setWorkspaceError(null);
+    try {
+      await inviteTeamMember(selectedTeamId, email);
+      setInviteEmail("");
+    } catch (requestError) {
+      setWorkspaceError(requestError instanceof Error ? requestError.message : "팀원을 초대하지 못했습니다.");
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
+  const workspacePanel = (
+    <div className={`mb-3 rounded-2xl border p-3 ${isDark ? "border-zinc-800 bg-zinc-900/60" : "border-zinc-200 bg-white"}`}>
+      <div className="mb-2 flex items-center gap-2">
+        <Users className="size-3.5 text-blue-400" />
+        <span className={`text-xs font-bold ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>{isKo ? "워크스페이스" : "Workspace"}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setWorkspaceScope("private")}
+          className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition ${workspaceScope === "private" ? "border-blue-500 bg-blue-500/10 text-blue-400" : isDark ? "border-zinc-800 text-zinc-500 hover:bg-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}
+        >
+          Private
+        </button>
+        <button
+          type="button"
+          onClick={() => setWorkspaceScope("team")}
+          disabled={!selectedTeamId}
+          className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${workspaceScope === "team" ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" : isDark ? "border-zinc-800 text-zinc-500 hover:bg-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}
+        >
+          Team
+        </button>
+      </div>
+      {teams.length > 0 && (
+        <select
+          value={selectedTeamId || ""}
+          onChange={(event) => {
+            setSelectedTeamId(event.target.value || null);
+            if (event.target.value) setWorkspaceScope("team");
+          }}
+          className={`mt-2 w-full rounded-lg border px-2.5 py-2 text-[11px] outline-none ${isDark ? "border-zinc-800 bg-zinc-950 text-zinc-200" : "border-zinc-200 bg-white text-zinc-800"}`}
+        >
+          {teams.map((team) => (
+            <option key={team.teamId || team.id} value={team.teamId || team.id}>
+              {team.name} · {team.role}
+            </option>
+          ))}
+        </select>
+      )}
+      <div className="mt-2 grid gap-2">
+        <div className="flex gap-1.5">
+          <input
+            value={newTeamName}
+            onChange={(event) => setNewTeamName(event.target.value)}
+            placeholder={isKo ? "새 팀 이름" : "New team name"}
+            className={`min-w-0 flex-1 rounded-lg border px-2.5 py-2 text-[11px] outline-none ${isDark ? "border-zinc-800 bg-zinc-950 text-zinc-200 placeholder:text-zinc-600" : "border-zinc-200 bg-white text-zinc-800 placeholder:text-zinc-400"}`}
+          />
+          <button type="button" onClick={handleCreateTeam} disabled={workspaceBusy || !newTeamName.trim()} className={`rounded-lg px-2.5 text-[10px] font-bold disabled:opacity-40 ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>
+            {isKo ? "생성" : "Create"}
+          </button>
+        </div>
+        {selectedTeamId && (
+          <div className="flex gap-1.5">
+            <input
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              placeholder={isKo ? "초대할 이메일" : "Invite email"}
+              className={`min-w-0 flex-1 rounded-lg border px-2.5 py-2 text-[11px] outline-none ${isDark ? "border-zinc-800 bg-zinc-950 text-zinc-200 placeholder:text-zinc-600" : "border-zinc-200 bg-white text-zinc-800 placeholder:text-zinc-400"}`}
+            />
+            <button type="button" onClick={handleInviteMember} disabled={workspaceBusy || !inviteEmail.trim()} className="rounded-lg bg-blue-600 px-2.5 text-[10px] font-bold text-white disabled:opacity-40">
+              {isKo ? "초대" : "Invite"}
+            </button>
+          </div>
+        )}
+      </div>
+      <p className={`mt-2 text-[10px] leading-4 ${isDark ? "text-zinc-600" : "text-zinc-500"}`}>
+        {workspaceScope === "team" && selectedTeam
+          ? `${selectedTeam.name} 팀 멤버에게만 분석 이력과 대화가 공유됩니다.`
+          : "개인 기록은 본인 계정에서만 보입니다."}
+      </p>
+      {workspaceError && <p className="mt-2 text-[10px] font-medium text-red-400">{workspaceError}</p>}
+    </div>
+  );
 
   const loadJob = useCallback(async (id: string) => {
     try {
@@ -160,7 +293,8 @@ function AnalyzeWorkspace() {
     branch?: string;
     force_refresh?: boolean;
     model?: string;
-    is_private?: boolean;
+    visibility?: "private" | "team";
+    team_id?: string | null;
   }) => {
     setStatus("running");
     setError(null);
@@ -204,7 +338,9 @@ function AnalyzeWorkspace() {
         branch: input.branch,
         model: input.model || "auto",
         forceRefresh: input.force_refresh || false,
-        isPrivate: input.is_private || false,
+        isPrivate: input.visibility !== "team",
+        visibility: input.visibility || workspaceScope,
+        teamId: input.visibility === "team" ? input.team_id || selectedTeamId : null,
       });
       const id = response.data.jobId;
       setJobId(id);
@@ -294,8 +430,9 @@ function AnalyzeWorkspace() {
           {showNewAnalysis || !report ? (
             <div className={`h-full overflow-y-auto p-3 ${isDark ? "bg-zinc-950" : "bg-white"}`}>
               {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
-              <RepoInput onSubmit={submit} disabled={status === "running"} initialPath={initialPath} initialMode="github" />
-              <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} /></div>
+              {workspacePanel}
+              <RepoInput onSubmit={submit} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeam?.name || null} />
+              <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
             </div>
           ) : (
             <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={setSelectedFile} className="border-r-0" />
@@ -312,7 +449,7 @@ function AnalyzeWorkspace() {
                   <p className="mt-4 max-w-xl text-sm leading-6 text-zinc-500">{isKo ? "저장소의 전체 구조를 한눈에 파악하고, 궁금한 코드는 AI에게 바로 질문하여 깊이 있는 인사이트를 얻어보세요." : "Understand the entire structure at a glance and ask AI questions to gain deep codebase insights."}</p>
                   <button onClick={() => router.push("/analyze?preview=1")} className={`mt-6 inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition ${isDark ? "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-800" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"}`}>{isKo ? "완성된 워크스페이스 미리보기" : "Preview complete workspace"} <ArrowRight className="size-3.5" /></button>
                 </div>
-                <div className="lg:hidden"><RepoInput onSubmit={submit} disabled={false} initialPath={initialPath} initialMode="github" /></div>
+                <div className="lg:hidden">{workspacePanel}<RepoInput onSubmit={submit} disabled={false} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeam?.name || null} /></div>
                 <div className={`hidden lg:block rounded-3xl border p-4 shadow-2xl ${isDark ? "border-zinc-800 bg-zinc-900/45 shadow-blue-950/10" : "border-zinc-200 bg-white shadow-zinc-200"}`}>
                   <div className={`flex items-center gap-2 border-b pb-3 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}><span className="size-2 rounded-full bg-emerald-400" /><span className="text-[10px] font-semibold text-zinc-400">{isKo ? "하나의 프로젝트 컨텍스트" : "Unified project context"}</span></div>
                   {(isKo ? ["실제 저장소 구조 분석", "리포트에서 바로 질문", "답변 출처 파일·라인 이동", "패널과 전체 채팅 대화 유지"] : ["Real codebase structure analysis", "Ask questions from reports", "Jump to source file and line", "Maintain full chat context"]).map((item, index) => <div key={item} className={`flex items-center gap-3 border-b py-3 last:border-0 ${isDark ? "border-zinc-800/70" : "border-zinc-100"}`}><span className="flex size-6 items-center justify-center rounded-lg bg-blue-500/10 text-[9px] font-bold text-blue-400">0{index + 1}</span><span className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{item}</span><CheckCircle2 className="ml-auto size-3.5 text-emerald-500/70" /></div>)}
@@ -386,8 +523,9 @@ function AnalyzeWorkspace() {
               {showNewAnalysis || !report ? (
                 <div className="p-3">
                   {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
-                  <RepoInput onSubmit={(input) => { submit(input); setMobileSidebarOpen(false); }} disabled={status === "running"} initialPath={initialPath} initialMode="github" />
-                  <div className="mt-3"><HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} /></div>
+                  {workspacePanel}
+                  <RepoInput onSubmit={(input) => { submit(input); setMobileSidebarOpen(false); }} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeam?.name || null} />
+                  <div className="mt-3"><HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
                 </div>
               ) : (
                 <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setMobileSidebarOpen(false); }} className="border-r-0" />

@@ -11,6 +11,7 @@ import type {
   ParseTreeData,
   PreValidateRequest,
   PreValidateResponse,
+  TeamWorkspace,
 } from "@/common/types/contracts";
 import { getAccessToken } from "@/features/auth/utils/tokenMemory";
 
@@ -22,8 +23,9 @@ export function apiPath(path: string): string {
   return `${BASE_URL}${normalizedPath}`;
 }
 
-function getAuthorizationHeader(): string {
-  return `Bearer ${getAccessToken()}`;
+function getAuthorizationHeaders(): HeadersInit {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 /**
@@ -37,6 +39,7 @@ export async function startAnalysis(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthorizationHeaders(),
       "X-Request-Id": typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" 
         ? crypto.randomUUID() 
         : Math.random().toString(36).substring(2, 15),
@@ -59,7 +62,9 @@ export async function startAnalysis(
 export async function fetchJobStatus(
   jobId: string,
 ): Promise<{ code: number; message: string; data: JobStatusData }> {
-  const resp = await fetch(apiPath(`/repo/analysis/${jobId}`));
+  const resp = await fetch(apiPath(`/repo/analysis/${jobId}`), {
+    headers: getAuthorizationHeaders(),
+  });
   if (!resp.ok) {
     throw new Error(`Failed to fetch job status: ${resp.status}`);
   }
@@ -90,14 +95,18 @@ export async function fetchParseDetails(jobId: string): Promise<ParseDetails> {
 export async function fetchAnalysisHistory(
   page = 1,
   limit = 30,
+  scope: "private" | "team" | "all" = "all",
+  teamId?: string | null,
 ): Promise<AnalysisHistoryResponse> {
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
+    scope,
   });
+  if (teamId) params.set("teamId", teamId);
   const resp = await fetch(apiPath(`/list/analysis?${params.toString()}`), {
     headers: {
-      Authorization: getAuthorizationHeader(),
+      ...getAuthorizationHeaders(),
     },
   });
 
@@ -149,7 +158,7 @@ export async function validateRepository(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: getAuthorizationHeader(),
+      ...getAuthorizationHeaders(),
     },
     body: JSON.stringify(payload),
   });
@@ -170,12 +179,56 @@ export async function deleteAnalysisJob(jobId: string): Promise<void> {
   const resp = await fetch(apiPath(`/list/analysis/${jobId}`), {
     method: "DELETE",
     headers: {
-      Authorization: getAuthorizationHeader(),
+      ...getAuthorizationHeaders(),
     },
   });
 
   if (!resp.ok) {
     const errData = await resp.json().catch(() => ({}));
     throw new Error(errData?.message || errData?.error || `Failed to delete analysis job: ${resp.status}`);
+  }
+}
+
+export async function fetchTeams(): Promise<TeamWorkspace[]> {
+  const resp = await fetch(apiPath("/teams"), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (resp.status === 401 || resp.status === 404) return [];
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to fetch teams: ${resp.status}`);
+  }
+  const payload = await resp.json();
+  return (payload.teams || payload.data?.teams || []) as TeamWorkspace[];
+}
+
+export async function createTeam(name: string): Promise<TeamWorkspace> {
+  const resp = await fetch(apiPath("/teams"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthorizationHeaders(),
+    },
+    body: JSON.stringify({ name }),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to create team: ${resp.status}`);
+  }
+  return await resp.json();
+}
+
+export async function inviteTeamMember(teamId: string, email: string): Promise<void> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/invite`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthorizationHeaders(),
+    },
+    body: JSON.stringify({ email }),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to invite member: ${resp.status}`);
   }
 }

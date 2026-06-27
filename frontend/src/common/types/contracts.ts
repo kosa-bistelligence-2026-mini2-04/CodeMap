@@ -88,6 +88,8 @@ export interface AnalyzeRequest {
   model?: string;
   forceRefresh?: boolean;
   isPrivate?: boolean;
+  visibility?: "private" | "team";
+  teamId?: string | null;
 }
 
 export interface AnalysisData {
@@ -252,6 +254,8 @@ export interface AnalysisHistoryJob {
   progress: number;
   failedAgent: string | null;
   errorMessage: string | null;
+  visibility: "private" | "team";
+  teamId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -267,6 +271,14 @@ export interface AnalysisHistoryResponse {
   code: number;
   message: string;
   data: AnalysisHistoryData;
+}
+
+export interface TeamWorkspace {
+  id: string;
+  teamId: string;
+  name: string;
+  role: "owner" | "member" | string;
+  joinedAt?: string | null;
 }
 
 export interface GuardrailRegexBlock {

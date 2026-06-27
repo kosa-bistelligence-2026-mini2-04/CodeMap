@@ -77,14 +77,24 @@ class ListService:
         page: int,
         limit: int,
         current_user_id: UUID | None = None,
+        scope: str = "all",
+        team_id: UUID | None = None,
     ) -> AnalysisJobListResult:
         """접근 가능한 분석 작업 목록을 반환합니다.
 
         Private job은 소유자에게만 포함됩니다.
         """
-        total_count = await self.repository.count_analysis_jobs(current_user_id=current_user_id)
+        total_count = await self.repository.count_analysis_jobs(
+            current_user_id=current_user_id,
+            scope=scope,
+            team_id=team_id,
+        )
         jobs = await self.repository.find_analysis_jobs(
-            page=page, limit=limit, current_user_id=current_user_id
+            page=page,
+            limit=limit,
+            current_user_id=current_user_id,
+            scope=scope,
+            team_id=team_id,
         )
         return AnalysisJobListResult(
             total_count=total_count,

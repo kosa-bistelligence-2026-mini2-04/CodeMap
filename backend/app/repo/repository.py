@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import AlreadyInProgressError
+from app.auth.models import TeamMember
 
 from app.repo.models import AnalysisJob
 from app.repo.schemas import JobStatus
@@ -45,6 +46,7 @@ class AnalysisJobRepository:
         force_refresh: bool = False,
         user_id: UUID | None = None,
         is_private: bool = False,
+        team_id: UUID | None = None,
     ) -> AnalysisJob:
         """
         새로운 분석 작업 레코드를 DB에 생성한다.
@@ -69,6 +71,7 @@ class AnalysisJobRepository:
             force_refresh=force_refresh,
             user_id=user_id,
             is_private=is_private,
+            team_id=team_id,
             progress=0,
             message="분석 작업이 등록되었습니다.",
 
@@ -109,6 +112,8 @@ class AnalysisJobRepository:
         self,
         repo_url: str,
         branch: str,
+        user_id: UUID | None = None,
+        team_id: UUID | None = None,
     ) -> Optional[AnalysisJob]:
         """
         동일한 저장소 URL과 브랜치에 대해 이미 진행 중인 분석 작업이 있는지 확인한다.
@@ -120,14 +125,31 @@ class AnalysisJobRepository:
         Returns:
             진행 중인 AnalysisJob 엔티티 또는 None
         """
+        stmt = select(AnalysisJob).where(
+            AnalysisJob.repo_url == repo_url,
+            AnalysisJob.branch == branch,
+            AnalysisJob.status.in_([JobStatus.IN_PROGRESS.value, JobStatus.COMPLETED.value]),
+        )
+        if team_id is not None:
+            stmt = stmt.where(AnalysisJob.team_id == team_id)
+        elif user_id is not None:
+            stmt = stmt.where(AnalysisJob.user_id == user_id, AnalysisJob.team_id.is_(None))
+        else:
+            stmt = stmt.where(AnalysisJob.user_id.is_(None), AnalysisJob.team_id.is_(None))
         result = await self.db.execute(
-            select(AnalysisJob).where(
-                AnalysisJob.repo_url == repo_url,
-                AnalysisJob.branch == branch,
-                AnalysisJob.status.in_([JobStatus.IN_PROGRESS.value, JobStatus.COMPLETED.value]),
-            ).order_by(AnalysisJob.created_at.desc()).limit(1)
+            stmt.order_by(AnalysisJob.created_at.desc()).limit(1)
         )
         return result.scalar_one_or_none()
+
+    async def user_has_team_access(self, team_id: UUID, user_id: UUID) -> bool:
+        result = await self.db.execute(
+            select(TeamMember.id).where(
+                TeamMember.team_id == team_id,
+                TeamMember.user_id == user_id,
+                TeamMember.status == "active",
+            )
+        )
+        return result.scalar_one_or_none() is not None
 
     async def list_jobs(self, limit: int = 30) -> list[AnalysisJob]:
         result = await self.db.execute(

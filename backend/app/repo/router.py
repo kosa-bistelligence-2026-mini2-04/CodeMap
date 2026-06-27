@@ -147,14 +147,14 @@ async def register_analysis(
     각 단계의 진행 상태는 WebSocket으로 실시간 push된다.
     """
     ## isPrivate=true인데 인증 사용자가 없으면 소유자를 특정할 수 없으므로 거부
-    if request.isPrivate and current_user is None:
+    if (request.isPrivate or request.visibility == "private" or request.visibility == "team") and current_user is None:
         raise HTTPException(
             status_code=400,
             detail=build_error_response(
                 status_code=400,
-                message="나만 보기(Private) 분석은 로그인 후 사용할 수 있습니다.",
+                message="분석 기록 저장은 로그인 후 사용할 수 있습니다.",
                 error_code="PRIVATE_REQUIRES_AUTH",
-                field="isPrivate",
+                field="visibility",
             ),
         )
     service = AnalysisService(db)
@@ -174,15 +174,22 @@ async def register_local_analysis(
     relative_paths: list[str] = Form(..., alias="paths"),
     files: list[UploadFile] = File(...),
     model: str = Form("auto"),
+    visibility: str = Form("private"),
+    team_id: UUID | None = Form(None, alias="teamId"),
+    current_user: Annotated[dict | None, Depends(get_current_user_optional)] = None,
     db: AsyncSession = Depends(get_db),
 ) -> AnalysisResponse:
     """Upload a browser-selected directory into an isolated analysis workspace."""
+    user_id = UUID(current_user["sub"]) if current_user and "sub" in current_user else None
     return await AnalysisService(db).register_local_analysis(
         folder_name=folder_name,
         files=files,
         relative_paths=relative_paths,
         model=model,
         background_tasks=background_tasks,
+        user_id=user_id,
+        visibility=visibility,
+        team_id=team_id,
     )
 
 
@@ -255,6 +262,7 @@ async def cleanup_workspace(
 )
 async def get_job_status(
     job_id: UUID,
+    current_user: Annotated[dict | None, Depends(get_current_user_optional)] = None,
     db: AsyncSession = Depends(get_db),
 ) -> JobStatusResponse:
     """
@@ -262,7 +270,8 @@ async def get_job_status(
     실시간 수신은 WebSocket(API-006)을 권장한다.
     """
     service = AnalysisService(db)
-    return await service.get_job_status(job_id)
+    user_id = UUID(current_user["sub"]) if current_user and "sub" in current_user else None
+    return await service.get_job_status(job_id, current_user_id=user_id)
 
 
 # ──────────────────────────────────────────────
