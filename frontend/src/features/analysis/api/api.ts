@@ -13,6 +13,8 @@ import type {
   PreValidateResponse,
 } from "@/common/types/contracts";
 import { getAccessToken } from "@/features/auth/utils/tokenMemory";
+import { parseApiError } from "@/common/api/error";
+
 
 const BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(/\/$/, "");
 const BASE_URL = `${BASE_PATH}/api`;
@@ -163,10 +165,7 @@ export async function fetchFileContent(
   );
 
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(
-      errData?.message || `파일을 불러오지 못했습니다. (HTTP ${resp.status})`,
-    );
+    throw await parseApiError(resp);
   }
 
   return await resp.json();

@@ -100,6 +100,7 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
           onClick={handleCopy}
           disabled={loadState !== "success"}
           title="클립보드에 복사"
+          aria-label="클립보드에 복사"
           className={`flex size-6 items-center justify-center rounded transition disabled:opacity-30 ${
             isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
           }`}
@@ -114,6 +115,7 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
           type="button"
           onClick={onClose}
           title="닫기"
+          aria-label="코드 프리뷰 닫기"
           className={`flex size-6 items-center justify-center rounded transition ${
             isDark ? "text-zinc-500 hover:bg-zinc-800 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
           }`}
@@ -162,7 +164,7 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
             )}
             <table className="w-full border-separate border-spacing-0 font-mono text-[11px] leading-5">
               <tbody>
-                {content.split("\n").map((line, idx) => (
+                {(content.endsWith("\n") ? content.slice(0, -1).split("\n") : content.split("\n")).map((line, idx) => (
                   <tr key={idx} className="group">
                     <td
                       className={`w-10 select-none pr-3 text-right align-top ${
