@@ -441,6 +441,24 @@ export interface CodeReference {
 }
 
 
+// ── File content & symbols types ─────────────────────────────────────────────
+
+export interface FileSymbol {
+  name: string;
+  kind: 'function' | 'class' | 'module' | 'other' | string;
+  startLine: number;
+  endLine: number;
+}
+
+export interface FileContent {
+  path: string;
+  language: string | null;
+  lineCount: number;
+  content: string;
+  symbols: FileSymbol[];
+}
+
+
 // ── Pre-clone validation types ────────────────────────────────────────────────
 export interface PreValidateRequest {
   repoUrl: string;

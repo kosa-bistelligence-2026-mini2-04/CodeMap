@@ -20,12 +20,15 @@ import { HistoryList } from "@/features/history/components/HistoryList";
 import { WorkspaceReport } from "@/features/analysis/components/WorkspaceReport";
 import { FileTree } from "@/features/chat/components/FileTree";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
+import { CodePreviewPanel } from "@/features/analysis/components/CodePreviewPanel";
+import { SymbolsPanel } from "@/features/analysis/components/SymbolsPanel";
 import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
 import { getRagIndexBanner } from "@/features/analysis/utils/ragIndexStatus.mjs";
 import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
 import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
 import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
+import type { FileSymbol } from "@/common/types/contracts";
 
 function AnalyzeWorkspace() {
   const { theme, locale } = useApp();
@@ -37,6 +40,8 @@ function AnalyzeWorkspace() {
   const queryJobId = searchParams.get("job");
   const initialPath = searchParams.get("path") || undefined;
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [previewSymbols, setPreviewSymbols] = useState<FileSymbol[]>([]);
   const [chatPrompt, setChatPrompt] = useState("");
   const [chatPromptNonce, setChatPromptNonce] = useState(0);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
@@ -137,7 +142,7 @@ function AnalyzeWorkspace() {
               <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
             </div>
           ) : (
-            <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={setSelectedFile} className="border-r-0" />
+            <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); }} className="border-r-0" />
           )}
         </aside>
 
@@ -185,7 +190,33 @@ function AnalyzeWorkspace() {
             </div>
           )}
 
-          {status === "completed" && report && <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={setSelectedFile} />}
+          {status === "completed" && report && !selectedFile && (
+            <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); }} />
+          )}
+
+          {status === "completed" && report && selectedFile && chatRepoId && (
+            <div className="flex h-full min-h-0 gap-3">
+              <div className="min-w-0 flex-1">
+                <CodePreviewPanel
+                  repoId={chatRepoId}
+                  path={selectedFile}
+                  highlightLine={selectedLine}
+                  isDark={isDark}
+                  onClose={() => { setSelectedFile(null); setSelectedLine(null); setPreviewSymbols([]); }}
+                  onContentLoaded={(c) => setPreviewSymbols(c.symbols)}
+                />
+              </div>
+              {previewSymbols.length > 0 && (
+                <div className="hidden w-[220px] shrink-0 xl:block">
+                  <SymbolsPanel
+                    symbols={previewSymbols}
+                    isDark={isDark}
+                    onSymbolClick={(line) => setSelectedLine(line)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <aside className={`hidden w-[400px] shrink-0 border-l xl:block ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
@@ -199,7 +230,7 @@ function AnalyzeWorkspace() {
             initialPrompt={chatPrompt}
             initialPromptKey={chatPromptNonce}
             onThreadChange={setThreadId}
-            onReferenceClick={(file) => setSelectedFile(file)}
+            onReferenceClick={(file, line) => { setSelectedFile(file); setSelectedLine(line ?? null); }}
             onClearContextFile={() => setSelectedFile(null)}
             expandHref={fullChatUrl}
           />
@@ -209,7 +240,7 @@ function AnalyzeWorkspace() {
       {mobileChatOpen && (
         <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm xl:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileChatOpen(false); }}>
           <div className="absolute inset-y-0 right-0 w-full max-w-[430px] border-l border-zinc-800 bg-zinc-950 shadow-2xl">
-            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file) => setSelectedFile(file)} onClearContextFile={() => setSelectedFile(null)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
+            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file, line) => { setSelectedFile(file); setSelectedLine(line ?? null); }} onClearContextFile={() => setSelectedFile(null)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
           </div>
         </div>
       )}
@@ -230,7 +261,7 @@ function AnalyzeWorkspace() {
                   <div className="mt-3"><HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
                 </div>
               ) : (
-                <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setMobileSidebarOpen(false); }} className="border-r-0" />
+                <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); setMobileSidebarOpen(false); }} className="border-r-0" />
               )}
             </div>
           </div>

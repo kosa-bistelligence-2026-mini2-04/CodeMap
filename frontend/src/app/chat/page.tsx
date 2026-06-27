@@ -7,8 +7,10 @@ import { ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { FileTree } from "@/features/chat/components/FileTree";
+import { CodePreviewPanel } from "@/features/analysis/components/CodePreviewPanel";
+import { SymbolsPanel } from "@/features/analysis/components/SymbolsPanel";
 import { fetchJobStatus } from "@/features/analysis/api/api";
-import type { WorkspaceReport } from "@/common/types/contracts";
+import type { FileSymbol, WorkspaceReport } from "@/common/types/contracts";
 
 function ChatContent() {
   const searchParams = useSearchParams();
@@ -19,6 +21,8 @@ function ChatContent() {
   const preview = searchParams.get("preview") === "1";
   const [report, setReport] = useState<WorkspaceReport | null>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [activeLine, setActiveLine] = useState<number | null>(null);
+  const [previewSymbols, setPreviewSymbols] = useState<FileSymbol[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
@@ -44,11 +48,46 @@ function ChatContent() {
         </button>
       </div>
       <div className="flex min-h-0 flex-1">
+        {/* 좌측: FileTree */}
         {sidebarOpen && (
-          <div className="hidden h-full w-[280px] shrink-0 md:block">
-            <FileTree repoName={repoName} files={report?.files || []} entrypoints={report?.entrypoints || []} activeFile={activeFile} onFileSelect={setActiveFile} className="border-r-0" />
+          <div className="hidden h-full w-[240px] shrink-0 md:block">
+            <FileTree
+              repoName={repoName}
+              files={report?.files || []}
+              entrypoints={report?.entrypoints || []}
+              activeFile={activeFile}
+              onFileSelect={(f) => { setActiveFile(f); setActiveLine(null); setPreviewSymbols([]); }}
+              className="border-r-0"
+            />
           </div>
         )}
+
+        {/* 중앙: CodePreview (파일 선택 시) */}
+        {activeFile && repoId && !preview && (
+          <div className="hidden h-full min-w-0 flex-1 p-2 md:flex md:gap-2">
+            <div className="min-w-0 flex-1">
+              <CodePreviewPanel
+                repoId={repoId}
+                path={activeFile}
+                highlightLine={activeLine}
+                isDark={isDark}
+                onClose={() => { setActiveFile(null); setActiveLine(null); setPreviewSymbols([]); }}
+                onContentLoaded={(c) => setPreviewSymbols(c.symbols)}
+              />
+            </div>
+            {previewSymbols.length > 0 && (
+              <div className="hidden w-[200px] shrink-0 xl:block">
+                <SymbolsPanel
+                  symbols={previewSymbols}
+                  isDark={isDark}
+                  onSymbolClick={(line) => setActiveLine(line)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 우측: ChatInterface */}
         <div className="h-full min-w-0 flex-1">
           <ChatInterface
             repoId={repoId}
@@ -56,8 +95,8 @@ function ChatContent() {
             threadId={threadId}
             preview={preview}
             contextFile={activeFile}
-            onReferenceClick={(file) => setActiveFile(file)}
-            onClearContextFile={() => setActiveFile(null)}
+            onReferenceClick={(file, line) => { setActiveFile(file); setActiveLine(line ?? null); }}
+            onClearContextFile={() => { setActiveFile(null); setActiveLine(null); }}
           />
         </div>
       </div>

@@ -2,6 +2,7 @@ import type {
   AnalysisHistoryResponse,
   AnalyzeRequest,
   AnalyzeResponse,
+  FileContent,
   JobStatusData,
   ParseCodeMapData,
   ParseDetails,
@@ -277,4 +278,24 @@ export async function declineInvite(inviteId: string): Promise<void> {
     const errData = await resp.json().catch(() => ({}));
     throw new Error(errData?.message || errData?.detail || `Failed to decline invite: ${resp.status}`);
   }
+}
+
+/**
+ * GET /api/parse/{repoId}/file?path=<상대경로>
+ * 파일 원문 + 심볼 목록 조회. 404/403은 throw → 패널에서 "불러올 수 없음" 처리.
+ */
+export async function fetchFileContent(
+  repoId: string,
+  path: string,
+): Promise<FileContent> {
+  const params = new URLSearchParams({ path });
+  const resp = await fetch(apiPath(`/parse/${repoId}/file?${params.toString()}`), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `파일을 불러올 수 없습니다. (HTTP ${resp.status})`);
+  }
+  const body = await resp.json();
+  return (body.data ?? body) as FileContent;
 }
