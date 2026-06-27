@@ -84,21 +84,20 @@ export function CodePreviewPanel({
   // 파일 로딩: path 변경 시마다 재조회 (dispatch 한 번으로 초기화 → 룰 준수)
   useEffect(() => {
     if (!repoId || !path) return;
-    let cancelled = false;
+    const controller = new AbortController();
     lineRefs.current.clear();
     dispatch({ type: "LOAD" });
-    fetchFileContent(repoId, path)
+    fetchFileContent(repoId, path, controller.signal)
       .then((data) => {
-        if (cancelled) return;
         dispatch({ type: "OK", data });
         onContentLoaded?.(data);
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
         dispatch({ type: "ERR", message: err instanceof Error ? err.message : "파일을 불러올 수 없습니다." });
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [repoId, path]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -13,10 +13,10 @@ fake DB 세션 패턴은 tests/unit/test_team_access.py 참고.
 import types
 import unittest
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-from app.parse.schemas import FileContentResponse, FileSymbolItem
+from app.parse.schemas import FileContentResponse
 
 
 # ──────────────────────────────────────────────
@@ -68,10 +68,16 @@ class FakeSession:
 # ──────────────────────────────────────────────
 class TestFileContentAccessControl(unittest.IsolatedAsyncioTestCase):
 
-    async def _call_endpoint(self, job, current_user_dict, file_node, chunk_nodes):
+    async def _call_endpoint(
+        self,
+        job,
+        current_user_dict,
+        file_node,
+        chunk_nodes,
+        *,
+        can_access,
+    ):
         """엔드포인트 핵심 로직을 직접 호출하는 헬퍼 (라우터 의존성 우회)."""
-        from app.common.access import can_access_job
-        from app.common.exceptions import JobNotFoundError
         from app.parse.router import get_file_content
 
         repo_id = uuid4()
@@ -84,17 +90,10 @@ class TestFileContentAccessControl(unittest.IsolatedAsyncioTestCase):
 
         with patch("app.parse.router.AnalysisJobRepository") as MockRepo:
             MockRepo.return_value.get_job_by_id = AsyncMock(return_value=job)
-            with patch("app.parse.router.can_access_job") as mock_access:
-                owner_id = getattr(job, "user_id", None)
-                user_id = None
-                if current_user_dict and "sub" in current_user_dict:
-                    from uuid import UUID
-                    user_id = UUID(current_user_dict["sub"])
-                mock_access.return_value = (job is not None) and (user_id == owner_id)
-
-                if not job or not mock_access.return_value:
-                    raise JobNotFoundError()
-
+            with patch(
+                "app.parse.router.can_access_job",
+                new=AsyncMock(return_value=can_access),
+            ):
                 return await get_file_content(
                     repo_id=repo_id,
                     path=path,
@@ -111,6 +110,7 @@ class TestFileContentAccessControl(unittest.IsolatedAsyncioTestCase):
             current_user_dict={"sub": str(owner)},
             file_node=file_node,
             chunk_nodes=[],
+            can_access=True,
         )
         self.assertIsInstance(result, FileContentResponse)
         self.assertEqual(result.lineCount, 3)
@@ -125,6 +125,7 @@ class TestFileContentAccessControl(unittest.IsolatedAsyncioTestCase):
                 current_user_dict={"sub": str(uuid4())},  ## 다른 사람
                 file_node=_node(content="x = 1\n", language="python"),
                 chunk_nodes=[],
+                can_access=False,
             )
 
     async def test_anonymous_gets_404(self):
@@ -137,6 +138,7 @@ class TestFileContentAccessControl(unittest.IsolatedAsyncioTestCase):
                 current_user_dict=None,
                 file_node=_node(content="x = 1\n", language="python"),
                 chunk_nodes=[],
+                can_access=False,
             )
 
     async def test_missing_job_gets_404(self):
@@ -147,6 +149,7 @@ class TestFileContentAccessControl(unittest.IsolatedAsyncioTestCase):
                 current_user_dict={"sub": str(uuid4())},
                 file_node=None,
                 chunk_nodes=[],
+                can_access=False,
             )
 
 
@@ -158,7 +161,6 @@ class TestFileContentMissingPath(unittest.IsolatedAsyncioTestCase):
     async def test_missing_path_returns_404(self):
         from app.common.exceptions import JobNotFoundError
         from app.parse.router import get_file_content
-        from uuid import UUID
 
         owner = uuid4()
         job = _job(user_id=owner)
