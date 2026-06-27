@@ -12,6 +12,7 @@ import type {
   PreValidateRequest,
   PreValidateResponse,
   TeamWorkspace,
+  TeamInviteItem,
 } from "@/common/types/contracts";
 import { getAccessToken } from "@/features/auth/utils/tokenMemory";
 
@@ -129,23 +130,33 @@ export async function fetchAnalysisHistory(
 }
 
 /**
+ * EventSource/WebSocket은 Authorization 헤더를 보낼 수 없으므로,
+ * private/team 분석의 실시간 채널 접근을 위해 토큰을 query param으로 전달한다.
+ */
+function withToken(url: string): string {
+  const token = getAccessToken();
+  if (!token) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+}
+
+/**
  * GET /api/repo/analysis/{jobId}/events — SSE 이벤트 스트림
  * Returns EventSource URL for SSE streaming
  */
 export function buildSseUrl(jobId: string): string {
-  return apiPath(`/repo/analysis/${jobId}/events`);
+  return withToken(apiPath(`/repo/analysis/${jobId}/events`));
 }
 
 /**
  * Build WebSocket URL for real-time progress
- * WS /ws/progress/{jobId}
+ * WS /ws/list/progress/{jobId}
  */
 export function buildWsUrl(wsPath: string): string {
-  if (/^wss?:\/\//i.test(wsPath)) return wsPath;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host;
   const path = wsPath.startsWith("/") ? wsPath : `/${wsPath}`;
-  return `${proto}//${host}${BASE_PATH}${path}`;
+  const base = /^wss?:\/\//i.test(wsPath) ? wsPath : `${proto}//${host}${BASE_PATH}${path}`;
+  return withToken(base);
 }
 
 /**
@@ -219,7 +230,7 @@ export async function createTeam(name: string): Promise<TeamWorkspace> {
 }
 
 export async function inviteTeamMember(teamId: string, email: string): Promise<void> {
-  const resp = await fetch(apiPath(`/teams/${teamId}/invite`), {
+  const resp = await fetch(apiPath(`/teams/${teamId}/invites`), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -230,5 +241,40 @@ export async function inviteTeamMember(teamId: string, email: string): Promise<v
   if (!resp.ok) {
     const errData = await resp.json().catch(() => ({}));
     throw new Error(errData?.message || errData?.detail || `Failed to invite member: ${resp.status}`);
+  }
+}
+
+export async function fetchMyInvites(): Promise<TeamInviteItem[]> {
+  const resp = await fetch(apiPath("/team-invites"), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (resp.status === 401 || resp.status === 404) return [];
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to fetch invites: ${resp.status}`);
+  }
+  const payload = await resp.json();
+  return (payload.invites || payload.data?.invites || []) as TeamInviteItem[];
+}
+
+export async function acceptInvite(inviteId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/team-invites/${inviteId}/accept`), {
+    method: "POST",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to accept invite: ${resp.status}`);
+  }
+}
+
+export async function declineInvite(inviteId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/team-invites/${inviteId}/decline`), {
+    method: "POST",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to decline invite: ${resp.status}`);
   }
 }

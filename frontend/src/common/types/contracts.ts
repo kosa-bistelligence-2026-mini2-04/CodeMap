@@ -281,6 +281,15 @@ export interface TeamWorkspace {
   joinedAt?: string | null;
 }
 
+export interface TeamInviteItem {
+  inviteId: string;
+  teamId: string;
+  teamName: string;
+  invitedByEmail?: string | null;
+  status: string;
+  expiresAt: string;
+}
+
 export interface GuardrailRegexBlock {
   original_text: string;
   rule_id: string;

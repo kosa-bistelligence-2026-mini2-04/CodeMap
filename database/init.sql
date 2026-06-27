@@ -45,6 +45,18 @@ CREATE TABLE IF NOT EXISTS team_members (
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS created_by_user_id UUID;
 ALTER TABLE team_members ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active';
 
+-- 팀 초대 테이블 (PROJECT-TEAM-API-003~006): 생성 -> 수락/거절 -> 멤버십 활성화
+CREATE TABLE IF NOT EXISTS team_invites (
+    id UUID PRIMARY KEY,
+    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL,
+    invited_by_user_id UUID,
+    role VARCHAR(50) NOT NULL DEFAULT 'member',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days')
+);
+
 -- 3. 소스코드 원문 테이블 (1: 파일 정보 및 원문 저장)
 CREATE TABLE IF NOT EXISTS source_files (
     id UUID PRIMARY KEY,
@@ -188,8 +200,30 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    ALTER TABLE team_invites
+        ADD CONSTRAINT fk_team_invites_team_id
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE team_invites
+        ADD CONSTRAINT fk_team_invites_invited_by_user_id
+        FOREIGN KEY (invited_by_user_id) REFERENCES users(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_team_members_user_status ON team_members (user_id, status);
+-- 유니크 인덱스 생성 전, 기존 (team_id, user_id) 중복 행을 제거하여 인덱스 생성 실패를 방지
+DELETE FROM team_members a
+    USING team_members b
+    WHERE a.ctid > b.ctid
+      AND a.team_id = b.team_id
+      AND a.user_id = b.user_id;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_team_members_team_user ON team_members (team_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_team_invites_email_status ON team_invites (email, status);
+CREATE INDEX IF NOT EXISTS idx_team_invites_team ON team_invites (team_id);
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

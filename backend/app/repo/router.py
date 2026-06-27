@@ -16,7 +16,7 @@ import logging
 from uuid import UUID
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -116,7 +116,19 @@ async def validate_repo(request: RepoValidateRequest) -> RepoValidateResponse:
 # API-001: 프로젝트 등록 (분석 요청)
 # POST /api/repo/analysis
 # ──────────────────────────────────────────────
-from app.infra.auth import get_current_user_optional
+from app.infra.auth import get_current_user_optional, verify_access_token
+from app.common.exceptions import UnauthorizedError
+
+
+def _user_id_from_token(token: str | None) -> UUID | None:
+    """SSE(EventSource)는 헤더를 보낼 수 없으므로 query param 토큰을 검증한다."""
+    if not token:
+        return None
+    try:
+        payload = verify_access_token(token)
+        return UUID(str(payload["sub"]))
+    except (UnauthorizedError, KeyError, ValueError, TypeError):
+        return None
 
 @router.post(
     "/api/repo/analysis",
@@ -146,8 +158,9 @@ async def register_analysis(
     Onboarding Guide → Report 저장 순서로 비동기 처리되며,
     각 단계의 진행 상태는 WebSocket으로 실시간 push된다.
     """
-    ## isPrivate=true인데 인증 사용자가 없으면 소유자를 특정할 수 없으므로 거부
-    if (request.isPrivate or request.visibility == "private" or request.visibility == "team") and current_user is None:
+    ## 분석 기록은 항상 소유자/팀에 귀속되므로 로그인 필수. (자체 PR 리뷰 M1)
+    ##  visibility/teamId 정합성 및 팀 권한 검증은 service._resolve_visibility가 담당한다.
+    if current_user is None:
         raise HTTPException(
             status_code=400,
             detail=build_error_response(
@@ -291,6 +304,7 @@ async def get_job_status(
 async def stream_analysis_events(
     job_id: UUID,
     request: Request,
+    token: str | None = Query(default=None),
 ) -> StreamingResponse:
     """
     SSE(Server-Sent Events) 방식으로 분석 진행 상태를 실시간 스트리밍한다.
@@ -299,10 +313,14 @@ async def stream_analysis_events(
     각 파이프라인 단계 전환 시마다 이벤트를 수신한다.
     status가 COMPLETED 또는 FAILED인 이벤트 수신 후 스트림이 종료된다.
     """
-    # job 존재 여부 확인 (별도 세션 사용)
+    ## private/team job은 권한이 있는 사용자만 스트림을 수신할 수 있다. (자체 PR 리뷰 B1)
+    current_user_id = _user_id_from_token(token)
+    # job 존재 여부 + 접근 권한 확인 (별도 세션 사용)
     async with async_session_factory() as session:
         service = AnalysisService(session)
-        job_status_response = await service.get_job_status(job_id)
+        job_status_response = await service.get_job_status(
+            job_id, current_user_id=current_user_id
+        )
 
     # 이미 완료/실패한 작업인지 확인 (DB 기준)
     if job_status_response.data.status in (JobStatus.COMPLETED, JobStatus.FAILED):

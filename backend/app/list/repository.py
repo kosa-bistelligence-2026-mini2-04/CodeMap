@@ -12,6 +12,7 @@ from app.list.models import (
 )
 from app.repo.models import AnalysisJob
 from app.auth.models import TeamMember
+from app.common import access
 
 
 class AnalysisJobListRepository:
@@ -115,20 +116,8 @@ class AnalysisJobListRepository:
         job: AnalysisJob,
         current_user_id: UUID | None,
     ) -> bool:
-        if job.team_id is not None:
-            if current_user_id is None:
-                return False
-            result = await self.db.execute(
-                select(TeamMember.id).where(
-                    TeamMember.team_id == job.team_id,
-                    TeamMember.user_id == current_user_id,
-                    TeamMember.status == "active",
-                )
-            )
-            return result.scalar_one_or_none() is not None
-        if job.user_id is not None:
-            return job.user_id == current_user_id
-        return not job.is_private
+        ## 단일 판정 모듈에 위임 (자체 PR 리뷰 M3)
+        return await access.can_access_job(self.db, job, current_user_id)
 
     async def update_analysis_job_status(
         self,

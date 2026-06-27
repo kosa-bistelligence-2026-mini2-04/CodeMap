@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chat.repository import ChatRepository
 from app.chat.schemas import ChatRunRequest
+from app.common import access
 from app.infra.config import get_settings
 from app.repo.repository import AnalysisJobRepository
 
@@ -73,17 +74,8 @@ class RepositoryChatService:
         return job, request.mode, str(clone_path)
 
     async def can_access_job(self, job, current_user_id: UUID | None) -> bool:
-        team_id = getattr(job, "team_id", None)
-        user_id = getattr(job, "user_id", None)
-        is_private = bool(getattr(job, "is_private", False))
-        if team_id is not None:
-            return (
-                current_user_id is not None
-                and await self.job_repository.user_has_team_access(team_id, current_user_id)
-            )
-        if user_id is not None:
-            return current_user_id == user_id
-        return not is_private
+        ## 단일 판정 모듈에 위임 (자체 PR 리뷰 M3)
+        return await access.can_access_job(self.db, job, current_user_id)
 
     async def run_agent(
         self,

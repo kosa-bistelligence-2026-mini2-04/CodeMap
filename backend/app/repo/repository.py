@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import AlreadyInProgressError
+from app.common import access
 from app.auth.models import TeamMember
 
 from app.repo.models import AnalysisJob
@@ -142,14 +143,8 @@ class AnalysisJobRepository:
         return result.scalar_one_or_none()
 
     async def user_has_team_access(self, team_id: UUID, user_id: UUID) -> bool:
-        result = await self.db.execute(
-            select(TeamMember.id).where(
-                TeamMember.team_id == team_id,
-                TeamMember.user_id == user_id,
-                TeamMember.status == "active",
-            )
-        )
-        return result.scalar_one_or_none() is not None
+        ## 단일 판정 모듈에 위임 (자체 PR 리뷰 M3)
+        return await access.user_has_team_access(self.db, team_id, user_id)
 
     async def list_jobs(self, limit: int = 30) -> list[AnalysisJob]:
         result = await self.db.execute(

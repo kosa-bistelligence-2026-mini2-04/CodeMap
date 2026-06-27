@@ -30,6 +30,7 @@ from app.parse.router import router as parse_router
 from app.tool.router import router as tool_router
 from app.gen.router import router as gen_router
 from app.team.router import router as team_router
+from app.team.router import invite_router as team_invite_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -142,3 +143,4 @@ app.include_router(gen_router)
 
 # Team workspace APIs
 app.include_router(team_router)
+app.include_router(team_invite_router)

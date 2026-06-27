@@ -25,6 +25,7 @@ from fastapi import BackgroundTasks, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.config import get_settings
+from app.common import access
 from app.common.exceptions import (
     AlreadyInProgressError,
     CloneFailedError,
@@ -154,23 +155,15 @@ class AnalysisService:
 
         # 2. 브랜치 미입력 시 git이 원격 기본 브랜치를 자동 선택한다.
         branch = request.branch or "default"
-        visibility = request.visibility or ("private" if request.isPrivate else "team" if request.teamId else "private")
+        ## visibility/teamId 정합성을 명시적으로 검증한다. (자체 PR 리뷰 M2)
+        ##  - visibility는 단일 진실원(source of truth). legacy isPrivate는 더 이상 사용하지 않는다.
+        ##  - teamId가 있는데 visibility!=team이면 조용히 private 저장되는 일이 없도록 거부한다.
+        visibility = (request.visibility or "private").lower()
         if visibility not in {"private", "team"}:
             raise CodeMapException(400, "INVALID_VISIBILITY", "visibility는 private 또는 team이어야 합니다.")
-        if visibility == "team":
-            if user_id is None:
-                raise CodeMapException(400, "TEAM_REQUIRES_AUTH", "팀 공유 분석은 로그인 후 사용할 수 있습니다.")
-            if request.teamId is None:
-                raise CodeMapException(400, "TEAM_ID_REQUIRED", "팀 공유 분석에는 teamId가 필요합니다.")
-            if not await self.repository.user_has_team_access(request.teamId, user_id):
-                raise CodeMapException(403, "TEAM_ACCESS_DENIED", "해당 팀에 접근할 수 없습니다.")
-            team_id = request.teamId
-            is_private = False
-        else:
-            if user_id is None:
-                raise CodeMapException(400, "PRIVATE_REQUIRES_AUTH", "개인 분석은 로그인 후 사용할 수 있습니다.")
-            team_id = None
-            is_private = True
+        if request.teamId is not None and visibility != "team":
+            raise CodeMapException(400, "INVALID_VISIBILITY", "teamId가 지정되면 visibility는 team이어야 합니다.")
+        team_id, is_private = await self._resolve_visibility(visibility, request.teamId, user_id)
 
         # 3. 동일 저장소(레포)에 대한 중복 분석이 있는지 확인
         duplicate = await self.repository.check_duplicate_job(
@@ -245,17 +238,12 @@ class AnalysisService:
             raise CodeMapException(400, "INVALID_FOLDER_NAME", "올바른 폴더 이름이 필요합니다.")
 
         source_id = uuid4()
-        if visibility == "team":
-            if user_id is None or team_id is None:
-                raise CodeMapException(400, "TEAM_ID_REQUIRED", "팀 공유 분석에는 teamId가 필요합니다.")
-            if not await self.repository.user_has_team_access(team_id, user_id):
-                raise CodeMapException(403, "TEAM_ACCESS_DENIED", "해당 팀에 접근할 수 없습니다.")
-            is_private = False
-        else:
-            if user_id is None:
-                raise CodeMapException(400, "PRIVATE_REQUIRES_AUTH", "개인 분석은 로그인 후 사용할 수 있습니다.")
-            team_id = None
-            is_private = True
+        visibility = (visibility or "private").lower()
+        if visibility not in {"private", "team"}:
+            raise CodeMapException(400, "INVALID_VISIBILITY", "visibility는 private 또는 team이어야 합니다.")
+        if team_id is not None and visibility != "team":
+            raise CodeMapException(400, "INVALID_VISIBILITY", "teamId가 지정되면 visibility는 team이어야 합니다.")
+        team_id, is_private = await self._resolve_visibility(visibility, team_id, user_id)
         job = await self.repository.create_job(
             repo_url=f"local-upload://{source_id}/{repo_name}",
             repo_name=repo_name,
@@ -348,18 +336,29 @@ class AnalysisService:
             ),
         )
 
+    async def _resolve_visibility(
+        self,
+        visibility: str,
+        team_id: UUID | None,
+        user_id: UUID | None,
+    ) -> tuple[UUID | None, bool]:
+        """visibility 입력을 (team_id, is_private)로 환산하고 권한을 검증한다."""
+        if visibility == "team":
+            if user_id is None:
+                raise CodeMapException(400, "TEAM_REQUIRES_AUTH", "팀 공유 분석은 로그인 후 사용할 수 있습니다.")
+            if team_id is None:
+                raise CodeMapException(400, "TEAM_ID_REQUIRED", "팀 공유 분석에는 teamId가 필요합니다.")
+            if not await self.repository.user_has_team_access(team_id, user_id):
+                raise CodeMapException(403, "TEAM_ACCESS_DENIED", "해당 팀에 접근할 수 없습니다.")
+            return team_id, False
+        ## private: 로그인 필수 (비로그인 공개 분석 생성은 더 이상 허용하지 않는다. 자체 PR 리뷰 M1)
+        if user_id is None:
+            raise CodeMapException(400, "PRIVATE_REQUIRES_AUTH", "개인 분석은 로그인 후 사용할 수 있습니다.")
+        return None, True
+
     async def can_access_job(self, job, current_user_id: UUID | None) -> bool:
-        team_id = getattr(job, "team_id", None)
-        user_id = getattr(job, "user_id", None)
-        is_private = bool(getattr(job, "is_private", False))
-        if team_id is not None:
-            return (
-                current_user_id is not None
-                and await self.repository.user_has_team_access(team_id, current_user_id)
-            )
-        if user_id is not None:
-            return current_user_id == user_id
-        return not is_private
+        ## 단일 판정 모듈에 위임 (자체 PR 리뷰 M3)
+        return await access.can_access_job(self.db, job, current_user_id)
 
     # ──────────────────────────────────────────
     # API-004: 특정 job 기준 저장소 clone 실행
