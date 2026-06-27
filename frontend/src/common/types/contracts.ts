@@ -290,6 +290,21 @@ export interface TeamInviteItem {
   expiresAt: string;
 }
 
+export interface TeamMemberInfo {
+  userId: string;
+  email: string;
+  role: "owner" | "member" | string;
+  status: string;
+}
+
+export interface SentInvite {
+  inviteId: string;
+  email: string;
+  status: string;
+  expiresAt: string;
+  invitedByEmail?: string | null;
+}
+
 export interface GuardrailRegexBlock {
   original_text: string;
   rule_id: string;

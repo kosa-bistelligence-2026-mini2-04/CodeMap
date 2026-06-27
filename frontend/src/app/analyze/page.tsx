@@ -26,6 +26,7 @@ import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
 import { getRagIndexBanner } from "@/features/analysis/utils/ragIndexStatus.mjs";
 import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
 import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
+import { AccountFooter } from "@/features/workspace/components/AccountFooter";
 import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
 import type { FileSymbol } from "@/common/types/contracts";
@@ -133,17 +134,16 @@ function AnalyzeWorkspace() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className={`hidden w-[290px] shrink-0 border-r lg:block ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-          {showNewAnalysis || !report ? (
-            <div className={`h-full overflow-y-auto p-3 ${isDark ? "bg-zinc-950" : "bg-white"}`}>
-              {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
-              {workspaceSelector}
+        <aside className={`hidden w-[290px] shrink-0 flex-col border-r lg:flex ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+          <div className={`min-h-0 flex-1 overflow-y-auto p-3 ${isDark ? "bg-zinc-950" : "bg-white"}`}>
+            {report && showNewAnalysis && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
+            {workspaceSelector}
+            {(showNewAnalysis || !report) && (
               <RepoInput onSubmit={submit} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeamName} />
-              <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
-            </div>
-          ) : (
-            <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); }} className="border-r-0" />
-          )}
+            )}
+            <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} teamName={workspaceScope === "team" ? selectedTeamName : null} /></div>
+          </div>
+          <AccountFooter isDark={isDark} isKo={isKo} />
         </aside>
 
         <section className={`min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
@@ -196,6 +196,16 @@ function AnalyzeWorkspace() {
 
           {status === "completed" && report && selectedFile && chatRepoId && (
             <div className="flex h-full min-h-0 gap-3">
+              <div className="hidden w-[240px] shrink-0 lg:block">
+                <FileTree
+                  repoName={repoName}
+                  files={report.files}
+                  entrypoints={report.entrypoints}
+                  activeFile={selectedFile}
+                  onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); }}
+                  className="rounded-lg border"
+                />
+              </div>
               <div className="min-w-0 flex-1">
                 <CodePreviewPanel
                   repoId={chatRepoId}
@@ -253,17 +263,21 @@ function AnalyzeWorkspace() {
               <button onClick={() => setMobileSidebarOpen(false)} className={`rounded-lg p-1.5 transition ${isDark ? "text-zinc-500 hover:bg-zinc-900 hover:text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"}`}><X className="size-4" /></button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {showNewAnalysis || !report ? (
-                <div className="p-3">
-                  {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
-                  {workspaceSelector}
+              <div className="p-3">
+                {report && showNewAnalysis && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
+                {workspaceSelector}
+                {(showNewAnalysis || !report) && (
                   <RepoInput onSubmit={(input) => { submit(input); setMobileSidebarOpen(false); }} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeamName} />
-                  <div className="mt-3"><HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
+                )}
+                <div className="mt-3"><HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} teamName={workspaceScope === "team" ? selectedTeamName : null} /></div>
+              </div>
+              {report && selectedFile && (
+                <div className={`border-t p-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                  <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); setMobileSidebarOpen(false); }} className="rounded-lg border" />
                 </div>
-              ) : (
-                <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setSelectedLine(null); setPreviewSymbols([]); setMobileSidebarOpen(false); }} className="border-r-0" />
               )}
             </div>
+            <AccountFooter isDark={isDark} isKo={isKo} />
           </div>
         </div>
       )}
