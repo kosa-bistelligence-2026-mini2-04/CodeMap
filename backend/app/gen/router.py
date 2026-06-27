@@ -41,7 +41,16 @@ router = APIRouter(prefix="/api/gen/docs", tags=["DOCS GEN"])
 @router.get(
     "/{repo_id}",
     status_code=status.HTTP_200_OK,
-    response_model=Union[DocGetMarkdownResponse, DocGetJsonResponse],
+    ## response_model을 명시하지 않아 FastAPI smart-union의 잘못된 직렬화 분기를 방지한다.
+    ## 두 응답 모델이 동일한 최상위 envelope(code/message/data)를 공유하므로
+    ## Union 지정 시 format=json 응답이 DocGetMarkdownResponse로 잘못 검증될 수 있다.
+    ## 반환 타입 힌트가 문서화 역할을 대신하며, 실제 직렬화는 Pydantic 인스턴스가 처리한다.
+    response_model=None,
+    responses={
+        200: {
+            "description": "format=markdown: Markdown 전문 / format=json: master_report 구조화 JSON",
+        }
+    },
     summary="온보딩 가이드북 조회 (DOCS-GEN-API-001)",
 )
 async def get_doc(
@@ -102,6 +111,7 @@ async def trigger_doc_generation(
         repo_id=repo_id,
         force=body.force,
         background_tasks=background_tasks,
+        model=body.model,
     )
 
     logger.info(

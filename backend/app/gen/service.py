@@ -145,20 +145,39 @@ async def get_onboarding_doc(
     if fmt == "json":
         report = doc.report_json or {}
         guide = report.get("guide") or {}
+
+        ## stack은 {technologies, primary_language, ...} 형태의 dict — technologies 리스트 추출
+        stack_raw = report.get("stack") or {}
+        stack_list = (
+            stack_raw.get("technologies", [])
+            if isinstance(stack_raw, dict)
+            else stack_raw
+        )
+
+        ## folder_summaries는 file_map 래퍼 내부의 실제 폴더맵
+        folder_map = (
+            (report.get("file_map") or {}).get("folder_summaries") or {}
+        )
         folder_items = [
             {"path": k, "description": v}
-            for k, v in (report.get("file_map") or {}).items()
+            for k, v in folder_map.items()
         ]
+
+        ## core_flow는 guide가 아닌 summary.flow_explanation에 저장됨
+        core_flow = (report.get("summary") or {}).get("flow_explanation")
+
         logger.info(
             "[DOCS-GEN-API-001] JSON 조회 완료 | repo_id=%s version=%d",
             repo_id, doc.version,
         )
         return DocGetJsonData(
+            repo_id=repo_id,
+            repo_name=getattr(analysis_job, "repo_name", "") or "",
             summary=report.get("summary"),
-            stack=report.get("stack") or [],
+            stack=stack_list,
             reading_order=guide.get("reading_order") or [],
             danger_files=guide.get("risk_files") or [],
-            core_flow=guide.get("flow_explanation"),
+            core_flow=core_flow,
             folder_summaries=folder_items,
             generated_at=doc.created_at,
             version=doc.version,
@@ -186,6 +205,7 @@ async def validate_and_queue_doc_generation(
     repo_id: UUID,
     force: bool,
     background_tasks: BackgroundTasks,
+    model: str = "gpt-4o-mini",
 ) -> tuple[UUID, int]:
     '''
     가이드북 생성 트리거(API-002) 사전 검증 후 백그라운드 작업을 등록한다.
@@ -201,6 +221,7 @@ async def validate_and_queue_doc_generation(
         repo_id:          대상 저장소 ID
         force:            기존 가이드북 덮어쓰기 여부
         background_tasks: FastAPI BackgroundTasks 인스턴스
+        model:            가이드북 생성에 사용할 LLM 모델 식별자
 
     Returns:
         (job_id, next_version) 튜플 — 202 응답에 사용
@@ -211,7 +232,11 @@ async def validate_and_queue_doc_generation(
         DocsAlreadyExistsError (409)
         AnalysisNotCompletedError (422)
     '''
-    from app.gen.background import is_generation_in_progress, run_doc_generation
+    from app.gen.background import (
+        _mark_in_progress,
+        is_generation_in_progress,
+        run_doc_generation,
+    )
 
     repo = GenDocRepository(db)
     settings = get_settings()
@@ -244,10 +269,13 @@ async def validate_and_queue_doc_generation(
         )
         raise AnalysisNotCompletedError()
 
-    ## 5. 백그라운드 작업 등록
+    ## 5. 백그라운드 등록 전 동기적으로 진행 중 마킹하여 Race Condition 방지
+    ## (BackgroundTask 내부에서 마킹하면 HTTP 응답 반환 후에야 set에 추가되어,
+    ##  연속 요청 2건이 동시에 검사를 통과하는 경쟁 조건이 발생함)
     next_version = latest_version + 1
-    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}"
+    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}/repo"
 
+    _mark_in_progress(repo_id)
     background_tasks.add_task(
         run_doc_generation,
         repo_id=repo_id,
@@ -256,6 +284,7 @@ async def validate_and_queue_doc_generation(
         repo_name=analysis_job.repo_name,
         version=next_version,
         clone_path=clone_path,
+        model=model,
     )
 
     logger.info(

@@ -53,18 +53,37 @@ def master_report_to_markdown(
         lines.append(f"{summary}\n")
 
     ## 2. 기술 스택
-    stack = report.get("stack") or []
-    if stack:
+    ## stack은 {technologies, primary_language, languages, frameworks} 형태의 dict
+    stack = report.get("stack") or {}
+    if isinstance(stack, dict):
+        technologies = stack.get("technologies") or []
+        primary_lang = stack.get("primary_language", "")
+        languages = stack.get("languages") or []
+        if technologies or primary_lang:
+            lines.append("## 기술 스택\n")
+            if primary_lang:
+                lines.append(f"**주 언어**: {primary_lang}\n")
+            for tech in technologies:
+                lines.append(f"- {tech}")
+            for lang in languages:
+                if lang not in technologies:
+                    lines.append(f"- {lang}")
+            lines.append("")
+    elif isinstance(stack, list) and stack:
         lines.append("## 기술 스택\n")
         for tech in stack:
             lines.append(f"- {tech}")
         lines.append("")
 
     ## 3. 폴더 구조 설명 (folder_summaries)
+    ## file_map은 {folder_summaries, entrypoints, total_files, total_lines} 형태의 dict
     file_map = report.get("file_map") or {}
-    if file_map:
+    folder_summaries = (
+        file_map.get("folder_summaries") if isinstance(file_map, dict) else {}
+    ) or {}
+    if folder_summaries:
         lines.append("## 폴더 구조\n")
-        for folder, desc in file_map.items():
+        for folder, desc in folder_summaries.items():
             lines.append(f"### `{folder}`\n")
             desc_text = desc if isinstance(desc, str) else str(desc)
             lines.append(f"{desc_text}\n")
@@ -75,14 +94,14 @@ def master_report_to_markdown(
         reading_order = guide.get("reading_order") or []
         if reading_order:
             lines.append("## 추천 파일 읽기 순서\n")
-            lines.append("| 순서 | 파일 경로 | 이유 |")
-            lines.append("|:---:|:---|:---|")
-            for item in reading_order:
-                if isinstance(item, dict):
-                    rank = item.get("rank", "")
+            for i, item in enumerate(reading_order, start=1):
+                ## reading_order 항목은 파일 경로 문자열
+                if isinstance(item, str):
+                    lines.append(f"{i}. `{item}`")
+                elif isinstance(item, dict):
                     path = item.get("path", "")
                     reason = item.get("reason", "")
-                    lines.append(f"| {rank} | `{path}` | {reason} |")
+                    lines.append(f"{i}. `{path}` — {reason}")
             lines.append("")
 
         risk_files = guide.get("risk_files") or []
@@ -90,16 +109,22 @@ def master_report_to_markdown(
             lines.append("## 주의 / 위험 파일\n")
             for rf in risk_files:
                 if isinstance(rf, dict):
-                    path = rf.get("path", "")
+                    ## risk_files 항목 키는 "file" (nodes.py LLM 프롬프트 기준)
+                    file_path = rf.get("file", "") or rf.get("path", "")
                     reason = rf.get("reason", "")
-                    lines.append(f"- **`{path}`**: {reason}")
+                    lines.append(f"- **`{file_path}`**: {reason}")
+                elif isinstance(rf, str):
+                    lines.append(f"- **`{rf}`**")
             lines.append("")
 
         first_tasks = guide.get("first_tasks") or []
         if first_tasks:
             lines.append("## 첫 기여 추천 작업\n")
             for task_item in first_tasks:
-                if isinstance(task_item, dict):
+                ## first_tasks 항목은 작업 설명 문자열
+                if isinstance(task_item, str):
+                    lines.append(f"- {task_item}")
+                elif isinstance(task_item, dict):
                     task = task_item.get("task", "")
                     difficulty = task_item.get("difficulty", "")
                     lines.append(f"- {task} *(난이도: {difficulty})*")

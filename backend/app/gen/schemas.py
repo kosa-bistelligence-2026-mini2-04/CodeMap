@@ -116,6 +116,8 @@ class DocGetJsonData(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
+    repo_id: UUID = Field(alias="repoId", description="저장소 ID")
+    repo_name: str = Field(alias="repoName", description="저장소 이름")
     summary: Any = Field(default=None, description="프로젝트 요약 정보")
     stack: list[Any] = Field(default_factory=list, description="기술 스택 목록")
     reading_order: list[Any] = Field(
