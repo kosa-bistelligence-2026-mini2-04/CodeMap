@@ -395,7 +395,10 @@ _EXT_TO_LANGUAGE: dict[str, str] = {
 
 
 def _detect_language(path: str) -> str | None:
-    return _EXT_TO_LANGUAGE.get(Path(path).suffix.lower())
+    path_obj = Path(path)
+    if path_obj.name.lower() == "dockerfile":
+        return "dockerfile"
+    return _EXT_TO_LANGUAGE.get(path_obj.suffix.lower())
 
 
 def _read_file_safe(clone_root: Path, rel_path: str) -> tuple[str, bool]:
@@ -405,7 +408,7 @@ def _read_file_safe(clone_root: Path, rel_path: str) -> tuple[str, bool]:
     """
     target = (clone_root / rel_path).resolve()
     try:
-        target.relative_to(clone_root)
+        target.relative_to(clone_root.resolve())
     except ValueError:
         raise FilePathForbiddenError()
 
