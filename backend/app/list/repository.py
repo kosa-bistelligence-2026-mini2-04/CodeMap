@@ -68,6 +68,21 @@ class AnalysisJobListRepository:
         await self.db.refresh(job)
         return self._to_status_update_model(job)
 
+    async def delete_job(self, job_id: UUID, current_user_id: UUID) -> bool:
+        """분석 작업 엔티티를 삭제합니다."""
+        stmt = select(AnalysisJob).where(AnalysisJob.id == job_id)
+        result = await self.db.execute(stmt)
+        job = result.scalar_one_or_none()
+        if job:
+            user_id = getattr(job, "user_id", None)
+            if user_id is not None and user_id != current_user_id:
+                return False
+            
+            await self.db.delete(job)
+            await self.db.commit()
+            return True
+        return False
+
     def _to_list_model(self, job: AnalysisJob) -> AnalysisJobListModel:
         """DB 엔티티를 목록 API 내부 모델로 변환합니다."""
         is_failed = job.status == "FAILED"
