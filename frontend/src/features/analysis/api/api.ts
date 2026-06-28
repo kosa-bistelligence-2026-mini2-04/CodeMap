@@ -310,3 +310,56 @@ export async function declineInvite(inviteId: string): Promise<void> {
     throw new Error(errData?.message || errData?.detail || `Failed to decline invite: ${resp.status}`);
   }
 }
+
+export async function removeTeamMember(teamId: string, userId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/members/${userId}`), {
+    method: "DELETE",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
+}
+
+export async function leaveTeam(teamId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/leave`), {
+    method: "POST",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
+}
+
+export async function fetchTeamInvites(teamId: string): Promise<TeamInviteItem[]> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/invites`), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (resp.status === 401 || resp.status === 404) return [];
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
+  const payload = await resp.json();
+  return (payload.invites || payload.data?.invites || []) as TeamInviteItem[];
+}
+
+export async function cancelTeamInvite(teamId: string, inviteId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/invites/${inviteId}/cancel`), {
+    method: "POST",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
+}
+
+export async function fetchTeamMembers(teamId: string): Promise<import("@/common/types/contracts").TeamMemberResponse[]> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/members`), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (resp.status === 401 || resp.status === 404) return [];
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
+  return await resp.json();
+}

@@ -281,6 +281,15 @@ export interface TeamWorkspace {
   joinedAt?: string | null;
 }
 
+export interface TeamMemberResponse {
+  id: string;
+  teamId: string;
+  userId: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
 export interface TeamInviteItem {
   inviteId: string;
   teamId: string;
