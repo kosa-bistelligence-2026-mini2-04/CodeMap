@@ -2,29 +2,20 @@
 
 from __future__ import annotations
 
-import re
+import regex
 from pathlib import Path
+
+from app.agent.util.safe_regex import compile_safe_regex
 
 _MAX_FILE_SIZE = 50_000
 _MAX_GREP_RESULTS = 30
-_MAX_PATTERN_LENGTH = 128
-_NESTED_QUANTIFIER = re.compile(r"\([^)]*[+*][^)]*\)\s*[+*?{]")
-
-
-def _is_safe_pattern(pattern: str) -> bool:
-    """Reject empty or high-risk regex patterns before scanning repository files."""
-    if not pattern or not pattern.strip():
-        return False
-    if len(pattern) > _MAX_PATTERN_LENGTH:
-        return False
-    if _NESTED_QUANTIFIER.search(pattern):
-        return False
-    return True
 
 
 def grep_repository_path(clone_path: str, rel_path: str | None, pattern: str) -> str:
     """Search a repository-relative path with a bounded regex scan."""
-    if not _is_safe_pattern(pattern):
+    try:
+        compiled = compile_safe_regex(pattern, regex.IGNORECASE)
+    except ValueError:
         return ""
 
     base = (Path(clone_path) / (rel_path or "")).resolve()
@@ -36,7 +27,6 @@ def grep_repository_path(clone_path: str, rel_path: str | None, pattern: str) ->
 
     matches: list[str] = []
     try:
-        compiled = re.compile(pattern, re.IGNORECASE)
         count = 0
         candidates = [base] if base.is_file() else sorted(base.rglob("*"))
         for file_path in candidates:
@@ -45,17 +35,21 @@ def grep_repository_path(clone_path: str, rel_path: str | None, pattern: str) ->
             try:
                 text = file_path.read_text(encoding="utf-8", errors="ignore")
                 for lineno, line in enumerate(text.splitlines(), 1):
-                    if compiled.search(line):
+                    if compiled.search(line, timeout=0.1):
                         rel = file_path.relative_to(root)
                         matches.append(f"{rel}:{lineno}: {line.strip()}")
                         count += 1
                         if count >= _MAX_GREP_RESULTS:
                             break
+            except TimeoutError:
+                rel = file_path.relative_to(root)
+                matches.append(f"{rel}: (정규식 타임아웃 방어)")
+                break
             except Exception:
                 continue
             if count >= _MAX_GREP_RESULTS:
                 break
-    except re.error as exc:
+    except regex.error as exc:
         return f"정규식 오류: {exc}"
 
     return "\n".join(matches) or "(결과 없음)"

@@ -21,7 +21,17 @@ async def grep_worker(state: CodeMapState) -> dict:
 
     logger.info("[GrepWorker] 시작 — pattern=%r path=%s", pattern, rel_path or ".")
     started_event = {"type": "worker_started", "worker": "grep", "target": rel_path or "."}
-    content = await asyncio.to_thread(grep_repository_path, clone_path, rel_path, pattern)
+    
+    try:
+        content = await asyncio.wait_for(
+            asyncio.to_thread(grep_repository_path, clone_path, rel_path, pattern),
+            timeout=2.0
+        )
+    except asyncio.TimeoutError:
+        content = "정규식 오류: Regex execution timed out (ReDoS protection)"
+    except Exception as exc:
+        content = f"오류 발생: {exc}"
+        
     if not content:
         return {"worker_results": [], "events": [
             started_event,

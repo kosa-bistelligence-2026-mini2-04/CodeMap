@@ -20,7 +20,17 @@ async def read_worker(state: CodeMapState) -> dict:
 
     logger.info("[ReadWorker] 시작 — path=%s", rel_path)
     started_event = {"type": "worker_started", "worker": "read", "target": rel_path or "."}
-    content = await asyncio.to_thread(read_repository_file, clone_path, rel_path)
+    
+    try:
+        content = await asyncio.wait_for(
+            asyncio.to_thread(read_repository_file, clone_path, rel_path),
+            timeout=2.0
+        )
+    except asyncio.TimeoutError:
+        content = "파일 읽기 오류: Execution timed out"
+    except Exception as exc:
+        content = f"오류 발생: {exc}"
+        
     if not content:
         return {"worker_results": [], "events": [
             started_event,
