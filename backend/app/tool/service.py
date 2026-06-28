@@ -4,6 +4,7 @@ MCP-style 외부 도구 Job 실행 서비스.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from pathlib import Path
@@ -13,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.state import WorkerResult
 from app.infra.config import get_settings
+from app.repo.repository import AnalysisJobRepository
+from app.tool.ast_quality_tool import calculate_ast_quality
 from app.tool.dir_scan import scan_directory_tree
 from app.tool.file_read import read_repository_file
 from app.tool.grep_scan import grep_repository_path
@@ -20,7 +23,7 @@ from app.tool.hybrid_search import hybrid_search
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_TOOLS = frozenset({"vector_search", "file_read", "dir_scan", "grep_scan"})
+_SUPPORTED_TOOLS = frozenset({"vector_search", "file_read", "dir_scan", "grep_scan", "ast_quality"})
 
 
 # ──────────────────────────────────────────────
@@ -59,6 +62,8 @@ class CodeMapToolService:
 
         if tool_name == "vector_search":
             results = await self._execute_vector_search(job_id, tool_name, arguments)
+        elif tool_name == "ast_quality":
+            results = await self._execute_ast_quality(job_id, tool_name, arguments)
         else:
             results = self._execute_filesystem_tool(job_id, tool_name, arguments)
 
@@ -132,6 +137,43 @@ class CodeMapToolService:
                     "worker": worker,
                     "tool": tool_name,
                     "query": arguments.get("query") or arguments.get("pattern") or rel_path,
+                },
+            )
+        ]
+
+
+    async def _execute_ast_quality(self, job_id: UUID, tool_name: str, arguments: dict) -> list[WorkerResult]:
+        clone_path = Path(self.settings.CLONE_BASE_DIR) / str(job_id) / "repo"
+        rel_path = str(arguments.get("path") or "")
+
+        metrics = await asyncio.to_thread(calculate_ast_quality, str(clone_path), rel_path)
+
+        repo = AnalysisJobRepository(self.db)
+        job = await repo.get_job_by_id(job_id)
+        if job:
+            report = dict(job.report_json or {})
+            if "health_metrics" not in report:
+                report["health_metrics"] = {}
+            report["health_metrics"]["complexity"] = metrics.get("complexity", 50)
+            report["health_metrics"]["modularity"] = metrics.get("modularity", 50)
+            await repo.update_job_status(job_id=job_id, status=job.status, report_json=report)
+            await self.db.commit()
+
+        snippet = f"Complexity Score: {metrics.get('complexity', 50)}\nModularity Score: {metrics.get('modularity', 50)}"
+
+        return [
+            WorkerResult(
+                id=f"ev_{uuid.uuid4().hex[:8]}",
+                path=rel_path or None,
+                lineStart=None,
+                lineEnd=None,
+                score=None,
+                snippet=snippet,
+                metadata={
+                    "worker": "ast",
+                    "tool": tool_name,
+                    "complexity": metrics.get("complexity", 50),
+                    "modularity": metrics.get("modularity", 50),
                 },
             )
         ]
