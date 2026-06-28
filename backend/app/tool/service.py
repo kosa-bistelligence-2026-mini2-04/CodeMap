@@ -182,8 +182,26 @@ class CodeMapToolService:
         ]
 
     async def _execute_env_validation(self, job_id: UUID, tool_name: str, arguments: dict) -> list[WorkerResult]:
-        clone_path = self._get_clone_path(job_id)
-        rel_path = arguments.get("rel_path")
+        clone_path = Path(self.settings.CLONE_BASE_DIR) / str(job_id) / "repo"
+        rel_path = str(arguments.get("path") or arguments.get("rel_path") or "")
         metrics = await asyncio.to_thread(calculate_env_validation, str(clone_path), rel_path)
-        content = f"Security Score: {metrics["security"]}\nQuality Score: {metrics["quality"]}"
-        return [WorkerResult(tool_name=tool_name, content=content, is_error=False)]
+        security = metrics.get("security", 50)
+        quality = metrics.get("quality", 50)
+        snippet = f"Security Score: {security}\nQuality Score: {quality}"
+
+        return [
+            WorkerResult(
+                id=f"ev_{uuid.uuid4().hex[:8]}",
+                path=rel_path or None,
+                lineStart=None,
+                lineEnd=None,
+                score=None,
+                snippet=snippet,
+                metadata={
+                    "worker": "env_validation",
+                    "tool": tool_name,
+                    "security": security,
+                    "quality": quality,
+                },
+            )
+        ]
