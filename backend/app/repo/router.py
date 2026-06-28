@@ -493,7 +493,6 @@ def _read_file_safe(clone_root: Path, rel_path: str) -> tuple[str, bool]:
 async def get_file_content(
     job_id: UUID,
     path: str = Query(..., description="저장소 내 상대 경로 (예: src/main.py)"),
-    current_user: Annotated[dict | None, Depends(get_current_user_optional)] = None,
     db: AsyncSession = Depends(get_db),
 ) -> FileContentResponse:
     """
@@ -504,14 +503,9 @@ async def get_file_content(
     - 바이너리 확장자는 422로 차단한다.
     - 50,000자 초과 시 잘린 내용과 truncated=true를 반환한다.
     """
-    ## job 존재 + 접근 권한 확인 (private/team 격리 — 파일 컨텐츠 조회도 동일 정책)
+    ## job 존재 확인
     service = AnalysisService(db)
-    user_id = (
-        UUID(current_user["sub"])
-        if current_user and "sub" in current_user
-        else None
-    )
-    job_resp = await service.get_job_status(job_id, current_user_id=user_id)
+    job_resp = await service.get_job_status(job_id)
 
     settings = get_settings()
     clone_root = (Path(settings.CLONE_BASE_DIR) / str(job_id) / "repo").resolve()

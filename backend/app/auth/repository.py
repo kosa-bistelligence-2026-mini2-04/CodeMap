@@ -68,3 +68,10 @@ class AuthRepository:
             delete(RefreshToken).where(RefreshToken.user_id == user_id)
         )
         return result.rowcount  # type: ignore[return-value]
+
+    async def delete_user(self, user_id: uuid.UUID) -> int:
+        """사용자 계정 삭제. CASCADE 옵션에 의해 team_members 등도 삭제될 수 있음."""
+        result = await self.db.execute(
+            delete(User).where(User.id == user_id)
+        )
+        return result.rowcount  # type: ignore[return-value]
