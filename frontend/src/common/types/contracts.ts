@@ -109,8 +109,8 @@ export interface WorkspaceFile {
   lines: number;
   bytes: number;
   chars?: number;
-  size?: number;
-  kind?: 'source' | 'test';
+  size: number;
+  kind: 'source' | 'test';
 }
 
 export interface WorkspaceReport {
@@ -132,7 +132,7 @@ export interface WorkspaceReport {
   entrypoints: string[];
   files: WorkspaceFile[];
   health_score: number;
-  executive_summary?: string;
+  executive_summary: string;
   rag_index?: {
     status: 'pending' | 'in_progress' | 'ready' | 'empty' | 'skipped' | 'failed';
     chunks: number;
@@ -328,7 +328,7 @@ export interface ReportJsonResponse {
   file_heatmap?: FileHeatmap | null;
   guardrail_telemetry?: GuardrailTelemetry | null;
   agent_durations?: Record<string, number>;
-  executive_summary?: string | null;
+  executive_summary: string | null;
   health_score?: number | null;
   key_strengths?: string[];
   key_risks?: string[];

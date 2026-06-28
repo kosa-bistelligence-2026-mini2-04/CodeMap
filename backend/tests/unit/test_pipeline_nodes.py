@@ -98,7 +98,7 @@ class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):
             )
 
             # 필수 계약 필드 검증
-            self.assertNotIn("executive_summary", report)
+            self.assertIn("executive_summary", report)
             self.assertIn("files", report)
             self.assertTrue(len(report["files"]) > 0)
 
@@ -107,6 +107,8 @@ class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("bytes", first_file)
             self.assertIn("chars", first_file)
             self.assertIn("language", first_file)
+            self.assertIn("size", first_file)
+            self.assertIn("kind", first_file)
 
             # 리포지토리 상태 업데이트 호출 인자 검증
             mock_repo.update_job_status.assert_called_once()

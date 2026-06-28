@@ -1054,6 +1054,10 @@ class AnalysisService:
 
         report = {
             "repository": {"name": repo_name, "root": str(root)},
+            "executive_summary": (
+                f"{repo_name}은(는) {primary_language} 중심의 코드베이스입니다. "
+                "실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
+            ),
             "stats": {
                 "files": total_files,
                 "lines": total_lines,
@@ -1068,7 +1072,14 @@ class AnalysisService:
             ],
             "stack": env_res["detected_stack"],
             "entrypoints": env_res["entrypoints"][:12],
-            "files": file_meta,
+            "files": [
+                {
+                    **f,
+                    "size": f["bytes"],
+                    "kind": "test" if ("test" in f["name"].lower() or "test" in f["path"].lower()) else "source",
+                }
+                for f in file_meta
+            ],
             "health_score": health_score,
             "health_metrics": {
                 "security": security_score,
