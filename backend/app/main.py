@@ -34,6 +34,10 @@ from app.team.router import invite_router as team_invite_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.infra.database import checkpoint_pool, get_checkpointer
+    await checkpoint_pool.open()
+    await get_checkpointer().setup()
+
     run_registry_sweeper = asyncio.create_task(sweep_run_registry())
     # 애플리케이션 시작 시 DB vector extension 및 필수 RAG 테이블 존재 여부 검증
     try:
@@ -72,6 +76,8 @@ async def lifespan(app: FastAPI):
             await run_registry_sweeper
         # 애플리케이션 종료 시 커넥션 풀 닫기
         await engine.dispose()
+        from app.infra.database import checkpoint_pool
+        await checkpoint_pool.close()
 
 # ──────────────────────────────────────────────
 # FastAPI 앱 인스턴스 생성

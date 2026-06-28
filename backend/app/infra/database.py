@@ -19,6 +19,27 @@ import re
 db_url_str = settings.DATABASE_URL.get_secret_value() if hasattr(settings.DATABASE_URL, "get_secret_value") else settings.DATABASE_URL
 ASYNC_DATABASE_URL = re.sub(r"^postgresql(\+[a-zA-Z0-9_]+)?://", "postgresql+asyncpg://", db_url_str)
 
+# psycopg 비동기 드라이버 사용을 위한 URL (langgraph-checkpoint-postgres)
+PSYCOPG_URL = re.sub(r"^postgresql(\+[a-zA-Z0-9_]+)?://", "postgresql://", db_url_str)
+
+# LangGraph checkpoint용 psycopg Connection Pool
+from psycopg_pool import AsyncConnectionPool
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+checkpoint_pool = AsyncConnectionPool(
+    conninfo=PSYCOPG_URL,
+    max_size=10,
+    kwargs={"autocommit": True, "prepare_threshold": 0},
+    open=False,
+)
+_checkpoint_saver = None
+
+def get_checkpointer():
+    global _checkpoint_saver
+    if _checkpoint_saver is None:
+        _checkpoint_saver = AsyncPostgresSaver(checkpoint_pool)
+    return _checkpoint_saver
+
 # 비동기 SQLAlchemy 엔진 생성
 engine = create_async_engine(
     ASYNC_DATABASE_URL,
