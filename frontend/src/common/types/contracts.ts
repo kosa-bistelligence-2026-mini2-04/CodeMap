@@ -111,6 +111,17 @@ export interface WorkspaceFile {
   kind: 'source' | 'test';
 }
 
+export interface HealthMetrics {
+  score: number;
+  test_ratio: number;
+  todo_ratio: number;
+  oversized_ratio: number;
+  security?: number;
+  quality?: number;
+  complexity?: number;
+  modularity?: number;
+}
+
 export interface WorkspaceReport {
   job_id?: string;
   status?: 'completed';
@@ -130,6 +141,7 @@ export interface WorkspaceReport {
   entrypoints: string[];
   files: WorkspaceFile[];
   health_score: number;
+  health_metrics?: HealthMetrics;
   executive_summary: string;
   rag_index?: {
     status: 'pending' | 'in_progress' | 'ready' | 'empty' | 'skipped' | 'failed';
@@ -294,6 +306,7 @@ export interface TeamInviteItem {
   inviteId: string;
   teamId: string;
   teamName: string;
+  email?: string;
   invitedByEmail?: string | null;
   status: string;
   expiresAt: string;
