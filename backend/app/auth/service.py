@@ -24,6 +24,7 @@ from app.auth.schemas import (
 )
 from app.infra.auth import create_access_token
 from app.infra.config import get_settings
+from app.team.service import TeamService
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -226,13 +227,12 @@ class AuthService:
         """
         사용자 계정 탈퇴 처리.
         - 자신이 만든 팀 분석 이력(team job)은 다른 팀원에게 자동 양도
-        - 계정 정보 삭제 (CASCADE 연관 데이터 포함)
+        - Refresh Token 명시 삭제 후 계정 정보 삭제
         """
-        from app.team.service import TeamService
-
         team_service = TeamService(self.db)
         await team_service.transfer_orphan_ownership(user_id)
 
+        await self.repo.delete_all_refresh_tokens(user_id)
         await self.repo.delete_user(user_id)
         await self.db.commit()
         logger.info("[AUTH] 회원 탈퇴: user_id=%s", user_id)

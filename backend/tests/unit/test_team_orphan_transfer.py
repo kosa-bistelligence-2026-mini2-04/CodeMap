@@ -12,14 +12,6 @@ from app.team.service import TeamService
 engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Patch JSONB for sqlite compilation issue
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.dialects.postgresql import JSONB
-
-@compiles(JSONB, "sqlite")
-def compile_jsonb_sqlite(type_, compiler, **kw):
-    return "JSON"
-
 class TeamOrphanTransferTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         async with engine.begin() as conn:
