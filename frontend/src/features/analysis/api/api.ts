@@ -11,6 +11,8 @@ import type {
   ParseTreeData,
   PreValidateRequest,
   PreValidateResponse,
+  TeamWorkspace,
+  TeamInviteItem,
 } from "@/common/types/contracts";
 import { getAccessToken } from "@/features/auth/utils/tokenMemory";
 import { parseApiError } from "@/common/api/error";
@@ -24,8 +26,9 @@ export function apiPath(path: string): string {
   return `${BASE_URL}${normalizedPath}`;
 }
 
-function getAuthorizationHeader(): string {
-  return `Bearer ${getAccessToken()}`;
+function getAuthorizationHeaders(): HeadersInit {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 /**
@@ -39,6 +42,7 @@ export async function startAnalysis(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthorizationHeaders(),
       "X-Request-Id": typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" 
         ? crypto.randomUUID() 
         : Math.random().toString(36).substring(2, 15),
@@ -61,7 +65,9 @@ export async function startAnalysis(
 export async function fetchJobStatus(
   jobId: string,
 ): Promise<{ code: number; message: string; data: JobStatusData }> {
-  const resp = await fetch(apiPath(`/repo/analysis/${jobId}`));
+  const resp = await fetch(apiPath(`/repo/analysis/${jobId}`), {
+    headers: getAuthorizationHeaders(),
+  });
   if (!resp.ok) {
     throw new Error(`Failed to fetch job status: ${resp.status}`);
   }
@@ -92,14 +98,18 @@ export async function fetchParseDetails(jobId: string): Promise<ParseDetails> {
 export async function fetchAnalysisHistory(
   page = 1,
   limit = 30,
+  scope: "private" | "team" | "all" = "all",
+  teamId?: string | null,
 ): Promise<AnalysisHistoryResponse> {
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
+    scope,
   });
+  if (teamId) params.set("teamId", teamId);
   const resp = await fetch(apiPath(`/list/analysis?${params.toString()}`), {
     headers: {
-      Authorization: getAuthorizationHeader(),
+      ...getAuthorizationHeaders(),
     },
   });
 
@@ -122,23 +132,33 @@ export async function fetchAnalysisHistory(
 }
 
 /**
+ * EventSource/WebSocket은 Authorization 헤더를 보낼 수 없으므로,
+ * private/team 분석의 실시간 채널 접근을 위해 토큰을 query param으로 전달한다.
+ */
+function withToken(url: string): string {
+  const token = getAccessToken();
+  if (!token) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+}
+
+/**
  * GET /api/repo/analysis/{jobId}/events — SSE 이벤트 스트림
  * Returns EventSource URL for SSE streaming
  */
 export function buildSseUrl(jobId: string): string {
-  return apiPath(`/repo/analysis/${jobId}/events`);
+  return withToken(apiPath(`/repo/analysis/${jobId}/events`));
 }
 
 /**
  * Build WebSocket URL for real-time progress
- * WS /ws/progress/{jobId}
+ * WS /ws/list/progress/{jobId}
  */
 export function buildWsUrl(wsPath: string): string {
-  if (/^wss?:\/\//i.test(wsPath)) return wsPath;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host;
   const path = wsPath.startsWith("/") ? wsPath : `/${wsPath}`;
-  return `${proto}//${host}${BASE_PATH}${path}`;
+  const base = /^wss?:\/\//i.test(wsPath) ? wsPath : `${proto}//${host}${BASE_PATH}${path}`;
+  return withToken(base);
 }
 
 /**
@@ -161,7 +181,7 @@ export async function fetchFileContent(
     apiPath(
       `/repo/analysis/${encodeURIComponent(jobId)}/files/content?path=${encodeURIComponent(path)}`,
     ),
-    { headers: { Authorization: getAuthorizationHeader() }, signal },
+    { headers: getAuthorizationHeaders(), signal },
   );
 
   if (!resp.ok) {
@@ -181,7 +201,7 @@ export async function validateRepository(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: getAuthorizationHeader(),
+      ...getAuthorizationHeaders(),
     },
     body: JSON.stringify(payload),
   });
@@ -202,12 +222,91 @@ export async function deleteAnalysisJob(jobId: string): Promise<void> {
   const resp = await fetch(apiPath(`/list/analysis/${jobId}`), {
     method: "DELETE",
     headers: {
-      Authorization: getAuthorizationHeader(),
+      ...getAuthorizationHeaders(),
     },
   });
 
   if (!resp.ok) {
     const errData = await resp.json().catch(() => ({}));
     throw new Error(errData?.message || errData?.error || `Failed to delete analysis job: ${resp.status}`);
+  }
+}
+
+export async function fetchTeams(): Promise<TeamWorkspace[]> {
+  const resp = await fetch(apiPath("/teams"), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (resp.status === 401 || resp.status === 404) return [];
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to fetch teams: ${resp.status}`);
+  }
+  const payload = await resp.json();
+  return (payload.teams || payload.data?.teams || []) as TeamWorkspace[];
+}
+
+export async function createTeam(name: string): Promise<TeamWorkspace> {
+  const resp = await fetch(apiPath("/teams"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthorizationHeaders(),
+    },
+    body: JSON.stringify({ name }),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to create team: ${resp.status}`);
+  }
+  return await resp.json();
+}
+
+export async function inviteTeamMember(teamId: string, email: string): Promise<void> {
+  const resp = await fetch(apiPath(`/teams/${teamId}/invites`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthorizationHeaders(),
+    },
+    body: JSON.stringify({ email }),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to invite member: ${resp.status}`);
+  }
+}
+
+export async function fetchMyInvites(): Promise<TeamInviteItem[]> {
+  const resp = await fetch(apiPath("/team-invites"), {
+    headers: getAuthorizationHeaders(),
+  });
+  if (resp.status === 401 || resp.status === 404) return [];
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to fetch invites: ${resp.status}`);
+  }
+  const payload = await resp.json();
+  return (payload.invites || payload.data?.invites || []) as TeamInviteItem[];
+}
+
+export async function acceptInvite(inviteId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/team-invites/${inviteId}/accept`), {
+    method: "POST",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to accept invite: ${resp.status}`);
+  }
+}
+
+export async function declineInvite(inviteId: string): Promise<void> {
+  const resp = await fetch(apiPath(`/team-invites/${inviteId}/decline`), {
+    method: "POST",
+    headers: getAuthorizationHeaders(),
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    throw new Error(errData?.message || errData?.detail || `Failed to decline invite: ${resp.status}`);
   }
 }

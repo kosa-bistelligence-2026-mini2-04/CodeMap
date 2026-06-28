@@ -89,15 +89,15 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.data.total_size_kb, 3)  # 1024 + 2048 = 3072 bytes -> 3 KB
         self.assertIsNone(res.data.warning_message)
         self.assertIsNotNone(res.data.limit)
-        self.assertEqual(res.data.limit.file_count, 100)
-        self.assertEqual(res.data.limit.file_size_kb, 100)
+        self.assertEqual(res.data.limit.file_count, 500)
+        self.assertEqual(res.data.limit.file_size_kb, 500)
 
     @patch("httpx.AsyncClient.get")
     async def test_validate_repository_file_count_warning(self, mock_get):
         """파일 수가 100개를 초과할 때 warningMessage가 올바르게 설정되는지 확인합니다."""
         ## branch를 명시하면 tree API 호출 1회만 발생하므로 mock 1개만 설정
         mock_tree = []
-        for i in range(101):
+        for i in range(501):
             mock_tree.append({"path": f"src/file_{i}.py", "type": "blob", "size": 100})
 
         mock_response_tree = MagicMock()
@@ -113,12 +113,12 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(res.code, 200)
         self.assertFalse(res.data.is_valid)
-        self.assertEqual(res.data.file_count, 101)
-        self.assertIn("100개를 초과", res.data.warning_message)
+        self.assertEqual(res.data.file_count, 501)
+        self.assertIn("500개를 초과", res.data.warning_message)
         self.assertEqual(res.data.warning_code, "FILE_COUNT_EXCEEDED")
         self.assertIsNotNone(res.data.limit)
-        self.assertEqual(res.data.limit.file_count, 100)
-        self.assertEqual(res.data.limit.file_size_kb, 100)
+        self.assertEqual(res.data.limit.file_count, 500)
+        self.assertEqual(res.data.limit.file_size_kb, 500)
         self.assertEqual(res.data.max_file_size_kb, 1)  # 100 bytes -> 1 KB
 
     @patch("httpx.AsyncClient.get")
@@ -129,7 +129,7 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         mock_response_tree.json.return_value = {
             "truncated": False,
             "tree": [
-                {"path": "src/large_file.py", "type": "blob", "size": 102401},  ## 100KB 초과
+                {"path": "src/large_file.py", "type": "blob", "size": 512001},  ## 500KB 초과
                 {"path": "src/small_file.py", "type": "blob", "size": 100},
             ]
         }
@@ -144,20 +144,20 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.code, 200)
         self.assertFalse(res.data.is_valid)
         self.assertEqual(res.data.file_count, 2)
-        self.assertIn("100KB를 초과하는 대용량 파일", res.data.warning_message)
+        self.assertIn("500KB를 초과하는 대용량 파일", res.data.warning_message)
         self.assertEqual(res.data.warning_code, "FILE_SIZE_EXCEEDED")
         self.assertIsNotNone(res.data.limit)
-        self.assertEqual(res.data.limit.file_count, 100)
-        self.assertEqual(res.data.limit.file_size_kb, 100)
-        self.assertEqual(res.data.max_file_size_kb, 101)  # 102401 bytes -> 101 KB
+        self.assertEqual(res.data.limit.file_count, 500)
+        self.assertEqual(res.data.limit.file_size_kb, 500)
+        self.assertEqual(res.data.max_file_size_kb, 501)  # 512001 bytes -> 501 KB
 
     @patch("httpx.AsyncClient.get")
     async def test_validate_repository_both_exceeded_warning(self, mock_get):
         """파일 수와 파일 크기 제한을 모두 초과했을 때 warning_code가 REPO_LIMIT_EXCEEDED로 설정되는지 확인합니다."""
         mock_tree = []
-        for i in range(100):
+        for i in range(500):
             mock_tree.append({"path": f"src/file_{i}.py", "type": "blob", "size": 100})
-        mock_tree.append({"path": "src/large_file.py", "type": "blob", "size": 102401})  # 101번째 파일, 100KB 초과
+        mock_tree.append({"path": "src/large_file.py", "type": "blob", "size": 512001})  # 501번째 파일, 500KB 초과
 
         mock_response_tree = MagicMock()
         mock_response_tree.status_code = 200
@@ -172,12 +172,12 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(res.code, 200)
         self.assertFalse(res.data.is_valid)
-        self.assertEqual(res.data.file_count, 101)
+        self.assertEqual(res.data.file_count, 501)
         self.assertEqual(res.data.warning_code, "REPO_LIMIT_EXCEEDED")
         self.assertIsNotNone(res.data.limit)
-        self.assertEqual(res.data.limit.file_count, 100)
-        self.assertEqual(res.data.limit.file_size_kb, 100)
-        self.assertEqual(res.data.max_file_size_kb, 101)
+        self.assertEqual(res.data.limit.file_count, 500)
+        self.assertEqual(res.data.limit.file_size_kb, 500)
+        self.assertEqual(res.data.max_file_size_kb, 501)
 
     @patch("httpx.AsyncClient.get")
     async def test_validate_repository_truncated(self, mock_get):
@@ -201,8 +201,8 @@ class TestPreValidateService(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(res.data.warning_message)
         self.assertTrue(res.data.is_truncated)
         self.assertIsNotNone(res.data.limit)
-        self.assertEqual(res.data.limit.file_count, 100)
-        self.assertEqual(res.data.limit.file_size_kb, 100)
+        self.assertEqual(res.data.limit.file_count, 500)
+        self.assertEqual(res.data.limit.file_size_kb, 500)
 
     @patch("httpx.AsyncClient.get")
     async def test_validate_repository_submodule_ignored(self, mock_get):
