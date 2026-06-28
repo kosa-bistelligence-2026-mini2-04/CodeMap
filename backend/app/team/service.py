@@ -18,7 +18,7 @@ class TeamService:
             AnalysisJob.user_id == user_id,
             AnalysisJob.team_id.is_not(None)
         ).distinct()
-        
+
         result = await self.db.execute(stmt)
         team_ids = result.scalars().all()
 
@@ -29,7 +29,7 @@ class TeamService:
                 TeamMember.user_id != user_id,
                 TeamMember.status == "active"
             ).order_by(TeamMember.created_at.asc()).limit(1)
-            
+
             member_res = await self.db.execute(member_stmt)
             next_owner_id = member_res.scalar_one_or_none()
 

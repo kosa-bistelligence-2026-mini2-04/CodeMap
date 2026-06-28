@@ -166,7 +166,7 @@ async def withdraw(
     user_id_str = current_user.get("sub")
     if not user_id_str:
         raise HTTPException(status_code=401, detail="INVALID_TOKEN")
-        
+
     await AuthService(db).withdraw(uuid.UUID(user_id_str))
     _clear_refresh_cookie(response)
     return {"code": 200, "message": "success", "data": None}
