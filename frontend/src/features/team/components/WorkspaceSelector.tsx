@@ -16,6 +16,7 @@ import {
   fetchTeamInvites,
   cancelTeamInvite,
 } from "@/features/analysis/api/api";
+import { useConfirm } from "@/common/hooks/useConfirm";
 
 export type WorkspaceScope = "private" | "team";
 
@@ -42,6 +43,7 @@ export function WorkspaceSelector({
   isKo,
   onSelectionChange,
 }: WorkspaceSelectorProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [teams, setTeams] = useState<TeamWorkspace[]>([]);
   const [invites, setInvites] = useState<TeamInviteItem[]>([]);
 
@@ -118,7 +120,7 @@ export function WorkspaceSelector({
 
   const handleLeaveTeam = async () => {
     if (!selectedTeamId || busy) return;
-    if (!window.confirm("정말 탈퇴하시겠습니까?")) return;
+    if (!(await confirm(isKo ? "팀 탈퇴" : "Leave Team", isKo ? "정말 탈퇴하시겠습니까?" : "Are you sure you want to leave this team?"))) return;
     setBusy(true);
     try {
       await leaveTeam(selectedTeamId);
@@ -133,7 +135,7 @@ export function WorkspaceSelector({
 
   const handleRemoveMember = async (userId: string) => {
     if (!selectedTeamId || busy) return;
-    if (!window.confirm("정말 추방하시겠습니까?")) return;
+    if (!(await confirm(isKo ? "멤버 추방" : "Remove Member", isKo ? "정말 추방하시겠습니까?" : "Are you sure you want to remove this member?"))) return;
     setBusy(true);
     try {
       await removeTeamMember(selectedTeamId, userId);
@@ -147,7 +149,7 @@ export function WorkspaceSelector({
 
   const handleCancelInvite = async (inviteId: string) => {
     if (!selectedTeamId || busy) return;
-    if (!window.confirm("초대를 취소하시겠습니까?")) return;
+    if (!(await confirm(isKo ? "초대 취소" : "Cancel Invite", isKo ? "초대를 취소하시겠습니까?" : "Are you sure you want to cancel this invitation?"))) return;
     setBusy(true);
     try {
       await cancelTeamInvite(selectedTeamId, inviteId);
@@ -229,7 +231,7 @@ export function WorkspaceSelector({
 
   const handleDecline = async (invite: TeamInviteItem) => {
     if (busy) return;
-    if (!window.confirm(isKo ? "초대를 거절하시겠습니까?" : "Decline this invitation?")) return;
+    if (!(await confirm(isKo ? "초대 거절" : "Decline Invite", isKo ? "초대를 거절하시겠습니까?" : "Decline this invitation?"))) return;
     setBusy(true);
     setError(null);
     try {
@@ -387,6 +389,7 @@ export function WorkspaceSelector({
           : "개인 기록은 본인 계정에서만 보입니다."}
       </p>
       {error && <p className="mt-2 text-[10px] font-medium text-red-400">{error}</p>}
+      <ConfirmDialog isDark={isDark} isKo={isKo} />
     </div>
   );
 }
