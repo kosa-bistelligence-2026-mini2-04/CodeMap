@@ -1096,57 +1096,6 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","status":"completed"}
 
 ---
 
-### REPO-FILE-API-001 분석 파일 컨텐츠 조회
-
-#### 기본 정보
-
-| 항목 | 값 |
-| :--- | :--- |
-| Endpoint | `GET /api/repo/analysis/{job_id}/files/content` |
-| Method | GET |
-| 관련 기능 ID | `PROJECT-REPO-B-402`, `PROJECT-ANALYZE-F-101`, `PROJECT-ANALYZE-F-102` |
-| 목적 | 분석 job의 clone workspace 내부 파일 내용을 코드 프리뷰와 채팅 근거 라인 이동에 제공 |
-| 상태 | 구현 완료 |
-
-#### 요청(Request)
-
-##### Path Parameter
-
-| 필드명 | 타입 | 필수 | 설명 |
-| :--- | :--- | :--- | :--- |
-| job_id | UUID | Y | 분석 작업 ID |
-
-##### Query Parameter
-
-| 필드명 | 타입 | 필수 | 설명 |
-| :--- | :--- | :--- | :--- |
-| path | String | Y | clone workspace 기준 파일 상대 경로 |
-
-#### 응답(Response)
-
-##### 성공 응답 - 200 OK
-
-| 필드명 | 타입 | 설명 |
-| :--- | :--- | :--- |
-| code | Integer | HTTP 상태 코드 |
-| message | String | `"success"` |
-| data.path | String | 요청한 파일 상대 경로 |
-| data.content | String | 파일 텍스트 컨텐츠. 50,000자 초과 시 앞부분만 반환 |
-| data.language | String \| Null | 확장자 기준 언어 식별자 |
-| data.lines | Integer | 파일 컨텐츠 기준 줄 수 |
-| data.truncated | Boolean | 50,000자 제한으로 잘렸는지 여부 |
-
-##### 에러 응답
-
-| HTTP Status | Error Code | 발생 시점 | 설명 |
-| :--- | :--- | :--- | :--- |
-| 403 | `FILE_PATH_FORBIDDEN` | 파일 경로 해결 | 요청 경로가 workspace 밖을 가리키거나 path traversal을 포함 |
-| 404 | `JOB_NOT_FOUND` | job 조회 | 존재하지 않는 분석 작업 ID |
-| 404 | `WORKSPACE_NOT_READY` | workspace/파일 검증 | clone workspace 미준비 또는 파일 없음 |
-| 422 | `BINARY_FILE` | 파일 확장자 검증 | 텍스트 프리뷰가 불가능한 바이너리 파일 |
-
----
-
 ## 에러 코드 정의
 
 | Error Code | HTTP Status | 설명 |
