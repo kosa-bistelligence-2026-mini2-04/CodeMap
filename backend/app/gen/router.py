@@ -107,6 +107,7 @@ async def trigger_doc_generation(
         repo_id=repo_id,
         force=body.force,
         background_tasks=background_tasks,
+        model=body.model,
     )
 
     logger.info(

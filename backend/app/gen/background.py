@@ -46,18 +46,20 @@ async def run_doc_generation(
     repo_name: str,
     version: int,
     clone_path: str | None,
+    model: str = "gpt-4o-mini",
 ) -> None:
     '''
     GenFormSupervisor 파이프라인을 실행하고 결과를 DB에 저장하는 백그라운드 코루틴.
 
     FastAPI BackgroundTasks.add_task(run_doc_generation, ...) 형태로 호출된다.
+    진행 중 마킹(_mark_in_progress)은 호출자(validate_and_queue_doc_generation)가
+    큐잉 시점에 동기적으로 처리하므로, 이 함수에서는 마킹 해제만 담당한다.
 
     실행 순서:
-      1. 진행 중 마킹
-      2. GenFormSupervisor 파이프라인 실행
-      3. master_report → Markdown 변환 (asyncio.to_thread 격리)
-      4. save_onboarding_doc으로 DB 저장
-      5. 완료(또는 실패) 후 마킹 해제
+      1. GenFormSupervisor 파이프라인 실행
+      2. master_report → Markdown 변환 (asyncio.to_thread 격리)
+      3. save_onboarding_doc으로 DB 저장
+      4. 완료(또는 실패) 후 마킹 해제
 
     Args:
         repo_id:         대상 저장소 ID
@@ -66,8 +68,8 @@ async def run_doc_generation(
         repo_name:       저장소 이름 (Markdown 제목용)
         version:         저장할 가이드북 버전 번호
         clone_path:      로컬 클론 경로 (없으면 None → 폴백 처리)
+        model:           LLM 모델 식별자 (파이프라인 노드에 전달)
     '''
-    _mark_in_progress(repo_id)
     try:
         ## 1. GenFormSupervisor 빌드 및 실행
         from app.gen.form.graph import GenFormSupervisor
@@ -80,6 +82,7 @@ async def run_doc_generation(
             "repo_id": str(repo_id),
             "clone_path": clone_path,
             "analysis_report": analysis_report,
+            "llm_model": model,
             "project_intro": None,
             "doc_summary": None,
             "folder_summaries": None,

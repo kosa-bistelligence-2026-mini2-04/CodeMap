@@ -7,6 +7,7 @@ import { ArrowLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { FileTree } from "@/features/chat/components/FileTree";
+import { CodePreviewPanel } from "@/features/analysis/components/CodePreviewPanel";
 import { fetchJobStatus } from "@/features/analysis/api/api";
 import type { WorkspaceReport } from "@/common/types/contracts";
 
@@ -19,6 +20,8 @@ function ChatContent() {
   const preview = searchParams.get("preview") === "1";
   const [report, setReport] = useState<WorkspaceReport | null>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [activeLine, setActiveLine] = useState<number | null>(null);
+  const [activeLineEnd, setActiveLineEnd] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
@@ -46,7 +49,18 @@ function ChatContent() {
       <div className="flex min-h-0 flex-1">
         {sidebarOpen && (
           <div className="hidden h-full w-[280px] shrink-0 md:block">
-            <FileTree repoName={repoName} files={report?.files || []} entrypoints={report?.entrypoints || []} activeFile={activeFile} onFileSelect={setActiveFile} className="border-r-0" />
+            <FileTree
+              repoName={repoName}
+              files={report?.files || []}
+              entrypoints={report?.entrypoints || []}
+              activeFile={activeFile}
+              onFileSelect={(file) => {
+                setActiveFile(file);
+                setActiveLine(null);
+                setActiveLineEnd(null);
+              }}
+              className="border-r-0"
+            />
           </div>
         )}
         <div className="h-full min-w-0 flex-1">
@@ -56,10 +70,29 @@ function ChatContent() {
             threadId={threadId}
             preview={preview}
             contextFile={activeFile}
-            onReferenceClick={(file) => setActiveFile(file)}
+            onReferenceClick={(file, line, lineEnd) => {
+              setActiveFile(file);
+              setActiveLine(line ?? null);
+              setActiveLineEnd(lineEnd ?? null);
+            }}
             onClearContextFile={() => setActiveFile(null)}
           />
         </div>
+        {activeFile && repoId && (
+          <div className="h-full w-full max-w-[600px] shrink-0">
+            <CodePreviewPanel
+              jobId={repoId}
+              filePath={activeFile}
+              highlightLine={activeLine}
+              highlightLineEnd={activeLineEnd}
+              onClose={() => {
+                setActiveFile(null);
+                setActiveLine(null);
+                setActiveLineEnd(null);
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
