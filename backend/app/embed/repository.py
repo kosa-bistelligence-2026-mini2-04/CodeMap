@@ -362,7 +362,7 @@ class EmbedRepository:
         )
         file_result = await self.db.execute(file_stmt)
         file_content = file_result.scalars().first()
-        if file_content:
+        if file_content is not None:
             return file_content
 
         ## 2차: CHUNK 노드 content를 순서대로 재구성

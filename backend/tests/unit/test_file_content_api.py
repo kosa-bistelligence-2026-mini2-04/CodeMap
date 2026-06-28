@@ -620,6 +620,10 @@ class TestEmbedRepositoryGetFileContent(unittest.TestCase):
         result = self._run(["FILE-CONTENT"], ["chunk-a", "chunk-b"])
         self.assertEqual(result, "FILE-CONTENT")
 
+    def test_returns_empty_string_when_file_content_is_empty(self):
+        result = self._run([""], ["chunk-a", "chunk-b"])
+        self.assertEqual(result, "")
+
     def test_reassembles_chunks_when_file_content_none(self):
         result = self._run([None], ["chunk-a", "chunk-b"])
         self.assertEqual(result, "chunk-a\n\nchunk-b")
