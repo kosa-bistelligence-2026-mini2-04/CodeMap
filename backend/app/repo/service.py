@@ -939,6 +939,11 @@ class AnalysisService:
             ## 예외 폴백: 소스 파일이 없는 경우
             report = {
                 "repository": {"name": repo_name, "root": str(root)},
+                "executive_summary": (
+                    f"{repo_name}은(는) 분석 가능한 텍스트 파일이 감지되지 않은 "
+                    "저장소입니다. 파일 구조와 실행 신호가 부족해 제한된 리포트를 "
+                    "생성했습니다."
+                ),
                 "stats": {
                     "files": 0, "lines": 0, "bytes": 0, "todos": 0,
                     "tests": 0, "primary_language": "Unknown",
