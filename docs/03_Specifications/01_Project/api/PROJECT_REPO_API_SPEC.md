@@ -525,6 +525,7 @@ clone이 완료된 job에 대해 Code Map → Doc Generation → Onboarding Guid
 | HTTP Status | Error Code | 설명 |
 | --- | --- | --- |
 | 400 | INVALID_LOCAL_PATH | 상대 경로가 비어 있거나 Windows/서버 정책상 허용되지 않음 |
+| 400 | SYMLINK_NOT_ALLOWED | 심볼릭 링크는 업로드할 수 없음 |
 | 403 | LOCAL_UPLOAD_PERMISSION_DENIED | 권한 부족 파일 접근 또는 저장 실패 |
 | 403 | TEAM_ACCESS_DENIED | Phase 2: 지정한 팀에 분석을 생성할 권한이 없음 |
 | 413 | LOCAL_UPLOAD_LIMIT_EXCEEDED | 파일 수/전체 용량/단일 파일 크기 제한 초과 |

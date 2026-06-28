@@ -48,6 +48,19 @@
 
 Issue #174, #175: Auth UI는 위 오류를 HTTP status 중심 문구가 아니라 사용자 언어와 field-level 피드백으로 표시합니다. `error.field`가 `email`, `password`, `confirmPassword` 중 하나이면 해당 입력칸에 표시하고, 필드가 없으면 form 상단 전역 오류로 표시합니다.
 
+## 1B. PROJECT-REPO-API-009 (로컬 폴더 업로드 분석 작업 생성)
+`POST /api/repo/analysis/local`
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 400 | `INVALID_LOCAL_PATH` | 경로 검증 | 상대 경로가 비어 있거나 Windows/서버 정책상 허용되지 않음 |
+| 400 | `SYMLINK_NOT_ALLOWED` | 파일 검증 | 심볼릭 링크는 업로드할 수 없음 |
+| 403 | `LOCAL_UPLOAD_PERMISSION_DENIED` | 파일 처리 | 권한 부족 파일 접근 또는 저장 실패 |
+| 403 | `TEAM_ACCESS_DENIED` | 팀 권한 검증 | 지정한 팀에 분석을 생성할 권한이 없음 |
+| 413 | `LOCAL_UPLOAD_LIMIT_EXCEEDED` | 용량 검증 | 파일 수/전체 용량/단일 파일 크기 제한 초과 |
+| 415 | `UNSUPPORTED_FILE_TYPE` | 파일 검증 | 분석 대상이 아닌 바이너리 또는 허용되지 않은 파일 형식 |
+| 500 | `LOCAL_UPLOAD_SAVE_FAILED` | 저장 처리 | 서버 workspace 저장 중 처리 불가 오류 |
+
 ## 2. PROJECT-REPO-API-003 (작업 상태 조회)
 `GET /api/repo/analysis/{job_id}`
 
