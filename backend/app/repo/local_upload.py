@@ -41,6 +41,16 @@ IGNORED_FILENAMES = {
     ".pypirc",
 }
 
+_UNSAFE_PATH_CHARS = re.compile(r'[\0-\x1f\x7f<>:"|?*]')
+
+
+def _sanitize_upload_segment(segment: str) -> str:
+    """Normalize one path segment so invalid chars in directories cannot crash writes."""
+    sanitized = _UNSAFE_PATH_CHARS.sub("_", segment)
+    if not sanitized or sanitized in {".", ".."}:
+        raise CodeMapException(400, "INVALID_LOCAL_PATH", "안전하지 않은 폴더 경로가 포함되어 있습니다.")
+    return sanitized
+
 
 def normalize_upload_path(raw_path: str, folder_name: str) -> Path | None:
     """Return a safe repository-relative path, or None for ignored content."""
@@ -55,9 +65,8 @@ def normalize_upload_path(raw_path: str, folder_name: str) -> Path | None:
     if any(part in IGNORED_DIRECTORIES for part in parts[:-1]):
         return None
 
+    parts = [_sanitize_upload_segment(part) for part in parts]
     filename = parts[-1]
-    filename = re.sub(r'[\0-\x1f\x7f<>:"|?*]', '_', filename)
-    parts[-1] = filename
 
     if filename in IGNORED_FILENAMES or (filename.startswith(".env.") and filename != ".env.example"):
         return None

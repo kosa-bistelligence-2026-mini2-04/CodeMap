@@ -32,6 +32,12 @@ class LocalUploadPathTests(unittest.TestCase):
     def test_sanitizes_invalid_filenames(self):
         self.assertEqual(normalize_upload_path("sample/src/con<fig>:1|2?.txt", "sample"), Path("src/con_fig__1_2_.txt"))
 
+    def test_sanitizes_invalid_directory_segments(self):
+        self.assertEqual(
+            normalize_upload_path("sample/src\0evil/mod<ules>/main.py", "sample"),
+            Path("src_evil/mod_ules_/main.py"),
+        )
+
 
 from unittest.mock import patch
 
