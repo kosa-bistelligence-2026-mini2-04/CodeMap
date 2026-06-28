@@ -9,13 +9,21 @@ import { useApp } from "@/common/contexts/AppContext";
 interface CodePreviewPanelProps {
   jobId: string;
   filePath: string;
+  highlightLine?: number | null;
+  highlightLineEnd?: number | null;
   onClose: () => void;
 }
 
 type LoadState = "idle" | "loading" | "success" | "error";
 
 
-export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelProps) {
+export function CodePreviewPanel({
+  jobId,
+  filePath,
+  highlightLine,
+  highlightLineEnd,
+  onClose,
+}: CodePreviewPanelProps) {
   const { theme } = useApp();
   const isDark = theme === "dark";
 
@@ -28,6 +36,7 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
   const [copied, setCopied] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
 
   useEffect(() => {
     if (!filePath) return;
@@ -60,6 +69,15 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
     };
   }, [jobId, filePath]);
 
+  useEffect(() => {
+    if (loadState !== "success" || !highlightLine) return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    highlightRowRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "center",
+    });
+  }, [loadState, highlightLine]);
+
   const handleCopy = () => {
     if (!content) return;
     navigator.clipboard.writeText(content).then(() => {
@@ -69,6 +87,11 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
   };
 
   const fileName = filePath.split("/").at(-1) ?? filePath;
+  const isHighlighted = (lineNumber: number) => {
+    if (!highlightLine) return false;
+    const end = highlightLineEnd ?? highlightLine;
+    return lineNumber >= highlightLine && lineNumber <= end;
+  };
 
   return (
     <div
@@ -94,6 +117,12 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
         {loadState === "success" && (
           <span className="shrink-0 text-[9px] text-zinc-500">
             {language ?? "text"} · {lines.toLocaleString()} lines
+          </span>
+        )}
+        {highlightLine && (
+          <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-blue-400">
+            L{highlightLine}
+            {highlightLineEnd && highlightLineEnd !== highlightLine ? `-${highlightLineEnd}` : ""}
           </span>
         )}
         <button
@@ -165,24 +194,44 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
             )}
             <table className="w-full border-separate border-spacing-0 font-mono text-[11px] leading-5">
               <tbody>
-                {(content.endsWith("\n") ? content.slice(0, -1).split("\n") : content.split("\n")).map((line, idx) => (
-                  <tr key={idx} className="group">
-                    <td
-                      className={`w-10 select-none pr-3 text-right align-top ${
-                        isDark ? "text-zinc-700" : "text-zinc-400"
-                      }`}
+                {(content.endsWith("\n") ? content.slice(0, -1).split("\n") : content.split("\n")).map((line, idx) => {
+                  const lineNumber = idx + 1;
+                  const highlighted = isHighlighted(lineNumber);
+                  return (
+                    <tr
+                      key={idx}
+                      ref={highlightLine && lineNumber === highlightLine ? highlightRowRef : undefined}
+                      className={highlighted ? (isDark ? "bg-yellow-400/10" : "bg-yellow-50") : "group"}
                     >
-                      {idx + 1}
-                    </td>
-                    <td
-                      className={`whitespace-pre-wrap break-all pr-4 ${
-                        isDark ? "text-zinc-300" : "text-zinc-700"
-                      }`}
-                    >
-                      {line || " "}
-                    </td>
-                  </tr>
-                ))}
+                      <td
+                        className={`w-10 select-none pr-3 text-right align-top ${
+                          highlighted
+                            ? isDark
+                              ? "text-yellow-400/80"
+                              : "text-yellow-700"
+                            : isDark
+                              ? "text-zinc-700"
+                              : "text-zinc-400"
+                        }`}
+                      >
+                        {lineNumber}
+                      </td>
+                      <td
+                        className={`whitespace-pre-wrap break-all pr-4 ${
+                          highlighted
+                            ? isDark
+                              ? "text-yellow-100"
+                              : "text-zinc-900"
+                            : isDark
+                              ? "text-zinc-300"
+                              : "text-zinc-700"
+                        }`}
+                      >
+                        {line || " "}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

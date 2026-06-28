@@ -38,6 +38,8 @@ function AnalyzeWorkspace() {
   const queryJobId = searchParams.get("job");
   const initialPath = searchParams.get("path") || undefined;
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [selectedLineEnd, setSelectedLineEnd] = useState<number | null>(null);
   const [chatPrompt, setChatPrompt] = useState("");
   const [chatPromptNonce, setChatPromptNonce] = useState(0);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
@@ -149,7 +151,7 @@ function AnalyzeWorkspace() {
           )}
         </aside>
 
-        <section className={`min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
+        <section className={`min-w-0 flex-1 ${selectedFile ? "overflow-hidden" : "overflow-y-auto px-4 py-5 md:px-6 md:py-6"} ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
           {status === "idle" && (
             <div className="mx-auto flex min-h-full max-w-4xl items-center justify-center py-10">
               <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -182,7 +184,7 @@ function AnalyzeWorkspace() {
             <div className="mx-auto flex min-h-full max-w-xl items-center justify-center"><div className="w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center"><AlertTriangle className="mx-auto size-6 text-red-400" /><h2 className={`mt-3 text-sm font-bold ${isDark ? "" : "text-zinc-800"}`}>{isKo ? "분석을 완료하지 못했습니다" : "Analysis failed"}</h2><p className="mt-2 text-xs leading-5 text-zinc-500">{error}</p><button onClick={() => setShowNewAnalysis(true)} className={`mt-5 rounded-lg px-3 py-2 text-[11px] font-bold ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>{isKo ? "입력 확인하기" : "Check input"}</button></div></div>
           )}
 
-          {status === "completed" && report && ragIndexBanner && (
+          {status === "completed" && report && !selectedFile && ragIndexBanner && (
             <div className={`mx-4 mt-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11px] ${
               ragIndexBanner.tone === "error"
                 ? "border-red-500/20 bg-red-500/5 text-red-400"
@@ -196,14 +198,29 @@ function AnalyzeWorkspace() {
           {status === "completed" && report && (
             <div className={`flex min-h-0 gap-0 ${selectedFile ? "h-full" : ""}`}>
               <div className={`min-w-0 ${selectedFile ? "hidden xl:block xl:flex-1" : "flex-1"}`}>
-                <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={setSelectedFile} />
+                <WorkspaceReport
+                  report={report}
+                  preview={preview}
+                  onAsk={ask}
+                  onFileSelect={(file) => {
+                    setSelectedFile(file);
+                    setSelectedLine(null);
+                    setSelectedLineEnd(null);
+                  }}
+                />
               </div>
               {selectedFile && jobId && (
                 <div className="w-full flex-1 xl:max-w-[600px]">
                   <CodePreviewPanel
                     jobId={jobId}
                     filePath={selectedFile}
-                    onClose={() => setSelectedFile(null)}
+                    highlightLine={selectedLine}
+                    highlightLineEnd={selectedLineEnd}
+                    onClose={() => {
+                      setSelectedFile(null);
+                      setSelectedLine(null);
+                      setSelectedLineEnd(null);
+                    }}
                   />
                 </div>
               )}
@@ -222,7 +239,11 @@ function AnalyzeWorkspace() {
             initialPrompt={chatPrompt}
             initialPromptKey={chatPromptNonce}
             onThreadChange={setThreadId}
-            onReferenceClick={(file) => setSelectedFile(file)}
+            onReferenceClick={(file, line, lineEnd) => {
+              setSelectedFile(file);
+              setSelectedLine(line ?? null);
+              setSelectedLineEnd(lineEnd ?? null);
+            }}
             onClearContextFile={() => setSelectedFile(null)}
             expandHref={fullChatUrl}
           />
@@ -232,7 +253,7 @@ function AnalyzeWorkspace() {
       {mobileChatOpen && (
         <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm xl:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileChatOpen(false); }}>
           <div className="absolute inset-y-0 right-0 w-full max-w-[430px] border-l border-zinc-800 bg-zinc-950 shadow-2xl">
-            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file) => setSelectedFile(file)} onClearContextFile={() => setSelectedFile(null)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
+            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file, line, lineEnd) => { setSelectedFile(file); setSelectedLine(line ?? null); setSelectedLineEnd(lineEnd ?? null); }} onClearContextFile={() => setSelectedFile(null)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
           </div>
         </div>
       )}
