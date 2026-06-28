@@ -74,4 +74,3 @@ def list_repository_files(cwd: Path, limit: int = 1200) -> list[Path]:
         count += 1
 
     return file_paths
-

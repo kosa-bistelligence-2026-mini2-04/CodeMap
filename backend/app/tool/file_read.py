@@ -83,4 +83,3 @@ def extract_file_static_metadata(
         })
 
     return metadata
-

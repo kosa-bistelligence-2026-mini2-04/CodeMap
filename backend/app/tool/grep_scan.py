@@ -86,4 +86,3 @@ def count_todo_annotations(file_paths: list[Path]) -> dict:
         total_count += len(matches)
 
     return {"total_todos": total_count}
-

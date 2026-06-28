@@ -104,8 +104,10 @@ export interface WorkspaceFile {
   name: string;
   language: string;
   lines: number;
-  size: number;
-  kind: 'source' | 'test';
+  bytes: number;
+  chars?: number;
+  size?: number;
+  kind?: 'source' | 'test';
 }
 
 export interface WorkspaceReport {
@@ -127,7 +129,7 @@ export interface WorkspaceReport {
   entrypoints: string[];
   files: WorkspaceFile[];
   health_score: number;
-  executive_summary: string;
+  executive_summary?: string;
   rag_index?: {
     status: 'pending' | 'in_progress' | 'ready' | 'empty' | 'skipped' | 'failed';
     chunks: number;

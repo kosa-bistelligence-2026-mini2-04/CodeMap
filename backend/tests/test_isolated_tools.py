@@ -32,7 +32,7 @@ def test_extract_file_static_metadata():
         tmp_path = Path(tmpdir)
         f1 = tmp_path / "main.py"
         f1.write_text("print('hello')\n# TODO: fix", encoding="utf-8")
-        
+
         meta = extract_file_static_metadata([f1], tmp_path)
         assert len(meta) == 1
         assert meta[0]["name"] == "main.py"
@@ -45,7 +45,7 @@ def test_count_todo_annotations():
         tmp_path = Path(tmpdir)
         f1 = tmp_path / "main.py"
         f1.write_text("# TODO: task1\n# FIXME: task2", encoding="utf-8")
-        
+
         res = count_todo_annotations([f1])
         assert res["total_todos"] == 2
 
@@ -55,7 +55,7 @@ def test_verify_build_environment():
         tmp_path = Path(tmpdir)
         f1 = tmp_path / "requirements.txt"
         f1.write_text("fastapi", encoding="utf-8")
-        
+
         res = verify_build_environment([f1], "Python", tmp_path)
         assert res["has_mandatory_manifest"] is True
         assert "Python" in res["detected_stack"]
@@ -68,7 +68,7 @@ def test_calculate_code_complexity():
         # 복잡도 2짜리 함수
         code = "def check(x):\n    if x > 10:\n        return True\n    return False"
         f1.write_text(code, encoding="utf-8")
-        
+
         res = calculate_code_complexity([f1])
         assert res["average_complexity"] == 2.0
         assert res["max_complexity"] == 2

@@ -47,6 +47,7 @@ function mergeParseDetails(
     name: fileName(item.path),
     language: item.language || "Unknown",
     lines: item.lines || 0,
+    bytes: item.size || 0,
     size: item.size || 0,
     kind: /test|spec/.test(item.path.toLowerCase()) ? "test" : "source",
   }));

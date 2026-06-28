@@ -62,15 +62,57 @@ class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):
         mock_session_ctx.__aenter__.return_value = AsyncMock()
 
         with (
-            patch("app.repo.service.AnalysisService", return_value=mock_service),
+            patch("app.repo.service.AnalysisService", autospec=True) as mock_class,
             patch.object(nodes, "_publish", AsyncMock()),
             patch.object(nodes, "async_session_factory", return_value=mock_session_ctx),
         ):
+            mock_class.return_value = mock_service
             result = await nodes.code_map_node(pipeline_state())
 
         self.assertEqual(result["analysis_report"], report)
         self.assertEqual(result["progress"], 55)
         mock_service.execute_analysis_and_persist.assert_called_once()
+
+    async def test_execute_analysis_and_persist_contracts(self):
+        """execute_analysis_and_persist 반환 리포트가 프론트/API 계약 필드를 보장하는지 검사한다."""
+        import tempfile
+        import uuid
+        from pathlib import Path
+        from app.repo.service import AnalysisService
+
+        mock_db = AsyncMock()
+        mock_repo = AsyncMock()
+        mock_repo.update_job_status = AsyncMock()
+
+        service = AnalysisService(mock_db)
+        service.repository = mock_repo
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            (tmp_path / "main.py").write_text("print('hello')", encoding="utf-8")
+            (tmp_path / "requirements.txt").write_text("fastapi", encoding="utf-8")
+
+            job_id = uuid.uuid4()
+            report = await service.execute_analysis_and_persist(
+                job_id, str(tmp_path), "test_repo"
+            )
+
+            # 필수 계약 필드 검증
+            self.assertNotIn("executive_summary", report)
+            self.assertIn("files", report)
+            self.assertTrue(len(report["files"]) > 0)
+
+            # files 리스트 내부 컬럼 계약 검증 (bytes, chars, language 등)
+            first_file = report["files"][0]
+            self.assertIn("bytes", first_file)
+            self.assertIn("chars", first_file)
+            self.assertIn("language", first_file)
+
+            # 리포지토리 상태 업데이트 호출 인자 검증
+            mock_repo.update_job_status.assert_called_once()
+            call_kwargs = mock_repo.update_job_status.call_args.kwargs
+            self.assertEqual(call_kwargs["status"], "IN_PROGRESS")
+            self.assertEqual(call_kwargs["progress"], 55)
 
     async def test_document_and_onboarding_nodes_enrich_report(self):
         state = pipeline_state(analysis_report={"entrypoints": ["a.py", "b.py", "c.py"]})

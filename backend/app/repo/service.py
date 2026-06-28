@@ -996,7 +996,6 @@ class AnalysisService:
         )
         health_score = int(total_metrics_sum / 5)
 
-        ## 6. 최종 report_json 딕셔너리 조립
         report = {
             "repository": {"name": repo_name, "root": str(root)},
             "stats": {
