@@ -1,5 +1,6 @@
 """Validation and extraction helpers for browser-selected local repositories."""
 
+import re
 import shutil
 from pathlib import Path, PurePosixPath
 
@@ -43,6 +44,7 @@ IGNORED_FILENAMES = {
 
 def normalize_upload_path(raw_path: str, folder_name: str) -> Path | None:
     """Return a safe repository-relative path, or None for ignored content."""
+    raw_path = re.sub(r'^[a-zA-Z]:[/\\\\]*', '', raw_path)
     normalized = raw_path.replace("\\", "/").strip("/")
     parts = list(PurePosixPath(normalized).parts)
     if parts and parts[0] == folder_name:
@@ -54,6 +56,9 @@ def normalize_upload_path(raw_path: str, folder_name: str) -> Path | None:
         return None
 
     filename = parts[-1]
+    filename = re.sub(r'[\0-\x1f\x7f<>:"|?*]', '_', filename)
+    parts[-1] = filename
+
     if filename in IGNORED_FILENAMES or (filename.startswith(".env.") and filename != ".env.example"):
         return None
     return Path(*parts)
@@ -85,6 +90,12 @@ async def save_local_upload(
                 continue
             if relative_path in written_paths:
                 raise CodeMapException(400, "DUPLICATE_LOCAL_PATH", "중복된 파일 경로가 포함되어 있습니다.")
+
+            current = destination / relative_path
+            while current != destination:
+                if current.is_symlink():
+                    raise CodeMapException(400, "SYMLINK_NOT_ALLOWED", "심볼릭 링크는 업로드할 수 없습니다.")
+                current = current.parent
 
             target = (destination / relative_path).resolve()
             try:

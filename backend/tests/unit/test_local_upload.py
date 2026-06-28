@@ -25,8 +25,28 @@ class LocalUploadPathTests(unittest.TestCase):
         with self.assertRaises(CodeMapException):
             normalize_upload_path("sample/../secret.txt", "sample")
 
+    def test_strips_windows_drive_and_unc_paths(self):
+        self.assertEqual(normalize_upload_path("C:\\sample\\src\\main.py", "sample"), Path("src/main.py"))
+        self.assertEqual(normalize_upload_path("\\\\sample\\src\\main.py", "sample"), Path("src/main.py"))
+
+    def test_sanitizes_invalid_filenames(self):
+        self.assertEqual(normalize_upload_path("sample/src/con<fig>:1|2?.txt", "sample"), Path("src/con_fig__1_2_.txt"))
+
+
+from unittest.mock import patch
 
 class LocalUploadStorageTests(unittest.IsolatedAsyncioTestCase):
+    @patch("app.repo.local_upload.shutil.rmtree")
+    async def test_rejects_symlink_paths(self, mock_rmtree):
+        import os
+        with tempfile.TemporaryDirectory() as temp_dir:
+            destination = Path(temp_dir) / "job" / "repo"
+            destination.mkdir(parents=True)
+            symlink_dir = destination / "src"
+            os.symlink(temp_dir, symlink_dir)
+            upload = UploadFile(filename="main.py", file=BytesIO(b"print('ready')\n"))
+            with self.assertRaisesRegex(CodeMapException, "심볼릭 링크는 업로드할 수 없습니다"):
+                await save_local_upload([upload], ["sample/src/main.py"], "sample", destination)
     async def test_reconstructs_repository_paths(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             destination = Path(temp_dir) / "job" / "repo"
