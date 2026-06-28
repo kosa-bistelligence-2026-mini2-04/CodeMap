@@ -59,11 +59,18 @@ def _is_safe_path(path: str | None, clone_root: str | None = None) -> bool:
 def _dedup_signature(tool: str, path: str | None, query: str | None) -> tuple[str, str]:
     """탐색 동일성 판정 키 (tool, target).
 
-    search/grep은 `query`(검색어/패턴), dir/read는 `path`가 탐색 대상이다.
-    각 워커가 `WorkerResult.metadata["query"]`에 동일 규칙(search/grep→query,
-    dir/read→path)으로 저장하므로, 아래 worker_results 기반 시그니처와 정확히 맞물린다.
+    search는 `query`, grep은 `path+query`, dir/read는 `path`가 탐색 대상이다.
+    grep에서 path를 누락하면 같은 패턴을 다른 파일/디렉터리에 적용하는 탐색까지
+    중복으로 오판해 검색 기능이 막히므로 target에 path를 함께 포함한다.
     """
-    target = query if tool in ("search", "grep") else path
+    normalized_path = (path or "").strip().replace("\\", "/")
+    normalized_query = (query or "").strip()
+    if tool == "search":
+        target = normalized_query
+    elif tool == "grep":
+        target = f"{normalized_path}\0{normalized_query}"
+    else:
+        target = normalized_path
     return (tool, (target or "").strip().replace("\\", "/"))
 
 
@@ -80,7 +87,11 @@ def dispatcher_node(state: CodeMapState) -> dict:
         meta = result.get("metadata") or {}
         worker = meta.get("worker")
         if worker:
-            executed.add((worker, (meta.get("query") or "").strip().replace("\\", "/")))
+            executed.add(_dedup_signature(
+                worker,
+                meta.get("path") or result.get("path"),
+                meta.get("query"),
+            ))
 
     seen: set[tuple[str, str]] = set()  # 동일 plan 내 중복도 1회로 접는다
     duplicates = 0

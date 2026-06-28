@@ -222,6 +222,55 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
         self.assertEqual(approved[0]["path"], "app/new.py")
         self.assertEqual(res["events"][0]["dedupedCount"], 1)
 
+    def test_dispatcher_keeps_grep_same_query_on_different_paths(self):
+        """grep은 path+query를 시그니처로 써서 다른 파일 탐색을 막지 않는다."""
+        from app.agent.nodes.dispatcher_node import dispatcher_node
+
+        state = {
+            "clone_path": "/tmp",
+            "access_plan": [
+                {"tool": "grep", "path": "app/auth.py", "query": "login", "scope": "file"},
+                {"tool": "grep", "path": "app/user.py", "query": "login", "scope": "file"},
+            ],
+            "worker_results": [],
+        }
+
+        res = dispatcher_node(state)
+
+        approved = res["security_result"]["approved"]
+        self.assertEqual([item["path"] for item in approved], ["app/auth.py", "app/user.py"])
+        self.assertEqual(res["events"][0]["dedupedCount"], 0)
+
+    def test_dispatcher_skips_executed_grep_only_for_same_path_and_query(self):
+        """이전 grep 결과도 path가 다르면 신규 탐색으로 승인한다."""
+        from app.agent.nodes.dispatcher_node import dispatcher_node
+
+        state = {
+            "clone_path": "/tmp",
+            "access_plan": [
+                {"tool": "grep", "path": "app/auth.py", "query": "login", "scope": "file"},
+                {"tool": "grep", "path": "app/user.py", "query": "login", "scope": "file"},
+            ],
+            "worker_results": [
+                {
+                    "id": "ev1",
+                    "path": "app/auth.py",
+                    "lineStart": 1,
+                    "lineEnd": 2,
+                    "score": None,
+                    "snippet": "...",
+                    "metadata": {"worker": "grep", "query": "login", "path": "app/auth.py"},
+                },
+            ],
+        }
+
+        res = dispatcher_node(state)
+
+        approved = res["security_result"]["approved"]
+        self.assertEqual(len(approved), 1)
+        self.assertEqual(approved[0]["path"], "app/user.py")
+        self.assertEqual(res["events"][0]["dedupedCount"], 1)
+
     def test_fanout_blocks_unregistered_tools(self):
         """미등록 tool은 LangGraph Send 대상에서 제외됩니다."""
         from app.agent.nodes.dispatcher_node import _ALLOWED_WORKERS, fanout_to_workers
