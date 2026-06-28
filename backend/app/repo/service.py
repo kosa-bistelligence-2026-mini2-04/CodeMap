@@ -309,7 +309,6 @@ class AnalysisService:
             raise JobNotFoundError()
         if not await self.can_access_job(job, current_user_id):
             raise JobNotFoundError()
-
         import os
         clone_path = os.path.join(
             settings.CLONE_BASE_DIR, str(job.id), "repo"
@@ -330,7 +329,7 @@ class AnalysisService:
                 progress=job.progress,
                 statusMessage=job.message,
                 model=job.model_used,
-                report=job.report_json,
+                report=_format_report_for_frontend(job.report_json, job.repo_name),
                 createdAt=job.created_at,
                 updatedAt=job.updated_at,
             ),
@@ -1268,3 +1267,61 @@ def _remove_empty_parent(path: Path) -> None:
         path.rmdir()
     except OSError:
         return
+
+
+# ──────────────────────────────────────────────
+# _format_report_for_frontend
+# ──────────────────────────────────────────────
+def _format_report_for_frontend(
+    report: dict | None, repo_name: str
+) -> dict | None:
+    """
+    DB에 적재된 순수 분석 데이터(report_json)를 프론트엔드가 기대하는 DTO 규격
+    (size, kind, executive_summary 등 필수 필드)으로 실시간 맵핑하여 반환한다.
+    """
+    if not report:
+        return None
+
+    formatted = dict(report)
+
+    # 1. executive_summary 누락 시 기본 폴백 합성
+    if "executive_summary" not in formatted:
+        stats = formatted.get("stats", {})
+        primary_lang = stats.get("primary_language", "Unknown")
+        total_files = stats.get("files", 0)
+
+        if total_files == 0:
+            formatted["executive_summary"] = (
+                f"{repo_name}은(는) 분석 가능한 텍스트 파일이 감지되지 않은 "
+                "저장소입니다. 파일 구조와 실행 신호가 부족해 제한된 리포트를 "
+                "생성했습니다."
+            )
+        else:
+            formatted["executive_summary"] = (
+                f"{repo_name}은(는) {primary_lang} 중심의 코드베이스입니다. "
+                "실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
+            )
+
+    # 2. files 리스트 내 size, kind 누락 시 매핑 보강
+    if "files" in formatted and isinstance(formatted["files"], list):
+        mapped_files = []
+        for f in formatted["files"]:
+            if not isinstance(f, dict):
+                mapped_files.append(f)
+                continue
+
+            file_item = dict(f)
+            if "size" not in file_item:
+                file_item["size"] = file_item.get("bytes", 0)
+            if "kind" not in file_item:
+                name = file_item.get("name", "")
+                path = file_item.get("path", "")
+                file_item["kind"] = (
+                    "test"
+                    if ("test" in name.lower() or "test" in path.lower())
+                    else "source"
+                )
+            mapped_files.append(file_item)
+        formatted["files"] = mapped_files
+
+    return formatted

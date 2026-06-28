@@ -97,23 +97,64 @@ class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):
                 job_id, str(tmp_path), "test_repo"
             )
 
+            from app.repo.service import _format_report_for_frontend
+            formatted = _format_report_for_frontend(report, "test_repo")
+
             # 필수 계약 필드 검증
-            self.assertNotIn("executive_summary", report)
-            self.assertIn("files", report)
-            self.assertTrue(len(report["files"]) > 0)
+            self.assertIn("executive_summary", formatted)
+            self.assertIn("files", formatted)
+            self.assertTrue(len(formatted["files"]) > 0)
 
             # files 리스트 내부 컬럼 계약 검증 (bytes, chars, language 등)
-            first_file = report["files"][0]
+            first_file = formatted["files"][0]
             self.assertIn("bytes", first_file)
             self.assertIn("chars", first_file)
             self.assertIn("language", first_file)
+            self.assertIn("size", first_file)
+            self.assertIn("kind", first_file)
 
-            # 리포지토리 상태 업데이트 호출 인자 검증
+            # 리포지토리 상태 업데이트 호출 인자 검증 (DB 원본 report 적재 검증)
             mock_repo.update_job_status.assert_called_once()
             call_kwargs = mock_repo.update_job_status.call_args.kwargs
             self.assertEqual(call_kwargs["status"], "IN_PROGRESS")
             self.assertEqual(call_kwargs["progress"], 55)
 
+    async def test_execute_analysis_and_persist_empty_repo_contracts(self):
+        """빈 레포(텍스트 파일 없음) 폴백 리포트도 정상 경로와 동일한 필수 계약 필드를 유지해야 한다."""
+        import tempfile
+        import uuid
+        from pathlib import Path
+        from app.repo.service import AnalysisService
+
+        mock_db = AsyncMock()
+        mock_repo = AsyncMock()
+        mock_repo.update_job_status = AsyncMock()
+
+        service = AnalysisService(mock_db)
+        service.repository = mock_repo
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 분석 대상 텍스트 파일을 만들지 않아 total_files == 0 폴백 경로를 강제한다.
+            job_id = uuid.uuid4()
+            report = await service.execute_analysis_and_persist(
+                job_id, str(tmpdir), "empty_repo"
+            )
+
+        from app.repo.service import _format_report_for_frontend
+        formatted = _format_report_for_frontend(report, "empty_repo")
+
+        # 프론트 WorkspaceReport 계약상 필수 필드 검증
+        self.assertIn("executive_summary", formatted)
+        self.assertIsInstance(formatted["executive_summary"], str)
+        self.assertTrue(formatted["executive_summary"].strip())
+        self.assertEqual(formatted["files"], [])
+        self.assertEqual(formatted["stats"]["files"], 0)
+
+        # 폴백 경로도 DB 진행 상태를 동일하게 갱신해야 한다.
+        mock_repo.update_job_status.assert_called_once()
+        call_kwargs = mock_repo.update_job_status.call_args.kwargs
+        self.assertEqual(call_kwargs["status"], "IN_PROGRESS")
+        self.assertEqual(call_kwargs["progress"], 55)
     async def test_document_and_onboarding_nodes_enrich_report(self):
         state = pipeline_state(analysis_report={"entrypoints": ["a.py", "b.py", "c.py"]})
         with (
