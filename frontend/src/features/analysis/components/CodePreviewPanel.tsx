@@ -45,13 +45,9 @@ export function CodePreviewPanel({
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadState("loading");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setContent("");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setErrorMsg("");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCopied(false);
 
     fetchFileContent(jobId, filePath, controller.signal)

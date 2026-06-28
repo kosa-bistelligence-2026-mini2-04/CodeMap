@@ -306,7 +306,6 @@ export interface TeamInviteItem {
   inviteId: string;
   teamId: string;
   teamName: string;
-  email?: string;
   invitedByEmail?: string | null;
   status: string;
   expiresAt: string;
