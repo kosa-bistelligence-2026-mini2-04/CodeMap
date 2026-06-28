@@ -938,11 +938,6 @@ class AnalysisService:
             ## 예외 폴백: 소스 파일이 없는 경우
             report = {
                 "repository": {"name": repo_name, "root": str(root)},
-                "executive_summary": (
-                    f"{repo_name}은(는) 분석 가능한 텍스트 파일이 감지되지 않은 "
-                    "저장소입니다. 파일 구조와 실행 신호가 부족해 제한된 리포트를 "
-                    "생성했습니다."
-                ),
                 "stats": {
                     "files": 0, "lines": 0, "bytes": 0, "todos": 0,
                     "tests": 0, "primary_language": "Unknown",
@@ -1058,10 +1053,6 @@ class AnalysisService:
 
         report = {
             "repository": {"name": repo_name, "root": str(root)},
-            "executive_summary": (
-                f"{repo_name}은(는) {primary_language} 중심의 코드베이스입니다. "
-                "실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
-            ),
             "stats": {
                 "files": total_files,
                 "lines": total_lines,
@@ -1076,14 +1067,7 @@ class AnalysisService:
             ],
             "stack": env_res["detected_stack"],
             "entrypoints": env_res["entrypoints"][:12],
-            "files": [
-                {
-                    **f,
-                    "size": f["bytes"],
-                    "kind": "test" if ("test" in f["name"].lower() or "test" in f["path"].lower()) else "source",
-                }
-                for f in file_meta
-            ],
+            "files": file_meta,
             "health_score": health_score,
             "health_metrics": {
                 "security": security_score,
