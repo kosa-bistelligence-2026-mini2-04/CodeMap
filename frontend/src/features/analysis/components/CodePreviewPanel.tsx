@@ -39,6 +39,7 @@ export function CodePreviewPanel({ jobId, filePath, onClose }: CodePreviewPanelP
     setLoadState("loading");
     setContent("");
     setErrorMsg("");
+    setCopied(false);
 
     fetchFileContent(jobId, filePath, controller.signal)
       .then((res) => {
