@@ -21,6 +21,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Agent Run Management"])
 
 
+def _status_repo_id(status: dict) -> UUID | None:
+    try:
+        value = status.get("data", {}).get("repoId")
+        return UUID(str(value)) if value else None
+    except (TypeError, ValueError):
+        logger.warning("[AgentRouter] Redis Run 상태 repoId 파싱 실패")
+        return None
+
+
 # ──────────────────────────────────────────────
 # LLM-CHAT-API-003: Run 상태 및 State 요약 조회
 # ──────────────────────────────────────────────
@@ -33,7 +42,7 @@ async def get_run_status(
     """Run 실행 상태, node별 소요 시간, State 요약 조회."""
     logger.info("[AgentRouter] Run 상태 조회 — run_id=%s", run_id)
     status = await run_registry.get_status(run_id)
-    if not status or UUID(status["data"].get("repoId", str(repo_id))) != repo_id:
+    if not status or _status_repo_id(status) != repo_id:
         raise HTTPException(status_code=404, detail="Run not found")
     status["data"].pop("repoId", None)
     return status
@@ -51,13 +60,12 @@ async def cancel_run(
     """실행 중인 LangGraph/worker run 취소."""
     logger.info("[AgentRouter] Run 취소 요청 — run_id=%s", run_id)
     status = await run_registry.get_status(run_id)
-    if not status or UUID(status["data"].get("repoId", str(repo_id))) != repo_id:
+    if not status or _status_repo_id(status) != repo_id:
         raise HTTPException(status_code=404, detail="Run not found")
     if status["data"]["status"] in ("completed", "failed", "cancelled"):
         raise HTTPException(status_code=409, detail="Run already finished")
 
     await run_registry.request_cancel(run_id)
-    import time
     from datetime import datetime, timezone
     return {
         "code": 200,
@@ -87,9 +95,12 @@ async def get_run_evidence(
     evidence = await run_registry.get_evidence(run_id, include_raw_snippet, worker, limit)
     if not evidence:
         status = await run_registry.get_status(run_id)
-        if not status or UUID(status["data"].get("repoId", str(repo_id))) != repo_id:
+        if not status or _status_repo_id(status) != repo_id:
             raise HTTPException(status_code=404, detail="Run not found")
         raise HTTPException(status_code=404, detail="Evidence not found")
+    if _status_repo_id(evidence) != repo_id:
+        raise HTTPException(status_code=404, detail="Run not found")
+    evidence.get("data", {}).pop("repoId", None)
     
     if not evidence.get("data", {}).get("evidence") and not evidence.get("data", {}).get("compactContext"):
         raise HTTPException(status_code=404, detail="Evidence not found")

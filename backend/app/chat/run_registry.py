@@ -200,6 +200,36 @@ class RunRecord:
 import json
 from app.infra.redis import get_redis_client
 
+_REDIS_TTL_SECONDS = 3600
+
+
+def _model_dump_json_safe(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    return dict(value)
+
+
+def _restore_job_snapshot(data: dict[str, Any]) -> AnalysisJob | None:
+    if not data.get("job_id"):
+        return None
+
+    from app.repo.models import AnalysisJob
+
+    return AnalysisJob(
+        id=UUID(str(data["job_id"])),
+        repo_url=str(data.get("repo_url") or ""),
+        repo_name=str(data.get("repo_name") or ""),
+        owner=str(data.get("owner") or ""),
+        branch=str(data.get("branch") or "main"),
+        status=str(data.get("job_status") or ""),
+        user_id=None,
+        team_id=None,
+        is_private=False,
+    )
+
+
 class RunRegistry:
     """Redis 기반 Run 레지스트리."""
 
@@ -216,14 +246,22 @@ class RunRegistry:
             req = kwargs.get("request")
             data = {
                 "repo_id": str(repo_id),
-                "session_id": session_id,
-                "request": req.model_dump() if req else {},
+                "session_id": str(session_id),
+                "request": _model_dump_json_safe(req),
                 "job_id": str(job.id) if job else None,
                 "repo_name": job.repo_name if job else None,
+                "repo_url": job.repo_url if job else None,
+                "owner": job.owner if job else None,
+                "branch": job.branch if job else None,
+                "job_status": job.status if job else None,
                 "clone_path": kwargs.get("clone_path", ""),
                 "mode": kwargs.get("mode", "standard")
             }
-            await redis.setex(f"run_init:{run_id}", 3600, json.dumps(data))
+            await redis.setex(
+                f"run_init:{run_id}",
+                _REDIS_TTL_SECONDS,
+                json.dumps(data, ensure_ascii=False, default=str),
+            )
             await self.sync_to_redis(record)
             
         return record
@@ -237,13 +275,8 @@ class RunRegistry:
             init_data = await redis.get(f"run_init:{run_id}")
             if init_data:
                 data = json.loads(init_data)
-                
-                from app.repo.models import AnalysisJob
-                job = AnalysisJob() if data.get("job_id") else None
-                if job:
-                    job.id = UUID(data["job_id"])
-                    job.repo_name = data["repo_name"]
-                    
+                job = _restore_job_snapshot(data)
+
                 from app.chat.schemas import ChatRunRequest
                 req = ChatRunRequest(**data["request"]) if data.get("request") else None
                 
@@ -265,11 +298,20 @@ class RunRegistry:
         if redis:
             status = record.to_status_response()
             status["data"]["repoId"] = str(record.repo_id)
-            await redis.setex(f"run_status:{record.run_id}", 3600, json.dumps(status))
+            await redis.setex(
+                f"run_status:{record.run_id}",
+                _REDIS_TTL_SECONDS,
+                json.dumps(status, ensure_ascii=False, default=str),
+            )
             
             if record.worker_results:
                 evidence = record.to_evidence_response(include_raw_snippet=True, limit=100)
-                await redis.setex(f"run_evidence:{record.run_id}", 3600, json.dumps(evidence))
+                evidence["data"]["repoId"] = str(record.repo_id)
+                await redis.setex(
+                    f"run_evidence:{record.run_id}",
+                    _REDIS_TTL_SECONDS,
+                    json.dumps(evidence, ensure_ascii=False, default=str),
+                )
 
     async def get_status(self, run_id: str) -> dict | None:
         if run_id in self._runs:
@@ -285,7 +327,9 @@ class RunRegistry:
 
     async def get_evidence(self, run_id: str, include_raw_snippet: bool, worker_filter: str | None, limit: int) -> dict | None:
         if run_id in self._runs:
-            return self._runs[run_id].to_evidence_response(include_raw_snippet, worker_filter, limit)
+            evidence = self._runs[run_id].to_evidence_response(include_raw_snippet, worker_filter, limit)
+            evidence["data"]["repoId"] = str(self._runs[run_id].repo_id)
+            return evidence
         redis = get_redis_client()
         if redis:
             data = await redis.get(f"run_evidence:{run_id}")
