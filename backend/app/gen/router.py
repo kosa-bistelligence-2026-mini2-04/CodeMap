@@ -8,13 +8,12 @@ POST /api/gen/docs/{repo_id}/save — Markdown DB 저장 (API-005, 내부용)
 """
 
 import logging
-from typing import Literal, Union
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.database import get_db
 from app.gen.schemas import (
     DocGetMarkdownResponse,
     DocGetJsonResponse,
@@ -34,6 +33,8 @@ from app.gen.service import (
     save_onboarding_doc,
     validate_and_queue_doc_generation,
 )
+from app.infra.auth import get_current_user
+from app.infra.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +47,21 @@ router = APIRouter(prefix="/api/gen/docs", tags=["DOCS GEN"])
 @router.get(
     "/{repo_id}",
     status_code=status.HTTP_200_OK,
-    response_model=Union[DocGetMarkdownResponse, DocGetJsonResponse],
+    ## response_model을 명시하지 않아 FastAPI smart-union의 잘못된 직렬화 분기를 방지한다.
+    ## 두 응답 모델이 동일한 최상위 envelope(code/message/data)를 공유하므로
+    ## Union 지정 시 format=json 응답이 DocGetMarkdownResponse로 잘못 검증될 수 있다.
+    ## 반환 타입 힌트가 문서화 역할을 대신하며, 실제 직렬화는 Pydantic 인스턴스가 처리한다.
+    response_model=None,
+    responses={
+        200: {
+            "description": "format=markdown: Markdown 전문 / format=json: master_report 구조화 JSON",
+        }
+    },
     summary="온보딩 가이드북 조회 (DOCS-GEN-API-001)",
 )
 async def get_doc(
     repo_id: UUID,
+    _current_user: Annotated[dict, Depends(get_current_user)],
     format: Literal["markdown", "json"] = Query(default="markdown", description="응답 형식"),
     db: AsyncSession = Depends(get_db),
 ) -> DocGetMarkdownResponse | DocGetJsonResponse:

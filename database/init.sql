@@ -159,6 +159,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_analysis_jobs_in_progress
 ON analysis_jobs (repo_url, branch)
 WHERE status = 'IN_PROGRESS';
 
+-- 9. 온보딩 문서 저장 테이블 (DOCS-GEN-B-301 / DOCS-GEN-API-001)
+CREATE TABLE IF NOT EXISTS docs (
+    id UUID PRIMARY KEY,
+    repo_id UUID NOT NULL REFERENCES analysis_jobs(id) ON DELETE CASCADE,
+    job_id UUID NOT NULL,
+    doc_type VARCHAR(50) NOT NULL DEFAULT 'onboarding',
+    content TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    report_json JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE docs ADD COLUMN IF NOT EXISTS report_json JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_docs_repo_active ON docs (repo_id, is_active, created_at DESC);
+
 -- 9. 사용자 및 인증 토큰 테이블 (Auth-JWT 구현 대응)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY,

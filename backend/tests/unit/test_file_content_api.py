@@ -452,5 +452,187 @@ class TestFileContentAccessControl(unittest.TestCase):
         self.assertEqual(resp.json()["error"]["code"], "JOB_NOT_FOUND")
 
 
+
+# ──────────────────────────────────────────────
+# Issue #226: 로컬 FS 누락 시 DB content fallback
+# ──────────────────────────────────────────────
+class TestFileContentDbFallback(unittest.TestCase):
+    """로컬 워크스페이스에서 못 읽을 때 DB content로 복구한다."""
+
+    def test_fs_missing_db_fallback_returns_200(self):
+        recovered = "def recovered():\n    return 42\n"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / _JOB_ID_STR / "repo"
+            workspace.mkdir(parents=True)
+            ## 파일 미생성 → 로컬 read 실패 → DB fallback 경로 진입
+
+            app, settings_patcher = _make_app(tmpdir)
+            client = TestClient(app, raise_server_exceptions=False)
+
+            with _mock_job_status_ok(), patch(
+                "app.repo.router._read_db_fallback_content",
+                new=AsyncMock(return_value=recovered),
+            ):
+                resp = client.get(
+                    f"/api/repo/analysis/{_JOB_ID_STR}/files/content",
+                    params={"path": "src/main.py"},
+                )
+
+            settings_patcher.stop()
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()["data"]
+        self.assertEqual(data["content"], recovered)
+        self.assertEqual(data["language"], "python")
+        self.assertFalse(data["truncated"])
+
+    def test_workspace_dir_missing_uses_db_fallback(self):
+        ## clone workspace 디렉토리 자체가 없어도 DB fallback이 동작한다.
+        recovered = "console.log('recovered');\n"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ## workspace 디렉토리 미생성
+            app, settings_patcher = _make_app(tmpdir)
+            client = TestClient(app, raise_server_exceptions=False)
+
+            with _mock_job_status_ok(), patch(
+                "app.repo.router._read_db_fallback_content",
+                new=AsyncMock(return_value=recovered),
+            ):
+                resp = client.get(
+                    f"/api/repo/analysis/{_JOB_ID_STR}/files/content",
+                    params={"path": "app.js"},
+                )
+
+            settings_patcher.stop()
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["data"]["content"], recovered)
+
+    def test_fs_and_db_both_missing_returns_404(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / _JOB_ID_STR / "repo"
+            workspace.mkdir(parents=True)
+
+            app, settings_patcher = _make_app(tmpdir)
+            client = TestClient(app, raise_server_exceptions=False)
+
+            with _mock_job_status_ok(), patch(
+                "app.repo.router._read_db_fallback_content",
+                new=AsyncMock(return_value=None),
+            ):
+                resp = client.get(
+                    f"/api/repo/analysis/{_JOB_ID_STR}/files/content",
+                    params={"path": "src/missing.py"},
+                )
+
+            settings_patcher.stop()
+
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.json()["error"]["code"], "WORKSPACE_NOT_READY")
+
+    def test_db_fallback_truncates_large_content(self):
+        big = "z" * 50_001
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / _JOB_ID_STR / "repo"
+            workspace.mkdir(parents=True)
+
+            app, settings_patcher = _make_app(tmpdir)
+            client = TestClient(app, raise_server_exceptions=False)
+
+            with _mock_job_status_ok(), patch(
+                "app.repo.router._read_db_fallback_content",
+                new=AsyncMock(return_value=big),
+            ):
+                resp = client.get(
+                    f"/api/repo/analysis/{_JOB_ID_STR}/files/content",
+                    params={"path": "big.py"},
+                )
+
+            settings_patcher.stop()
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()["data"]
+        self.assertTrue(data["truncated"])
+        self.assertEqual(len(data["content"]), 50_000)
+
+    def test_binary_blocked_before_fallback(self):
+        ## 바이너리 확장자는 FS/DB와 무관하게 422로 차단된다.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app, settings_patcher = _make_app(tmpdir)
+            client = TestClient(app, raise_server_exceptions=False)
+
+            with _mock_job_status_ok(), patch(
+                "app.repo.router._read_db_fallback_content",
+                new=AsyncMock(return_value="should-not-be-used"),
+            ):
+                resp = client.get(
+                    f"/api/repo/analysis/{_JOB_ID_STR}/files/content",
+                    params={"path": "logo.png"},
+                )
+
+            settings_patcher.stop()
+
+        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.json()["error"]["code"], "BINARY_FILE")
+
+
+class _FakeResult:
+    """EmbedRepository.get_file_content 단위 테스트용 가짜 execute 결과."""
+
+    def __init__(self, rows):
+        self._rows = rows
+
+    def scalars(self):
+        return self
+
+    def first(self):
+        return self._rows[0] if self._rows else None
+
+    def all(self):
+        return list(self._rows)
+
+
+class _FakeSession:
+    """execute 호출 순서대로 FILE 결과 → CHUNK 결과를 반환하는 가짜 세션."""
+
+    def __init__(self, file_rows, chunk_rows):
+        self._results = [_FakeResult(file_rows), _FakeResult(chunk_rows)]
+        self._idx = 0
+
+    async def execute(self, _stmt):
+        result = self._results[self._idx]
+        self._idx += 1
+        return result
+
+
+class TestEmbedRepositoryGetFileContent(unittest.TestCase):
+    """EmbedRepository.get_file_content 복구 우선순위 검증."""
+
+    def _run(self, file_rows, chunk_rows):
+        import asyncio
+
+        from app.embed.repository import EmbedRepository
+
+        repo = EmbedRepository(_FakeSession(file_rows, chunk_rows))
+        return asyncio.run(repo.get_file_content(_JOB_ID, "src/main.py"))
+
+    def test_returns_file_node_content_when_present(self):
+        result = self._run(["FILE-CONTENT"], ["chunk-a", "chunk-b"])
+        self.assertEqual(result, "FILE-CONTENT")
+
+    def test_returns_empty_string_when_file_content_is_empty(self):
+        result = self._run([""], ["chunk-a", "chunk-b"])
+        self.assertEqual(result, "")
+
+    def test_reassembles_chunks_when_file_content_none(self):
+        result = self._run([None], ["chunk-a", "chunk-b"])
+        self.assertEqual(result, "chunk-a\n\nchunk-b")
+
+    def test_returns_none_when_no_data(self):
+        result = self._run([], [])
+        self.assertIsNone(result)
+
+
+
 if __name__ == "__main__":
     unittest.main()
