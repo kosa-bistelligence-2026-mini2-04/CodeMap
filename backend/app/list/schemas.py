@@ -19,6 +19,8 @@ class AnalysisJobItem(BaseModel):
     progress: int = Field(ge=0, le=100, description="작업 진행률")
     failed_agent: Optional[str] = Field(default=None, alias="failedAgent", description="실패한 에이전트명")
     error_message: Optional[str] = Field(default=None, alias="errorMessage", description="실패 시 에러 메시지")
+    visibility: str = Field(default="private", description="분석 기록 공개 범위")
+    team_id: UUID | None = Field(default=None, alias="teamId", description="팀 공유 기록이면 팀 ID")
     created_at: datetime = Field(alias="createdAt", description="작업 생성 시각")
     updated_at: datetime = Field(alias="updatedAt", description="작업 최종 변경 시각")
 
@@ -56,6 +58,8 @@ class AnalysisJobDetailData(BaseModel):
     current_step: Optional[str] = Field(default=None, alias="currentStep", description="현재 분석 단계")
     progress: int = Field(ge=0, le=100, description="작업 진행률")
     message: Optional[str] = Field(default=None, description="사용자 표시용 상태 메시지")
+    visibility: str = Field(default="private", description="분석 기록 공개 범위")
+    team_id: UUID | None = Field(default=None, alias="teamId", description="팀 공유 기록이면 팀 ID")
     created_at: datetime = Field(alias="createdAt", description="작업 생성 시각")
     updated_at: datetime = Field(alias="updatedAt", description="작업 최종 변경 시각")
 

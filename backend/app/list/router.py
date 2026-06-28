@@ -87,10 +87,24 @@ async def get_analysis_jobs(
     service: ListServiceDep,
     page: Annotated[int, Query(ge=1, description="조회할 페이지 번호")] = 1,
     limit: Annotated[int, Query(ge=1, description="페이지당 반환할 이력 수")] = 10,
+    scope: Annotated[str, Query(pattern="^(private|team|all)$", description="조회 범위")] = "all",
+    teamId: Annotated[UUID | None, Query(description="특정 팀 기록 조회")] = None,
 ) -> AnalysisJobListResponse:
     """PROJECT-LIST-API-001 명세의 분석 이력 목록 응답을 반환합니다."""
+    ## UUID 파싱은 서비스 호출과 분리: ValueError가 DATABASE_ERROR로 잘못 매핑되는 것을 방지
+    sub = current_user.get("sub") if current_user else None
     try:
-        result = await service.get_analysis_jobs(page=page, limit=limit)
+        current_user_id: UUID | None = UUID(sub) if sub else None
+    except (ValueError, AttributeError):
+        current_user_id = None
+    try:
+        result = await service.get_analysis_jobs(
+            page=page,
+            limit=limit,
+            current_user_id=current_user_id,
+            scope=scope,
+            team_id=teamId,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -147,8 +161,16 @@ async def get_analysis_job_detail(
             ),
         ) from exc
 
+    ## UUID 파싱은 서비스 호출과 분리
+    sub = current_user.get("sub") if current_user else None
     try:
-        result = await service.get_analysis_job_detail(job_id=job_uuid)
+        current_user_id: UUID | None = UUID(sub) if sub else None
+    except (ValueError, AttributeError):
+        current_user_id = None
+    try:
+        result = await service.get_analysis_job_detail(
+            job_id=job_uuid, current_user_id=current_user_id
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -297,3 +319,29 @@ async def validate_repository(
         branch=request.branch,
     )
 
+# ──────────────────────────────────────────────
+# 분석 이력 삭제 API
+# DELETE /api/list/analysis/{job_id}
+# ──────────────────────────────────────────────
+@router.delete(
+    "/analysis/{job_id}",
+    summary="분석 이력 삭제",
+    description="선택한 분석 작업 이력을 삭제합니다.",
+)
+async def delete_analysis_job(
+    job_id: UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: ListServiceDep,
+):
+    user_id_str = current_user.get("sub")
+    if not user_id_str:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        user_uuid = UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid user ID format")
+
+    success = await service.delete_job(job_id, user_uuid)
+    if not success:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"success": True, "message": "Job deleted"}

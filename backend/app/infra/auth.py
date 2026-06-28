@@ -96,3 +96,12 @@ def get_current_user(request: Request, token: str | None = Depends(oauth2_scheme
     if not token:
         raise UnauthorizedError()
     return verify_access_token(token)
+
+def get_current_user_optional(request: Request, token: str | None = Depends(oauth2_scheme)) -> dict | None:
+    token = token or request.cookies.get("cm-access-token")
+    if not token:
+        return None
+    try:
+        return verify_access_token(token)
+    except UnauthorizedError:
+        return None

@@ -39,6 +39,7 @@ class GenFormState(TypedDict):
     repo_id: str
     clone_path: Optional[str]
     analysis_report: Optional[dict[str, Any]]
+    llm_model: Optional[str]
 
     ## 중간 결과 필드
     project_intro: Optional[str]

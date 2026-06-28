@@ -116,7 +116,9 @@ def _repo_context(
 # ──────────────────────────────────────────────
 # 공통 헬퍼: LLM JSON 호출
 # ──────────────────────────────────────────────
-async def _llm_json(system: str, user: str) -> dict | None:
+async def _llm_json(
+    system: str, user: str, model: str | None = None
+) -> dict | None:
     '''OPENAI_API_KEY가 있으면 LLM을 호출해 JSON dict를 반환, 실패/미설정 시 None.'''
     if not settings.OPENAI_API_KEY or not settings.OPENAI_API_KEY.get_secret_value():
         return None
@@ -124,7 +126,7 @@ async def _llm_json(system: str, user: str) -> dict | None:
         from langchain_openai import ChatOpenAI
 
         llm = ChatOpenAI(
-            model=settings.OPENAI_MODEL,
+            model=model or settings.OPENAI_MODEL,
             api_key=settings.OPENAI_API_KEY,
             temperature=0.2,
             timeout=_LLM_TIMEOUT_SECONDS,
@@ -207,6 +209,7 @@ async def readme_intro_node(state: GenFormState) -> dict:
             "purpose(존재 이유 및 해결 문제, 2~3문장 문자열), "
             "key_features(핵심 기능 목록, 문자열 배열 3~5개).",
             context,
+            state.get("llm_model"),
         )
 
         intro_obj: _ProjectIntroOutput | None = None
@@ -293,6 +296,7 @@ async def doc_summary_node(state: GenFormState) -> dict:
             "tech_context(기술 스택과 아키텍처 배경, 2~3문장 문자열), "
             "architecture_hint(폴더 구조나 레이어 힌트, 1~2문장 문자열).",
             context,
+            state.get("llm_model"),
         )
 
         doc: _DocSummaryOutput | None = None
@@ -384,6 +388,7 @@ async def folder_summary_node(state: GenFormState) -> dict:
             "다음 키를 가진 JSON만 반환하세요: "
             "folders(객체 배열, 각 {name: 폴더명, summary: 1~2문장 책임 설명}).",
             f"{context}\n\n주요 폴더 목록:\n{folder_list_str}",
+            state.get("llm_model"),
         )
 
         folder_summaries: dict[str, str] = {}
@@ -472,6 +477,7 @@ async def flow_explain_node(state: GenFormState) -> dict:
             "entry_to_db(진입점 → 서비스 → DB까지 단계별 설명, 문자열 배열 3~6개), "
             "key_call_chain(핵심 함수 호출 체인 한 줄 요약, 문자열).",
             f"{context}\n\n{extra}",
+            state.get("llm_model"),
         )
 
         flow_obj: _FlowExplainOutput | None = None
@@ -569,6 +575,7 @@ async def onboarding_guide_node(state: GenFormState) -> dict:
             " 각 {file: 경로, reason: 주의 이유}, 최대 5개), "
             "first_tasks(첫 기여 추천 작업, 문자열 배열 2~4개).",
             f"{context}\n\n{extra}",
+            state.get("llm_model"),
         )
 
         guide_obj: _OnboardingGuideOutput | None = None
