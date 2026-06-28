@@ -15,8 +15,8 @@ def grep_repository_path(clone_path: str, rel_path: str | None, pattern: str) ->
     """Search a repository-relative path with a bounded regex scan."""
     try:
         compiled = compile_safe_regex(pattern, regex.IGNORECASE)
-    except ValueError:
-        return ""
+    except ValueError as exc:
+        return f"정규식 오류: {exc}"
 
     base = (Path(clone_path) / (rel_path or "")).resolve()
     root = Path(clone_path).resolve()

@@ -740,8 +740,8 @@ class TestRepositoryToolBoundaries(unittest.TestCase):
             root.mkdir()
             (root / "app.py").write_text("aaaaab\n", encoding="utf-8")
 
-            self.assertEqual(grep_repository_path(str(root), "app.py", ""), "")
-            self.assertEqual(grep_repository_path(str(root), "app.py", "(a+)+$"), "")
+            self.assertIn("정규식 오류", grep_repository_path(str(root), "app.py", ""))
+            self.assertIn("정규식 오류", grep_repository_path(str(root), "app.py", "(a+)+$"))
 
 
 if __name__ == "__main__":
