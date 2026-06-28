@@ -18,7 +18,7 @@ import {
 import { RepoInput } from "@/features/repository/components/RepoInput";
 import { HistoryList } from "@/features/history/components/HistoryList";
 import { WorkspaceReport } from "@/features/analysis/components/WorkspaceReport";
-import { CodePreviewPanel } from "@/features/analysis/components/CodePreviewPanel";
+import { CodeNavigatorPanel } from "@/features/analysis/components/CodeNavigatorPanel";
 import { FileTree } from "@/features/chat/components/FileTree";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
@@ -210,8 +210,8 @@ function AnalyzeWorkspace() {
                 />
               </div>
               {selectedFile && jobId && (
-                <div className="w-full flex-1 xl:max-w-[600px]">
-                  <CodePreviewPanel
+                <div className="w-full flex-1 xl:max-w-[880px]">
+                  <CodeNavigatorPanel
                     jobId={jobId}
                     filePath={selectedFile}
                     highlightLine={selectedLine}
