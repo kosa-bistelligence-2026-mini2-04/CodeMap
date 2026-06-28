@@ -128,17 +128,27 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
 
     primary_language = languages.most_common(1)[0][0] if languages else "Unknown"
     test_ratio = test_files / max(len(files), 1)
-    # [TODO] 건강도(Health Score) 산정 로직 재정의 논의 필요
-    # 현재는 단순 감점(파일 누락, 파일 크기, TODO 개수) 방식으로 하드코딩 되어 있습니다.
-    # 향후 `보안`, `코드품질`, `모듈화`, `테스트 커버리지` 등 다차원 레이더 차트를 위한 지표로 세분화해야 합니다.
-    health_score = 84
+    total = max(1, len(files))
+    test_ratio = test_files / total
+    todo_ratio = todo_count / total
+    oversized_ratio = len(oversized) / total
+
+    score = 100
     if test_ratio < 0.05:
-        health_score -= 10
-    if oversized:
-        health_score -= min(8, len(oversized) * 2)
-    if todo_count > 20:
-        health_score -= 5
-    health_score = max(35, min(96, health_score))
+        score -= 10
+    elif test_ratio >= 0.2:
+        score += 5
+        
+    score -= min(30, int(oversized_ratio * 100))
+    score -= min(20, int(todo_ratio * 50))
+    
+    health_score = max(35, min(100, score))
+    health_metrics = {
+        "score": health_score,
+        "test_ratio": round(test_ratio, 3),
+        "todo_ratio": round(todo_ratio, 3),
+        "oversized_ratio": round(oversized_ratio, 3),
+    }
 
     strengths = [
         f"{len(files):,}개 텍스트 파일과 {total_lines:,}줄을 실제 저장소 스냅샷에서 확인했습니다.",
@@ -193,6 +203,7 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
         "entrypoints": entrypoints[:12],
         "files": files,
         "health_score": health_score,
+        "health_metrics": health_metrics,
         "executive_summary": (
             f"{repo_name}은(는) {primary_language} 중심의 코드베이스입니다. "
             f"실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
