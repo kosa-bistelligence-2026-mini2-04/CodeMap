@@ -105,6 +105,9 @@ class Settings(BaseSettings):
     # SecretStr 선언으로 로그/출력 시 자동 마스킹 (보안 정책 대응)
     DATABASE_URL: SecretStr = SecretStr("")
 
+    # Redis 연결 URL (분산 락 및 상태 공유용)
+    REDIS_URL: SecretStr = SecretStr("")
+
     # Git 저장소 clone 시 사용할 임시 디렉토리 경로
     CLONE_BASE_DIR: str = ""
     CLONE_BASE_DIR_WINDOWS: str = "C:/temp/codemap/jobs"
