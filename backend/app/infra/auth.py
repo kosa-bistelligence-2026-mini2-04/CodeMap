@@ -17,10 +17,10 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jose import JWTError, ExpiredSignatureError, jwt
 
 from app.infra.config import get_settings
-from app.common.exceptions import UnauthorizedError
+from app.common.exceptions import UnauthorizedError, TokenExpiredError
 
 settings = get_settings()
 
@@ -65,7 +65,8 @@ def verify_access_token(token: str) -> dict:
         dict: 디코딩된 payload (sub, email, exp, iat)
 
     Raises:
-        UnauthorizedError: 서명 불일치 또는 만료
+        TokenExpiredError: 만료
+        UnauthorizedError: 서명 불일치
     """
     try:
         payload = jwt.decode(
@@ -74,6 +75,8 @@ def verify_access_token(token: str) -> dict:
             algorithms=[settings.JWT_ALGORITHM],
         )
         return payload
+    except ExpiredSignatureError:
+        raise TokenExpiredError()
     except JWTError:
         raise UnauthorizedError()
 
@@ -103,5 +106,5 @@ def get_current_user_optional(request: Request, token: str | None = Depends(oaut
         return None
     try:
         return verify_access_token(token)
-    except UnauthorizedError:
+    except (UnauthorizedError, TokenExpiredError):
         return None
