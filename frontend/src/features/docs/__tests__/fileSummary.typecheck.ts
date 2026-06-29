@@ -3,6 +3,8 @@
  */
 import type {
     DocFolderSummary,
+    DocReadingOrderItem,
+    DocDangerFileItem,
     DocGetJsonData,
     DocGetJsonResponse,
     DocFileSummaryItem,
@@ -17,12 +19,29 @@ function assertAssignable<T>(_val: T): void {
 const folder: DocFolderSummary = { path: "src/features", summary: "주요 기능 모듈" };
 assertAssignable<DocFolderSummary>(folder);
 
-// 2. DocGetJsonData 구조 검증 (전체 필드)
+// 2. DocReadingOrderItem 구조 검증
+const readingItem: DocReadingOrderItem = {
+    rank: 1,
+    path: "src/app/page.tsx",
+    reason: "진입점",
+};
+assertAssignable<DocReadingOrderItem>(readingItem);
+
+// 3. DocDangerFileItem 구조 검증
+const dangerItem: DocDangerFileItem = {
+    path: "backend/app/core/config.py",
+    reason: "환경 변수 직접 노출",
+};
+assertAssignable<DocDangerFileItem>(dangerItem);
+
+// 4. DocGetJsonData 전체 필드 검증
 const jsonData: DocGetJsonData = {
-    summary: "테스트 프로젝트 요약",
+    repoId: "550e8400-e29b-41d4-a716-446655440000",
+    repoName: "test-repo",
+    summary: "테스트 프로젝트",
     stack: ["Next.js", "FastAPI"],
-    readingOrder: ["src/app/page.tsx", "src/features/auth/utils/tokenMemory.ts"],
-    dangerFiles: ["backend/app/core/config.py"],
+    readingOrder: [readingItem],
+    dangerFiles: [dangerItem],
     coreFlow: "진입점 → 분석 → 결과",
     folderSummaries: [folder],
     generatedAt: "2026-06-29T00:00:00Z",
@@ -30,8 +49,10 @@ const jsonData: DocGetJsonData = {
 };
 assertAssignable<DocGetJsonData>(jsonData);
 
-// 3. DocGetJsonData nullable 필드 검증
+// 5. DocGetJsonData nullable 필드 검증
 const jsonDataNullable: DocGetJsonData = {
+    repoId: "550e8400-e29b-41d4-a716-446655440000",
+    repoName: "test-repo",
     summary: null,
     stack: [],
     readingOrder: [],
@@ -43,7 +64,7 @@ const jsonDataNullable: DocGetJsonData = {
 };
 assertAssignable<DocGetJsonData>(jsonDataNullable);
 
-// 4. DocGetJsonResponse 래퍼 검증
+// 6. DocGetJsonResponse 래퍼 검증
 const jsonResponse: DocGetJsonResponse = {
     code: 200,
     message: "ok",
@@ -51,7 +72,7 @@ const jsonResponse: DocGetJsonResponse = {
 };
 assertAssignable<DocGetJsonResponse>(jsonResponse);
 
-// 5. buildFileSummaries 반환 타입 검증
+// 7. buildFileSummaries 반환 타입 검증
 const summaries = buildFileSummaries(
     jsonData.readingOrder,
     jsonData.dangerFiles,
@@ -59,36 +80,38 @@ const summaries = buildFileSummaries(
 );
 assertAssignable<DocFileSummaryItem[]>(summaries);
 
-// 6. DocFileSummaryItem priority null 허용 검증
-const itemWithNullPriority: DocFileSummaryItem = {
+// 8. DocFileSummaryItem nullable 필드 검증
+const itemNullable: DocFileSummaryItem = {
     path: "backend/app/core/config.py",
     fileName: "config.py",
     priority: null,
     isDanger: true,
+    dangerReason: null,
     folderPath: null,
     folderSummary: null,
 };
-assertAssignable<DocFileSummaryItem>(itemWithNullPriority);
+assertAssignable<DocFileSummaryItem>(itemNullable);
 
-// 7. DocFileSummaryItem 완전한 필드 검증
+// 9. DocFileSummaryItem 완전한 필드 검증
 const itemFull: DocFileSummaryItem = {
     path: "src/app/page.tsx",
     fileName: "page.tsx",
     priority: 1,
     isDanger: false,
+    dangerReason: null,
     folderPath: "src/app",
     folderSummary: "Next.js App Router 진입 경로",
 };
 assertAssignable<DocFileSummaryItem>(itemFull);
 
-// 8. buildFileSummaries 빈 입력 검증
+// 10. buildFileSummaries 빈 입력 검증
 const emptySummaries = buildFileSummaries([], [], []);
 assertAssignable<DocFileSummaryItem[]>(emptySummaries);
 
-// 9. buildFileSummaries 중복 경로 처리 검증 (danger와 readingOrder 동시 등록)
+// 11. buildFileSummaries 중복 경로 처리 검증
 const overlapping = buildFileSummaries(
-    ["src/app/page.tsx"],
-    ["src/app/page.tsx"],
+    [readingItem],
+    [dangerItem],
     [folder]
 );
 assertAssignable<DocFileSummaryItem[]>(overlapping);

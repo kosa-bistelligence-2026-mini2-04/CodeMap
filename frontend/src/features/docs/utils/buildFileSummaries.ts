@@ -1,4 +1,9 @@
-import type { DocFolderSummary, DocFileSummaryItem } from "@/common/types/contracts";
+import type {
+    DocFolderSummary,
+    DocReadingOrderItem,
+    DocDangerFileItem,
+    DocFileSummaryItem,
+} from "@/common/types/contracts";
 
 function findNearestFolder(
     filePath: string,
@@ -19,15 +24,23 @@ function findNearestFolder(
 }
 
 export function buildFileSummaries(
-    readingOrder: string[],
-    dangerFiles: string[],
+    readingOrder: DocReadingOrderItem[],
+    dangerFiles: DocDangerFileItem[],
     folderSummaries: DocFolderSummary[]
 ): DocFileSummaryItem[] {
-    const dangerSet = new Set(dangerFiles);
-    const priorityMap = new Map<string, number>();
-    readingOrder.forEach((p, i) => priorityMap.set(p, i + 1));
+    const dangerMap = new Map<string, string>(
+        dangerFiles.map((d) => [d.path, d.reason])
+    );
+    const priorityMap = new Map<string, number>(
+        readingOrder.map((r) => [r.path, r.rank])
+    );
 
-    const allPaths = Array.from(new Set([...readingOrder, ...dangerFiles]));
+    const allPaths = Array.from(
+        new Set([
+            ...readingOrder.map((r) => r.path),
+            ...dangerFiles.map((d) => d.path),
+        ])
+    );
 
     return allPaths.map((path) => {
         const folder = findNearestFolder(path, folderSummaries);
@@ -36,7 +49,8 @@ export function buildFileSummaries(
             path,
             fileName: parts[parts.length - 1] ?? path,
             priority: priorityMap.get(path) ?? null,
-            isDanger: dangerSet.has(path),
+            isDanger: dangerMap.has(path),
+            dangerReason: dangerMap.get(path) ?? null,
             folderPath: folder?.path ?? null,
             folderSummary: folder?.summary ?? null,
         };

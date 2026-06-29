@@ -149,6 +149,23 @@ function FileDetail({ item }: { item: DocFileSummaryItem }) {
                 )}
             </div>
 
+            {item.dangerReason != null && (
+                <div>
+                    <p
+                        className="mb-1 text-xs font-medium"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        위험 사유
+                    </p>
+                    <p
+                        className="text-sm leading-relaxed"
+                        style={{ color: "var(--text-primary)" }}
+                    >
+                        {item.dangerReason}
+                    </p>
+                </div>
+            )}
+
             {item.folderSummary != null ? (
                 <div>
                     <p
