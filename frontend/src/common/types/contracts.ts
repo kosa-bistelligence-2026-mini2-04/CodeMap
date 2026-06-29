@@ -507,6 +507,7 @@ export interface DocGetJsonData {
   dangerFiles: DocDangerFileItem[];
   coreFlow: string | null;
   folderSummaries: DocFolderSummary[];
+  fileSummaries: DocFileSummaryRaw[];
   generatedAt: string;
   version: number;
 }
@@ -521,4 +522,24 @@ export interface DocGetJsonResponse {
   code: number;
   message: string;
   data: DocGetJsonData;
+}
+
+// ── DOCS-GEN-F-202 파일 단위 요약 타입 ────────────────────────────────────────
+
+/** API 원본 응답 타입 — 백엔드 DocFileSummaryItem과 1:1 대응 */
+export interface DocFileSummaryRaw {
+  path: string;
+  summary: string;
+}
+
+/** UI 파생 타입 — buildFileSummaries()가 생성하는 뷰 모델 */
+export interface DocFileSummaryItem {
+  path: string;
+  fileName: string;
+  priority: number | null;
+  isDanger: boolean;
+  dangerReason: string | null;
+  folderPath: string | null;
+  folderSummary: string | null;
+  summary: string | null;
 }

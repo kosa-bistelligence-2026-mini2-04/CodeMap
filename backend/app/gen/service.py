@@ -28,6 +28,7 @@ from app.gen.repository import GenDocRepository
 from app.gen.schemas import (
     DocDangerFileItem,
     DocFolderSummaryItem,
+    DocFileSummaryItem,
     DocGetJsonData,
     DocGetMarkdownData,
     DocReadingOrderItem,
@@ -134,6 +135,23 @@ def _normalize_folder_summaries(file_map: object) -> list[DocFolderSummaryItem]:
         for path, description in folder_map.items()
         if path
     ]
+
+
+def _normalize_file_summaries(file_summaries: object) -> list[DocFileSummaryItem]:
+    ## report 최상위 "file_summaries" 키를 직접 받아 DocFileSummaryItem 목록으로 변환한다.
+    if not isinstance(file_summaries, list):
+        return []
+    items = []
+    for item in file_summaries:
+        if isinstance(item, dict) and "path" in item and "summary" in item:
+            items.append(
+                DocFileSummaryItem(
+                    path=str(item["path"]),
+                    summary=str(item["summary"]),
+                )
+            )
+    return items
+
 
 
 # ──────────────────────────────────────────────────────────────
@@ -277,6 +295,7 @@ async def get_onboarding_doc(
             dangerFiles=_normalize_danger_files(guide.get("risk_files")),
             coreFlow=core_flow,
             folderSummaries=_normalize_folder_summaries(report.get("file_map")),
+            fileSummaries=_normalize_file_summaries(report.get("file_summaries")),
             generatedAt=doc.created_at,
             version=doc.version,
         )

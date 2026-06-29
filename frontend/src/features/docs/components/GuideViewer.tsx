@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   BookOpen,
   ChevronRight,
+  FileSearch,
   Folder,
   GitBranch,
   Layers,
@@ -17,6 +18,7 @@ import type {
   DocReadingOrderItem,
   DocDangerFileItem,
 } from "@/common/types/contracts";
+import { FileSummaryPanel } from "./FileSummaryPanel";
 
 // ── 탭 정의 ────────────────────────────────────────────────────
 
@@ -26,7 +28,8 @@ type TabId =
   | "readingOrder"
   | "dangerFiles"
   | "coreFlow"
-  | "folderSummaries";
+  | "folderSummaries"
+  | "fileSummary";
 
 interface Tab {
   id: TabId;
@@ -35,12 +38,13 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: "summary",         label: "프로젝트 요약", icon: BookOpen    },
-  { id: "stack",           label: "기술 스택",      icon: Layers      },
-  { id: "readingOrder",    label: "읽기 순서",      icon: List        },
-  { id: "dangerFiles",     label: "위험 파일",      icon: ShieldAlert },
-  { id: "coreFlow",        label: "핵심 플로우",    icon: GitBranch   },
-  { id: "folderSummaries", label: "폴더 요약",      icon: Folder      },
+  { id: "summary",         label: "프로젝트 요약",   icon: BookOpen    },
+  { id: "stack",           label: "기술 스택",        icon: Layers      },
+  { id: "readingOrder",    label: "읽기 순서",        icon: List        },
+  { id: "dangerFiles",     label: "위험 파일",        icon: ShieldAlert },
+  { id: "coreFlow",        label: "핵심 플로우",      icon: GitBranch   },
+  { id: "folderSummaries", label: "폴더 요약",        icon: Folder      },
+  { id: "fileSummary",     label: "파일 단위 요약",   icon: FileSearch  },
 ];
 
 // ── 개별 패널 컴포넌트 ─────────────────────────────────────────
@@ -316,6 +320,7 @@ export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
     dangerFiles:     <DangerFilesPanel items={data.dangerFiles} />,
     coreFlow:        <CoreFlowPanel text={data.coreFlow} />,
     folderSummaries: <FolderSummariesPanel items={data.folderSummaries} />,
+    fileSummary:     <FileSummaryPanel docData={data} />,
   };
 
   return (

@@ -357,6 +357,9 @@ class GetOnboardingDocServiceTests(unittest.IsolatedAsyncioTestCase):
                 "risk_files": [{"file": "config.py", "reason": "환경 설정 주의"}],
             },
             "file_map": {"backend/": "API 서버"},
+            "file_summaries": [
+                {"path": "src/app/page.tsx", "summary": "Next.js 앱 라우터 진입 경로"}
+            ],
         }
 
         with (
@@ -379,6 +382,9 @@ class GetOnboardingDocServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.reading_order[0].reason, "")
         self.assertEqual(result.danger_files[0].path, "config.py")
         self.assertEqual(result.danger_files[0].reason, "환경 설정 주의")
+        self.assertEqual(len(result.file_summaries), 1)
+        self.assertEqual(result.file_summaries[0].path, "src/app/page.tsx")
+        self.assertEqual(result.file_summaries[0].summary, "Next.js 앱 라우터 진입 경로")
         self.assertEqual(result.folder_summaries[0].path, "backend/")
 
     async def test_json_format_with_none_report_json(self):
@@ -400,6 +406,36 @@ class GetOnboardingDocServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(result, DocGetJsonData)
         self.assertIsNone(result.summary)
         self.assertEqual(result.stack, [])
+
+    async def test_file_summaries_from_report_top_level(self):
+        """file_summaries가 report 최상위 키에서 fileSummaries로 보존되어야 한다."""
+        from app.gen.service import get_onboarding_doc
+
+        report = {
+            "summary": {"purpose": "테스트"},
+            "file_summaries": [
+                {"path": "src/app/page.tsx", "summary": "Next.js 앱 라우터 진입점"},
+                {"path": "backend/app/main.py", "summary": "FastAPI 앱 진입점"},
+            ],
+        }
+
+        with (
+            patch(
+                "app.gen.service.GenDocRepository.get_repo_by_id",
+                new=AsyncMock(return_value=self._make_analysis_job()),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.get_active_by_repo_id",
+                new=AsyncMock(return_value=self._make_doc(report_json=report)),
+            ),
+        ):
+            result = await get_onboarding_doc(self._make_db(), _REPO_ID, fmt="json")
+
+        self.assertIsInstance(result, DocGetJsonData)
+        self.assertEqual(len(result.file_summaries), 2)
+        self.assertEqual(result.file_summaries[0].path, "src/app/page.tsx")
+        self.assertEqual(result.file_summaries[0].summary, "Next.js 앱 라우터 진입점")
+        self.assertEqual(result.file_summaries[1].path, "backend/app/main.py")
 
 
 # ──────────────────────────────────────────────────────────────
