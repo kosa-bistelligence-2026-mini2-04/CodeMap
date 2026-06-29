@@ -8,7 +8,7 @@ import { fetchJobStatus, fetchParseDetails, startAnalysis, validateRepository } 
 import { mergeParseDetails } from "@/features/analysis/utils/mergeParseDetails";
 import type { WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
 
-export type ViewStatus = "idle" | "running" | "completed" | "failed";
+export type ViewStatus = "idle" | "loading" | "running" | "completed" | "failed";
 
 export interface AnalysisSubmitInput {
   source: RepoSource;
@@ -44,7 +44,7 @@ export function useAnalysisJob({
   const [jobId, setJobId] = useState<string | null>(preview ? "preview-codemap" : queryJobId);
   const [job, setJob] = useState<JobStatusData | null>(null);
   const [report, setReport] = useState<WorkspaceReportData | null>(initialReport);
-  const [status, setStatus] = useState<ViewStatus>(preview ? "completed" : queryJobId ? "running" : "idle");
+  const [status, setStatus] = useState<ViewStatus>(preview ? "completed" : queryJobId ? "loading" : "idle");
   const [error, setError] = useState<string | null>(null);
   const [showNewAnalysis, setShowNewAnalysis] = useState(!preview && !queryJobId);
 
@@ -162,7 +162,7 @@ export function useAnalysisJob({
     setJobId(id);
     setReport(null);
     setError(null);
-    setStatus("running");
+    setStatus("loading");
     setShowNewAnalysis(false);
     onRouteJob(id);
     void loadJob(id);

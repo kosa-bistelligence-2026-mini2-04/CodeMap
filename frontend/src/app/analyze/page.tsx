@@ -27,9 +27,6 @@ import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
 import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
 import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
-import { mergeParseDetails } from "@/features/analysis/utils/mergeParseDetails";
-
-type ViewStatus = "idle" | "running" | "completed" | "failed";
 
 // 모바일 드로워 닫기 모션이 끝난 뒤 데이터 갱신을 트리거하기까지의 디바운스(ms)
 const MOBILE_DRAWER_CLOSE_MS = 180;
@@ -198,6 +195,12 @@ function AnalyzeWorkspace() {
                   {(isKo ? ["실제 저장소 구조 분석", "리포트에서 바로 질문", "답변 출처 파일·라인 이동", "패널과 전체 채팅 대화 유지"] : ["Real codebase structure analysis", "Ask questions from reports", "Jump to source file and line", "Maintain full chat context"]).map((item, index) => <div key={item} className={`flex items-center gap-3 border-b py-3 last:border-0 ${isDark ? "border-zinc-800/70" : "border-zinc-100"}`}><span className="flex size-6 items-center justify-center rounded-lg bg-blue-500/10 text-[9px] font-bold text-blue-400">0{index + 1}</span><span className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{item}</span><CheckCircle2 className="ml-auto size-3.5 text-emerald-500/70" /></div>)}
                 </div>
               </div>
+            </div>
+          )}
+
+          {status === "loading" && (
+            <div className="mx-auto flex min-h-full items-center justify-center">
+              <LoaderCircle className="size-8 animate-spin text-zinc-500" />
             </div>
           )}
 
