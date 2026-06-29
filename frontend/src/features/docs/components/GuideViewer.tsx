@@ -11,6 +11,7 @@ import {
   Layers,
   List,
   LoaderCircle,
+  Navigation,
   ShieldAlert,
 } from "lucide-react";
 import type {
@@ -19,6 +20,7 @@ import type {
   DocDangerFileItem,
 } from "@/common/types/contracts";
 import { FileSummaryPanel } from "./FileSummaryPanel";
+import { OnboardingGuidePanel } from "./OnboardingGuidePanel";
 
 // ── 탭 정의 ────────────────────────────────────────────────────
 
@@ -29,7 +31,8 @@ type TabId =
   | "dangerFiles"
   | "coreFlow"
   | "folderSummaries"
-  | "fileSummary";
+  | "fileSummary"
+  | "onboardingGuide";
 
 interface Tab {
   id: TabId;
@@ -45,6 +48,7 @@ const TABS: Tab[] = [
   { id: "coreFlow",        label: "핵심 플로우",      icon: GitBranch   },
   { id: "folderSummaries", label: "폴더 요약",        icon: Folder      },
   { id: "fileSummary",     label: "파일 단위 요약",   icon: FileSearch  },
+  { id: "onboardingGuide", label: "온보딩 가이드",    icon: Navigation  },
 ];
 
 // ── 개별 패널 컴포넌트 ─────────────────────────────────────────
@@ -321,6 +325,12 @@ export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
     coreFlow:        <CoreFlowPanel text={data.coreFlow} />,
     folderSummaries: <FolderSummariesPanel items={data.folderSummaries} />,
     fileSummary:     <FileSummaryPanel docData={data} />,
+    onboardingGuide: (
+      <OnboardingGuidePanel
+        readingOrder={data.readingOrder}
+        dangerFiles={data.dangerFiles}
+      />
+    ),
   };
 
   return (
