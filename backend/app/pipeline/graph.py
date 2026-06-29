@@ -15,6 +15,7 @@
 
 import logging
 import time
+from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
@@ -141,7 +142,7 @@ class AnalysisPipelineSupervisor:
         self.work_flow = graph.compile()
         self.logger.info("분석 파이프라인 워크플로우 컴파일 완료")
 
-    async def run(self, initial_state: PipelineState) -> PipelineState:
+    async def run(self, initial_state: PipelineState) -> Any:
         """
         분석 파이프라인 워크플로우를 실행한다.
 

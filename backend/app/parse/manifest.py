@@ -514,9 +514,12 @@ def _dedupe_stack_items(items: list[dict[str, str | None]]) -> list[dict[str, st
     """기술명 기준으로 중복을 제거하되, 버전이 있는 항목을 우선 보존한다."""
     by_name: dict[str, dict[str, str | None]] = {}
     for item in items:
-        current = by_name.get(item["name"])
+        name = item.get("name")
+        if not name:
+            continue
+        current = by_name.get(name)
         if current is None or (not current.get("version") and item.get("version")):
-            by_name[item["name"]] = item
+            by_name[name] = item
     return sorted(by_name.values(), key=lambda item: (str(item["category"]), str(item["name"])))
 
 

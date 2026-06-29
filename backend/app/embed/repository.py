@@ -263,7 +263,7 @@ class EmbedRepository:
         result = await self.db.execute(
             delete(CodeNode).where(CodeNode.job_id == job_id)
         )
-        deleted = result.rowcount
+        deleted = int(getattr(result, "rowcount", 0))
         logger.info(
             "[임베딩 삭제] job=%s | %d개 CodeNode 삭제 완료 (Dependency 연쇄 삭제 포함)",
             job_id, deleted,

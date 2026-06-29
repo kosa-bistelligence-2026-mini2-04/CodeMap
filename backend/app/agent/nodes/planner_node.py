@@ -173,7 +173,7 @@ async def planner_node(state: CodeMapState) -> dict[str, Union[str, list, dict]]
     logger.info("[Planner] 완료 — plan 항목 수=%d", len(plan))
 
     selected_workers = sorted({p.get("tool", "search") for p in plan})
-    allowed_paths = sorted({p.get("path") for p in plan if p.get("path")})
+    allowed_paths = sorted({str(p.get("path")) for p in plan if p.get("path")})
 
     return {
         "rewritten_query": data.get("rewritten_query", planner_query),

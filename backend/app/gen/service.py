@@ -25,7 +25,13 @@ from app.common.exceptions import (
 )
 from app.gen.models import OnboardingDoc
 from app.gen.repository import GenDocRepository
-from app.gen.schemas import DocGetJsonData, DocGetMarkdownData  # noqa: F401 (re-exported)
+from app.gen.schemas import (
+    DocDangerFileItem,
+    DocFolderSummaryItem,
+    DocGetJsonData,
+    DocGetMarkdownData,
+    DocReadingOrderItem,
+)
 from app.infra.config import get_settings
 from app.repo.schemas import JobStatus
 
@@ -63,11 +69,11 @@ def _normalize_stack(stack: object) -> list[str]:
     return [str(item) for item in stack if item]
 
 
-def _normalize_reading_order(reading_order: object) -> list[dict[str, object]]:
+def _normalize_reading_order(reading_order: object) -> list[DocReadingOrderItem]:
     if not isinstance(reading_order, list):
         return []
 
-    items: list[dict[str, object]] = []
+    items: list[DocReadingOrderItem] = []
     for index, item in enumerate(reading_order, start=1):
         if isinstance(item, str):
             path = item
@@ -85,15 +91,21 @@ def _normalize_reading_order(reading_order: object) -> list[dict[str, object]]:
                 rank_value = int(rank)
             except (TypeError, ValueError):
                 rank_value = index
-            items.append({"rank": rank_value, "path": str(path), "reason": str(reason)})
+            items.append(
+                DocReadingOrderItem(
+                    rank=rank_value,
+                    path=str(path),
+                    reason=str(reason),
+                )
+            )
     return items
 
 
-def _normalize_danger_files(danger_files: object) -> list[dict[str, str]]:
+def _normalize_danger_files(danger_files: object) -> list[DocDangerFileItem]:
     if not isinstance(danger_files, list):
         return []
 
-    items: list[dict[str, str]] = []
+    items: list[DocDangerFileItem] = []
     for item in danger_files:
         if isinstance(item, str):
             path = item
@@ -105,11 +117,11 @@ def _normalize_danger_files(danger_files: object) -> list[dict[str, str]]:
             continue
 
         if path:
-            items.append({"path": str(path), "reason": str(reason)})
+            items.append(DocDangerFileItem(path=str(path), reason=str(reason)))
     return items
 
 
-def _normalize_folder_summaries(file_map: object) -> list[dict[str, str]]:
+def _normalize_folder_summaries(file_map: object) -> list[DocFolderSummaryItem]:
     if not isinstance(file_map, dict):
         return []
 
@@ -118,7 +130,7 @@ def _normalize_folder_summaries(file_map: object) -> list[dict[str, str]]:
         return []
 
     return [
-        {"path": str(path), "description": str(description)}
+        DocFolderSummaryItem(path=str(path), description=str(description))
         for path, description in folder_map.items()
         if path
     ]
@@ -257,15 +269,15 @@ async def get_onboarding_doc(
             repo_id, doc.version,
         )
         return DocGetJsonData(
-            repo_id=repo_id,
-            repo_name=getattr(analysis_job, "repo_name", "") or "",
+            repoId=repo_id,
+            repoName=getattr(analysis_job, "repo_name", "") or "",
             summary=_normalize_summary(summary_raw),
             stack=_normalize_stack(report.get("stack")),
-            reading_order=_normalize_reading_order(guide.get("reading_order")),
-            danger_files=_normalize_danger_files(guide.get("risk_files")),
-            core_flow=core_flow,
-            folder_summaries=_normalize_folder_summaries(report.get("file_map")),
-            generated_at=doc.created_at,
+            readingOrder=_normalize_reading_order(guide.get("reading_order")),
+            dangerFiles=_normalize_danger_files(guide.get("risk_files")),
+            coreFlow=core_flow,
+            folderSummaries=_normalize_folder_summaries(report.get("file_map")),
+            generatedAt=doc.created_at,
             version=doc.version,
         )
 
@@ -275,10 +287,10 @@ async def get_onboarding_doc(
         repo_id, doc.version,
     )
     return DocGetMarkdownData(
-        repo_id=repo_id,
-        repo_name=getattr(analysis_job, "repo_name", "") or "",
+        repoId=repo_id,
+        repoName=getattr(analysis_job, "repo_name", "") or "",
         content=doc.content,
-        generated_at=doc.created_at,
+        generatedAt=doc.created_at,
         version=doc.version,
     )
 

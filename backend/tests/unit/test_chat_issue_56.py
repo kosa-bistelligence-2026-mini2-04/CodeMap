@@ -162,9 +162,10 @@ class TestAgentLLMClient(unittest.TestCase):
 
         self.assertIsInstance(planner_llm, FakeChatOpenAI)
         self.assertIsInstance(evaluator_llm, FakeChatOpenAI)
+        from pydantic import SecretStr
         self.assertEqual(calls, [
-            {"model": "gpt-4o-mini", "api_key": "sk-test", "temperature": 0},
-            {"model": "gpt-4o-mini", "api_key": "sk-test", "temperature": 0},
+            {"model": "gpt-4o-mini", "api_key": SecretStr("sk-test"), "temperature": 0},
+            {"model": "gpt-4o-mini", "api_key": SecretStr("sk-test"), "temperature": 0},
         ])
 
     def test_final_answer_deep_mode_uses_gpt_4o(self):
@@ -183,8 +184,9 @@ class TestAgentLLMClient(unittest.TestCase):
             llm = create_final_answer_llm(mode="deep", streaming=True)
 
         self.assertIsInstance(llm, FakeChatOpenAI)
+        from pydantic import SecretStr
         self.assertEqual(captured["kwargs"]["model"], "gpt-4o")
-        self.assertEqual(captured["kwargs"]["api_key"], "sk-test")
+        self.assertEqual(captured["kwargs"]["api_key"].get_secret_value(), "sk-test")
         self.assertTrue(captured["kwargs"]["streaming"])
 
 
