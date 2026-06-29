@@ -39,7 +39,6 @@ export function DashboardCharts({ report }: Props) {
     { subject: "보안(Security)", A: getScore(metrics?.security), fullMark: 100 },
     { subject: "모듈화(Modularity)", A: getScore(metrics?.modularity), fullMark: 100 },
     { subject: "코드품질(Quality)", A: getScore(metrics?.quality), fullMark: 100 },
-    { subject: "테스트(Test)", A: metrics?.test_ratio !== undefined ? Math.round(metrics.test_ratio * 100) : 50, fullMark: 100 },
     { subject: "복잡도(Complexity)", A: getScore(metrics?.complexity), fullMark: 100 },
   ];
 

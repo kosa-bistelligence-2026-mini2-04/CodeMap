@@ -134,11 +134,6 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
     oversized_ratio = len(oversized) / total
 
     score = 100
-    if test_ratio < 0.05:
-        score -= 10
-    elif test_ratio >= 0.2:
-        score += 5
-        
     score -= min(30, int(oversized_ratio * 100))
     score -= min(20, int(todo_ratio * 50))
     
