@@ -951,6 +951,7 @@ class AnalysisService:
                     "security": 50, "modularity": 50, "quality": 50,
                     "test": 50, "complexity": 50
                 },
+                "executive_summary": "분석 대상 텍스트 파일이 없는 빈 저장소입니다.",
                 "key_strengths": ["분석 대상 텍스트 파일이 없습니다."],
                 "key_risks": [
                     "레포지토리가 비어 있거나 소스코드가 감지되지 않습니다."
@@ -1076,6 +1077,10 @@ class AnalysisService:
                 "test": test_score,
                 "complexity": complexity_score,
             },
+            "executive_summary": (
+                f"{repo_name}은(는) {primary_language} 중심의 코드베이스입니다. "
+                "실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
+            ),
             "key_strengths": [
                 f"{total_files:,}개 파일과 {total_lines:,}줄이 "
                 "실제 스냅샷에서 확인되었습니다.",
