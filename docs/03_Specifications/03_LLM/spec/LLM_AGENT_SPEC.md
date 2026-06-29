@@ -46,7 +46,7 @@
 - **`CodeMapState` (TypedDict)**
   - 입력: `user_query`, `repo_id`, `clone_path`, `run_id`
   - Planner 출력: `rewritten_query`, `access_plan: list[AccessPlanItem]`
-  - Dispatcher 출력: `security_result: SecurityResult` (`{approved, rejected}`)
+  - Dispatcher 출력: `security_result: SecurityResult` (`{approved, rejected}`), `attempted_signatures: NotRequired[Annotated[set[tuple[str, str]], operator.or_]]`
   - Worker 출력(fan-in): `worker_results: Annotated[list[WorkerResult], operator.add]`, `events: Annotated[list[dict], operator.add]`, `errors: list[str]`, `durations: dict`
   - Evaluator 출력: `compact_context: dict`
   - 최종: `final_answer: str | None`

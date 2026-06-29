@@ -35,7 +35,7 @@ async def grep_worker(state: CodeMapState) -> dict:
         lineEnd=None,
         score=None,
         snippet=content,
-        metadata={"worker": "grep", "tool": "grep_scan", "query": pattern},
+        metadata={"worker": "grep", "tool": "grep_scan", "query": pattern, "path": rel_path},
     )
     return {
         "worker_results": [result],
