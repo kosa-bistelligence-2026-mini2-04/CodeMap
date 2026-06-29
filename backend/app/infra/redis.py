@@ -13,7 +13,7 @@ async def init_redis() -> None:
     settings = get_settings()
     redis_url = getattr(settings, 'REDIS_URL', None)
     
-    if hasattr(redis_url, 'get_secret_value'):
+    if redis_url is not None and hasattr(redis_url, 'get_secret_value'):
         redis_url = redis_url.get_secret_value()
         
     if redis_url and str(redis_url).strip():
