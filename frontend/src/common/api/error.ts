@@ -48,8 +48,8 @@ export async function parseApiError(response: Response): Promise<ApiError> {
   
   if (response.status === 401) {
     setAccessToken(null);
-    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-      window.location.href = "/login";
+    if (typeof window !== "undefined" && window.location.pathname !== "/signin") {
+      window.location.href = "/signin";
     }
   }
 

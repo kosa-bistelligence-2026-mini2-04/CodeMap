@@ -1135,11 +1135,15 @@ class RepoValidateService:
         repo_name = match.group("repo")
         api_url = f"https://api.github.com/repos/{owner}/{repo_name}"
 
+        headers = {"User-Agent": "CodeMap"}
+        if settings.GITHUB_TOKEN:
+            headers["Authorization"] = f"token {settings.GITHUB_TOKEN}"
+
         try:
             async with httpx.AsyncClient(timeout=5) as client:
                 response = await client.get(
                     api_url,
-                    headers={"User-Agent": "CodeMap"},
+                    headers=headers,
                 )
 
             if response.status_code == 404:
