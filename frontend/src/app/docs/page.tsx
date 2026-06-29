@@ -19,24 +19,27 @@ function DocsWorkspace() {
     if (!repoId) return;
 
     let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-    setData(null);
 
-    fetchOnboardingDocJson(repoId)
-      .then((resp) => {
+    const load = async () => {
+      setIsLoading(true);
+      setError(null);
+      setData(null);
+
+      try {
+        const resp = await fetchOnboardingDocJson(repoId);
         if (!cancelled) setData(resp.data);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (!cancelled) {
           setError(
             err instanceof Error ? err.message : "가이드북 조회에 실패했습니다.",
           );
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setIsLoading(false);
-      });
+      }
+    };
+
+    void load();
 
     return () => {
       cancelled = true;
