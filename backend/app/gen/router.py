@@ -325,7 +325,8 @@ async def guard_doc(
         raise InvalidContentError()
 
     ## 저장소 존재 여부 확인
-    repo = await GenDocRepository.get_repo_by_id(db=db, repo_id=repo_id)
+    gen_repo = GenDocRepository(db)
+    repo = await gen_repo.get_repo_by_id(repo_id)
     if repo is None:
         raise RepoNotFoundError()
 
