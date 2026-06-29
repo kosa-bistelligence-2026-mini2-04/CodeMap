@@ -32,6 +32,8 @@ from app.gen.schemas import (
     DocGetJsonData,
     DocGetMarkdownData,
     DocReadingOrderItem,
+    DocTaskItem,
+    DocTaskData,
 )
 from app.infra.config import get_settings
 from app.repo.schemas import JobStatus
@@ -563,3 +565,91 @@ async def get_doc_download_content(
         repo_id, doc.version,
     )
     return doc.content, repo_name
+
+
+def _normalize_first_tasks(first_tasks: object) -> list[DocTaskItem]:
+    """master_report.guide.first_tasks를 DocTaskItem 목록으로 정규화한다.
+
+    항목은 세 가지 형태가 가능하다:
+      - str         → title=str, difficulty="미분류"
+      - dict w/ task  → title=dict["task"], difficulty=dict.get("difficulty", "미분류")
+      - dict w/ title → title=dict["title"], difficulty=dict.get("difficulty", "미분류")
+    """
+    if not isinstance(first_tasks, list):
+        return []
+
+    items: list[DocTaskItem] = []
+    for item in first_tasks:
+        if isinstance(item, str) and item.strip():
+            items.append(DocTaskItem(title=item.strip()))
+        elif isinstance(item, dict):
+            title = (
+                item.get("title")
+                or item.get("task")
+                or item.get("description")
+                or ""
+            )
+            if not isinstance(title, str):
+                title = str(title)
+            title = title.strip()
+            if not title:
+                continue
+            difficulty = item.get("difficulty") or "미분류"
+            if not isinstance(difficulty, str):
+                difficulty = str(difficulty)
+            items.append(DocTaskItem(title=title, difficulty=difficulty.strip()))
+    return items
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-006: 추천 작업 조회 (B-208)
+# ──────────────────────────────────────────────────────────────
+async def get_recommended_tasks(
+    db: AsyncSession,
+    repo_id: UUID,
+) -> DocTaskData:
+    '''
+    저장된 가이드북의 guide.first_tasks를 정규화하여 추천 작업 목록을 반환한다.
+
+    DOCS-GEN-B-208 구현:
+      1. repo_id 존재 여부 확인 (없으면 404 RepoNotFoundError)
+      2. 활성 문서 조회 (없으면 404 DocsNotFoundError)
+      3. report_json.guide.first_tasks 정규화 후 DocTaskData 반환
+
+    Args:
+        db:      AsyncSession (외부 주입)
+        repo_id: 대상 저장소 ID
+
+    Returns:
+        DocTaskData (tasks 목록 + total)
+
+    Raises:
+        RepoNotFoundError (404):  저장소가 없을 때
+        DocsNotFoundError (404):  활성 가이드북이 없을 때
+    '''
+    repo = GenDocRepository(db)
+
+    ## 1. 저장소 존재 여부 확인
+    analysis_job = await repo.get_repo_by_id(repo_id)
+    if analysis_job is None:
+        logger.warning("[DOCS-GEN-API-006] 저장소 없음 | repo_id=%s", repo_id)
+        raise RepoNotFoundError()
+
+    ## 2. 활성 문서 조회
+    doc = await repo.get_active_by_repo_id(repo_id)
+    if doc is None:
+        logger.warning("[DOCS-GEN-API-006] 가이드북 없음 | repo_id=%s", repo_id)
+        raise DocsNotFoundError()
+
+    ## 3. first_tasks 정규화
+    report = doc.report_json or {}
+    guide = report.get("guide") or {}
+    raw_tasks = guide.get("first_tasks") or []
+
+    tasks = _normalize_first_tasks(raw_tasks)
+
+    logger.info(
+        "[DOCS-GEN-API-006] 조회 완료 | repo_id=%s tasks=%d",
+        repo_id, len(tasks),
+    )
+    return DocTaskData(tasks=tasks, total=len(tasks))

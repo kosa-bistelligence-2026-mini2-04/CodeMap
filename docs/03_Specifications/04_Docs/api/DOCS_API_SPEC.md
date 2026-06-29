@@ -444,6 +444,67 @@ Authorization: Bearer eyJhbGci...
 
 ---
 
+### DOCS-GEN-API-006 추천 작업 조회
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `GET /api/gen/docs/{repo_id}/tasks` |
+| Method | GET |
+| 관련 기능 ID | `DOCS-GEN-B-208` |
+| 목적 | 가이드북의 첫 기여 추천 작업 목록 반환 |
+| 상태 | 시작 전 |
+
+> 온보딩 파이프라인(B-202)이 생성한 `first_tasks`를 구조화하여 제공합니다.
+> 신규 팀원이 첫 번째로 시작하기 적합한 GitHub issue/task를 제안합니다.
+
+#### 요청(Request)
+
+##### Path Parameters
+
+| 파라미터명 | 타입 | 필수 | 설명 |
+| :--- | :--- | :--- | :--- |
+| repo_id | UUID | Y | 추천 작업 조회 대상 저장소 고유 ID |
+
+#### 응답(Response)
+
+##### 성공 응답 - 200 OK
+
+| 필드명 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| code | Integer | HTTP 상태 코드 |
+| message | String | "success" |
+| data.tasks | Array<Object> | 추천 작업 목록 |
+| data.tasks[].title | String | 작업 설명 |
+| data.tasks[].difficulty | String | 난이도 ("상" / "중" / "하" / "미분류") |
+| data.total | Integer | 추천 작업 총 개수 |
+
+##### 응답 예시
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "tasks": [
+      { "title": "README 업데이트 — 설치 가이드 보완", "difficulty": "하" },
+      { "title": "단위 테스트 커버리지 추가 (service 계층)", "difficulty": "중" }
+    ],
+    "total": 2
+  }
+}
+```
+
+##### 에러 응답
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 404 | `REPO_NOT_FOUND` | DB 조회 | 저장소 없음 |
+| 404 | `DOCS_NOT_FOUND` | DB 조회 | 가이드북이 아직 생성되지 않음 |
+
+---
+
 ## 에러 코드 정의
 
 | Error Code | HTTP Status | 설명 |

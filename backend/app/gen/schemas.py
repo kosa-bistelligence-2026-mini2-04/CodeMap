@@ -222,6 +222,38 @@ class DocRebuildResponse(BaseModel):
 # ──────────────────────────────────────────────
 # DOCS-GUARD-API-001: 민감정보 마스킹 요청/응답
 # ──────────────────────────────────────────────
+# ──────────────────────────────────────────────
+# DOCS-GEN-API-006: 추천 작업 조회 응답
+# ──────────────────────────────────────────────
+class DocTaskItem(BaseModel):
+    '''단일 추천 작업 항목 (B-208 first_tasks 정규화 결과)'''
+
+    title: str = Field(description="작업 설명")
+    difficulty: str = Field(
+        default="미분류",
+        description="난이도 (상 / 중 / 하 / 미분류)",
+    )
+
+
+class DocTaskData(BaseModel):
+    '''GET /api/gen/docs/{repo_id}/tasks 성공 응답 data 필드'''
+
+    tasks: list[DocTaskItem] = Field(
+        default_factory=list,
+        description="추천 작업 목록",
+    )
+    total: int = Field(description="추천 작업 총 개수")
+
+
+class DocTaskResponse(BaseModel):
+    '''GET /api/gen/docs/{repo_id}/tasks 성공 응답 (200 OK)'''
+
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="처리 결과 메시지")
+    data: DocTaskData
+
+
+# ──────────────────────────────────────────────
 class DocGuardRequest(BaseModel):
     '''
     POST /api/gen/docs/{repo_id}/guard 요청 본문 (DOCS-GUARD-API-001)
