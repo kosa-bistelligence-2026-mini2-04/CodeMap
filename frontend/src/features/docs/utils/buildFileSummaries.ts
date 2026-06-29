@@ -2,6 +2,7 @@ import type {
     DocFolderSummary,
     DocReadingOrderItem,
     DocDangerFileItem,
+    DocFileSummaryRaw,
     DocFileSummaryItem,
 } from "@/common/types/contracts";
 
@@ -10,7 +11,7 @@ export function buildFileSummaries(
     readingOrder: DocReadingOrderItem[],
     dangerFiles: DocDangerFileItem[],
     folderSummaries: DocFolderSummary[],
-    fileSummaries: DocFileSummaryItem[] = []
+    fileSummaries: DocFileSummaryRaw[] = []
 ): DocFileSummaryItem[] {
     const dangerMap = new Map<string, string>(
         dangerFiles.map((d) => [d.path, d.reason])
@@ -19,7 +20,7 @@ export function buildFileSummaries(
         readingOrder.map((r) => [r.path, r.rank])
     );
     const fileSummaryMap = new Map<string, string>(
-        fileSummaries.map((f) => [f.path, f.summary || ""])
+        fileSummaries.map((f) => [f.path, f.summary])
     );
     const folderMap = new Map<string, DocFolderSummary>(
         folderSummaries.map((f) => [f.path, f])

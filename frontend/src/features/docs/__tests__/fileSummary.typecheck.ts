@@ -7,6 +7,7 @@ import type {
     DocDangerFileItem,
     DocGetJsonData,
     DocGetJsonResponse,
+    DocFileSummaryRaw,
     DocFileSummaryItem,
 } from "@/common/types/contracts";
 import { buildFileSummaries } from "../utils/buildFileSummaries";
@@ -34,7 +35,14 @@ const dangerItem: DocDangerFileItem = {
 };
 assertAssignable<DocDangerFileItem>(dangerItem);
 
-// 4. DocGetJsonData 전체 필드 검증
+// 4. DocFileSummaryRaw — API 원본 타입 검증
+const rawFileSummary: DocFileSummaryRaw = {
+    path: "src/app/page.tsx",
+    summary: "Next.js 앱 라우터 진입점",
+};
+assertAssignable<DocFileSummaryRaw>(rawFileSummary);
+
+// 5. DocGetJsonData 전체 필드 검증 (non-empty fileSummaries 포함)
 const jsonData: DocGetJsonData = {
     repoId: "550e8400-e29b-41d4-a716-446655440000",
     repoName: "test-repo",
@@ -44,13 +52,13 @@ const jsonData: DocGetJsonData = {
     dangerFiles: [dangerItem],
     coreFlow: "진입점 → 분석 → 결과",
     folderSummaries: [folder],
-    fileSummaries: [],
+    fileSummaries: [rawFileSummary],
     generatedAt: "2026-06-29T00:00:00Z",
     version: 1,
 };
 assertAssignable<DocGetJsonData>(jsonData);
 
-// 5. DocGetJsonData nullable 필드 검증
+// 6. DocGetJsonData nullable 필드 검증
 const jsonDataNullable: DocGetJsonData = {
     repoId: "550e8400-e29b-41d4-a716-446655440000",
     repoName: "test-repo",
@@ -66,7 +74,7 @@ const jsonDataNullable: DocGetJsonData = {
 };
 assertAssignable<DocGetJsonData>(jsonDataNullable);
 
-// 6. DocGetJsonResponse 래퍼 검증
+// 7. DocGetJsonResponse 래퍼 검증
 const jsonResponse: DocGetJsonResponse = {
     code: 200,
     message: "ok",
@@ -74,15 +82,16 @@ const jsonResponse: DocGetJsonResponse = {
 };
 assertAssignable<DocGetJsonResponse>(jsonResponse);
 
-// 7. buildFileSummaries 반환 타입 검증
+// 8. buildFileSummaries 반환 타입 검증 (fileSummaries 포함)
 const summaries = buildFileSummaries(
     jsonData.readingOrder,
     jsonData.dangerFiles,
-    jsonData.folderSummaries
+    jsonData.folderSummaries,
+    jsonData.fileSummaries
 );
 assertAssignable<DocFileSummaryItem[]>(summaries);
 
-// 8. DocFileSummaryItem nullable 필드 검증
+// 9. DocFileSummaryItem nullable 필드 검증
 const itemNullable: DocFileSummaryItem = {
     path: "backend/app/core/config.py",
     fileName: "config.py",

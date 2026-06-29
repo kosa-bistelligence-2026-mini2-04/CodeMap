@@ -401,6 +401,36 @@ class GetOnboardingDocServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result.summary)
         self.assertEqual(result.stack, [])
 
+    async def test_file_summaries_from_report_top_level(self):
+        """file_summaries가 report 최상위 키에서 fileSummaries로 보존되어야 한다."""
+        from app.gen.service import get_onboarding_doc
+
+        report = {
+            "summary": {"purpose": "테스트"},
+            "file_summaries": [
+                {"path": "src/app/page.tsx", "summary": "Next.js 앱 라우터 진입점"},
+                {"path": "backend/app/main.py", "summary": "FastAPI 앱 진입점"},
+            ],
+        }
+
+        with (
+            patch(
+                "app.gen.service.GenDocRepository.get_repo_by_id",
+                new=AsyncMock(return_value=self._make_analysis_job()),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.get_active_by_repo_id",
+                new=AsyncMock(return_value=self._make_doc(report_json=report)),
+            ),
+        ):
+            result = await get_onboarding_doc(self._make_db(), _REPO_ID, fmt="json")
+
+        self.assertIsInstance(result, DocGetJsonData)
+        self.assertEqual(len(result.file_summaries), 2)
+        self.assertEqual(result.file_summaries[0].path, "src/app/page.tsx")
+        self.assertEqual(result.file_summaries[0].summary, "Next.js 앱 라우터 진입점")
+        self.assertEqual(result.file_summaries[1].path, "backend/app/main.py")
+
 
 # ──────────────────────────────────────────────────────────────
 # 7. 라우터 엔드포인트 검증 (FastAPI TestClient)

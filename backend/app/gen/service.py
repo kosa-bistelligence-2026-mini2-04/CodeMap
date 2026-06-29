@@ -137,22 +137,19 @@ def _normalize_folder_summaries(file_map: object) -> list[DocFolderSummaryItem]:
     ]
 
 
-def _normalize_file_summaries(summary: object) -> list[DocFileSummaryItem]:
-    if not isinstance(summary, dict):
+def _normalize_file_summaries(file_summaries: object) -> list[DocFileSummaryItem]:
+    ## report 최상위 "file_summaries" 키를 직접 받아 DocFileSummaryItem 목록으로 변환한다.
+    if not isinstance(file_summaries, list):
         return []
-        
-    file_summaries = summary.get("file_summaries", [])
     items = []
-    
-    if isinstance(file_summaries, list):
-        for item in file_summaries:
-            if isinstance(item, dict) and "path" in item and "summary" in item:
-                items.append(
-                    DocFileSummaryItem(
-                        path=str(item["path"]),
-                        summary=str(item["summary"])
-                    )
+    for item in file_summaries:
+        if isinstance(item, dict) and "path" in item and "summary" in item:
+            items.append(
+                DocFileSummaryItem(
+                    path=str(item["path"]),
+                    summary=str(item["summary"]),
                 )
+            )
     return items
 
 
@@ -298,7 +295,7 @@ async def get_onboarding_doc(
             dangerFiles=_normalize_danger_files(guide.get("risk_files")),
             coreFlow=core_flow,
             folderSummaries=_normalize_folder_summaries(report.get("file_map")),
-            fileSummaries=_normalize_file_summaries(summary_raw),
+            fileSummaries=_normalize_file_summaries(report.get("file_summaries")),
             generatedAt=doc.created_at,
             version=doc.version,
         )
