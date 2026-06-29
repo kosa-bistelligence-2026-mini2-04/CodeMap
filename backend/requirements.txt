@@ -44,15 +44,17 @@ tenacity>=8.0.0
 # 표준 러너로 pytest를 사용한다(`python -m pytest tests`). 비동기 테스트가 unittest 자체 루프를 쓰므로
 # pytest-asyncio는 불필요하다.
 pytest>=8.0.0
+aiosqlite>=0.19.0
 
 # [TEST] sqlite+aiosqlite in-memory 엔진 (통합 테스트 test_team_isolation_http.py)
 aiosqlite>=0.19.0
 
 # ── AUTH (JWT 인증) ──
 # [PROJECT-AUTH] JWT 토큰 생성/검증 (HS256)
+# Warning: Python 3.12+ 에서 pkg_resources Warning을 유발하므로 향후 PyJWT 등으로 전환 권장
 python-jose[cryptography]>=3.3.0
 
-# [PROJECT-AUTH] 비밀번호 bcrypt 해싱
-bcrypt>=4.0.1
+# [PROJECT-AUTH] 비밀번호 bcrypt 해싱 (3.12+ 컴파일 안정성 보장)
+bcrypt>=4.1.0
 langgraph-checkpoint-postgres>=2.0.0
 psycopg[binary]>=3.1.0

@@ -27,6 +27,9 @@ import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
 import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
 import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
+import { mergeParseDetails } from "@/features/analysis/utils/mergeParseDetails";
+
+type ViewStatus = "idle" | "running" | "completed" | "failed";
 
 // 모바일 드로워 닫기 모션이 끝난 뒤 데이터 갱신을 트리거하기까지의 디바운스(ms)
 const MOBILE_DRAWER_CLOSE_MS = 180;
