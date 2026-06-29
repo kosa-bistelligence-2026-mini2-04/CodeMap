@@ -35,7 +35,6 @@ from pydantic import BaseModel, ValidationError
 
 from app.infra.config import get_settings
 from app.infra.database import async_session_factory
-from app.repo.analyzer import scan_repository
 from app.pipeline.event_manager import event_manager
 from app.pipeline.state import PipelineState
 from app.repo.repository import AnalysisJobRepository
@@ -193,7 +192,6 @@ async def code_map_node(state: PipelineState) -> dict:
             report = await service.execute_analysis_and_persist(
                 UUID(job_id), clone_path, state["repo_name"]
             )
-
         elapsed = time.perf_counter() - _t0
         logger.info("[단계별 소요시간] job=%s | 2.코드 구조 분석=%.3f초", job_id, elapsed)
         await _publish(job_id, PipelineStage.CODE_MAP, JobStatus.IN_PROGRESS, 55, "구조 분석 완료")

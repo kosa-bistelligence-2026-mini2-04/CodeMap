@@ -30,6 +30,8 @@ pypdf>=4.0.0
 pgvector>=0.2.0
 # [Hybrid Search] BM25 키워드 검색 + RRF 결합 (AGENT-SEARCH 명세서)
 rank-bm25>=0.2.2
+# [Safe Regex] ReDoS timeout guard for tool scans
+regex>=2023.10.3
 
 # [RAG-EMBED] OpenAI 임베딩 API 직접 호출 (text-embedding-3-large, dimensions=1536)
 # RAG_EMBED_SPEC.md / EMBEDDING_MODEL_DECISION.md 참고

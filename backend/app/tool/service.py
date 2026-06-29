@@ -17,6 +17,7 @@ from app.agent.state import WorkerResult
 from app.infra.config import get_settings
 from app.repo.repository import AnalysisJobRepository
 from app.tool.ast_quality_tool import calculate_ast_quality
+from app.tool.env_validation_tool import calculate_env_validation
 from app.tool.dir_scan import scan_directory_tree
 from app.tool.file_read import read_repository_file
 from app.tool.grep_scan import grep_repository_path
@@ -24,7 +25,7 @@ from app.tool.hybrid_search import hybrid_search
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_TOOLS = frozenset({"vector_search", "file_read", "dir_scan", "grep_scan", "ast_quality"})
+_SUPPORTED_TOOLS = frozenset({"vector_search", "file_read", "dir_scan", "grep_scan", "ast_quality", "env_validation"})
 
 
 # ──────────────────────────────────────────────
@@ -65,6 +66,8 @@ class CodeMapToolService:
             results = await self._execute_vector_search(job_id, tool_name, arguments)
         elif tool_name == "ast_quality":
             results = await self._execute_ast_quality(job_id, tool_name, arguments)
+        elif tool_name == "env_validation":
+            results = await self._execute_env_validation(job_id, tool_name, arguments)
         else:
             results = self._execute_filesystem_tool(job_id, tool_name, arguments)
 
@@ -175,6 +178,31 @@ class CodeMapToolService:
                     "tool": tool_name,
                     "complexity": metrics.get("complexity", 50),
                     "modularity": metrics.get("modularity", 50),
+                },
+            )
+        ]
+
+    async def _execute_env_validation(self, job_id: UUID, tool_name: str, arguments: dict) -> list[WorkerResult]:
+        clone_path = Path(self.settings.CLONE_BASE_DIR) / str(job_id) / "repo"
+        rel_path = str(arguments.get("path") or arguments.get("rel_path") or "")
+        metrics = await asyncio.to_thread(calculate_env_validation, str(clone_path), rel_path)
+        security = metrics.get("security", 50)
+        quality = metrics.get("quality", 50)
+        snippet = f"Security Score: {security}\nQuality Score: {quality}"
+
+        return [
+            WorkerResult(
+                id=f"ev_{uuid.uuid4().hex[:8]}",
+                path=rel_path or None,
+                lineStart=None,
+                lineEnd=None,
+                score=None,
+                snippet=snippet,
+                metadata={
+                    "worker": "env_validation",
+                    "tool": tool_name,
+                    "security": security,
+                    "quality": quality,
                 },
             )
         ]
