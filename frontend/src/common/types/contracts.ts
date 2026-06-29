@@ -470,3 +470,51 @@ export interface PreValidateResponse {
   message: string;
   data: PreValidateData;
 }
+
+
+// ── DOCS-GEN 타입 ─────────────────────────────────────────────────────────────
+export interface DocFolderSummary {
+  path: string;
+  summary: string;
+}
+
+export interface DocGetJsonData {
+  summary: string | null;
+  stack: string[];
+  readingOrder: string[];
+  dangerFiles: string[];
+  coreFlow: string | null;
+  folderSummaries: DocFolderSummary[];
+  generatedAt: string;
+  version: number;
+}
+
+export interface DocGetMarkdownData {
+  repoId: string;
+  repoName: string;
+  content: string;
+  generatedAt: string;
+  version: number;
+}
+
+export interface DocGetJsonResponse {
+  code: number;
+  message: string;
+  data: DocGetJsonData;
+}
+
+export interface DocGetMarkdownResponse {
+  code: number;
+  message: string;
+  data: DocGetMarkdownData;
+}
+
+// ── DOCS-GEN-F-202 파일 단위 요약 타입 ────────────────────────────────────────
+export interface DocFileSummaryItem {
+  path: string;
+  fileName: string;
+  priority: number | null;
+  isDanger: boolean;
+  folderPath: string | null;
+  folderSummary: string | null;
+}
