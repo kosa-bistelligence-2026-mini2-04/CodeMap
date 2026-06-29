@@ -199,6 +199,7 @@ async def rebuild_doc(
 )
 async def download_doc(
     repo_id: UUID,
+    _current_user: Annotated[dict, Depends(get_current_user)],
     format: Literal["md", "pdf"] = Query(default="md", description="다운로드 형식"),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
@@ -209,6 +210,7 @@ async def download_doc(
     - format=pdf: 현재 미지원 (500 FILE_GENERATION_FAILED)
 
     에러 응답:
+    - 401 UNAUTHORIZED:           인증 필요
     - 404 REPO_NOT_FOUND:         저장소 없음
     - 404 DOCS_NOT_FOUND:         가이드북 미생성
     - 500 FILE_GENERATION_FAILED: 파일 생성 오류 (PDF 미지원 포함)
