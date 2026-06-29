@@ -54,3 +54,5 @@ python-jose[cryptography]>=3.3.0
 
 # [PROJECT-AUTH] 비밀번호 bcrypt 해싱
 bcrypt>=4.0.1
+langgraph-checkpoint-postgres>=2.0.0
+psycopg[binary]>=3.1.0

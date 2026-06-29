@@ -11,8 +11,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager, suppress
 
 from app.common.exceptions import register_exception_handlers
-from app.infra.database import engine, Base
-from sqlalchemy import text
+from app.infra.database import (
+    close_checkpoint_pool,
+    engine,
+    open_checkpoint_pool,
+    validate_required_schema,
+)
 
 # Import model classes to ensure they register on Base.metadata
 from app.embed.models import CodeNode, Dependency
@@ -34,37 +38,13 @@ from app.team.router import invite_router as team_invite_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    run_registry_sweeper = asyncio.create_task(sweep_run_registry())
-    # 애플리케이션 시작 시 DB vector extension 및 필수 RAG 테이블 존재 여부 검증
-    try:
-        async with engine.connect() as conn:
-            # 1. pgvector extension 존재 여부 확인
-            extension_check = await conn.execute(
-                text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")
-            )
-            if not extension_check.scalar():
-                raise RuntimeError(
-                    "Database extension 'vector' is missing. "
-                    "Please execute the database initialization script (database/init.sql) as superuser first."
-                )
+    await open_checkpoint_pool()
 
-            # 2. 필수 RAG 테이블(code_nodes, code_dependencies) 존재 여부 확인
-            # (생성 권한이 없는 서비스 계정에서 DDL 에러가 나는 것을 방지하고, 런타임 구동을 안전하게 차단하기 위함)
-            for table in ["code_nodes", "code_dependencies"]:
-                table_check = await conn.execute(
-                    text(
-                        "SELECT EXISTS ("
-                        "    SELECT 1 FROM information_schema.tables "
-                        "    WHERE table_schema = 'public' AND table_name = :table"
-                        ")"
-                    ),
-                    {"table": table},
-                )
-                if not table_check.scalar():
-                    raise RuntimeError(
-                        f"Required database table '{table}' is missing. "
-                        f"Please initialize your database schema first."
-                    )
+    run_registry_sweeper = asyncio.create_task(sweep_run_registry())
+    # 애플리케이션 시작 시 DB extension 및 필수 테이블 존재 여부만 검증
+    # DDL 실행은 database/init.sql의 명시적 초기화 단계에서만 수행한다.
+    try:
+        await validate_required_schema()
         yield
     finally:
         run_registry_sweeper.cancel()
@@ -72,6 +52,7 @@ async def lifespan(app: FastAPI):
             await run_registry_sweeper
         # 애플리케이션 종료 시 커넥션 풀 닫기
         await engine.dispose()
+        await close_checkpoint_pool()
 
 # ──────────────────────────────────────────────
 # FastAPI 앱 인스턴스 생성
