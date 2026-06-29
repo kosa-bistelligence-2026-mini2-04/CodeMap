@@ -13,7 +13,8 @@ class CheckpointSchemaTests(unittest.TestCase):
         self.assertIn("validate_required_schema", source)
 
     def test_init_sql_contains_langgraph_checkpoint_schema(self):
-        init_sql = Path("database/init.sql").read_text(encoding="utf-8")
+        repo_root = Path(__file__).resolve().parents[3]
+        init_sql = (repo_root / "database/init.sql").read_text(encoding="utf-8")
 
         for table in [
             "checkpoint_migrations",
