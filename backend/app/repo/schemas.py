@@ -20,9 +20,10 @@ class HealthMetrics(BaseModel):
     CodeMap 건강도 분석 결과 (Issue #211)
     """
     score: int = Field(..., description="전체 건강 점수 (0-100)")
-    test_ratio: float = Field(default=0.0, description="테스트 파일 비율")
+    test_ratio: float = Field(default=0.0, description="테스트 파일 비율 (참고 메트릭, 점수 미반영)")
     todo_ratio: float = Field(default=0.0, description="파일당 TODO 비율")
     oversized_ratio: float = Field(default=0.0, description="대형 파일 비율")
+    duplicate_code_ratio: float = Field(default=0.0, description="중복 코드 비율")
     security: Optional[int] = Field(default=None, description="보안 점수")
     quality: Optional[int] = Field(default=None, description="품질 점수")
     complexity: Optional[int] = Field(default=None, description="복잡도 점수")
@@ -291,5 +292,4 @@ class FileContentResponse(BaseModel):
     code: int = Field(default=200, description="HTTP 상태 코드")
     message: str = Field(default="success", description="응답 메시지")
     data: FileContentData
-
 
