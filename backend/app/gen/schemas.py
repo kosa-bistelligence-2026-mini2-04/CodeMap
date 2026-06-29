@@ -217,3 +217,53 @@ class DocRebuildResponse(BaseModel):
     code: int = Field(default=202, description="HTTP 상태 코드")
     message: str = Field(default="accepted", description="처리 결과 메시지")
     data: DocRebuildData
+
+
+# ──────────────────────────────────────────────
+# DOCS-GUARD-API-001: 민감정보 마스킹 요청/응답
+# ──────────────────────────────────────────────
+class DocGuardRequest(BaseModel):
+    '''
+    POST /api/gen/docs/{repo_id}/guard 요청 본문 (DOCS-GUARD-API-001)
+
+    content가 빈 문자열이면 400 INVALID_CONTENT를 반환한다.
+    '''
+
+    content: str = Field(description="민감정보 검사 대상 Markdown 원문")
+
+
+class DocGuardPatternItem(BaseModel):
+    '''탐지된 민감정보 패턴 단일 항목'''
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    type: str = Field(description="패턴 유형 (api_key, jwt_token, password 등)")
+    location: str = Field(default="document", description="탐지 위치")
+
+
+class DocGuardData(BaseModel):
+    '''POST /api/gen/docs/{repo_id}/guard 성공 응답 data 필드'''
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    masked_content: str = Field(
+        alias="maskedContent",
+        description="민감정보가 마스킹 처리된 Markdown",
+    )
+    detected_count: int = Field(
+        alias="detectedCount",
+        description="탐지된 민감정보 패턴 수 (중복 포함 총 매치 수)",
+    )
+    detected_patterns: list[DocGuardPatternItem] = Field(
+        alias="detectedPatterns",
+        default_factory=list,
+        description="탐지된 패턴 유형 목록 (유형별 중복 제거)",
+    )
+
+
+class DocGuardResponse(BaseModel):
+    '''POST /api/gen/docs/{repo_id}/guard 성공 응답 (200 OK)'''
+
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="처리 결과 메시지")
+    data: DocGuardData
