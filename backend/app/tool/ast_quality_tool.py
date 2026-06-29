@@ -22,8 +22,12 @@ def calculate_ast_quality(clone_path: str, rel_path: str | None = None) -> dict[
 
     candidates = [target] if target.is_file() else target.rglob("*.py")
 
+    EXCLUDE_DIRS = {"venv", ".venv", "node_modules", ".git", "__pycache__"}
+
     for file_path in candidates:
         if not file_path.is_file():
+            continue
+        if any(part in EXCLUDE_DIRS for part in file_path.parts):
             continue
         try:
             text = file_path.read_text(encoding="utf-8", errors="ignore")
