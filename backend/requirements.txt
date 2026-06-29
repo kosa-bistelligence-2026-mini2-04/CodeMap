@@ -46,6 +46,9 @@ tenacity>=8.0.0
 pytest>=8.0.0
 aiosqlite>=0.19.0
 
+# [TEST] sqlite+aiosqlite in-memory 엔진 (통합 테스트 test_team_isolation_http.py)
+aiosqlite>=0.19.0
+
 # ── AUTH (JWT 인증) ──
 # [PROJECT-AUTH] JWT 토큰 생성/검증 (HS256)
 # Warning: Python 3.12+ 에서 pkg_resources Warning을 유발하므로 향후 PyJWT 등으로 전환 권장

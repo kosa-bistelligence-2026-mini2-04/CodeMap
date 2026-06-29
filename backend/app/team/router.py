@@ -314,3 +314,116 @@ async def decline_invite(
     invite.status = "declined"
     await db.commit()
     return DeclineInviteResponse(inviteId=invite.id, status=invite.status)
+
+# ──────────────────────────────────────────────
+# PROJECT-TEAM-API-008: 멤버 제거 (owner만)
+# ──────────────────────────────────────────────
+@router.delete("/{team_id}/members/{user_id}", response_model=dict)
+async def remove_member(
+    team_id: uuid.UUID,
+    user_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user_id = _current_user_id(current_user)
+    await _require_member(db, team_id, current_user_id, owner_only=True)
+    if current_user_id == user_id:
+        raise HTTPException(status_code=400, detail="CANNOT_REMOVE_SELF")
+
+    target = await db.execute(
+        select(TeamMember).where(TeamMember.team_id == team_id, TeamMember.user_id == user_id)
+    )
+    target_member = target.scalar_one_or_none()
+    if not target_member or target_member.status != "active":
+        raise HTTPException(status_code=404, detail="MEMBER_NOT_FOUND")
+
+    target_member.status = "removed"
+    await db.commit()
+    return {"message": "removed", "userId": target_member.user_id}
+
+
+# ──────────────────────────────────────────────
+# PROJECT-TEAM-API-009: 팀 탈퇴
+# ──────────────────────────────────────────────
+@router.post("/{team_id}/leave", response_model=dict)
+async def leave_team(
+    team_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user_id = _current_user_id(current_user)
+    member = await _require_member(db, team_id, current_user_id)
+
+    if member.role == "owner":
+        # Check if there's another owner
+        owners = await db.execute(
+            select(TeamMember).where(TeamMember.team_id == team_id, TeamMember.role == "owner", TeamMember.status == "active")
+        )
+        if len(owners.all()) <= 1:
+            raise HTTPException(status_code=400, detail="CANNOT_LEAVE_AS_LAST_OWNER")
+
+    member.status = "removed"
+    await db.commit()
+    return {"message": "left", "teamId": team_id}
+
+
+# ──────────────────────────────────────────────
+# PROJECT-TEAM-API-010: 보낸 초대 목록 조회
+# ──────────────────────────────────────────────
+@router.get("/{team_id}/invites", response_model=TeamInviteListResponse)
+async def list_team_invites(
+    team_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user_id = _current_user_id(current_user)
+    await _require_member(db, team_id, current_user_id, owner_only=True)
+
+    result = await db.execute(
+        select(TeamInvite, Team, User)
+        .join(Team, Team.id == TeamInvite.team_id)
+        .join(User, User.id == TeamInvite.invited_by_user_id, isouter=True)
+        .where(TeamInvite.team_id == team_id, TeamInvite.status == "pending")
+        .order_by(TeamInvite.created_at.desc())
+    )
+
+    now = datetime.now(timezone.utc)
+    invites = []
+    for invite, team, inviter in result.all():
+        if _aware(invite.expires_at) < now:
+            continue
+        invites.append(
+            TeamInviteListItem(
+                inviteId=invite.id,
+                teamId=invite.team_id,
+                teamName=team.name,
+                invitedByEmail=inviter.email if inviter else None,
+                status=invite.status,
+                expiresAt=invite.expires_at,
+            )
+        )
+    return TeamInviteListResponse(invites=invites)
+
+
+# ──────────────────────────────────────────────
+# PROJECT-TEAM-API-011: 초대 취소 (owner만)
+# ──────────────────────────────────────────────
+@router.post("/{team_id}/invites/{invite_id}/cancel", response_model=dict)
+async def cancel_invite(
+    team_id: uuid.UUID,
+    invite_id: uuid.UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    current_user_id = _current_user_id(current_user)
+    await _require_member(db, team_id, current_user_id, owner_only=True)
+
+    result = await db.execute(select(TeamInvite).where(TeamInvite.id == invite_id, TeamInvite.team_id == team_id))
+    invite = result.scalar_one_or_none()
+
+    if not invite or invite.status != "pending":
+        raise HTTPException(status_code=404, detail="INVITE_NOT_FOUND_OR_NOT_PENDING")
+
+    invite.status = "cancelled"
+    await db.commit()
+    return {"message": "cancelled", "inviteId": invite.id}

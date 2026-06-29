@@ -1,18 +1,25 @@
 """
-DOCS-GEN API 라우터 (DOCS-GEN-API-002, DOCS-GEN-API-005)
+DOCS-GEN API 라우터 (DOCS-GEN-API-001, 002, 003, 005)
 
+GET  /api/gen/docs/{repo_id}      — 온보딩 가이드북 조회 (API-001)
 POST /api/gen/docs/{repo_id}      — 가이드북 생성 트리거 (API-002)
+PUT  /api/gen/docs/{repo_id}      — 가이드북 재생성 (API-003)
 POST /api/gen/docs/{repo_id}/save — Markdown DB 저장 (API-005, 내부용)
 """
 
 import logging
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.database import get_db
 from app.gen.schemas import (
+    DocGetMarkdownResponse,
+    DocGetJsonResponse,
+    DocRebuildRequest,
+    DocRebuildData,
+    DocRebuildResponse,
     DocSaveRequest,
     DocSaveData,
     DocSaveResponse,
@@ -20,11 +27,64 @@ from app.gen.schemas import (
     DocTriggerData,
     DocTriggerResponse,
 )
-from app.gen.service import save_onboarding_doc, validate_and_queue_doc_generation
+from app.gen.service import (
+    get_onboarding_doc,
+    rebuild_onboarding_doc,
+    save_onboarding_doc,
+    validate_and_queue_doc_generation,
+)
+from app.infra.auth import get_current_user
+from app.infra.database import get_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/gen/docs", tags=["DOCS GEN"])
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-001: 온보딩 가이드북 조회
+# ──────────────────────────────────────────────────────────────
+@router.get(
+    "/{repo_id}",
+    status_code=status.HTTP_200_OK,
+    ## response_model을 명시하지 않아 FastAPI smart-union의 잘못된 직렬화 분기를 방지한다.
+    ## 두 응답 모델이 동일한 최상위 envelope(code/message/data)를 공유하므로
+    ## Union 지정 시 format=json 응답이 DocGetMarkdownResponse로 잘못 검증될 수 있다.
+    ## 반환 타입 힌트가 문서화 역할을 대신하며, 실제 직렬화는 Pydantic 인스턴스가 처리한다.
+    response_model=None,
+    responses={
+        200: {
+            "description": "format=markdown: Markdown 전문 / format=json: master_report 구조화 JSON",
+        }
+    },
+    summary="온보딩 가이드북 조회 (DOCS-GEN-API-001)",
+)
+async def get_doc(
+    repo_id: UUID,
+    _current_user: Annotated[dict, Depends(get_current_user)],
+    format: Literal["markdown", "json"] = Query(default="markdown", description="응답 형식"),
+    db: AsyncSession = Depends(get_db),
+) -> DocGetMarkdownResponse | DocGetJsonResponse:
+    '''
+    저장된 온보딩 가이드북을 조회한다.
+
+    - format=markdown(기본): Markdown 전문과 메타데이터 반환
+    - format=json: master_report 기반 구조화 JSON 반환
+
+    에러 응답:
+    - 404 REPO_NOT_FOUND:  저장소 없음
+    - 404 DOCS_NOT_FOUND:  가이드북 미생성
+    '''
+    from app.gen.schemas import DocGetJsonData
+
+    data = await get_onboarding_doc(db=db, repo_id=repo_id, fmt=format)
+
+    if isinstance(data, DocGetJsonData):
+        logger.info("[DOCS-GEN-API-001] JSON 응답 | repo_id=%s", repo_id)
+        return DocGetJsonResponse(data=data)
+
+    logger.info("[DOCS-GEN-API-001] Markdown 응답 | repo_id=%s", repo_id)
+    return DocGetMarkdownResponse(data=data)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -72,6 +132,53 @@ async def trigger_doc_generation(
             repo_id=repo_id,
             status="docs_queued",
             estimated_minutes=2,
+        )
+    )
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-003: 가이드북 재생성
+# ──────────────────────────────────────────────────────────────
+@router.put(
+    "/{repo_id}",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=DocRebuildResponse,
+    summary="온보딩 가이드북 재생성 (DOCS-GEN-API-003)",
+)
+async def rebuild_doc(
+    repo_id: UUID,
+    body: DocRebuildRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> DocRebuildResponse:
+    '''
+    기존 온보딩 가이드북을 소프트 삭제한 뒤 재생성 파이프라인을 시작한다.
+
+    즉시 202를 반환하고, 실제 재생성 작업은 BackgroundTasks로 비동기 실행한다.
+
+    에러 응답:
+    - 404 REPO_NOT_FOUND:  저장소 없음
+    - 404 DOCS_NOT_FOUND:  재생성할 기존 가이드북이 없음
+    '''
+    job_id, previous_version, new_version = await rebuild_onboarding_doc(
+        db=db,
+        repo_id=repo_id,
+        background_tasks=background_tasks,
+        model=body.model,
+        reason=body.reason,
+    )
+
+    logger.info(
+        "[DOCS-GEN-API-003] 재생성 시작 | repo_id=%s job_id=%s prev=%d new=%d",
+        repo_id, job_id, previous_version, new_version,
+    )
+
+    return DocRebuildResponse(
+        data=DocRebuildData(
+            job_id=job_id,
+            repo_id=repo_id,
+            previous_version=previous_version,
+            new_version=new_version,
         )
     )
 

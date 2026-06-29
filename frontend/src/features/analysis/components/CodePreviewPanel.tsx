@@ -45,6 +45,7 @@ export function CodePreviewPanel({
     const controller = new AbortController();
     abortRef.current = controller;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadState("loading");
     setContent("");
     setErrorMsg("");

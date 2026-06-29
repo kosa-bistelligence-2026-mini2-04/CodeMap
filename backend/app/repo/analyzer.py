@@ -1,98 +1,83 @@
-"""Deterministic repository inspection used by analysis and repository chat.
+"""
+저장소 분석(Repository Analysis) 라이브러리 (레거시/하위호환 Proxy)
 
-The scanner intentionally works without an LLM.  It produces grounded structural
-facts first; an optional model may enrich those facts later, but never replaces
-them with unverified content.
+실제 파이프라인(nodes.py)은 AnalysisService를 호출하나,
+테스트 및 하위 엔드포인트 호환성을 위해 본 인터페이스를 유지합니다.
 """
 
 from __future__ import annotations
 
 import re
-from collections import Counter
 from pathlib import Path
 from typing import Union
 
+from app.tool.dir_scan import list_repository_files
+from app.tool.file_read import extract_file_static_metadata
+from app.tool.grep_scan import count_todo_annotations
+from app.tool.env_validation import verify_build_environment
+from app.tool.ast_quality import (
+    calculate_code_complexity,
+    calculate_module_coupling,
+)
 
-IGNORED_DIRS = {
-    ".git", ".next", ".turbo", ".venv", "venv", "node_modules",
-    "dist", "build", "coverage", "__pycache__", ".idea", ".vscode",
+# ──────────────────────────────────────────────
+# 상수 정의
+# ──────────────────────────────────────────────
+CODE_SUFFIXES = {
+    ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".java", ".cpp", ".c",
+    ".h", ".cs", ".rb", ".php", ".rs", ".kt", ".swift", ".scala",
 }
+
 LANGUAGE_BY_SUFFIX = {
-    ".py": "Python", ".ts": "TypeScript", ".tsx": "TypeScript",
-    ".js": "JavaScript", ".jsx": "JavaScript", ".java": "Java",
-    ".kt": "Kotlin", ".go": "Go", ".rs": "Rust", ".rb": "Ruby",
-    ".php": "PHP", ".cs": "C#", ".c": "C", ".h": "C/C++",
-    ".cpp": "C++", ".hpp": "C++", ".swift": "Swift", ".vue": "Vue",
-    ".svelte": "Svelte", ".sql": "SQL", ".sh": "Shell",
-    ".md": "Markdown", ".json": "JSON", ".yml": "YAML", ".yaml": "YAML",
+    ".py": "Python", ".js": "JavaScript", ".ts": "TypeScript",
+    ".tsx": "TypeScript React", ".jsx": "JavaScript React",
+    ".go": "Go", ".java": "Java", ".cpp": "C++", ".c": "C",
+    ".h": "C Header", ".cs": "C#", ".rb": "Ruby", ".php": "PHP",
+    ".rs": "Rust", ".kt": "Kotlin", ".swift": "Swift",
+    ".scala": "Scala", ".sh": "Shell", ".bash": "Shell",
+    ".md": "Markdown", ".json": "JSON", ".yaml": "YAML",
+    ".yml": "YAML", ".xml": "XML", ".html": "HTML", ".css": "CSS",
 }
-TEXT_SUFFIXES = set(LANGUAGE_BY_SUFFIX) | {
-    ".toml", ".ini", ".cfg", ".conf", ".xml", ".html", ".css", ".scss",
-    ".env.example", ".properties", ".gradle",
-}
-ENTRYPOINT_NAMES = {
-    "main.py", "app.py", "manage.py", "main.ts", "main.tsx", "index.ts",
-    "index.tsx", "app.tsx", "page.tsx", "server.ts", "server.js", "main.go",
-    "main.rs", "pom.xml", "build.gradle", "docker-compose.yml", "docker-compose.yaml",
-}
-STACK_SIGNALS = {
-    "package.json": "Node.js", "next.config.ts": "Next.js", "next.config.js": "Next.js",
-    "vite.config.ts": "Vite", "vite.config.js": "Vite", "requirements.txt": "Python",
-    "pyproject.toml": "Python", "manage.py": "Django", "pom.xml": "Spring/Java",
-    "build.gradle": "Gradle/Java", "go.mod": "Go", "Cargo.toml": "Rust",
-    "docker-compose.yml": "Docker", "docker-compose.yaml": "Docker",
-}
-TOKEN_RE = re.compile(r"[\w][\w./-]{1,}", re.UNICODE)
+
+TOKEN_RE = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
 
 
-def _iter_files(root: Path, limit: int = 1200):
-    root = root.resolve()
-    count = 0
-    for path in root.rglob("*"):
-        if count >= limit:
-            break
-        if path.is_symlink():
-            continue
-        if not path.is_file() or any(part in IGNORED_DIRS for part in path.parts):
-            continue
-        # resolved path가 workspace 내부인지 검증 (symlink 경유 탈출 방지)
-        try:
-            path.resolve().relative_to(root)
-        except ValueError:
-            continue
-        if path.suffix.lower() not in TEXT_SUFFIXES and path.name not in STACK_SIGNALS:
-            continue
-        count += 1
-        yield path
-
-
-def _read_text(path: Path, limit: int = 160_000, root: Path | None = None) -> str:
-    if path.is_symlink():
-        return ""
-    if root is not None:
-        try:
-            path.resolve().relative_to(root.resolve())
-        except ValueError:
-            return ""
+def _read_text(path: Path, limit: int = 100_000) -> str:
     try:
-        raw = path.read_bytes()[:limit]
-        if b"\x00" in raw:
-            return ""
-        return raw.decode("utf-8", errors="replace")
-    except OSError:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read(limit)
+    except Exception:
         return ""
 
 
-def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int, list, dict]]:
-    from app.tool.dir_scan import list_repository_files
-    from app.tool.file_read import extract_file_static_metadata
-    from app.tool.grep_scan import count_todo_annotations
-    from app.tool.env_validation import verify_build_environment
-    from app.tool.ast_quality import calculate_code_complexity
+def _iter_files(root: Path, limit: int = 900) -> list[Path]:
+    results = []
+    for p in root.rglob("*"):
+        if len(results) >= limit:
+            break
+        if p.is_file() and not p.is_symlink():
+            if ".git" not in p.parts and "node_modules" not in p.parts:
+                results.append(p)
+    return results
 
+
+def _normalized_code_lines(text: str) -> list[str]:
+    lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith(("#", "//", "/*", "*")):
+            lines.append(re.sub(r"\s+", "", stripped))
+    return lines
+
+
+# ──────────────────────────────────────────────
+# scan_repository (원격 main의 중복도 검출 병합 및 bytes 통일)
+# ──────────────────────────────────────────────
+def scan_repository(root_path: str, repo_name: str) -> dict:
+    """
+    저장소 내 소스 파일들을 분석하여 구조 지표와 메타데이터 리포트를 생성합니다.
+    """
     root = Path(root_path).resolve()
-    if not root.exists():
-        raise FileNotFoundError(f"Repository snapshot is unavailable: {root}")
 
     file_paths = list_repository_files(root)
     file_meta = extract_file_static_metadata(file_paths, root)
@@ -103,12 +88,33 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
     total_bytes = 0
     test_files = 0
 
+    oversized: list[str] = []
+    code_line_files: dict[str, set[str]] = {}
+    significant_code_lines = 0
+
     for f in file_meta:
         total_lines += f["lines"]
         total_bytes += f["bytes"]
         languages[f["language"]] += f["lines"]
-        if "test" in f["name"].lower() or "test" in f["path"].lower():
+        
+        path_str = f["path"]
+        name_str = f["name"]
+        
+        if "test" in name_str.lower() or "test" in path_str.lower():
             test_files += 1
+
+        # 중복도 계산을 위해 파일 텍스트 실시간 검출 적용
+        full_path = root / path_str
+        suffix = full_path.suffix.lower()
+        if suffix in CODE_SUFFIXES:
+            text = _read_text(full_path, limit=100_000)
+            normalized_lines = _normalized_code_lines(text)
+            significant_code_lines += len(normalized_lines)
+            for normalized_line in set(normalized_lines):
+                code_line_files.setdefault(normalized_line, set()).add(path_str)
+            
+            if f["lines"] > 700:
+                oversized.append(path_str)
 
     primary_language = (
         languages.most_common(1)[0][0] if languages else "Unknown"
@@ -119,50 +125,68 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
     env_res = verify_build_environment(file_paths, primary_language, root)
     ast_res = calculate_code_complexity(file_paths)
 
-    health_score = 84
-    if test_ratio < 0.05:
-        health_score -= 10
-    if ast_res["oversized_files"]:
-        health_score -= min(8, len(ast_res["oversized_files"]) * 2)
-    if todo_res["total_todos"] > 20:
-        health_score -= 5
-    health_score = max(35, min(96, health_score))
+    # 중복 비율 계산
+    duplicate_code_lines = sum(
+        len(paths) - 1
+        for paths in code_line_files.values()
+        if len(paths) > 1
+    )
+    duplicate_code_ratio = duplicate_code_lines / max(significant_code_lines, 1)
+    duplicate_files = sorted({
+        path
+        for paths in code_line_files.values()
+        if len(paths) > 1
+        for path in paths
+    })
+
+    # 원격 main의 score 지표 계산식 적용
+    todo_ratio = todo_res["total_todos"] / max(1, len(file_meta))
+    oversized_ratio = len(oversized) / max(1, len(file_meta))
+
+    score = 100
+    score -= min(30, int(oversized_ratio * 100))
+    score -= min(20, int(todo_ratio * 50))
+    score -= min(25, int(duplicate_code_ratio * 100))
+
+    health_score = max(35, min(100, score))
+    health_metrics = {
+        "score": health_score,
+        "test_ratio": round(test_ratio, 3),
+        "todo_ratio": round(todo_ratio, 3),
+        "oversized_ratio": round(oversized_ratio, 3),
+        "duplicate_code_ratio": round(duplicate_code_ratio, 3),
+    }
 
     strengths = [
-        f"{len(file_meta):,}개 텍스트 파일과 {total_lines:,}줄을 "
-        "실제 저장소 스냅샷에서 확인했습니다.",
+        f"{len(file_meta):,}개 텍스트 파일과 {total_lines:,}줄이 "
+        "실제 저장소 스냅샷에서 확인되었습니다.",
         f"주요 언어는 {primary_language}이며 {len(languages)}개 언어·설정 "
         "유형이 감지되었습니다.",
     ]
-    if env_res["detected_stack"]:
-        joined_stack = ", ".join(sorted(env_res["detected_stack"]))
-        strengths.append(
-            f"{joined_stack} 기반의 실행 구성이 명확하게 감지됩니다."
-        )
-    if test_ratio >= 0.08:
-        strengths.append(
-            f"테스트 관련 파일 {test_files}개가 있어 변경 검증 기반이 "
-            "마련되어 있습니다."
-        )
 
-    risks = []
-    if test_ratio < 0.05:
-        risks.append(
-            "감지된 테스트 파일 비율이 낮아 핵심 흐름의 회귀 테스트 "
-            "범위를 확인해야 합니다."
+    stack = env_res["detected_stack"]
+    if stack:
+        strengths.append(
+            f"{', '.join(sorted(stack))} 기반의 실행 구성이 명확하게 감지됩니다."
         )
-    if ast_res["oversized_files"]:
-        cnt = len(ast_res["oversized_files"])
+    if duplicate_code_ratio < 0.03:
+        strengths.append("중복 코드 신호가 낮아 공통 로직 재사용 상태가 양호합니다.")
+
+    risks: list[str] = []
+    if oversized:
         risks.append(
-            f"700줄을 넘는 대형 파일 {cnt}개가 있어 책임 분리 "
-            "검토가 필요합니다."
+            f"700줄을 넘는 대형 파일 {len(oversized)}개가 있어 책임 분리 검토가 필요합니다."
         )
     if todo_res["total_todos"]:
-        cnt = todo_res["total_todos"]
         risks.append(
-            f"TODO/FIXME/HACK 표식 {cnt}개가 남아 있어 "
+            f"TODO/FIXME/HACK 표식 {todo_res['total_todos']}개가 남아 있어 "
             "기술 부채 우선순위를 정해야 합니다."
         )
+    if duplicate_code_ratio >= 0.08:
+        risks.append(
+            "여러 파일에 반복되는 코드 패턴이 감지되어 공통 모듈 추출 검토가 필요합니다."
+        )
+
     if not risks:
         risks.append(
             "정적 구조상 즉시 드러나는 고위험 신호는 적지만 런타임·권한 "
@@ -170,14 +194,11 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
         )
 
     recommendations = []
-    if test_ratio < 0.05:
+    if duplicate_code_ratio >= 0.08:
         recommendations.append({
-            "title": "핵심 사용자 흐름에 회귀 테스트 추가",
-            "detail": (
-                "진입점과 API 경계를 중심으로 최소 통합 테스트를 "
-                "먼저 추가하세요."
-            ),
-            "affected_files": env_res["entrypoints"][:4], "priority": "high",
+            "title": "반복 코드 공통화",
+            "detail": "여러 파일에 반복되는 구현 패턴을 공통 함수나 모듈로 추출하세요.",
+            "affected_files": duplicate_files[:5], "priority": "high",
         })
     if ast_res["oversized_files"]:
         recommendations.append({
@@ -198,6 +219,7 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
         "affected_files": env_res["entrypoints"][:3], "priority": "medium",
     })
 
+    # size를 완전히 소거하고 bytes로 통일하여 리스트 조립
     files = []
     for f in file_meta:
         files.append({
@@ -205,7 +227,7 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
             "name": f["name"],
             "language": f["language"],
             "lines": f["lines"],
-            "size": f["bytes"],
+            "bytes": f["bytes"],    # 💡 size 삭제 및 bytes 통일
             "kind": "test" if (
                 "test" in f["name"].lower() or "test" in f["path"].lower()
             ) else "source",
@@ -228,6 +250,7 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
         "entrypoints": env_res["entrypoints"][:12],
         "files": files,
         "health_score": health_score,
+        "health_metrics": health_metrics,
         "executive_summary": (
             f"{repo_name}은(는) {primary_language} 중심의 "
             "코드베이스입니다. 실제 파일 구조, 진입점, 구성 파일과 "
@@ -240,9 +263,13 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
     }
 
 
-def search_repository(root_path: str, query: str, limit: int = 6) -> list[dict[str, Union[str, int]]]:
+def search_repository(
+    root_path: str, query: str, limit: int = 6
+) -> list[dict[str, Union[str, int]]]:
     root = Path(root_path).resolve()
-    terms = {token.lower() for token in TOKEN_RE.findall(query) if len(token) > 2}
+    terms = {
+        token.lower() for token in TOKEN_RE.findall(query) if len(token) > 2
+    }
     results: list[tuple[int, dict[str, Union[str, int]]]] = []
     for path in _iter_files(root, limit=900):
         relative = path.relative_to(root).as_posix()
@@ -253,7 +280,11 @@ def search_repository(root_path: str, query: str, limit: int = 6) -> list[dict[s
             continue
         lines = text.splitlines()
         match_index = next(
-            (i for i, line in enumerate(lines) if any(term in line.lower() for term in terms)),
+            (
+                i
+                for i, line in enumerate(lines)
+                if any(term in line.lower() for term in terms)
+            ),
             0,
         )
         start = max(0, match_index - 2)

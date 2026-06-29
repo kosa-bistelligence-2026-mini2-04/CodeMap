@@ -338,3 +338,46 @@ class EmbedRepository:
         await self.db.flush()
         logger.info("[의존성 저장] %d개 Dependency upsert 완료 (직접 호출)", len(rows))
         return len(rows)
+
+    # ──────────────────────────────────────────────────────────
+    # 파일 컨텐츠 복구 조회 (Issue #226: 로컬 FS 누락 시 DB fallback)
+    # ──────────────────────────────────────────────────────────
+    async def get_file_content(self, job_id: UUID, path: str) -> str | None:
+        """
+        로컬 워크스페이스에서 파일을 읽지 못했을 때 사용하는 DB 기반 복구 조회.
+
+        우선순위:
+          1. FILE 대표 노드(chunk_index=-1)의 content가 존재하면 그대로 반환한다.
+          2. FILE content가 None이면 CHUNK 노드들의 content를 chunk_index 순으로
+             이어 붙여 best-effort로 재구성한다. (AST 청크 기반이라 원본과
+             완전히 동일하지 않을 수 있으나, 404 대신 부분 복구로 가용성을 높인다.)
+
+        하나도 없으면 None을 반환한다.
+        """
+        ## 1차: FILE 대표 노드 content
+        file_stmt = select(CodeNode.content).where(
+            CodeNode.job_id == job_id,
+            CodeNode.path == path,
+            CodeNode.type == "FILE",
+        )
+        file_result = await self.db.execute(file_stmt)
+        file_content = file_result.scalars().first()
+        if file_content is not None:
+            return file_content
+
+        ## 2차: CHUNK 노드 content를 순서대로 재구성
+        chunk_stmt = (
+            select(CodeNode.content)
+            .where(
+                CodeNode.job_id == job_id,
+                CodeNode.path == path,
+                CodeNode.type == "CHUNK",
+            )
+            .order_by(CodeNode.chunk_index)
+        )
+        chunk_result = await self.db.execute(chunk_stmt)
+        chunks = [c for c in chunk_result.scalars().all() if c]
+        if chunks:
+            return "\n\n".join(chunks)
+
+        return None

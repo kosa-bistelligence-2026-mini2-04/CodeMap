@@ -122,6 +122,7 @@ async def run_doc_generation(
                 job_id=job_id,
                 content=markdown_content,
                 version=version,
+                report_json=master_report if master_report else None,
             )
 
         logger.info(

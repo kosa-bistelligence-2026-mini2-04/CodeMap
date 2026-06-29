@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Users, Mail } from "lucide-react";
-import type { TeamWorkspace, TeamInviteItem } from "@/common/types/contracts";
+import type { TeamWorkspace, TeamInviteItem, TeamMemberResponse } from "@/common/types/contracts";
 import {
   acceptInvite,
   createTeam,
@@ -10,7 +10,13 @@ import {
   fetchMyInvites,
   fetchTeams,
   inviteTeamMember,
+  fetchTeamMembers,
+  removeTeamMember,
+  leaveTeam,
+  fetchTeamInvites,
+  cancelTeamInvite,
 } from "@/features/analysis/api/api";
+import { useConfirm } from "@/common/hooks/useConfirm";
 
 export type WorkspaceScope = "private" | "team";
 
@@ -37,8 +43,12 @@ export function WorkspaceSelector({
   isKo,
   onSelectionChange,
 }: WorkspaceSelectorProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [teams, setTeams] = useState<TeamWorkspace[]>([]);
   const [invites, setInvites] = useState<TeamInviteItem[]>([]);
+
+  const [members, setMembers] = useState<TeamMemberResponse[]>([]);
+  const [sentInvites, setSentInvites] = useState<TeamInviteItem[]>([]);
   const [newTeamName, setNewTeamName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +95,71 @@ export function WorkspaceSelector({
       // 초대 목록 실패는 치명적이지 않으므로 조용히 무시한다.
     }
   }, []);
+
+
+  const loadTeamDetails = useCallback(async (teamId: string, owner: boolean) => {
+    try {
+      setMembers(await fetchTeamMembers(teamId));
+      if (owner) setSentInvites(await fetchTeamInvites(teamId));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (scope === "team" && selectedTeamId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void loadTeamDetails(selectedTeamId, isOwner);
+    } else {
+      queueMicrotask(() => {
+        setMembers([]);
+        setSentInvites([]);
+      });
+    }
+  }, [scope, selectedTeamId, isOwner, loadTeamDetails]);
+
+  const handleLeaveTeam = async () => {
+    if (!selectedTeamId || busy) return;
+    if (!(await confirm(isKo ? "팀 탈퇴" : "Leave Team", isKo ? "정말 탈퇴하시겠습니까?" : "Are you sure you want to leave this team?"))) return;
+    setBusy(true);
+    try {
+      await leaveTeam(selectedTeamId);
+      await loadTeams();
+      onSelectionChangeRef.current({ scope: "private", teamId: null, teamName: null });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "탈퇴 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!selectedTeamId || busy) return;
+    if (!(await confirm(isKo ? "멤버 추방" : "Remove Member", isKo ? "정말 추방하시겠습니까?" : "Are you sure you want to remove this member?"))) return;
+    setBusy(true);
+    try {
+      await removeTeamMember(selectedTeamId, userId);
+      await loadTeamDetails(selectedTeamId, isOwner);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "추방 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCancelInvite = async (inviteId: string) => {
+    if (!selectedTeamId || busy) return;
+    if (!(await confirm(isKo ? "초대 취소" : "Cancel Invite", isKo ? "초대를 취소하시겠습니까?" : "Are you sure you want to cancel this invitation?"))) return;
+    setBusy(true);
+    try {
+      await cancelTeamInvite(selectedTeamId, inviteId);
+      await loadTeamDetails(selectedTeamId, isOwner);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "초대 취소 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // 최초 마운트 시 1회만 로드한다.
   useEffect(() => {
@@ -156,6 +231,7 @@ export function WorkspaceSelector({
 
   const handleDecline = async (invite: TeamInviteItem) => {
     if (busy) return;
+    if (!(await confirm(isKo ? "초대 거절" : "Decline Invite", isKo ? "초대를 거절하시겠습니까?" : "Decline this invitation?"))) return;
     setBusy(true);
     setError(null);
     try {
@@ -174,9 +250,11 @@ export function WorkspaceSelector({
         <Users className="size-3.5 text-blue-400" />
         <span className={`text-xs font-bold ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>{isKo ? "워크스페이스" : "Workspace"}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Workspace Scope">
         <button
           type="button"
+          role="radio"
+          aria-checked={scope === "private"}
           onClick={() => selectWorkspace("private", null)}
           className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition ${scope === "private" ? "border-blue-500 bg-blue-500/10 text-blue-400" : isDark ? "border-zinc-800 text-zinc-500 hover:bg-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}
         >
@@ -184,6 +262,8 @@ export function WorkspaceSelector({
         </button>
         <button
           type="button"
+          role="radio"
+          aria-checked={scope === "team"}
           onClick={() => selectWorkspace("team")}
           disabled={!selectedTeamId}
           className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${scope === "team" ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" : isDark ? "border-zinc-800 text-zinc-500 hover:bg-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}
@@ -238,6 +318,38 @@ export function WorkspaceSelector({
           </div>
         )}
       </div>
+
+      {scope === "team" && selectedTeamId && (
+        <div className={`mt-3 border-t pt-2.5 ${isDark ? "border-zinc-800" : "border-zinc-200/60"}`}>
+          <div className="flex justify-between items-center mb-1.5">
+            <span className={`text-[10px] font-bold ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>팀 멤버 관리</span>
+            <button type="button" onClick={handleLeaveTeam} disabled={busy} className="text-[10px] text-red-500 hover:underline">탈퇴하기</button>
+          </div>
+          <div className="grid gap-1.5 max-h-32 overflow-y-auto">
+            {members.map(m => (
+              <div key={m.userId} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isDark ? "border-zinc-800 bg-zinc-950" : "border-zinc-200 bg-zinc-50"}`}>
+                <span className={`min-w-0 flex-1 truncate text-[11px] ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>{m.email} ({m.role})</span>
+                {isOwner && m.role !== "owner" && (
+                  <button type="button" onClick={() => handleRemoveMember(m.userId)} disabled={busy} className="text-[10px] text-red-500 hover:underline">추방</button>
+                )}
+              </div>
+            ))}
+          </div>
+          {isOwner && sentInvites.length > 0 && (
+            <div className="mt-2">
+              <span className={`text-[10px] font-bold ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>보낸 초대</span>
+              <div className="grid gap-1.5 mt-1.5 max-h-32 overflow-y-auto">
+                {sentInvites.map(i => (
+                  <div key={i.inviteId} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isDark ? "border-zinc-800 bg-zinc-950" : "border-zinc-200 bg-zinc-50"}`}>
+                    <span className={`min-w-0 flex-1 truncate text-[11px] ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>{i.email}</span>
+                    <button type="button" onClick={() => handleCancelInvite(i.inviteId)} disabled={busy} className="text-[10px] text-red-500 hover:underline">취소</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {/* 나에게 온 pending 초대: 수락/거절 (PROJECT-TEAM-F-103) */}
       {invites.length > 0 && (
         <div className={`mt-3 border-t pt-2.5 ${isDark ? "border-zinc-800" : "border-zinc-200/60"}`}>
@@ -248,7 +360,16 @@ export function WorkspaceSelector({
           <div className="grid gap-1.5">
             {invites.map((invite) => (
               <div key={invite.inviteId} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isDark ? "border-zinc-800 bg-zinc-950" : "border-zinc-200 bg-zinc-50"}`}>
-                <span className={`min-w-0 flex-1 truncate text-[11px] ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>{invite.teamName}</span>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className={`truncate text-[11px] font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>{invite.teamName}</span>
+                  {(invite.invitedByEmail || invite.expiresAt) && (
+                    <span className={`truncate text-[9px] ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+                      {invite.invitedByEmail ? `${isKo ? "보낸 사람" : "From"}: ${invite.invitedByEmail}` : ""}
+                      {invite.invitedByEmail && invite.expiresAt ? " · " : ""}
+                      {invite.expiresAt ? `${isKo ? "만료" : "Expires"}: ${new Date(invite.expiresAt).toLocaleDateString()}` : ""}
+                    </span>
+                  )}
+                </div>
                 <div className="flex shrink-0 gap-1">
                   <button type="button" onClick={() => handleAccept(invite)} disabled={busy} className="rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40">
                     {isKo ? "수락" : "Accept"}
@@ -268,6 +389,7 @@ export function WorkspaceSelector({
           : "개인 기록은 본인 계정에서만 보입니다."}
       </p>
       {error && <p className="mt-2 text-[10px] font-medium text-red-400">{error}</p>}
+      <ConfirmDialog isDark={isDark} isKo={isKo} />
     </div>
   );
 }
