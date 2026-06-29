@@ -8,7 +8,7 @@ commit은 호출측 service에서 담당한다.
 import logging
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gen.models import OnboardingDoc
@@ -56,16 +56,18 @@ class GenDocRepository:
         content: str,
         version: int,
         doc_type: str = "onboarding",
+        report_json: dict | None = None,
     ) -> OnboardingDoc:
         '''
         온보딩 가이드북 Markdown을 docs 테이블에 저장한다.
 
         Args:
-            repo_id:  대상 저장소 ID (analysis_jobs.id)
-            job_id:   문서 생성을 트리거한 분석 작업 ID
-            content:  저장할 Markdown 가이드북 전문
-            version:  가이드북 버전 번호
-            doc_type: 문서 유형 (기본: "onboarding")
+            repo_id:     대상 저장소 ID (analysis_jobs.id)
+            job_id:      문서 생성을 트리거한 분석 작업 ID
+            content:     저장할 Markdown 가이드북 전문
+            version:     가이드북 버전 번호
+            doc_type:    문서 유형 (기본: "onboarding")
+            report_json: master_report JSON 원본 (format=json 응답용, 선택)
 
         Returns:
             저장된 OnboardingDoc 엔티티
@@ -76,6 +78,7 @@ class GenDocRepository:
             doc_type=doc_type,
             content=content,
             version=version,
+            report_json=report_json,
         )
         self.db.add(doc)
         await self.db.flush()
@@ -84,6 +87,48 @@ class GenDocRepository:
             doc.id, repo_id, version,
         )
         return doc
+
+    # ──────────────────────────────────────────
+    # 활성 문서 조회 (API-001)
+    # ──────────────────────────────────────────
+    async def get_active_by_repo_id(self, repo_id: UUID) -> OnboardingDoc | None:
+        '''
+        해당 저장소의 활성 온보딩 가이드북 최신 버전을 반환한다.
+
+        Returns:
+            활성 OnboardingDoc 또는 None (없으면)
+        '''
+        result = await self.db.execute(
+            select(OnboardingDoc)
+            .where(OnboardingDoc.repo_id == repo_id)
+            .where(OnboardingDoc.is_active.is_(True))
+            .order_by(OnboardingDoc.version.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    # ──────────────────────────────────────────
+    # 활성 문서 소프트 삭제 (API-003)
+    # ──────────────────────────────────────────
+    async def soft_delete_active_docs(self, repo_id: UUID) -> int:
+        '''
+        해당 저장소의 모든 활성 문서를 소프트 삭제한다 (is_active=False).
+
+        Returns:
+            소프트 삭제된 레코드 수
+        '''
+        result = await self.db.execute(
+            update(OnboardingDoc)
+            .where(OnboardingDoc.repo_id == repo_id)
+            .where(OnboardingDoc.is_active.is_(True))
+            .values(is_active=False)
+        )
+        deleted = result.rowcount
+        logger.info(
+            "[GenDocRepository] 소프트 삭제 완료 | repo_id=%s count=%d",
+            repo_id, deleted,
+        )
+        return deleted
 
     # ──────────────────────────────────────────
     # 최신 버전 번호 조회

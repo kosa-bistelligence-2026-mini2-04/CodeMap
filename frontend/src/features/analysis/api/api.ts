@@ -51,8 +51,7 @@ export async function startAnalysis(
   });
 
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.error || `Failed to start analysis: ${resp.status}`);
+    throw await parseApiError(resp);
   }
 
   return await resp.json();
@@ -69,7 +68,7 @@ export async function fetchJobStatus(
     headers: getAuthorizationHeaders(),
   });
   if (!resp.ok) {
-    throw new Error(`Failed to fetch job status: ${resp.status}`);
+    throw await parseApiError(resp);
   }
   return await resp.json();
 }
@@ -77,7 +76,7 @@ export async function fetchJobStatus(
 async function fetchParseEndpoint<T>(jobId: string, suffix: string): Promise<T> {
   const resp = await fetch(apiPath(`/parse/analysis/${jobId}${suffix}`));
   if (!resp.ok) {
-    throw new Error(`Failed to fetch parse detail ${suffix}: ${resp.status}`);
+    throw await parseApiError(resp);
   }
   const body = await resp.json();
   return body.data as T;
@@ -124,8 +123,7 @@ export async function fetchAnalysisHistory(
   }
 
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.detail?.message || `Failed to fetch analysis history: ${resp.status}`);
+    throw await parseApiError(resp);
   }
 
   return await resp.json();
@@ -207,9 +205,7 @@ export async function validateRepository(
   });
 
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    // CodeMapException의 JSON 구조인 code, error, message를 적절히 파싱합니다.
-    throw new Error(errData?.message || errData?.error || `저장소 사전 검증에 실패했습니다. (HTTP ${resp.status})`);
+    throw await parseApiError(resp);
   }
 
   return await resp.json();
@@ -227,8 +223,7 @@ export async function deleteAnalysisJob(jobId: string): Promise<void> {
   });
 
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.error || `Failed to delete analysis job: ${resp.status}`);
+    throw await parseApiError(resp);
   }
 }
 
@@ -238,8 +233,7 @@ export async function fetchTeams(): Promise<TeamWorkspace[]> {
   });
   if (resp.status === 401 || resp.status === 404) return [];
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.detail || `Failed to fetch teams: ${resp.status}`);
+    throw await parseApiError(resp);
   }
   const payload = await resp.json();
   return (payload.teams || payload.data?.teams || []) as TeamWorkspace[];
@@ -255,8 +249,7 @@ export async function createTeam(name: string): Promise<TeamWorkspace> {
     body: JSON.stringify({ name }),
   });
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.detail || `Failed to create team: ${resp.status}`);
+    throw await parseApiError(resp);
   }
   return await resp.json();
 }
@@ -271,8 +264,7 @@ export async function inviteTeamMember(teamId: string, email: string): Promise<v
     body: JSON.stringify({ email }),
   });
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.detail || `Failed to invite member: ${resp.status}`);
+    throw await parseApiError(resp);
   }
 }
 
@@ -282,8 +274,7 @@ export async function fetchMyInvites(): Promise<TeamInviteItem[]> {
   });
   if (resp.status === 401 || resp.status === 404) return [];
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.detail || `Failed to fetch invites: ${resp.status}`);
+    throw await parseApiError(resp);
   }
   const payload = await resp.json();
   return (payload.invites || payload.data?.invites || []) as TeamInviteItem[];
@@ -295,8 +286,7 @@ export async function acceptInvite(inviteId: string): Promise<void> {
     headers: getAuthorizationHeaders(),
   });
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.detail || `Failed to accept invite: ${resp.status}`);
+    throw await parseApiError(resp);
   }
 }
 
@@ -306,8 +296,7 @@ export async function declineInvite(inviteId: string): Promise<void> {
     headers: getAuthorizationHeaders(),
   });
   if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({}));
-    throw new Error(errData?.message || errData?.detail || `Failed to decline invite: ${resp.status}`);
+    throw await parseApiError(resp);
   }
 }
 

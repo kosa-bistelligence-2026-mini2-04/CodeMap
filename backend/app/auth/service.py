@@ -5,6 +5,7 @@ AUTH 도메인 Service 계층 (PROJECT-AUTH)
 """
 
 import logging
+import uuid
 import bcrypt
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -23,6 +24,7 @@ from app.auth.schemas import (
 )
 from app.infra.auth import create_access_token
 from app.infra.config import get_settings
+from app.team.service import TeamService
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -119,7 +121,7 @@ class AuthService:
 
         # Refresh Token 증식 방지 (기존 토큰 모두 삭제 후 새 토큰 발급 - 단일 기기 로그인 원칙 적용)
         await self.repo.delete_all_refresh_tokens(user.id)
-        
+
         expires_at = datetime.now(timezone.utc) + timedelta(
             days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
         )
@@ -217,3 +219,20 @@ class AuthService:
         await self.db.commit()
         logger.info("[AUTH] 로그아웃: 삭제된 토큰 %d건", deleted)
         return LogoutResponse(success=True)
+
+    # ──────────────────────────────────────────────
+    # 회원 탈퇴 (PROJECT-AUTH-B-106)
+    # ──────────────────────────────────────────────
+    async def withdraw(self, user_id: uuid.UUID) -> None:
+        """
+        사용자 계정 탈퇴 처리.
+        - 자신이 만든 팀 분석 이력(team job)은 다른 팀원에게 자동 양도
+        - Refresh Token 명시 삭제 후 계정 정보 삭제
+        """
+        team_service = TeamService(self.db)
+        await team_service.transfer_orphan_ownership(user_id)
+
+        await self.repo.delete_all_refresh_tokens(user_id)
+        await self.repo.delete_user(user_id)
+        await self.db.commit()
+        logger.info("[AUTH] 회원 탈퇴: user_id=%s", user_id)
