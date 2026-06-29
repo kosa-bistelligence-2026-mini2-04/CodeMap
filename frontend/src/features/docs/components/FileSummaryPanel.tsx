@@ -17,7 +17,8 @@ export function FileSummaryPanel({ docData }: FileSummaryPanelProps) {
             buildFileSummaries(
                 docData.readingOrder,
                 docData.dangerFiles,
-                docData.folderSummaries
+                docData.folderSummaries,
+                docData.fileSummaries
             ),
         [docData]
     );
@@ -192,6 +193,27 @@ function FileDetail({ item }: { item: DocFileSummaryItem }) {
             ) : (
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     이 파일이 속한 폴더 요약 정보가 없습니다.
+                </p>
+            )}
+
+            {item.summary != null ? (
+                <div>
+                    <p
+                        className="mb-1 text-xs font-medium"
+                        style={{ color: "var(--text-secondary)" }}
+                    >
+                        파일 요약 (주요 기능 및 역할)
+                    </p>
+                    <p
+                        className="text-sm leading-relaxed whitespace-pre-wrap"
+                        style={{ color: "var(--text-primary)" }}
+                    >
+                        {item.summary}
+                    </p>
+                </div>
+            ) : (
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    이 파일의 자체 요약 정보가 없습니다.
                 </p>
             )}
         </div>

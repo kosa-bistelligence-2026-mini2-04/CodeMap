@@ -44,6 +44,7 @@ const jsonData: DocGetJsonData = {
     dangerFiles: [dangerItem],
     coreFlow: "진입점 → 분석 → 결과",
     folderSummaries: [folder],
+    fileSummaries: [],
     generatedAt: "2026-06-29T00:00:00Z",
     version: 1,
 };
@@ -59,6 +60,7 @@ const jsonDataNullable: DocGetJsonData = {
     dangerFiles: [],
     coreFlow: null,
     folderSummaries: [],
+    fileSummaries: [],
     generatedAt: "2026-06-29T00:00:00Z",
     version: 0,
 };
@@ -89,6 +91,7 @@ const itemNullable: DocFileSummaryItem = {
     dangerReason: null,
     folderPath: null,
     folderSummary: null,
+    summary: null,
 };
 assertAssignable<DocFileSummaryItem>(itemNullable);
 
@@ -101,6 +104,7 @@ const itemFull: DocFileSummaryItem = {
     dangerReason: null,
     folderPath: "src/app",
     folderSummary: "Next.js App Router 진입 경로",
+    summary: null,
 };
 assertAssignable<DocFileSummaryItem>(itemFull);
 

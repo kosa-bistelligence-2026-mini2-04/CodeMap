@@ -132,6 +132,13 @@ class DocFolderSummaryItem(BaseModel):
     description: str = Field(default="", description="Folder description")
 
 
+class DocFileSummaryItem(BaseModel):
+    """DOCS_API_SPEC fileSummaries item."""
+
+    path: str = Field(description="File path")
+    summary: str = Field(default="", description="File summary")
+
+
 class DocGetJsonData(BaseModel):
     '''GET /api/gen/docs/{repo_id}?format=json 응답 data 필드'''
 
@@ -150,6 +157,9 @@ class DocGetJsonData(BaseModel):
     core_flow: str | None = Field(alias="coreFlow", default=None, description="핵심 실행 플로우")
     folder_summaries: list[DocFolderSummaryItem] = Field(
         alias="folderSummaries", default_factory=list, description="폴더 구조 요약"
+    )
+    file_summaries: list[DocFileSummaryItem] = Field(
+        alias="fileSummaries", default_factory=list, description="파일 단위 요약"
     )
     generated_at: datetime = Field(
         alias="generatedAt", description="가이드북 생성 시각"

@@ -62,6 +62,7 @@ const jsonData: DocGetJsonData = {
   dangerFiles:     [dangerFileItem],
   coreFlow:        "사용자 요청 → FastAPI 라우터 → 서비스 → DB",
   folderSummaries: [folderSummary],
+  fileSummaries: [],
   generatedAt:     "2026-06-27T00:00:00Z",
   version:         1,
 };
@@ -77,6 +78,7 @@ const jsonDataNullable: DocGetJsonData = {
   dangerFiles:     [],
   coreFlow:        null,
   folderSummaries: [],
+  fileSummaries: [],
   generatedAt:     "2026-06-27T00:00:00Z",
   version:         2,
 };

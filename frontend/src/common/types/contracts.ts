@@ -507,6 +507,7 @@ export interface DocGetJsonData {
   dangerFiles: DocDangerFileItem[];
   coreFlow: string | null;
   folderSummaries: DocFolderSummary[];
+  fileSummaries: DocFileSummaryItem[];
   generatedAt: string;
   version: number;
 }
@@ -532,4 +533,5 @@ export interface DocFileSummaryItem {
   dangerReason: string | null;
   folderPath: string | null;
   folderSummary: string | null;
+  summary: string | null;
 }
