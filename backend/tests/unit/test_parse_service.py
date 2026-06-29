@@ -379,7 +379,7 @@ class ParseServiceFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(by_path["backend/app/service.py"].risk_score, 1)
         self.assertEqual(by_path["backend/app/main.py"].language, "Python")
         self.assertGreater(by_path["backend/app/main.py"].lines, 0)
-        self.assertGreater(by_path["backend/app/main.py"].size, 0)
+        self.assertGreater(by_path["backend/app/main.py"].bytes, 0)
 
         heatmap = await parse_service.build_heatmap(tagged)
         self.assertTrue(heatmap)

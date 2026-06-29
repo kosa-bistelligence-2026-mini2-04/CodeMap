@@ -114,7 +114,7 @@ async def build_file_map(files: list[ParsedFile]) -> list[FileMapItem]:
                 language=_language_for(node),
                 chunk_count=len(node.chunks),
                 lines=_line_count(node),
-                size=node.size,
+                bytes=node.size,
                 imports=list(node.imports),
                 imported_by=fan_in,
                 risk_score=_risk_score(node, fan_in),

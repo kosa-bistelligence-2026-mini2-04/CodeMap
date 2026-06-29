@@ -260,6 +260,35 @@ class AuthLogoutTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 401)
 
 
+class AuthWithdrawTests(unittest.TestCase):
+    """회원 탈퇴 엔드포인트 테스트"""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    @patch("app.auth.router.AuthService")
+    @patch("app.infra.auth.verify_access_token")
+    def test_withdraw_invalid_sub_returns_401_envelope(
+        self,
+        mock_verify,
+        mock_service_class,
+    ):
+        """UUID 형식이 아닌 sub 클레임은 500이 아니라 401 표준 envelope."""
+        mock_verify.return_value = {
+            "sub": "not-a-uuid",
+            "email": "test@example.com",
+        }
+
+        resp = self.client.delete(
+            "/api/auth/me",
+            headers={"Authorization": "Bearer invalid-sub-token"},
+        )
+
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp.json()["error"]["code"], "UNAUTHORIZED")
+        mock_service_class.return_value.withdraw.assert_not_called()
+
+
 class JwtProtectedListTests(unittest.TestCase):
     """기존 list 엔드포인트에 JWT 보호가 적용되었는지 검증"""
 

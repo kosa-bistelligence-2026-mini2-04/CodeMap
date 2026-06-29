@@ -309,7 +309,6 @@ class AnalysisService:
             raise JobNotFoundError()
         if not await self.can_access_job(job, current_user_id):
             raise JobNotFoundError()
-
         import os
         clone_path = os.path.join(
             settings.CLONE_BASE_DIR, str(job.id), "repo"
@@ -330,7 +329,7 @@ class AnalysisService:
                 progress=job.progress,
                 statusMessage=job.message,
                 model=job.model_used,
-                report=job.report_json,
+                report=_format_report_for_frontend(job.report_json, job.repo_name),
                 createdAt=job.created_at,
                 updatedAt=job.updated_at,
             ),
@@ -908,6 +907,213 @@ class AnalysisService:
         )
         await event_manager.publish(job_id, event)
 
+    # ──────────────────────────────────────────
+    # execute_analysis_and_persist
+    # ──────────────────────────────────────────
+    async def execute_analysis_and_persist(
+        self, job_id: UUID, clone_path: str, repo_name: str
+    ) -> dict:
+        """
+        CWD 경로 기반으로 개별 정적 분석 도구들을 병렬로 호출하여
+        최종 report_json 딕셔너리를 조립하고 DB에 입력합니다.
+        """
+        from uuid import UUID
+        from app.repo.schemas import JobStatus, PipelineStage
+        from app.tool.dir_scan import list_repository_files
+        from app.tool.file_read import extract_file_static_metadata
+        from app.tool.grep_scan import count_todo_annotations
+        from app.tool.env_validation import verify_build_environment
+        from app.tool.ast_quality import (
+            calculate_code_complexity,
+        )
+
+        root = Path(clone_path).resolve()
+
+        ## 1. 파일 리스트 추출 (디렉토리 스캔 전담)
+        file_paths = await asyncio.to_thread(list_repository_files, root)
+        total_files = len(file_paths)
+
+        if total_files == 0:
+            ## 예외 폴백: 소스 파일이 없는 경우
+            report = {
+                "repository": {"name": repo_name, "root": str(root)},
+                "stats": {
+                    "files": 0, "lines": 0, "bytes": 0, "todos": 0,
+                    "tests": 0, "primary_language": "Unknown",
+                },
+                "languages": [],
+                "stack": [],
+                "entrypoints": [],
+                "files": [],
+                "health_score": 50,
+                "health_metrics": {
+                    "score": 50,
+                    "test_ratio": 0.0,
+                    "todo_ratio": 0.0,
+                    "oversized_ratio": 0.0,
+                    "duplicate_code_ratio": 0.0,
+                },
+                "executive_summary": "분석 대상 텍스트 파일이 없는 빈 저장소입니다.",
+                "key_strengths": ["분석 대상 텍스트 파일이 없습니다."],
+                "key_risks": [
+                    "레포지토리가 비어 있거나 소스코드가 감지되지 않습니다."
+                ],
+                "recommendations": [],
+            }
+            await self.repository.update_job_status(
+                job_id=job_id,
+                status=JobStatus.IN_PROGRESS.value,
+                stage=PipelineStage.CODE_MAP.value,
+                progress=55,
+                message="분석 대상 텍스트 파일이 없습니다.",
+                report_json=report,
+            )
+            await self.db.commit()
+            return report
+
+        ## 2. 기본 파일 물리 정보 일괄 스캔 (I/O 병렬 구동)
+        file_meta = await asyncio.to_thread(
+            extract_file_static_metadata, file_paths, root
+        )
+
+        ## 주 언어 판별 및 언어 통계 산정
+        from collections import Counter
+        languages = Counter()
+        total_lines = 0
+        total_bytes = 0
+        test_files = 0
+
+        oversized: list[str] = []
+        code_line_files: dict[str, set[str]] = {}
+        significant_code_lines = 0
+
+        from app.repo.analyzer import CODE_SUFFIXES, _read_text, _normalized_code_lines
+        for f in file_meta:
+            total_lines += f["lines"]
+            total_bytes += f["bytes"]
+            languages[f["language"]] += f["lines"]
+            
+            path_str = f["path"]
+            name_str = f["name"]
+            
+            if "test" in name_str.lower() or "test" in path_str.lower():
+                test_files += 1
+
+            # main의 중복도 검출 및 대형 파일 수집 적용
+            full_path = root / path_str
+            suffix = full_path.suffix.lower()
+            if suffix in CODE_SUFFIXES:
+                text = _read_text(full_path, limit=100_000)
+                normalized_lines = _normalized_code_lines(text)
+                significant_code_lines += len(normalized_lines)
+                for normalized_line in set(normalized_lines):
+                    code_line_files.setdefault(normalized_line, set()).add(path_str)
+                
+                if f["lines"] > 700:
+                    oversized.append(path_str)
+
+        primary_language = (
+            languages.most_common(1)[0][0] if languages else "Unknown"
+        )
+        test_ratio = test_files / max(total_files, 1)
+
+        ## 3. 남은 분석 도구 병렬 호출 (asyncio.gather)
+        todo_task = asyncio.to_thread(count_todo_annotations, file_paths)
+        env_task = asyncio.to_thread(
+            verify_build_environment, file_paths, primary_language, root
+        )
+        ast_task = asyncio.to_thread(calculate_code_complexity, file_paths)
+
+        todo_res, env_res, ast_res = await asyncio.gather(
+            todo_task, env_task, ast_task
+        )
+
+        # main의 지표 산정 모델 전면 이식
+        todo_ratio = todo_res["total_todos"] / max(1, total_files)
+        oversized_ratio = len(oversized) / max(1, total_files)
+        duplicate_code_lines = sum(
+            len(paths) - 1
+            for paths in code_line_files.values()
+            if len(paths) > 1
+        )
+        duplicate_code_ratio = duplicate_code_lines / max(significant_code_lines, 1)
+        duplicate_files = sorted({
+            path
+            for paths in code_line_files.values()
+            if len(paths) > 1
+            for path in paths
+        })
+
+        score = 100
+        score -= min(30, int(oversized_ratio * 100))
+        score -= min(20, int(todo_ratio * 50))
+        score -= min(25, int(duplicate_code_ratio * 100))
+
+        health_score = max(35, min(100, score))
+        health_metrics = {
+            "score": health_score,
+            "test_ratio": round(test_ratio, 3),
+            "todo_ratio": round(todo_ratio, 3),
+            "oversized_ratio": round(oversized_ratio, 3),
+            "duplicate_code_ratio": round(duplicate_code_ratio, 3),
+        }
+
+        report = {
+            "repository": {"name": repo_name, "root": str(root)},
+            "stats": {
+                "files": total_files,
+                "lines": total_lines,
+                "bytes": total_bytes,
+                "todos": todo_res["total_todos"],
+                "tests": test_files,
+                "primary_language": primary_language,
+            },
+            "languages": [
+                {"name": name, "lines": lines}
+                for name, lines in languages.most_common(8)
+            ],
+            "stack": env_res["detected_stack"],
+            "entrypoints": env_res["entrypoints"][:12],
+            "files": file_meta,
+            "health_score": health_score,
+            "health_metrics": health_metrics,
+            "executive_summary": (
+                f"{repo_name}은(는) {primary_language} 중심의 코드베이스입니다. "
+                "실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
+            ),
+            "key_strengths": [
+                f"{total_files:,}개 파일과 {total_lines:,}줄이 "
+                "실제 스냅샷에서 확인되었습니다.",
+            ],
+            "key_risks": [],
+            "recommendations": [],
+        }
+
+        ## 분석 소견/가이드라인 보강
+        if not env_res["has_mandatory_manifest"]:
+            report["key_risks"].append(
+                f"{primary_language} 빌드 구성 파일이 결락되어 "
+                "실행이 불가할 수 있습니다."
+            )
+            report["recommendations"].append({
+                "title": "빌드 설정 파일 추가",
+                "detail": "의존성 패키지 관리 파일을 루트 디렉토리에 추가하세요.",
+                "affected_files": [],
+                "priority": "high",
+            })
+
+        ## 7. DB 최종 영속화 및 커밋
+        await self.repository.update_job_status(
+            job_id=job_id,
+            status=JobStatus.IN_PROGRESS.value,
+            stage=PipelineStage.CODE_MAP.value,
+            progress=55,
+            message=f"{total_files}개 파일 구조 분석 완료",
+            report_json=report,
+        )
+        await self.db.commit()
+        return report
+
 
 # ──────────────────────────────────────────────
 # API-002: GitHub URL 형식 및 접근 가능 여부 검증 서비스
@@ -971,6 +1177,8 @@ class RepoValidateService:
                 isPrivate=bool(payload.get("private", False)),
             ),
         )
+
+
 
 
 def _filter_workspace(repo_dir: Path) -> None:
@@ -1054,3 +1262,59 @@ def _remove_empty_parent(path: Path) -> None:
         path.rmdir()
     except OSError:
         return
+
+
+# ──────────────────────────────────────────────
+# _format_report_for_frontend
+# ──────────────────────────────────────────────
+def _format_report_for_frontend(
+    report: dict | None, repo_name: str
+) -> dict | None:
+    """
+    DB에 적재된 순수 분석 데이터(report_json)를 프론트엔드가 기대하는 DTO 규격
+    (size, kind, executive_summary 등 필수 필드)으로 실시간 맵핑하여 반환한다.
+    """
+    if not report:
+        return None
+
+    formatted = dict(report)
+
+    # 1. executive_summary 누락 시 기본 폴백 합성
+    if "executive_summary" not in formatted:
+        stats = formatted.get("stats", {})
+        primary_lang = stats.get("primary_language", "Unknown")
+        total_files = stats.get("files", 0)
+
+        if total_files == 0:
+            formatted["executive_summary"] = (
+                f"{repo_name}은(는) 분석 가능한 텍스트 파일이 감지되지 않은 "
+                "저장소입니다. 파일 구조와 실행 신호가 부족해 제한된 리포트를 "
+                "생성했습니다."
+            )
+        else:
+            formatted["executive_summary"] = (
+                f"{repo_name}은(는) {primary_lang} 중심의 코드베이스입니다. "
+                "실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
+            )
+
+    # 2. files 리스트 내 size, kind 누락 시 매핑 보강
+    if "files" in formatted and isinstance(formatted["files"], list):
+        mapped_files = []
+        for f in formatted["files"]:
+            if not isinstance(f, dict):
+                mapped_files.append(f)
+                continue
+
+            file_item = dict(f)
+            if "kind" not in file_item:
+                name = file_item.get("name", "")
+                path = file_item.get("path", "")
+                file_item["kind"] = (
+                    "test"
+                    if ("test" in name.lower() or "test" in path.lower())
+                    else "source"
+                )
+            mapped_files.append(file_item)
+        formatted["files"] = mapped_files
+
+    return formatted
