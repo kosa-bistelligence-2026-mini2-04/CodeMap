@@ -1,54 +1,63 @@
 name: CodeMap Backend Deploy (CI/CD)
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  # 1. 깃허브 로봇 공장에서 도커 이미지를 굽고 도커 허브(창고)에 올리는 작업
+  build-and-push:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          python-version: '3.12'
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ── 가상환경 의존성 설치 및 백엔드 스모크 테스트 실행 (필요 시 활성화)
-      - name: Install dependencies
-        run: |
-          cd backend
-          python -m venv venv
-          ./venv/bin/pip install -r requirements.txt
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:buildcache,mode=max
 
-      # ── 깃허브 Secrets 보관소 값과 자동 생성 GITHUB_TOKEN을 시스템 환경 변수로 안전 주입
-      - name: Run Deploy / Build Tasks
-        env:
-          # 1. 데이터베이스 접속 정보 주입
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+  # 2. 깃허브 로봇이 구글 서버(VM)에 원격 접속해서 도커를 껐다 켜는 작업
+  deploy-to-gcp:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute remote SSH commands to deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            echo "1. 새 이미지를 도커 허브에서 다운로드합니다."
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
 
-          # 2. 파일 분석 임시 저장소 환경별 분기 주입
-          CLONE_BASE_DIR_WINDOWS: ${{ secrets.CLONE_BASE_DIR_WINDOWS }}
-          CLONE_BASE_DIR_UNIX: ${{ secrets.CLONE_BASE_DIR_UNIX }}
-          CLONE_TIMEOUT_SECONDS: ${{ secrets.CLONE_TIMEOUT_SECONDS }}
-          MAX_FILE_COUNT: ${{ secrets.MAX_FILE_COUNT }}
-          MAX_REPO_SIZE_MB: ${{ secrets.MAX_REPO_SIZE_MB }}
+            echo "2. 기존에 돌아가던 백엔드 컨테이너를 중지하고 삭제합니다."
+            sudo docker rm -f backend_app || true
 
-          # 3. 외부 API 및 자동 토큰 바인딩 주입
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          # 수동 입력 대신 깃허브가 기동 시 자동 생성해 주는 토큰을 바인딩하여 사용
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            echo "3. 새 버전의 이미지로 컨테이너를 다시 실행합니다."
+            cd ~/CodeMap/backend
+            sudo docker run -d -p 8080:8000 --name backend_app --env-file .env ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
 
-          # 4. 배포용 디버그 플래그 비활성화 설정
-          DEBUG: "false"
-
-        run: |
-          echo "GitHub 웹 Secrets 및 자동 발급 토큰을 성공적으로 시스템 환경 변수(env)에 인젝션했습니다."
-          # 실제 가상머신 기동 또는 Docker 이미지 빌드/운영서버 전송(scp) 등의 명령어가 여기에 포함됩니다.
-          # 예: docker build -t codemap-backend .
+            echo "4. 불필요한 옛날 도커 찌꺼기들을 청소합니다."
+            sudo docker image prune -f
+            
+            echo "배포가 성공적으로 완료되었습니다!"
