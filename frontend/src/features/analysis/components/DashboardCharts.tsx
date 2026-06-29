@@ -32,14 +32,14 @@ export function DashboardCharts({ report }: Props) {
     value: l.lines,
   }));
 
-  // 건강도를 기반으로 임의의 레이더 차트 수치 계산 (실제 서비스에서는 백엔드에서 제공하는게 바람직함)
-  const baseHealth = report.health_score;
+  const metrics = report.health_metrics;
+  const getScore = (val?: number) => val ?? 50;
+
   const radarData = [
-    { subject: "보안(Security)", A: Math.min(100, baseHealth + 10), fullMark: 100 },
-    { subject: "모듈화(Modularity)", A: Math.max(0, baseHealth - 5), fullMark: 100 },
-    { subject: "코드품질(Quality)", A: baseHealth, fullMark: 100 },
-    { subject: "테스트(Test)", A: Math.max(0, baseHealth - 20), fullMark: 100 },
-    { subject: "복잡도(Complexity)", A: Math.min(100, baseHealth + 5), fullMark: 100 },
+    { subject: "보안(Security)", A: getScore(metrics?.security), fullMark: 100 },
+    { subject: "모듈화(Modularity)", A: getScore(metrics?.modularity), fullMark: 100 },
+    { subject: "코드품질(Quality)", A: getScore(metrics?.quality), fullMark: 100 },
+    { subject: "복잡도(Complexity)", A: getScore(metrics?.complexity), fullMark: 100 },
   ];
 
   return (
