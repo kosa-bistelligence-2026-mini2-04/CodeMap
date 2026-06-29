@@ -555,3 +555,22 @@ export interface DocFileSummaryItem {
   folderSummary: string | null;
   summary: string | null;
 }
+
+// ── DOCS-GUARD-API-001 민감정보 마스킹 타입 ───────────────────────────────────
+
+export interface DocGuardPatternItem {
+  type: string;
+  location: string;
+}
+
+export interface DocGuardData {
+  maskedContent: string;
+  detectedCount: number;
+  detectedPatterns: DocGuardPatternItem[];
+}
+
+export interface DocGuardResponse {
+  code: number;
+  message: string;
+  data: DocGuardData;
+}

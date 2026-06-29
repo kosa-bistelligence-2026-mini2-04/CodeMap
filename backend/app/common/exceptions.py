@@ -509,3 +509,20 @@ class FileGenerationFailedError(CodeMapException):
 
     def __init__(self, message: str = "가이드북 파일 생성 중 오류가 발생했습니다."):
         super().__init__(500, "FILE_GENERATION_FAILED", message)
+
+
+# ──────────────────────────────────────────────
+# DOCS-GUARD-API-001: 민감정보 마스킹 관련 예외
+# ──────────────────────────────────────────────
+class InvalidContentError(CodeMapException):
+    """민감정보 검사 대상 content가 비어있을 때 발생 (400)"""
+
+    def __init__(self, message: str = "검사 대상 content가 비어있습니다."):
+        super().__init__(400, "INVALID_CONTENT", message)
+
+
+class GuardFailedError(CodeMapException):
+    """민감정보 탐지 처리 중 오류 발생 시 (500)"""
+
+    def __init__(self, message: str = "민감정보 탐지 처리 중 오류가 발생했습니다."):
+        super().__init__(500, "GUARD_FAILED", message)

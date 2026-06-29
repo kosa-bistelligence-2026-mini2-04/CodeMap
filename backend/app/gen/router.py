@@ -20,6 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.gen.schemas import (
     DocGetMarkdownResponse,
     DocGetJsonResponse,
+    DocGuardRequest,
+    DocGuardData,
+    DocGuardPatternItem,
+    DocGuardResponse,
     DocRebuildRequest,
     DocRebuildData,
     DocRebuildResponse,
@@ -37,7 +41,14 @@ from app.gen.service import (
     save_onboarding_doc,
     validate_and_queue_doc_generation,
 )
-from app.common.exceptions import FileGenerationFailedError
+from app.gen.guard import mask_sensitive_content
+from app.gen.repository import GenDocRepository
+from app.common.exceptions import (
+    FileGenerationFailedError,
+    GuardFailedError,
+    InvalidContentError,
+    RepoNotFoundError,
+)
 from app.infra.auth import get_current_user
 from app.infra.database import get_db
 
@@ -281,5 +292,67 @@ async def save_doc(
             docId=doc.id,
             repoId=repo_id,
             version=doc.version,
+        )
+    )
+
+
+# ──────────────────────────────────────────────
+# DOCS-GUARD-API-001: 민감정보 마스킹 검증
+# ──────────────────────────────────────────────
+@router.post(
+    "/{repo_id}/guard",
+    status_code=status.HTTP_200_OK,
+    response_model=DocGuardResponse,
+    summary="민감정보 마스킹 검증 (DOCS-GUARD-API-001)",
+)
+async def guard_doc(
+    repo_id: UUID,
+    body: DocGuardRequest,
+    db: AsyncSession = Depends(get_db),
+) -> DocGuardResponse:
+    '''
+    가이드북 Markdown 원문에서 API 키·토큰·비밀번호 등 민감정보를 탐지해
+    [MASKED]로 대체한 결과를 반환한다.
+
+    내부 파이프라인(가이드북 생성 직전 단계)에서 호출하는 API이다.
+
+    에러 응답:
+    - 400 INVALID_CONTENT: 검사 대상 content가 비어있음
+    - 404 REPO_NOT_FOUND:  저장소 없음
+    - 500 GUARD_FAILED:    민감정보 탐지 처리 중 오류
+    '''
+    if not body.content.strip():
+        raise InvalidContentError()
+
+    ## 저장소 존재 여부 확인
+    gen_repo = GenDocRepository(db)
+    repo = await gen_repo.get_repo_by_id(repo_id)
+    if repo is None:
+        raise RepoNotFoundError()
+
+    try:
+        result = await mask_sensitive_content(body.content)
+    except Exception as exc:
+        logger.error(
+            "[DOCS-GUARD-API-001] 마스킹 처리 실패 | repo_id=%s",
+            repo_id,
+            exc_info=True,
+        )
+        raise GuardFailedError() from exc
+
+    logger.info(
+        "[DOCS-GUARD-API-001] 완료 | repo_id=%s detected=%d",
+        repo_id,
+        result.detected_count,
+    )
+
+    return DocGuardResponse(
+        data=DocGuardData(
+            maskedContent=result.masked_content,
+            detectedCount=result.detected_count,
+            detectedPatterns=[
+                DocGuardPatternItem(type=p.type, location=p.location)
+                for p in result.detected_patterns
+            ],
         )
     )

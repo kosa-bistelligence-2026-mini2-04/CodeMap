@@ -1,6 +1,7 @@
 import type {
   DocGetJsonResponse,
   DocGetMarkdownResponse,
+  DocGuardResponse,
 } from "@/common/types/contracts";
 import { parseApiError } from "@/common/api/error";
 import { apiPath } from "@/features/analysis/api/api";
@@ -51,4 +52,26 @@ export async function fetchOnboardingDocJson(
  */
 export function buildMarkdownDownloadUrl(repoId: string): string {
   return apiPath(`/gen/docs/${repoId}/download?format=md`);
+}
+
+/**
+ * POST /api/gen/docs/{repo_id}/guard
+ * Markdown 원문 민감정보 탐지 및 마스킹 (DOCS-GUARD-API-001)
+ */
+export async function callGuardCheck(
+  repoId: string,
+  content: string,
+): Promise<DocGuardResponse> {
+  const resp = await fetch(
+    apiPath(`/gen/docs/${repoId}/guard`),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeader() },
+      body: JSON.stringify({ content }),
+    },
+  );
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
+  return resp.json() as Promise<DocGuardResponse>;
 }
