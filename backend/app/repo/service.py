@@ -925,7 +925,6 @@ class AnalysisService:
         from app.tool.env_validation import verify_build_environment
         from app.tool.ast_quality import (
             calculate_code_complexity,
-            calculate_module_coupling,
         )
 
         root = Path(clone_path).resolve()
@@ -981,12 +980,34 @@ class AnalysisService:
         total_bytes = 0
         test_files = 0
 
+        oversized: list[str] = []
+        code_line_files: dict[str, set[str]] = {}
+        significant_code_lines = 0
+
+        from app.repo.analyzer import CODE_SUFFIXES, _read_text, _normalized_code_lines
         for f in file_meta:
             total_lines += f["lines"]
             total_bytes += f["bytes"]
             languages[f["language"]] += f["lines"]
-            if "test" in f["name"].lower() or "test" in f["path"].lower():
+            
+            path_str = f["path"]
+            name_str = f["name"]
+            
+            if "test" in name_str.lower() or "test" in path_str.lower():
                 test_files += 1
+
+            # main의 중복도 검출 및 대형 파일 수집 적용
+            full_path = root / path_str
+            suffix = full_path.suffix.lower()
+            if suffix in CODE_SUFFIXES:
+                text = _read_text(full_path, limit=100_000)
+                normalized_lines = _normalized_code_lines(text)
+                significant_code_lines += len(normalized_lines)
+                for normalized_line in set(normalized_lines):
+                    code_line_files.setdefault(normalized_line, set()).add(path_str)
+                
+                if f["lines"] > 700:
+                    oversized.append(path_str)
 
         primary_language = (
             languages.most_common(1)[0][0] if languages else "Unknown"
@@ -1004,53 +1025,35 @@ class AnalysisService:
             todo_task, env_task, ast_task
         )
 
-        ## 4. 임포트 결합도 연산
-        raw_deps = {}
-        for f in file_meta:
-            raw_deps[f["path"]] = []
-        coupling_res = calculate_module_coupling(raw_deps)
-
-        ## 5. 다차원 health_metrics 세부 지표 채점 알고리즘
-        # ① 보안 점수 (85 기본)
-        security_score = 85
-        if not env_res["has_mandatory_manifest"]:
-            security_score -= 15  # 빌드 파일 부재 시 큰 감점
-        if "Docker" in env_res["detected_stack"]:
-            security_score += 5   # Docker 가점
-        security_score = max(0, min(100, security_score))
-
-        # ② 모듈화 점수 (90 기본)
-        modularity_score = 90
-        if coupling_res["has_circular_dependency"]:
-            modularity_score -= 20
-        modularity_score -= int(coupling_res["coupling_coefficient"] * 40)
-        modularity_score = max(0, min(100, modularity_score))
-
-        # ③ 코드품질 점수 (85 기본)
-        quality_score = 85
-        todo_density = todo_res["total_todos"] / max(total_lines, 1) * 10000
-        if todo_density > 50:
-            quality_score -= 10
-        if ast_res["oversized_ratio"] > 0.05:
-            quality_score -= 8
-        quality_score = max(0, min(100, quality_score))
-
-        # ④ 테스트 점수
-        test_score = int(test_ratio * 100)
-        test_score = max(0, min(100, test_score))
-
-        # ⑤ 복잡도 점수
-        complexity_score = 100 - int(
-            max(0, ast_res["average_complexity"] - 3) * 8
+        # main의 지표 산정 모델 전면 이식
+        todo_ratio = todo_res["total_todos"] / max(1, total_files)
+        oversized_ratio = len(oversized) / max(1, total_files)
+        duplicate_code_lines = sum(
+            len(paths) - 1
+            for paths in code_line_files.values()
+            if len(paths) > 1
         )
-        complexity_score = max(0, min(100, complexity_score))
+        duplicate_code_ratio = duplicate_code_lines / max(significant_code_lines, 1)
+        duplicate_files = sorted({
+            path
+            for paths in code_line_files.values()
+            if len(paths) > 1
+            for path in paths
+        })
 
-        # ⑥ 종합 건강도 (가중 평균)
-        total_metrics_sum = (
-            security_score + modularity_score + quality_score +
-            test_score + complexity_score
-        )
-        health_score = int(total_metrics_sum / 5)
+        score = 100
+        score -= min(30, int(oversized_ratio * 100))
+        score -= min(20, int(todo_ratio * 50))
+        score -= min(25, int(duplicate_code_ratio * 100))
+
+        health_score = max(35, min(100, score))
+        health_metrics = {
+            "score": health_score,
+            "test_ratio": round(test_ratio, 3),
+            "todo_ratio": round(todo_ratio, 3),
+            "oversized_ratio": round(oversized_ratio, 3),
+            "duplicate_code_ratio": round(duplicate_code_ratio, 3),
+        }
 
         report = {
             "repository": {"name": repo_name, "root": str(root)},
@@ -1070,13 +1073,7 @@ class AnalysisService:
             "entrypoints": env_res["entrypoints"][:12],
             "files": file_meta,
             "health_score": health_score,
-            "health_metrics": {
-                "security": security_score,
-                "modularity": modularity_score,
-                "quality": quality_score,
-                "test": test_score,
-                "complexity": complexity_score,
-            },
+            "health_metrics": health_metrics,
             "executive_summary": (
                 f"{repo_name}은(는) {primary_language} 중심의 코드베이스입니다. "
                 "실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."
