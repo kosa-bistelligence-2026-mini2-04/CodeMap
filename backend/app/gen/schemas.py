@@ -1,5 +1,5 @@
 """
-DOCS-GEN API 요청/응답 스키마 (DOCS-GEN-API-001, 002, 005)
+DOCS-GEN API 요청/응답 스키마 (DOCS-GEN-API-001, 002, 003, 005)
 
 DOCS_API_SPEC.md 기준 Request/Response DTO를 정의한다.
 """
@@ -163,3 +163,47 @@ class DocGetJsonResponse(BaseModel):
     code: int = Field(default=200, description="HTTP 상태 코드")
     message: str = Field(default="success", description="처리 결과 메시지")
     data: DocGetJsonData
+
+
+# ──────────────────────────────────────────────
+# DOCS-GEN-API-003: 가이드북 재생성 요청/응답
+# ──────────────────────────────────────────────
+class DocRebuildRequest(BaseModel):
+    '''
+    PUT /api/gen/docs/{repo_id} 요청 본문 (DOCS-GEN-API-003)
+
+    기존 가이드북을 소프트 삭제한 뒤 최신 분석 기반으로 재생성한다.
+    model과 reason은 선택 파라미터다.
+    '''
+
+    model: str = Field(
+        default="gpt-4o-mini",
+        description="재생성에 사용할 LLM 모델",
+    )
+    reason: str | None = Field(
+        default=None,
+        description="재생성 요청 사유 (로그 기록용)",
+    )
+
+
+class DocRebuildData(BaseModel):
+    '''PUT /api/gen/docs/{repo_id} 성공 응답 data 필드'''
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    job_id: UUID = Field(alias="jobId", description="재생성 작업 ID")
+    repo_id: UUID = Field(alias="repoId", description="저장소 ID")
+    previous_version: int = Field(
+        alias="previousVersion", description="소프트 삭제된 기존 가이드북 버전"
+    )
+    new_version: int = Field(
+        alias="newVersion", description="생성될 새 가이드북 버전"
+    )
+
+
+class DocRebuildResponse(BaseModel):
+    '''PUT /api/gen/docs/{repo_id} 성공 응답 (202 Accepted)'''
+
+    code: int = Field(default=202, description="HTTP 상태 코드")
+    message: str = Field(default="accepted", description="처리 결과 메시지")
+    data: DocRebuildData

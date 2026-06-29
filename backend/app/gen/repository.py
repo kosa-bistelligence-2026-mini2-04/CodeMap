@@ -8,7 +8,7 @@ commit은 호출측 service에서 담당한다.
 import logging
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gen.models import OnboardingDoc
@@ -106,6 +106,29 @@ class GenDocRepository:
             .limit(1)
         )
         return result.scalar_one_or_none()
+
+    # ──────────────────────────────────────────
+    # 활성 문서 소프트 삭제 (API-003)
+    # ──────────────────────────────────────────
+    async def soft_delete_active_docs(self, repo_id: UUID) -> int:
+        '''
+        해당 저장소의 모든 활성 문서를 소프트 삭제한다 (is_active=False).
+
+        Returns:
+            소프트 삭제된 레코드 수
+        '''
+        result = await self.db.execute(
+            update(OnboardingDoc)
+            .where(OnboardingDoc.repo_id == repo_id)
+            .where(OnboardingDoc.is_active.is_(True))
+            .values(is_active=False)
+        )
+        deleted = result.rowcount
+        logger.info(
+            "[GenDocRepository] 소프트 삭제 완료 | repo_id=%s count=%d",
+            repo_id, deleted,
+        )
+        return deleted
 
     # ──────────────────────────────────────────
     # 최신 버전 번호 조회
