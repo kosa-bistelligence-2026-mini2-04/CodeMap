@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -27,6 +27,9 @@ import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
 import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
 import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
+
+// 모바일 드로워 닫기 모션이 끝난 뒤 데이터 갱신을 트리거하기까지의 디바운스(ms)
+const MOBILE_DRAWER_CLOSE_MS = 180;
 
 function AnalyzeWorkspace() {
   const { theme, locale } = useApp();
@@ -69,6 +72,31 @@ function AnalyzeWorkspace() {
     confirm,
     onRouteJob: (id) => router.replace(`/analyze?job=${id}`),
   });
+
+  // ──────────────────────────────────────────────
+  // 모바일 드로워: 닫기 애니메이션과 데이터 갱신 타이밍 분리 (#229)
+  // ──────────────────────────────────────────────
+  const mobileSelectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (mobileSelectTimer.current) clearTimeout(mobileSelectTimer.current);
+    };
+  }, []);
+
+  const handleMobileHistorySelect = useCallback(
+    (id: string) => {
+      // 1) 드로워 닫기 트랜잭션을 먼저 시작한다.
+      setMobileSidebarOpen(false);
+      // 2) 슬라이드 아웃 모션이 거의 끝난 뒤 데이터 갱신/리렌더를 가동한다.
+      if (mobileSelectTimer.current) clearTimeout(mobileSelectTimer.current);
+      mobileSelectTimer.current = setTimeout(() => {
+        selectHistory(id);
+        mobileSelectTimer.current = null;
+      }, MOBILE_DRAWER_CLOSE_MS);
+    },
+    [selectHistory],
+  );
 
   const ask = (prompt: string, contextFile?: string) => {
     if (contextFile) setSelectedFile(contextFile);
@@ -271,7 +299,7 @@ function AnalyzeWorkspace() {
                   {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
                   {workspaceSelector}
                   <RepoInput onSubmit={(input) => { submit(input); setMobileSidebarOpen(false); }} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeamName} />
-                  <div className="mt-3"><HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
+                  <div className="mt-3"><HistoryList onSelect={handleMobileHistorySelect} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
                 </div>
               ) : (
                 <div className="flex h-full min-h-0 flex-col">
@@ -279,7 +307,7 @@ function AnalyzeWorkspace() {
                     <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setMobileSidebarOpen(false); }} className="border-r-0" />
                   </div>
                   <div className={`max-h-[42%] shrink-0 overflow-y-auto border-t p-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-                    <HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} />
+                    <HistoryList onSelect={handleMobileHistorySelect} activeJobId={jobId} />
                   </div>
                 </div>
               )}
