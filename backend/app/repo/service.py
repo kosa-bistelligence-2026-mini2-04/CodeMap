@@ -1311,8 +1311,6 @@ def _format_report_for_frontend(
                 continue
 
             file_item = dict(f)
-            if "size" not in file_item:
-                file_item["size"] = file_item.get("bytes", 0)
             if "kind" not in file_item:
                 name = file_item.get("name", "")
                 path = file_item.get("path", "")

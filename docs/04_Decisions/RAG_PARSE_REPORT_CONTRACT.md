@@ -38,18 +38,18 @@ B-210 통합에서 사용할 객체형 필드를 함께 둔다.
 
 ### `file_map` 파일 메타데이터 확장
 
-Issue #167, #168에 따라 `file_map` 각 항목은 파일 규모 지표를 포함한다.
+Issue #167, #168 및 3차 리뷰 합의에 따라 `file_map` 각 항목은 파일 규모 지표를 포함하며, 파일 크기는 오직 `bytes`로 단일화하여 통일합니다. (레거시 `size` 필드는 완전 폐기 및 삭제됩니다.)
 
 | 필드 | 목적 |
 |---|---|
 | `path` | repo 내부 상대 파일 경로 |
 | `summary` | 파일 단위 요약 |
 | `language` | 감지된 언어 |
-| `line_count` | 파일 총 라인 수 |
-| `character_count` | 디코딩된 텍스트 기준 글자 수 |
-| `is_binary` | 바이너리 또는 텍스트 표시 불가 여부 |
+| `lines` | 파일 총 라인 수 |
+| `bytes` | 파일 총 크기 (바이트 수) |
+| `chars` | 디코딩된 텍스트 기준 글자 수 |
 
-프론트 타입에서는 camelCase(`lineCount`, `characterCount`, `isBinary`)로 노출할 수 있으나, 저장 계약은 snake_case를 기준으로 한다. DashboardCharts 실제 데이터 연결(Issue #163)은 이 값과 `language_composition`을 우선 사용한다.
+프론트 타입에서는 `WorkspaceFile` DTO에 대응하여 오직 `bytes` 필드만 필수 계약으로 소모합니다. DashboardCharts 실제 데이터 연결(Issue #163)은 이 값과 `language_composition`을 우선 사용합니다.
 
 ## 호환 정책
 

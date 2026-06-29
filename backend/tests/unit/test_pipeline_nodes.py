@@ -110,7 +110,6 @@ class PipelineNodeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("bytes", first_file)
             self.assertIn("chars", first_file)
             self.assertIn("language", first_file)
-            self.assertIn("size", first_file)
             self.assertIn("kind", first_file)
 
             # 리포지토리 상태 업데이트 호출 인자 검증 (DB 원본 report 적재 검증)

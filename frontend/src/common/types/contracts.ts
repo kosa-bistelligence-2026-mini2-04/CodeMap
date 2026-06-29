@@ -109,7 +109,6 @@ export interface WorkspaceFile {
   lines: number;
   bytes: number;
   chars?: number;
-  size: number;
   kind: 'source' | 'test';
 }
 
