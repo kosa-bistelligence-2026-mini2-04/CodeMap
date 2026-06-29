@@ -15,6 +15,20 @@ from pydantic import BaseModel, Field, field_validator, JsonValue
 from app.common.schemas import ErrorResponse
 from app.pipeline.schemas import JobStatus, PipelineStage, ProgressEvent
 
+class HealthMetrics(BaseModel):
+    """
+    CodeMap 건강도 분석 결과 (Issue #211)
+    """
+    score: int = Field(..., description="전체 건강 점수 (0-100)")
+    test_ratio: float = Field(default=0.0, description="테스트 파일 비율 (참고 메트릭, 점수 미반영)")
+    todo_ratio: float = Field(default=0.0, description="파일당 TODO 비율")
+    oversized_ratio: float = Field(default=0.0, description="대형 파일 비율")
+    duplicate_code_ratio: float = Field(default=0.0, description="중복 코드 비율")
+    security: Optional[int] = Field(default=None, description="보안 점수")
+    quality: Optional[int] = Field(default=None, description="품질 점수")
+    complexity: Optional[int] = Field(default=None, description="복잡도 점수")
+    modularity: Optional[int] = Field(default=None, description="모듈화 점수")
+
 
 # ──────────────────────────────────────────────
 # API-001: 프로젝트 등록 요청 DTO
@@ -49,6 +63,9 @@ class AnalysisRequest(BaseModel):
 
     model: str = Field(default="auto", description="분석 모델 정책. 기본값은 자동 선택")
     forceRefresh: bool = Field(default=False, description="기존 스냅샷을 무시하고 새로 분석")
+    isPrivate: bool = Field(default=False, description="나만 보기 (Private) 분석 여부")
+    visibility: str = Field(default="private", description="분석 공개 범위: private 또는 team")
+    teamId: UUID | None = Field(default=None, description="팀 공유 분석 대상 팀 ID")
 
 
 # ──────────────────────────────────────────────
@@ -252,4 +269,27 @@ class PipelineStartResponse(BaseModel):
     message: str = Field(default="accepted", description="응답 메시지")
     data: PipelineStartData
 
+
+# ──────────────────────────────────────────────
+# API-FILE: 파일 컨텐츠 조회 응답 DTO
+# ──────────────────────────────────────────────
+class FileContentData(BaseModel):
+    """GET /api/repo/analysis/{job_id}/files/content 성공 응답의 data 필드 스키마"""
+    path: str = Field(description="저장소 내 상대 경로")
+    content: str = Field(description="파일 텍스트 내용")
+    language: Optional[str] = Field(default=None, description="감지된 언어")
+    lines: int = Field(description="총 줄 수")
+    truncated: bool = Field(
+        default=False,
+        description="파일 크기 초과로 내용이 잘렸는지 여부",
+    )
+
+
+class FileContentResponse(BaseModel):
+    """
+    GET /api/repo/analysis/{job_id}/files/content 성공 응답 스키마 (200 OK)
+    """
+    code: int = Field(default=200, description="HTTP 상태 코드")
+    message: str = Field(default="success", description="응답 메시지")
+    data: FileContentData
 

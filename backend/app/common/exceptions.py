@@ -101,6 +101,30 @@ class ValidationFailedError(CodeMapException):
 
 
 # ──────────────────────────────────────────────
+# API-FILE: 파일 컨텐츠 조회 관련 예외
+# ──────────────────────────────────────────────
+class FilePathForbiddenError(CodeMapException):
+    """path traversal 또는 허용되지 않는 경로 접근 시 발생 (403)"""
+
+    def __init__(self, message: str = "허용되지 않는 파일 경로입니다."):
+        super().__init__(403, "FILE_PATH_FORBIDDEN", message)
+
+
+class WorkspaceNotReadyError(CodeMapException):
+    """clone workspace가 아직 준비되지 않았을 때 발생 (404)"""
+
+    def __init__(self, message: str = "파일 워크스페이스가 아직 준비되지 않았습니다."):
+        super().__init__(404, "WORKSPACE_NOT_READY", message)
+
+
+class BinaryFileError(CodeMapException):
+    """바이너리 파일을 텍스트로 읽으려 할 때 발생 (422)"""
+
+    def __init__(self, message: str = "바이너리 파일은 미리보기를 지원하지 않습니다."):
+        super().__init__(422, "BINARY_FILE", message)
+
+
+# ──────────────────────────────────────────────
 # API-003: 상태 조회 관련 예외
 # ──────────────────────────────────────────────
 class JobNotFoundError(CodeMapException):

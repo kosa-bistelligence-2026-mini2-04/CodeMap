@@ -89,5 +89,11 @@ def build_graph() -> StateGraph:
     return builder
 
 
-# 모듈 로드 시 컴파일된 그래프 인스턴스 (싱글톤)
-compiled_graph = build_graph().compile()
+_compiled_graph = None
+
+def get_compiled_graph():
+    global _compiled_graph
+    if _compiled_graph is None:
+        from app.infra.database import get_checkpointer
+        _compiled_graph = build_graph().compile(checkpointer=get_checkpointer())
+    return _compiled_graph

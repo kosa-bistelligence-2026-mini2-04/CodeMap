@@ -189,6 +189,7 @@ class GenDownloadRouterTests(unittest.TestCase):
         from fastapi import FastAPI
         from app.gen.router import router
         from app.infra.database import get_db
+        from app.infra.auth import get_current_user
         from app.common.exceptions import register_exception_handlers
 
         self.app = FastAPI()
@@ -196,6 +197,7 @@ class GenDownloadRouterTests(unittest.TestCase):
         self.app.include_router(router)
         self.mock_db = MagicMock()
         self.app.dependency_overrides[get_db] = lambda: self.mock_db
+        self.app.dependency_overrides[get_current_user] = lambda: {"id": "test-user"}
         self.client = TestClient(self.app, raise_server_exceptions=False)
 
     def test_200_md_download(self):
@@ -280,6 +282,23 @@ class GenDownloadRouterTests(unittest.TestCase):
         resp = self.client.get("/api/gen/docs/not-uuid/download")
         self.assertEqual(resp.status_code, 422)
 
+    def test_401_without_auth(self):
+        """인증 없이 호출하면 401을 반환해야 한다."""
+        from fastapi import FastAPI
+        from app.gen.router import router
+        from app.infra.database import get_db
+        from app.common.exceptions import register_exception_handlers
+
+        ## get_current_user mock을 제거한 별도 앱으로 실제 인증 미제공 시나리오 검증
+        app_no_auth = FastAPI()
+        register_exception_handlers(app_no_auth)
+        app_no_auth.include_router(router)
+        app_no_auth.dependency_overrides[get_db] = lambda: self.mock_db
+        client_no_auth = TestClient(app_no_auth, raise_server_exceptions=False)
+
+        resp = client_no_auth.get(f"/api/gen/docs/{_REPO_ID}/download")
+        self.assertEqual(resp.status_code, 401)
+
 
 # ──────────────────────────────────────────────────────────────
 # 4. 파일명 특수문자 처리 검증
@@ -292,6 +311,7 @@ class FilenameEscapingTests(unittest.TestCase):
         from fastapi import FastAPI
         from app.gen.router import router
         from app.infra.database import get_db
+        from app.infra.auth import get_current_user
         from app.common.exceptions import register_exception_handlers
 
         self.app = FastAPI()
@@ -299,6 +319,7 @@ class FilenameEscapingTests(unittest.TestCase):
         self.app.include_router(router)
         self.mock_db = MagicMock()
         self.app.dependency_overrides[get_db] = lambda: self.mock_db
+        self.app.dependency_overrides[get_current_user] = lambda: {"id": "test-user"}
         self.client = TestClient(self.app, raise_server_exceptions=False)
 
     def test_special_chars_in_repo_name_are_sanitized(self):
@@ -338,6 +359,28 @@ class FilenameEscapingTests(unittest.TestCase):
         filename_part = disp.split("filename=")[-1].strip('"')
         self.assertNotIn(" ", filename_part)
 
+    def test_korean_repo_name_sanitized(self):
+        """한글 저장소 이름은 Content-Disposition 헤더에 그대로 들어가지 않아야 한다.
+
+        re.sub flags=re.ASCII 없이는 \\w가 유니코드 한글을 허용해
+        Content-Disposition 헤더에 비-ASCII 문자가 포함되어 인코딩 오류가 발생할 수 있다.
+        """
+        with patch(
+            "app.gen.router.get_doc_download_content",
+            new=AsyncMock(return_value=(_MARKDOWN, "코드맵-프로젝트")),
+        ):
+            resp = self.client.get(f"/api/gen/docs/{_REPO_ID}/download")
+
+        self.assertEqual(resp.status_code, 200)
+        disp = resp.headers.get("content-disposition", "")
+        filename_part = disp.split("filename=")[-1].strip('"')
+        ## 한글이 _ 로 치환되어 파일명에 비-ASCII 문자가 없어야 한다
+        self.assertTrue(
+            filename_part.isascii(),
+            f"파일명에 비-ASCII 문자가 포함됨: {filename_part!r}",
+        )
+        self.assertIn("_onboarding.md", filename_part)
+
 
 # ──────────────────────────────────────────────────────────────
 # 5. 회귀 검증 — 기존 엔드포인트 영향 없음
@@ -350,6 +393,7 @@ class DownloadRegressionTests(unittest.TestCase):
         from fastapi import FastAPI
         from app.gen.router import router
         from app.infra.database import get_db
+        from app.infra.auth import get_current_user
         from app.common.exceptions import register_exception_handlers
         from app.gen.schemas import DocGetMarkdownData
 
@@ -358,6 +402,8 @@ class DownloadRegressionTests(unittest.TestCase):
         self.app.include_router(router)
         self.mock_db = MagicMock()
         self.app.dependency_overrides[get_db] = lambda: self.mock_db
+        ## GET /{repo_id}에 인증이 추가되어 get_current_user를 mock으로 대체한다.
+        self.app.dependency_overrides[get_current_user] = lambda: {"id": "test-user"}
         self.client = TestClient(self.app, raise_server_exceptions=False)
 
         self._md_data = DocGetMarkdownData(

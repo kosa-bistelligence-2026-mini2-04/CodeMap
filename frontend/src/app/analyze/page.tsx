@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -15,58 +15,21 @@ import {
   ScanSearch,
   X,
 } from "lucide-react";
-import { RepoInput, type RepoSource } from "@/features/repository/components/RepoInput";
+import { RepoInput } from "@/features/repository/components/RepoInput";
 import { HistoryList } from "@/features/history/components/HistoryList";
 import { WorkspaceReport } from "@/features/analysis/components/WorkspaceReport";
+import { CodeNavigatorPanel } from "@/features/analysis/components/CodeNavigatorPanel";
 import { FileTree } from "@/features/chat/components/FileTree";
 import { ChatInterface } from "@/features/chat/components/ChatInterface";
 import { demoWorkspaceReport } from "@/features/analysis/data/demoWorkspace";
-import { fetchJobStatus, fetchParseDetails, startAnalysis, validateRepository } from "@/features/analysis/api/api";
 import { getRagIndexBanner } from "@/features/analysis/utils/ragIndexStatus.mjs";
-import type {
-  JobStatusData,
-  ParseDetails,
-  WorkspaceFile,
-  WorkspaceReport as WorkspaceReportData,
-} from "@/common/types/contracts";
+import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
+import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
+import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
 
-type ViewStatus = "idle" | "running" | "completed" | "failed";
-
-function fileName(path: string): string {
-  return path.split("/").filter(Boolean).at(-1) || path;
-}
-
-function mergeParseDetails(
-  report: WorkspaceReportData,
-  details: ParseDetails,
-): WorkspaceReportData {
-  const fileMap = details.codemap.fileMap;
-  const parseFiles: WorkspaceFile[] = fileMap.map((item) => ({
-    path: item.path,
-    name: fileName(item.path),
-    language: item.language || "Unknown",
-    lines: item.lines || 0,
-    size: item.size || 0,
-    kind: /test|spec/.test(item.path.toLowerCase()) ? "test" : "source",
-  }));
-  const riskFiles = [...details.codemap.heatmap]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map((item) => `${item.path} risk score ${item.score}`);
-  const entrypointPaths = details.tree.entryPoints.map((item) => item.path);
-
-  return {
-    ...report,
-    stack: details.stack.techStack.map((item) => item.name),
-    entrypoints: entrypointPaths,
-    files: parseFiles.length > 0 ? parseFiles : report.files,
-    executive_summary:
-      details.summary.projectSummary || details.readme.projectPurpose || report.executive_summary,
-    reading_order: entrypointPaths.length > 0 ? entrypointPaths : report.reading_order,
-    key_risks: riskFiles.length > 0 ? riskFiles : report.key_risks,
-  };
-}
+// 모바일 드로워 닫기 모션이 끝난 뒤 데이터 갱신을 트리거하기까지의 디바운스(ms)
+const MOBILE_DRAWER_CLOSE_MS = 180;
 
 function AnalyzeWorkspace() {
   const { theme, locale } = useApp();
@@ -77,168 +40,63 @@ function AnalyzeWorkspace() {
   const preview = searchParams.get("preview") === "1";
   const queryJobId = searchParams.get("job");
   const initialPath = searchParams.get("path") || undefined;
-  const [jobId, setJobId] = useState<string | null>(preview ? "preview-codemap" : queryJobId);
-  const [job, setJob] = useState<JobStatusData | null>(null);
-  const [report, setReport] = useState<WorkspaceReportData | null>(preview ? demoWorkspaceReport : null);
-  const [status, setStatus] = useState<ViewStatus>(preview ? "completed" : queryJobId ? "running" : "idle");
-  const [error, setError] = useState<string | null>(null);
-  const [showNewAnalysis, setShowNewAnalysis] = useState(!preview && !queryJobId);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [selectedLineEnd, setSelectedLineEnd] = useState<number | null>(null);
   const [chatPrompt, setChatPrompt] = useState("");
   const [chatPromptNonce, setChatPromptNonce] = useState(0);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(searchParams.get("thread"));
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    onCancel?: () => void;
-  } | null>(null);
+  const [workspaceScope, setWorkspaceScope] = useState<WorkspaceScope>("private");
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedTeamName, setSelectedTeamName] = useState<string | null>(null);
+  const { confirm, ConfirmDialog } = useConfirm();
+  const {
+    jobId,
+    job,
+    report,
+    status,
+    error,
+    showNewAnalysis,
+    setShowNewAnalysis,
+    submit,
+    selectHistory,
+  } = useAnalysisJob({
+    preview,
+    queryJobId,
+    initialReport: preview ? demoWorkspaceReport : null,
+    isKo,
+    workspaceScope,
+    selectedTeamId,
+    confirm,
+    onRouteJob: (id) => router.replace(`/analyze?job=${id}`),
+  });
 
-  const showConfirm = (title: string, message: string, showCancel: boolean = true) => {
-    return new Promise<boolean>((resolve) => {
-      setConfirmDialog({
-        isOpen: true,
-        title,
-        message,
-        onConfirm: () => {
-          setConfirmDialog(null);
-          resolve(true);
-        },
-        onCancel: showCancel ? () => {
-          setConfirmDialog(null);
-          resolve(false);
-        } : undefined,
-      });
-    });
-  };
+  // ──────────────────────────────────────────────
+  // 모바일 드로워: 닫기 애니메이션과 데이터 갱신 타이밍 분리 (#229)
+  // ──────────────────────────────────────────────
+  const mobileSelectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadJob = useCallback(async (id: string) => {
-    try {
-      const response = await fetchJobStatus(id);
-      const nextJob = response.data;
-      setJob(nextJob);
-      if (nextJob.status === "COMPLETED") {
-        if (nextJob.report) {
-          try {
-            const parseDetails = await fetchParseDetails(id);
-            setReport(mergeParseDetails(nextJob.report, parseDetails));
-          } catch {
-            setReport(nextJob.report);
-          }
-        }
-        // RAG_INDEX 분리 (Issue #178)
-        // job 자체가 COMPLETED 라면 RAG 인덱싱 여부와 무관하게 즉시 리포트 화면을 열어준다.
-        // RAG 상태 표시는 화면 내 배너로 위임한다.
-        setStatus("completed");
-      } else if (nextJob.status === "FAILED") {
-        setStatus("failed");
-        setError(nextJob.statusMessage || "분석에 실패했습니다.");
-      } else setStatus("running");
-    } catch (requestError) {
-      setStatus("failed");
-      setError(requestError instanceof Error ? requestError.message : "분석 상태를 불러오지 못했습니다.");
-    }
+  useEffect(() => {
+    return () => {
+      if (mobileSelectTimer.current) clearTimeout(mobileSelectTimer.current);
+    };
   }, []);
 
-  useEffect(() => {
-    if (!queryJobId || preview) return;
-    queueMicrotask(() => void loadJob(queryJobId));
-  }, [loadJob, preview, queryJobId]);
-
-  useEffect(() => {
-    if (!jobId || preview || status !== "running") return;
-    const timer = window.setInterval(() => void loadJob(jobId), 1400);
-    return () => window.clearInterval(timer);
-  }, [jobId, loadJob, preview, status]);
-
-  const submit = async (input: {
-    source: RepoSource;
-    path: string;
-    branch?: string;
-    force_refresh?: boolean;
-    model?: string;
-  }) => {
-    setStatus("running");
-    setError(null);
-    setReport(null);
-    setShowNewAnalysis(false);
-    try {
-      // 1. 저장소 사전 검증 실행 (PROJECT-LIST-API-002) — GitHub 소스일 때만 수행
-      if (input.source === "github") {
-        const valResp = await validateRepository({
-          repoUrl: input.path,
-          branch: input.branch,
-        });
-
-        if (valResp.data.isTruncated) {
-          await showConfirm(
-            isKo ? "분석 불가" : "Analysis Impossible",
-            valResp.data.warningMessage || (isKo ? "저장소가 너무 커서 분석을 진행할 수 없습니다." : "Repository is too large to analyze."),
-            false
-          );
-          setStatus("idle");
-          setShowNewAnalysis(true);
-          return;
-        }
-
-        if (valResp.data.warningMessage) {
-          const proceed = await showConfirm(
-            isKo ? "경고" : "Warning",
-            `${valResp.data.warningMessage}\n\n${isKo ? "계속해서 분석을 진행하시겠습니까?" : "Do you want to proceed with the analysis?"}`
-          );
-          if (!proceed) {
-            setStatus("idle");
-            setShowNewAnalysis(true);
-            return;
-          }
-        }
-      }
-
-      // 2. 분석 작업 시작
-      const response = await startAnalysis({
-        repoUrl: input.path,
-        branch: input.branch,
-        model: input.model || "auto",
-        forceRefresh: input.force_refresh || false,
-      });
-      const id = response.data.jobId;
-      setJobId(id);
-      setJob({
-        jobId: id,
-        repoName: response.data.repoName,
-        owner: response.data.owner,
-        repoUrl: input.path,
-        branch: response.data.branch,
-        clonePath: "",
-        status: "IN_PROGRESS",
-        stage: "CLONE",
-        progress: 0,
-        statusMessage: "저장소 분석을 시작합니다.",
-        model: response.data.model || "auto",
-        report: null,
-        createdAt: response.data.createdAt,
-        updatedAt: response.data.createdAt,
-      });
-      router.replace(`/analyze?job=${id}`);
-    } catch (requestError) {
-      setStatus("failed");
-      setShowNewAnalysis(true);
-      setError(requestError instanceof Error ? requestError.message : "분석 요청에 실패했습니다.");
-    }
-  };
-
-  const selectHistory = (id: string) => {
-    setJobId(id);
-    setReport(null);
-    setError(null);
-    setStatus("running");
-    setShowNewAnalysis(false);
-    router.replace(`/analyze?job=${id}`);
-    void loadJob(id);
-  };
+  const handleMobileHistorySelect = useCallback(
+    (id: string) => {
+      // 1) 드로워 닫기 트랜잭션을 먼저 시작한다.
+      setMobileSidebarOpen(false);
+      // 2) 슬라이드 아웃 모션이 거의 끝난 뒤 데이터 갱신/리렌더를 가동한다.
+      if (mobileSelectTimer.current) clearTimeout(mobileSelectTimer.current);
+      mobileSelectTimer.current = setTimeout(() => {
+        selectHistory(id);
+        mobileSelectTimer.current = null;
+      }, MOBILE_DRAWER_CLOSE_MS);
+    },
+    [selectHistory],
+  );
 
   const ask = (prompt: string, contextFile?: string) => {
     if (contextFile) setSelectedFile(contextFile);
@@ -258,6 +116,19 @@ function AnalyzeWorkspace() {
   const fullChatUrl = preview
     ? "/chat?repo_id=preview-codemap&preview=1"
     : `/chat?repo_id=${jobId || ""}${threadId ? `&thread=${threadId}` : ""}`;
+  const workspaceSelector = (
+    <WorkspaceSelector
+      scope={workspaceScope}
+      selectedTeamId={selectedTeamId}
+      isDark={isDark}
+      isKo={isKo}
+      onSelectionChange={({ scope, teamId, teamName }) => {
+        setWorkspaceScope(scope);
+        setSelectedTeamId(teamId);
+        setSelectedTeamName(teamName);
+      }}
+    />
+  );
 
   return (
     <main className={`flex h-[calc(100vh-3.5rem)] min-h-[640px] flex-col overflow-hidden ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"}`}>
@@ -292,15 +163,23 @@ function AnalyzeWorkspace() {
           {showNewAnalysis || !report ? (
             <div className={`h-full overflow-y-auto p-3 ${isDark ? "bg-zinc-950" : "bg-white"}`}>
               {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
-              <RepoInput onSubmit={submit} disabled={status === "running"} initialPath={initialPath} initialMode="github" />
-              <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} /></div>
+              {workspaceSelector}
+              <RepoInput onSubmit={submit} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeamName} />
+              <div className="mt-3"><HistoryList onSelect={selectHistory} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
             </div>
           ) : (
-            <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={setSelectedFile} className="border-r-0" />
+            <div className={`flex h-full min-h-0 flex-col ${isDark ? "bg-zinc-950" : "bg-white"}`}>
+              <div className="min-h-0 flex-1">
+                <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={setSelectedFile} className="border-r-0" />
+              </div>
+              <div className={`max-h-[42%] shrink-0 overflow-y-auto border-t p-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                <HistoryList onSelect={selectHistory} activeJobId={jobId} />
+              </div>
+            </div>
           )}
         </aside>
 
-        <section className={`min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
+        <section className={`min-w-0 flex-1 ${selectedFile ? "overflow-hidden" : "overflow-y-auto px-4 py-5 md:px-6 md:py-6"} ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
           {status === "idle" && (
             <div className="mx-auto flex min-h-full max-w-4xl items-center justify-center py-10">
               <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -310,7 +189,7 @@ function AnalyzeWorkspace() {
                   <p className="mt-4 max-w-xl text-sm leading-6 text-zinc-500">{isKo ? "저장소의 전체 구조를 한눈에 파악하고, 궁금한 코드는 AI에게 바로 질문하여 깊이 있는 인사이트를 얻어보세요." : "Understand the entire structure at a glance and ask AI questions to gain deep codebase insights."}</p>
                   <button onClick={() => router.push("/analyze?preview=1")} className={`mt-6 inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition ${isDark ? "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-800" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"}`}>{isKo ? "완성된 워크스페이스 미리보기" : "Preview complete workspace"} <ArrowRight className="size-3.5" /></button>
                 </div>
-                <div className="lg:hidden"><RepoInput onSubmit={submit} disabled={false} initialPath={initialPath} initialMode="github" /></div>
+                <div className="lg:hidden">{workspaceSelector}<RepoInput onSubmit={submit} disabled={false} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeamName} /></div>
                 <div className={`hidden lg:block rounded-3xl border p-4 shadow-2xl ${isDark ? "border-zinc-800 bg-zinc-900/45 shadow-blue-950/10" : "border-zinc-200 bg-white shadow-zinc-200"}`}>
                   <div className={`flex items-center gap-2 border-b pb-3 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}><span className="size-2 rounded-full bg-emerald-400" /><span className="text-[10px] font-semibold text-zinc-400">{isKo ? "하나의 프로젝트 컨텍스트" : "Unified project context"}</span></div>
                   {(isKo ? ["실제 저장소 구조 분석", "리포트에서 바로 질문", "답변 출처 파일·라인 이동", "패널과 전체 채팅 대화 유지"] : ["Real codebase structure analysis", "Ask questions from reports", "Jump to source file and line", "Maintain full chat context"]).map((item, index) => <div key={item} className={`flex items-center gap-3 border-b py-3 last:border-0 ${isDark ? "border-zinc-800/70" : "border-zinc-100"}`}><span className="flex size-6 items-center justify-center rounded-lg bg-blue-500/10 text-[9px] font-bold text-blue-400">0{index + 1}</span><span className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{item}</span><CheckCircle2 className="ml-auto size-3.5 text-emerald-500/70" /></div>)}
@@ -333,7 +212,7 @@ function AnalyzeWorkspace() {
             <div className="mx-auto flex min-h-full max-w-xl items-center justify-center"><div className="w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center"><AlertTriangle className="mx-auto size-6 text-red-400" /><h2 className={`mt-3 text-sm font-bold ${isDark ? "" : "text-zinc-800"}`}>{isKo ? "분석을 완료하지 못했습니다" : "Analysis failed"}</h2><p className="mt-2 text-xs leading-5 text-zinc-500">{error}</p><button onClick={() => setShowNewAnalysis(true)} className={`mt-5 rounded-lg px-3 py-2 text-[11px] font-bold ${isDark ? "bg-white text-black" : "bg-zinc-900 text-white"}`}>{isKo ? "입력 확인하기" : "Check input"}</button></div></div>
           )}
 
-          {status === "completed" && report && ragIndexBanner && (
+          {status === "completed" && report && !selectedFile && ragIndexBanner && (
             <div className={`mx-4 mt-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11px] ${
               ragIndexBanner.tone === "error"
                 ? "border-red-500/20 bg-red-500/5 text-red-400"
@@ -344,7 +223,37 @@ function AnalyzeWorkspace() {
             </div>
           )}
 
-          {status === "completed" && report && <WorkspaceReport report={report} preview={preview} onAsk={ask} onFileSelect={setSelectedFile} />}
+          {status === "completed" && report && (
+            <div className={`flex min-h-0 gap-0 ${selectedFile ? "h-full" : ""}`}>
+              <div className={`min-w-0 ${selectedFile ? "hidden xl:block xl:flex-1" : "flex-1"}`}>
+                <WorkspaceReport
+                  report={report}
+                  preview={preview}
+                  onAsk={ask}
+                  onFileSelect={(file) => {
+                    setSelectedFile(file);
+                    setSelectedLine(null);
+                    setSelectedLineEnd(null);
+                  }}
+                />
+              </div>
+              {selectedFile && jobId && (
+                <div className="w-full flex-1 xl:max-w-[880px]">
+                  <CodeNavigatorPanel
+                    jobId={jobId}
+                    filePath={selectedFile}
+                    highlightLine={selectedLine}
+                    highlightLineEnd={selectedLineEnd}
+                    onClose={() => {
+                      setSelectedFile(null);
+                      setSelectedLine(null);
+                      setSelectedLineEnd(null);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <aside className={`hidden w-[400px] shrink-0 border-l xl:block ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
@@ -358,7 +267,11 @@ function AnalyzeWorkspace() {
             initialPrompt={chatPrompt}
             initialPromptKey={chatPromptNonce}
             onThreadChange={setThreadId}
-            onReferenceClick={(file) => setSelectedFile(file)}
+            onReferenceClick={(file, line, lineEnd) => {
+              setSelectedFile(file);
+              setSelectedLine(line ?? null);
+              setSelectedLineEnd(lineEnd ?? null);
+            }}
             onClearContextFile={() => setSelectedFile(null)}
             expandHref={fullChatUrl}
           />
@@ -368,7 +281,7 @@ function AnalyzeWorkspace() {
       {mobileChatOpen && (
         <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm xl:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileChatOpen(false); }}>
           <div className="absolute inset-y-0 right-0 w-full max-w-[430px] border-l border-zinc-800 bg-zinc-950 shadow-2xl">
-            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file) => setSelectedFile(file)} onClearContextFile={() => setSelectedFile(null)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
+            <ChatInterface repoId={chatRepoId} repoName={repoName} threadId={threadId} compact preview={preview} contextFile={selectedFile} initialPrompt={chatPrompt} initialPromptKey={chatPromptNonce} onThreadChange={setThreadId} onReferenceClick={(file, line, lineEnd) => { setSelectedFile(file); setSelectedLine(line ?? null); setSelectedLineEnd(lineEnd ?? null); }} onClearContextFile={() => setSelectedFile(null)} expandHref={fullChatUrl} onClose={() => setMobileChatOpen(false)} />
           </div>
         </div>
       )}
@@ -384,50 +297,26 @@ function AnalyzeWorkspace() {
               {showNewAnalysis || !report ? (
                 <div className="p-3">
                   {report && <button onClick={() => setShowNewAnalysis(false)} className={`mb-3 inline-flex items-center gap-1 text-[10px] font-semibold transition ${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}><ChevronLeft className="size-3" /> {isKo ? "현재 프로젝트로 돌아가기" : "Back to current project"}</button>}
-                  <RepoInput onSubmit={(input) => { submit(input); setMobileSidebarOpen(false); }} disabled={status === "running"} initialPath={initialPath} initialMode="github" />
-                  <div className="mt-3"><HistoryList onSelect={(id) => { selectHistory(id); setMobileSidebarOpen(false); }} activeJobId={jobId} /></div>
+                  {workspaceSelector}
+                  <RepoInput onSubmit={(input) => { submit(input); setMobileSidebarOpen(false); }} disabled={status === "running"} initialPath={initialPath} initialMode="github" visibility={workspaceScope} selectedTeamId={selectedTeamId} selectedTeamName={selectedTeamName} />
+                  <div className="mt-3"><HistoryList onSelect={handleMobileHistorySelect} activeJobId={jobId} scope={workspaceScope === "team" ? "team" : "private"} teamId={workspaceScope === "team" ? selectedTeamId : null} /></div>
                 </div>
               ) : (
-                <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setMobileSidebarOpen(false); }} className="border-r-0" />
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="min-h-0 flex-1">
+                    <FileTree repoName={repoName} files={report.files} entrypoints={report.entrypoints} activeFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setMobileSidebarOpen(false); }} className="border-r-0" />
+                  </div>
+                  <div className={`max-h-[42%] shrink-0 overflow-y-auto border-t p-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                    <HistoryList onSelect={handleMobileHistorySelect} activeJobId={jobId} />
+                  </div>
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {confirmDialog && confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-sm rounded-2xl border p-5 shadow-2xl ${isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-white"}`}>
-            <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
-                <AlertTriangle className="size-5" />
-              </div>
-              <div>
-                <h3 className={`text-base font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>{confirmDialog.title}</h3>
-                <p className={`mt-1 text-sm leading-relaxed whitespace-pre-wrap ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
-                  {confirmDialog.message}
-                </p>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              {confirmDialog.onCancel && (
-                <button
-                  onClick={confirmDialog.onCancel}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${isDark ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-zinc-100 text-zinc-600"}`}
-                >
-                  {isKo ? "취소" : "Cancel"}
-                </button>
-              )}
-              <button
-                onClick={confirmDialog.onConfirm}
-                className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600"
-              >
-                {isKo ? "확인" : "Confirm"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog isDark={isDark} isKo={isKo} />
     </main>
   );
 }

@@ -32,6 +32,98 @@ from app.repo.schemas import JobStatus
 logger = logging.getLogger(__name__)
 
 
+def _normalize_summary(summary: object) -> str | None:
+    """Convert master_report.summary to the DOCS_API_SPEC string contract."""
+    if summary is None:
+        return None
+    if isinstance(summary, str):
+        return summary
+    if not isinstance(summary, dict):
+        return str(summary)
+
+    preferred_keys = ("purpose", "overview", "summary", "description")
+    for key in preferred_keys:
+        value = summary.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+
+    text_parts = [
+        value.strip()
+        for value in summary.values()
+        if isinstance(value, str) and value.strip()
+    ]
+    return "\n".join(text_parts) if text_parts else None
+
+
+def _normalize_stack(stack: object) -> list[str]:
+    if isinstance(stack, dict):
+        stack = stack.get("technologies") or []
+    if not isinstance(stack, list):
+        return []
+    return [str(item) for item in stack if item]
+
+
+def _normalize_reading_order(reading_order: object) -> list[dict[str, object]]:
+    if not isinstance(reading_order, list):
+        return []
+
+    items: list[dict[str, object]] = []
+    for index, item in enumerate(reading_order, start=1):
+        if isinstance(item, str):
+            path = item
+            rank = index
+            reason = ""
+        elif isinstance(item, dict):
+            path = item.get("path") or item.get("file") or ""
+            rank = item.get("rank") or index
+            reason = item.get("reason") or item.get("description") or ""
+        else:
+            continue
+
+        if path:
+            try:
+                rank_value = int(rank)
+            except (TypeError, ValueError):
+                rank_value = index
+            items.append({"rank": rank_value, "path": str(path), "reason": str(reason)})
+    return items
+
+
+def _normalize_danger_files(danger_files: object) -> list[dict[str, str]]:
+    if not isinstance(danger_files, list):
+        return []
+
+    items: list[dict[str, str]] = []
+    for item in danger_files:
+        if isinstance(item, str):
+            path = item
+            reason = ""
+        elif isinstance(item, dict):
+            path = item.get("path") or item.get("file") or ""
+            reason = item.get("reason") or item.get("description") or ""
+        else:
+            continue
+
+        if path:
+            items.append({"path": str(path), "reason": str(reason)})
+    return items
+
+
+def _normalize_folder_summaries(file_map: object) -> list[dict[str, str]]:
+    if not isinstance(file_map, dict):
+        return []
+
+    folder_map = file_map.get("folder_summaries") or file_map
+    if not isinstance(folder_map, dict):
+        return []
+
+    return [
+        {"path": str(path), "description": str(description)}
+        for path, description in folder_map.items()
+        if path
+    ]
+
+
 # ──────────────────────────────────────────────────────────────
 # DOCS-GEN-B-301: Markdown DB 저장
 # ──────────────────────────────────────────────────────────────
@@ -147,21 +239,32 @@ async def get_onboarding_doc(
     if fmt == "json":
         report = doc.report_json or {}
         guide = report.get("guide") or {}
-        folder_items = [
-            {"path": k, "description": v}
-            for k, v in (report.get("file_map") or {}).items()
-        ]
+
+        summary_raw = report.get("summary")
+        core_flow_raw = (
+            summary_raw.get("flow_explanation")
+            if isinstance(summary_raw, dict)
+            else None
+        )
+        core_flow = (
+            core_flow_raw
+            if isinstance(core_flow_raw, str) or core_flow_raw is None
+            else str(core_flow_raw)
+        )
+
         logger.info(
             "[DOCS-GEN-API-001] JSON 조회 완료 | repo_id=%s version=%d",
             repo_id, doc.version,
         )
         return DocGetJsonData(
-            summary=report.get("summary"),
-            stack=report.get("stack") or [],
-            reading_order=guide.get("reading_order") or [],
-            danger_files=guide.get("risk_files") or [],
-            core_flow=guide.get("flow_explanation"),
-            folder_summaries=folder_items,
+            repo_id=repo_id,
+            repo_name=getattr(analysis_job, "repo_name", "") or "",
+            summary=_normalize_summary(summary_raw),
+            stack=_normalize_stack(report.get("stack")),
+            reading_order=_normalize_reading_order(guide.get("reading_order")),
+            danger_files=_normalize_danger_files(guide.get("risk_files")),
+            core_flow=core_flow,
+            folder_summaries=_normalize_folder_summaries(report.get("file_map")),
             generated_at=doc.created_at,
             version=doc.version,
         )
@@ -188,6 +291,7 @@ async def validate_and_queue_doc_generation(
     repo_id: UUID,
     force: bool,
     background_tasks: BackgroundTasks,
+    model: str = "gpt-4o-mini",
 ) -> tuple[UUID, int]:
     '''
     가이드북 생성 트리거(API-002) 사전 검증 후 백그라운드 작업을 등록한다.
@@ -203,6 +307,7 @@ async def validate_and_queue_doc_generation(
         repo_id:          대상 저장소 ID
         force:            기존 가이드북 덮어쓰기 여부
         background_tasks: FastAPI BackgroundTasks 인스턴스
+        model:            가이드북 생성에 사용할 LLM 모델 식별자
 
     Returns:
         (job_id, next_version) 튜플 — 202 응답에 사용
@@ -213,7 +318,11 @@ async def validate_and_queue_doc_generation(
         DocsAlreadyExistsError (409)
         AnalysisNotCompletedError (422)
     '''
-    from app.gen.background import is_generation_in_progress, run_doc_generation
+    from app.gen.background import (
+        _mark_in_progress,
+        is_generation_in_progress,
+        run_doc_generation,
+    )
 
     repo = GenDocRepository(db)
     settings = get_settings()
@@ -246,10 +355,13 @@ async def validate_and_queue_doc_generation(
         )
         raise AnalysisNotCompletedError()
 
-    ## 5. 백그라운드 작업 등록
+    ## 5. 백그라운드 등록 전 동기적으로 진행 중 마킹하여 Race Condition 방지
+    ## (BackgroundTask 내부에서 마킹하면 HTTP 응답 반환 후에야 set에 추가되어,
+    ##  연속 요청 2건이 동시에 검사를 통과하는 경쟁 조건이 발생함)
     next_version = latest_version + 1
-    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}"
+    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}/repo"
 
+    _mark_in_progress(repo_id)
     background_tasks.add_task(
         run_doc_generation,
         repo_id=repo_id,
@@ -258,6 +370,7 @@ async def validate_and_queue_doc_generation(
         repo_name=analysis_job.repo_name,
         version=next_version,
         clone_path=clone_path,
+        model=model,
     )
 
     logger.info(
@@ -336,7 +449,8 @@ async def rebuild_onboarding_doc(
         raise DatabaseSaveFailedError() from exc
 
     ## 4. 재생성 백그라운드 작업 등록
-    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}"
+    ## 프로젝트 표준 클론 경로: {CLONE_BASE_DIR}/{repo_id}/repo
+    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}/repo"
     if reason:
         logger.info(
             "[DOCS-GEN-API-003] 재생성 사유 | repo_id=%s reason=%s",
@@ -351,6 +465,7 @@ async def rebuild_onboarding_doc(
         repo_name=analysis_job.repo_name,
         version=new_version,
         clone_path=clone_path,
+        model=model,
     )
 
     logger.info(

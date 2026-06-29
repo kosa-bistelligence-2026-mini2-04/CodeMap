@@ -159,7 +159,8 @@ class MasterReportToMarkdownTests(unittest.TestCase):
                 "tech_context": "FastAPI + PostgreSQL",
             },
             "stack": ["Python 3.12", "FastAPI"],
-            "file_map": {"backend/": "API 서버 코드"},
+            ## file_map은 folder_summaries 래퍼 dict 구조 (nodes.py master_report 기준)
+            "file_map": {"folder_summaries": {"backend/": "API 서버 코드"}},
             "guide": {
                 "reading_order": [
                     {"rank": 1, "path": "README.md", "reason": "먼저 읽어야 함"}
@@ -284,6 +285,13 @@ class BackgroundProgressTrackerTests(unittest.TestCase):
 
 class ValidateAndQueueServiceTests(unittest.IsolatedAsyncioTestCase):
     """validate_and_queue_doc_generation 서비스 각 분기별 예외 검증"""
+
+    def setUp(self):
+        ## _mark_in_progress 사이드 이펙트가 테스트 간 누적되지 않도록 초기화
+        bg_module._DOCS_GENERATION_IN_PROGRESS.clear()
+
+    def tearDown(self):
+        bg_module._DOCS_GENERATION_IN_PROGRESS.clear()
 
     def _make_analysis_job(self, status: str = "COMPLETED") -> MagicMock:
         job = MagicMock()

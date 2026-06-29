@@ -343,6 +343,91 @@ class RebuildOnboardingDocServiceTests(unittest.IsolatedAsyncioTestCase):
         from app.gen.service import rebuild_onboarding_doc
         self.assertTrue(inspect.iscoroutinefunction(rebuild_onboarding_doc))
 
+    async def test_clone_path_includes_repo_suffix(self):
+        """background_tasks.add_task에 전달되는 clone_path는 '/repo' suffix를 포함해야 한다.
+
+        프로젝트 표준 클론 경로: {CLONE_BASE_DIR}/{repo_id}/repo
+        '/repo' 누락 시 nodes.py의 README·설정 파일 탐색이 실패한다.
+        """
+        from app.gen.service import rebuild_onboarding_doc
+
+        db = self._make_db()
+        bg = MagicMock()
+        captured_kwargs: dict = {}
+
+        def _capture_add_task(fn, **kwargs):
+            captured_kwargs.update(kwargs)
+
+        bg.add_task = _capture_add_task
+
+        with (
+            patch(
+                "app.gen.service.GenDocRepository.get_repo_by_id",
+                new=AsyncMock(return_value=self._make_analysis_job()),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.get_active_by_repo_id",
+                new=AsyncMock(return_value=self._make_active_doc(version=1)),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.soft_delete_active_docs",
+                new=AsyncMock(return_value=1),
+            ),
+            patch(
+                "app.gen.service.get_settings",
+                return_value=MagicMock(CLONE_BASE_DIR="/data/clones"),
+            ),
+            patch("app.gen.background.run_doc_generation", new=MagicMock()),
+        ):
+            await rebuild_onboarding_doc(db, _REPO_ID, bg)
+
+        clone_path = captured_kwargs.get("clone_path", "")
+        self.assertTrue(
+            clone_path.endswith("/repo"),
+            f"clone_path가 '/repo'로 끝나야 합니다. 실제: {clone_path!r}",
+        )
+        self.assertIn(str(_REPO_ID), clone_path)
+
+    async def test_model_forwarded_to_run_doc_generation(self):
+        """요청받은 model 파라미터가 run_doc_generation에 그대로 전달되어야 한다."""
+        from app.gen.service import rebuild_onboarding_doc
+
+        db = self._make_db()
+        bg = MagicMock()
+        captured_kwargs: dict = {}
+
+        def _capture_add_task(fn, **kwargs):
+            captured_kwargs.update(kwargs)
+
+        bg.add_task = _capture_add_task
+
+        with (
+            patch(
+                "app.gen.service.GenDocRepository.get_repo_by_id",
+                new=AsyncMock(return_value=self._make_analysis_job()),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.get_active_by_repo_id",
+                new=AsyncMock(return_value=self._make_active_doc(version=1)),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.soft_delete_active_docs",
+                new=AsyncMock(return_value=1),
+            ),
+            patch(
+                "app.gen.service.get_settings",
+                return_value=MagicMock(CLONE_BASE_DIR="/data/clones"),
+            ),
+            patch("app.gen.background.run_doc_generation", new=MagicMock()),
+        ):
+            await rebuild_onboarding_doc(db, _REPO_ID, bg, model="gpt-4o")
+
+        self.assertEqual(
+            captured_kwargs.get("model"),
+            "gpt-4o",
+            "model 파라미터가 run_doc_generation에 전달되지 않았습니다.",
+        )
+
 
 # ──────────────────────────────────────────────────────────────
 # 5. 라우터 엔드포인트 검증 (FastAPI TestClient)
@@ -459,6 +544,7 @@ class RebuildRegressionTests(unittest.TestCase):
         from fastapi import FastAPI
         from app.gen.router import router
         from app.infra.database import get_db
+        from app.infra.auth import get_current_user
         from app.common.exceptions import register_exception_handlers
         from app.gen.schemas import DocGetMarkdownData
 
@@ -467,6 +553,8 @@ class RebuildRegressionTests(unittest.TestCase):
         self.app.include_router(router)
         self.mock_db = MagicMock()
         self.app.dependency_overrides[get_db] = lambda: self.mock_db
+        ## GET /{repo_id}에 인증이 추가되어 get_current_user를 mock으로 대체한다.
+        self.app.dependency_overrides[get_current_user] = lambda: {"id": "test-user"}
         self.client = TestClient(self.app, raise_server_exceptions=False)
 
         self._md_data = DocGetMarkdownData(

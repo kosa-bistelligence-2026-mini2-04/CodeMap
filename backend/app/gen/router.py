@@ -10,14 +10,13 @@ POST /api/gen/docs/{repo_id}/save     — Markdown DB 저장 (API-005, 내부용
 
 import logging
 import re
-from typing import Literal, Union
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.database import get_db
 from app.gen.schemas import (
     DocGetMarkdownResponse,
     DocGetJsonResponse,
@@ -39,6 +38,8 @@ from app.gen.service import (
     validate_and_queue_doc_generation,
 )
 from app.common.exceptions import FileGenerationFailedError
+from app.infra.auth import get_current_user
+from app.infra.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +52,21 @@ router = APIRouter(prefix="/api/gen/docs", tags=["DOCS GEN"])
 @router.get(
     "/{repo_id}",
     status_code=status.HTTP_200_OK,
-    response_model=Union[DocGetMarkdownResponse, DocGetJsonResponse],
+    ## response_model을 명시하지 않아 FastAPI smart-union의 잘못된 직렬화 분기를 방지한다.
+    ## 두 응답 모델이 동일한 최상위 envelope(code/message/data)를 공유하므로
+    ## Union 지정 시 format=json 응답이 DocGetMarkdownResponse로 잘못 검증될 수 있다.
+    ## 반환 타입 힌트가 문서화 역할을 대신하며, 실제 직렬화는 Pydantic 인스턴스가 처리한다.
+    response_model=None,
+    responses={
+        200: {
+            "description": "format=markdown: Markdown 전문 / format=json: master_report 구조화 JSON",
+        }
+    },
     summary="온보딩 가이드북 조회 (DOCS-GEN-API-001)",
 )
 async def get_doc(
     repo_id: UUID,
+    _current_user: Annotated[dict, Depends(get_current_user)],
     format: Literal["markdown", "json"] = Query(default="markdown", description="응답 형식"),
     db: AsyncSession = Depends(get_db),
 ) -> DocGetMarkdownResponse | DocGetJsonResponse:
@@ -112,6 +123,7 @@ async def trigger_doc_generation(
         repo_id=repo_id,
         force=body.force,
         background_tasks=background_tasks,
+        model=body.model,
     )
 
     logger.info(
@@ -187,6 +199,7 @@ async def rebuild_doc(
 )
 async def download_doc(
     repo_id: UUID,
+    _current_user: Annotated[dict, Depends(get_current_user)],
     format: Literal["md", "pdf"] = Query(default="md", description="다운로드 형식"),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
@@ -197,6 +210,7 @@ async def download_doc(
     - format=pdf: 현재 미지원 (500 FILE_GENERATION_FAILED)
 
     에러 응답:
+    - 401 UNAUTHORIZED:           인증 필요
     - 404 REPO_NOT_FOUND:         저장소 없음
     - 404 DOCS_NOT_FOUND:         가이드북 미생성
     - 500 FILE_GENERATION_FAILED: 파일 생성 오류 (PDF 미지원 포함)
@@ -207,8 +221,9 @@ async def download_doc(
 
     content, repo_name = await get_doc_download_content(db=db, repo_id=repo_id)
 
-    ## 파일명 특수문자 제거 (Content-Disposition 헤더 안전성)
-    safe_name = re.sub(r"[^\w\-]", "_", repo_name)
+    ## 파일명 ASCII 외 문자 제거 (Content-Disposition 헤더는 latin-1만 허용)
+    ## flags=re.ASCII 없이는 \w가 한글 등 유니코드 문자도 허용해 인코딩 오류 위험이 있다
+    safe_name = re.sub(r"[^\w\-]", "_", repo_name, flags=re.ASCII)
     filename = f"{safe_name}_onboarding.md"
 
     logger.info(

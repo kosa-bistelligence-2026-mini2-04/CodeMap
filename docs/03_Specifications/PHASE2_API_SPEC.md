@@ -1001,6 +1001,57 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","status":"completed"}
 
 ---
 
+### REPO-FILE-API-001 저장소 파일 컨텐츠 조회
+
+#### 기본 정보
+
+| 항목 | 값 |
+| :--- | :--- |
+| Endpoint | `GET /api/repo/analysis/{job_id}/files/content` |
+| Method | GET |
+| 관련 기능 ID | `PROJECT-REPO-F-001` |
+| 목적 | 분석 job의 clone workspace 내 특정 파일 텍스트 내용을 반환하여 코드 미리보기 지원 |
+| 상태 | 완료 (fix/issue-160) |
+
+#### 요청(Request)
+
+##### Path Parameters
+
+| 파라미터 | 타입 | 필수 | 설명 |
+| :--- | :--- | :--- | :--- |
+| job_id | UUID | Y | 분석 작업 고유 ID |
+
+##### Query Parameters
+
+| 파라미터 | 타입 | 필수 | 설명 |
+| :--- | :--- | :--- | :--- |
+| path | String | Y | 저장소 내 상대 경로 (예: `src/main.py`) |
+
+#### 응답(Response)
+
+##### 성공 응답 - 200 OK
+
+| 필드명 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| code | Integer | 200 |
+| message | String | "success" |
+| data.path | String | 저장소 내 상대 경로 |
+| data.content | String | 파일 텍스트 내용 (최대 50,000자) |
+| data.language | String \| null | 감지된 언어 (예: "python", "typescript") |
+| data.lines | Integer | 총 줄 수 |
+| data.truncated | Boolean | 파일 크기 초과로 내용이 잘렸는지 여부 |
+
+##### 에러 응답
+
+| HTTP Status | Error Code | 발생 시점 | 설명 |
+| :--- | :--- | :--- | :--- |
+| 403 | `FILE_PATH_FORBIDDEN` | 경로 검증 | path traversal 또는 workspace 외부 경로 |
+| 404 | `JOB_NOT_FOUND` | job 확인 | 존재하지 않는 job_id |
+| 404 | `WORKSPACE_NOT_READY` | workspace 확인 | clone workspace 미준비 또는 파일 없음 |
+| 422 | `BINARY_FILE` | 파일 유형 확인 | 바이너리 파일 (미리보기 불가) |
+
+---
+
 ### REPO-ADVANCED-API-001 중복 저장소 검사
 
 #### 기본 정보
@@ -1049,6 +1100,9 @@ data: {"runId":"2f86a7b7-4d9b-45f1-bc5b-1c2b938c1d10","status":"completed"}
 
 | Error Code | HTTP Status | 설명 |
 | :--- | :--- | :--- |
+| `FILE_PATH_FORBIDDEN` | 403 | path traversal 또는 허용되지 않는 파일 경로 |
+| `WORKSPACE_NOT_READY` | 404 | clone workspace 미준비 또는 파일 없음 |
+| `BINARY_FILE` | 422 | 바이너리 파일로 미리보기 불가 |
 | `BASIC_ANALYSIS_NOT_COMPLETED` | 409 | 기본 분석이 완료되지 않은 상태 |
 | `INVALID_WEBHOOK_URL` | 400 | 유효하지 않은 Webhook URL |
 | `GRAPH_NOT_FOUND` | 404 | 의존성 그래프가 생성되지 않음 |
