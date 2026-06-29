@@ -45,9 +45,19 @@ class LocalUploadStorageTests(unittest.IsolatedAsyncioTestCase):
     @patch("app.repo.local_upload.shutil.rmtree")
     async def test_rejects_symlink_paths(self, mock_rmtree):
         import os
+        import sys
         with tempfile.TemporaryDirectory() as temp_dir:
             destination = Path(temp_dir) / "job" / "repo"
             destination.mkdir(parents=True)
+            
+            if sys.platform == "win32":
+                try:
+                    test_link = Path(temp_dir) / "test_link"
+                    os.symlink(temp_dir, test_link)
+                    os.unlink(test_link)
+                except OSError:
+                    self.skipTest("Windows 환경에서 심볼릭 링크 생성을 위한 관리자 권한이 결여되어 테스트를 스킵합니다.")
+
             symlink_dir = destination / "src"
             os.symlink(temp_dir, symlink_dir)
             upload = UploadFile(filename="main.py", file=BytesIO(b"print('ready')\n"))
