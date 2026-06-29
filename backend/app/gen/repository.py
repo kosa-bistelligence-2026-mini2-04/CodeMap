@@ -6,9 +6,11 @@ commit은 호출측 service에서 담당한다.
 """
 
 import logging
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gen.models import OnboardingDoc
@@ -123,7 +125,7 @@ class GenDocRepository:
             .where(OnboardingDoc.is_active.is_(True))
             .values(is_active=False)
         )
-        deleted = result.rowcount
+        deleted = cast(CursorResult, result).rowcount or 0
         logger.info(
             "[GenDocRepository] 소프트 삭제 완료 | repo_id=%s count=%d",
             repo_id, deleted,

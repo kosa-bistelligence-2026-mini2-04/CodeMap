@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/api/parse/analysis", tags=["RAG Parse"])
 
 def _build_directory_tree(files: list[dict], repo_name: str) -> str:
     tree_lines = [f"{repo_name}/"]
-    paths = sorted([item.get("path") for item in files if isinstance(item, dict) and item.get("path")])
+    paths = sorted(str(item["path"]) for item in files if isinstance(item, dict) and item.get("path"))
 
     tree_dict = {}
     for path in paths:
@@ -57,7 +58,7 @@ def _build_directory_tree(files: list[dict], repo_name: str) -> str:
 
 
 
-async def _get_report_json(repo_id: UUID, db: AsyncSession) -> tuple[object, dict]:
+async def _get_report_json(repo_id: UUID, db: AsyncSession) -> tuple[Any, dict]:
     repo = AnalysisJobRepository(db)
     job = await repo.get_job_by_id(repo_id)
     if not job:

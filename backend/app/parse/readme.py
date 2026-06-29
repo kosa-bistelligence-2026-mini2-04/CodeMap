@@ -63,9 +63,11 @@ def _manifest_fallback_summary(repo_path: str) -> str | None:
         if isinstance(data, dict):
             name = data.get("name")
             scripts = data.get("scripts") if isinstance(data.get("scripts"), dict) else {}
-            deps = data.get("dependencies") if isinstance(data.get("dependencies"), dict) else {}
-            dev_deps = data.get("devDependencies") if isinstance(data.get("devDependencies"), dict) else {}
-            techs = sorted(set(deps) | set(dev_deps))[:8]
+            raw_deps = data.get("dependencies")
+            raw_dev_deps = data.get("devDependencies")
+            deps: dict = raw_deps if isinstance(raw_deps, dict) else {}
+            dev_deps: dict = raw_dev_deps if isinstance(raw_dev_deps, dict) else {}
+            techs = sorted(set(deps.keys()) | set(dev_deps.keys()))[:8]
             bits = ["Node.js/JavaScript 설정(package.json)이 있습니다"]
             if name:
                 bits.append(f"패키지명은 {name}입니다")

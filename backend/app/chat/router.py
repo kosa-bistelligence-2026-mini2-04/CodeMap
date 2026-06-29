@@ -151,6 +151,8 @@ async def stream_chat_run(
     request: ChatRunRequest = record.request
     clone_path = record.clone_path
     job = record.job
+    if job is None:
+        raise HTTPException(status_code=500, detail="Run record missing job metadata")
     mode = record.mode
 
     async def stream():

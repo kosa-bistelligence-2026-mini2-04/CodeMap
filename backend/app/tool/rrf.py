@@ -57,4 +57,4 @@ def bm25_rank(corpus: list[str], query: str, top_n: int = 5) -> list[tuple[int, 
     scores = bm25.get_scores(query_tokens)
 
     indexed = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
-    return indexed[:top_n]
+    return [(idx, float(score)) for idx, score in indexed[:top_n]]

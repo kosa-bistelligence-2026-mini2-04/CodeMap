@@ -233,8 +233,7 @@ def scan_repository(root_path: str, repo_name: str) -> dict:
             ) else "source",
         })
 
-    files.sort(key=lambda item: (item["path"].count("/"), item["path"]))
-
+    files.sort(key=lambda item: (str(item["path"]).count("/"), str(item["path"])))
     return {
         "repository": {"name": repo_name, "root": str(root)},
         "stats": {
@@ -293,5 +292,5 @@ def search_repository(
             "file": relative, "line": start + 1, "snippet": snippet,
             "language": LANGUAGE_BY_SUFFIX.get(path.suffix.lower(), "text"),
         }))
-    results.sort(key=lambda item: (-item[0], len(item[1]["file"])))
+    results.sort(key=lambda item: (-item[0], len(str(item[1]["file"]))))
     return [item for _, item in results[:limit]]

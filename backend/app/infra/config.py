@@ -12,9 +12,9 @@ import json
 import subprocess
 import urllib.request
 import urllib.error
-from typing import Optional
+from typing import ClassVar, Optional
 from pydantic import SecretStr, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
@@ -167,11 +167,10 @@ class Settings(BaseSettings):
     # 내부 서버 간 호출 전용 서비스 토큰
     SERVICE_TOKEN: str = "service-token"
 
-    model_config = {
+    model_config: ClassVar[SettingsConfigDict] = {
         "env_file": env_path,
         "env_file_encoding": "utf-8",
         "extra": "ignore",
-        "env_file_ignore_missing": True
     }
 
 

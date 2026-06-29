@@ -14,6 +14,7 @@ from app.agent.graph import get_compiled_graph
 from app.agent.state import CodeMapState
 from app.chat.repository import ChatRepository
 from app.infra.config import get_settings
+from langchain_core.runnables import RunnableConfig
 
 logger = logging.getLogger(__name__)
 _MEMORY_MESSAGE_LIMIT = 8
@@ -107,6 +108,7 @@ class CodeMapAgentService:
                 "target_file": target_file,
                 "memory_context": memory_context,
                 "rewritten_query": "",
+                "_plan_item": None,
                 "access_plan": [],
                 "security_result": {"approved": [], "rejected": []},
                 "worker_results": [],
@@ -150,9 +152,9 @@ class CodeMapAgentService:
             ],
         }
 
-    def _graph_config(self, *, session_id: UUID | None, run_id: str) -> dict:
+    def _graph_config(self, *, session_id: UUID | None, run_id: str) -> RunnableConfig | None:
         thread_id = str(session_id) if session_id else run_id
-        return {"configurable": {"thread_id": thread_id}} if thread_id else {}
+        return RunnableConfig(configurable={"thread_id": thread_id}) if thread_id else None
 
     # ──────────────────────────────────────────────
     # 에이전트 스트리밍 실행 메서드
