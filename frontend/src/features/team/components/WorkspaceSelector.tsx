@@ -16,6 +16,7 @@ import {
   fetchTeamInvites,
   cancelTeamInvite,
 } from "@/features/analysis/api/api";
+import { useConfirm } from "@/common/hooks/useConfirm";
 
 export type WorkspaceScope = "private" | "team";
 
@@ -42,6 +43,7 @@ export function WorkspaceSelector({
   isKo,
   onSelectionChange,
 }: WorkspaceSelectorProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [teams, setTeams] = useState<TeamWorkspace[]>([]);
   const [invites, setInvites] = useState<TeamInviteItem[]>([]);
 
@@ -118,7 +120,7 @@ export function WorkspaceSelector({
 
   const handleLeaveTeam = async () => {
     if (!selectedTeamId || busy) return;
-    if (!window.confirm("정말 탈퇴하시겠습니까?")) return;
+    if (!(await confirm(isKo ? "팀 탈퇴" : "Leave Team", isKo ? "정말 탈퇴하시겠습니까?" : "Are you sure you want to leave this team?"))) return;
     setBusy(true);
     try {
       await leaveTeam(selectedTeamId);
@@ -133,7 +135,7 @@ export function WorkspaceSelector({
 
   const handleRemoveMember = async (userId: string) => {
     if (!selectedTeamId || busy) return;
-    if (!window.confirm("정말 추방하시겠습니까?")) return;
+    if (!(await confirm(isKo ? "멤버 추방" : "Remove Member", isKo ? "정말 추방하시겠습니까?" : "Are you sure you want to remove this member?"))) return;
     setBusy(true);
     try {
       await removeTeamMember(selectedTeamId, userId);
@@ -147,7 +149,7 @@ export function WorkspaceSelector({
 
   const handleCancelInvite = async (inviteId: string) => {
     if (!selectedTeamId || busy) return;
-    if (!window.confirm("초대를 취소하시겠습니까?")) return;
+    if (!(await confirm(isKo ? "초대 취소" : "Cancel Invite", isKo ? "초대를 취소하시겠습니까?" : "Are you sure you want to cancel this invitation?"))) return;
     setBusy(true);
     try {
       await cancelTeamInvite(selectedTeamId, inviteId);
@@ -229,6 +231,7 @@ export function WorkspaceSelector({
 
   const handleDecline = async (invite: TeamInviteItem) => {
     if (busy) return;
+    if (!(await confirm(isKo ? "초대 거절" : "Decline Invite", isKo ? "초대를 거절하시겠습니까?" : "Decline this invitation?"))) return;
     setBusy(true);
     setError(null);
     try {
@@ -247,9 +250,11 @@ export function WorkspaceSelector({
         <Users className="size-3.5 text-blue-400" />
         <span className={`text-xs font-bold ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>{isKo ? "워크스페이스" : "Workspace"}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Workspace Scope">
         <button
           type="button"
+          role="radio"
+          aria-checked={scope === "private"}
           onClick={() => selectWorkspace("private", null)}
           className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition ${scope === "private" ? "border-blue-500 bg-blue-500/10 text-blue-400" : isDark ? "border-zinc-800 text-zinc-500 hover:bg-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}
         >
@@ -257,6 +262,8 @@ export function WorkspaceSelector({
         </button>
         <button
           type="button"
+          role="radio"
+          aria-checked={scope === "team"}
           onClick={() => selectWorkspace("team")}
           disabled={!selectedTeamId}
           className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${scope === "team" ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" : isDark ? "border-zinc-800 text-zinc-500 hover:bg-zinc-900" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"}`}
@@ -353,7 +360,16 @@ export function WorkspaceSelector({
           <div className="grid gap-1.5">
             {invites.map((invite) => (
               <div key={invite.inviteId} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isDark ? "border-zinc-800 bg-zinc-950" : "border-zinc-200 bg-zinc-50"}`}>
-                <span className={`min-w-0 flex-1 truncate text-[11px] ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>{invite.teamName}</span>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className={`truncate text-[11px] font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>{invite.teamName}</span>
+                  {(invite.invitedByEmail || invite.expiresAt) && (
+                    <span className={`truncate text-[9px] ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+                      {invite.invitedByEmail ? `${isKo ? "보낸 사람" : "From"}: ${invite.invitedByEmail}` : ""}
+                      {invite.invitedByEmail && invite.expiresAt ? " · " : ""}
+                      {invite.expiresAt ? `${isKo ? "만료" : "Expires"}: ${new Date(invite.expiresAt).toLocaleDateString()}` : ""}
+                    </span>
+                  )}
+                </div>
                 <div className="flex shrink-0 gap-1">
                   <button type="button" onClick={() => handleAccept(invite)} disabled={busy} className="rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40">
                     {isKo ? "수락" : "Accept"}
@@ -373,6 +389,7 @@ export function WorkspaceSelector({
           : "개인 기록은 본인 계정에서만 보입니다."}
       </p>
       {error && <p className="mt-2 text-[10px] font-medium text-red-400">{error}</p>}
+      <ConfirmDialog isDark={isDark} isKo={isKo} />
     </div>
   );
 }

@@ -1,8 +1,11 @@
 """
-DOCS-GEN 서비스 계층 (DOCS-GEN-B-301, DOCS-GEN-API-002)
+DOCS-GEN 서비스 계층 (DOCS-GEN-B-301, DOCS-GEN-API-001~004)
 
 - save_onboarding_doc: 생성된 Markdown을 DB에 저장 (B-301)
+- get_onboarding_doc: 저장된 가이드북 조회 (API-001)
 - validate_and_queue_doc_generation: 가이드북 생성 사전 검증 (API-002)
+- rebuild_onboarding_doc: 기존 문서 소프트 삭제 후 재생성 큐잉 (API-003)
+- get_doc_download_content: 다운로드용 Markdown 내용 조회 (API-004)
 """
 
 import logging
@@ -17,14 +20,108 @@ from app.common.exceptions import (
     DatabaseSaveFailedError,
     DocsAlreadyExistsError,
     DocsGenerationInProgressError,
+    DocsNotFoundError,
     RepoNotFoundError,
 )
 from app.gen.models import OnboardingDoc
 from app.gen.repository import GenDocRepository
+from app.gen.schemas import DocGetJsonData, DocGetMarkdownData  # noqa: F401 (re-exported)
 from app.infra.config import get_settings
 from app.repo.schemas import JobStatus
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_summary(summary: object) -> str | None:
+    """Convert master_report.summary to the DOCS_API_SPEC string contract."""
+    if summary is None:
+        return None
+    if isinstance(summary, str):
+        return summary
+    if not isinstance(summary, dict):
+        return str(summary)
+
+    preferred_keys = ("purpose", "overview", "summary", "description")
+    for key in preferred_keys:
+        value = summary.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+
+    text_parts = [
+        value.strip()
+        for value in summary.values()
+        if isinstance(value, str) and value.strip()
+    ]
+    return "\n".join(text_parts) if text_parts else None
+
+
+def _normalize_stack(stack: object) -> list[str]:
+    if isinstance(stack, dict):
+        stack = stack.get("technologies") or []
+    if not isinstance(stack, list):
+        return []
+    return [str(item) for item in stack if item]
+
+
+def _normalize_reading_order(reading_order: object) -> list[dict[str, object]]:
+    if not isinstance(reading_order, list):
+        return []
+
+    items: list[dict[str, object]] = []
+    for index, item in enumerate(reading_order, start=1):
+        if isinstance(item, str):
+            path = item
+            rank = index
+            reason = ""
+        elif isinstance(item, dict):
+            path = item.get("path") or item.get("file") or ""
+            rank = item.get("rank") or index
+            reason = item.get("reason") or item.get("description") or ""
+        else:
+            continue
+
+        if path:
+            try:
+                rank_value = int(rank)
+            except (TypeError, ValueError):
+                rank_value = index
+            items.append({"rank": rank_value, "path": str(path), "reason": str(reason)})
+    return items
+
+
+def _normalize_danger_files(danger_files: object) -> list[dict[str, str]]:
+    if not isinstance(danger_files, list):
+        return []
+
+    items: list[dict[str, str]] = []
+    for item in danger_files:
+        if isinstance(item, str):
+            path = item
+            reason = ""
+        elif isinstance(item, dict):
+            path = item.get("path") or item.get("file") or ""
+            reason = item.get("reason") or item.get("description") or ""
+        else:
+            continue
+
+        if path:
+            items.append({"path": str(path), "reason": str(reason)})
+    return items
+
+
+def _normalize_folder_summaries(file_map: object) -> list[dict[str, str]]:
+    if not isinstance(file_map, dict):
+        return []
+
+    folder_map = file_map.get("folder_summaries") or file_map
+    if not isinstance(folder_map, dict):
+        return []
+
+    return [
+        {"path": str(path), "description": str(description)}
+        for path, description in folder_map.items()
+        if path
+    ]
 
 
 # ──────────────────────────────────────────────────────────────
@@ -36,6 +133,7 @@ async def save_onboarding_doc(
     job_id: UUID,
     content: str,
     version: int,
+    report_json: dict | None = None,
 ) -> OnboardingDoc:
     '''
     온보딩 가이드북 Markdown을 PostgreSQL docs 테이블에 저장한다.
@@ -46,11 +144,12 @@ async def save_onboarding_doc(
       3. commit 후 저장된 엔티티 반환
 
     Args:
-        db:      AsyncSession (외부 주입)
-        repo_id: 대상 저장소 ID (analysis_jobs.id)
-        job_id:  문서 생성을 트리거한 분석 작업 ID
-        content: 저장할 Markdown 가이드북 전문
-        version: 가이드북 버전 번호
+        db:          AsyncSession (외부 주입)
+        repo_id:     대상 저장소 ID (analysis_jobs.id)
+        job_id:      문서 생성을 트리거한 분석 작업 ID
+        content:     저장할 Markdown 가이드북 전문
+        version:     가이드북 버전 번호
+        report_json: master_report JSON 원본 (format=json 조회용, 선택)
 
     Returns:
         저장된 OnboardingDoc 엔티티
@@ -76,6 +175,7 @@ async def save_onboarding_doc(
             job_id=job_id,
             content=content,
             version=version,
+            report_json=report_json,
         )
         await db.commit()
         logger.info(
@@ -90,6 +190,97 @@ async def save_onboarding_doc(
             repo_id, version, exc,
         )
         raise DatabaseSaveFailedError() from exc
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-001: 온보딩 가이드북 조회
+# ──────────────────────────────────────────────────────────────
+async def get_onboarding_doc(
+    db: AsyncSession,
+    repo_id: UUID,
+    fmt: str = "markdown",
+) -> DocGetMarkdownData | DocGetJsonData:
+    '''
+    저장된 온보딩 가이드북을 조회하고 format에 따라 응답 데이터를 반환한다.
+
+    DOCS-GEN-B-101 구현:
+      1. repo_id 존재 여부 확인 (없으면 404 RepoNotFoundError)
+      2. 활성 문서 조회 (없으면 404 DocsNotFoundError)
+      3. format=markdown → Markdown 전문 반환
+      4. format=json → report_json 기반 구조화 데이터 반환
+
+    Args:
+        db:      AsyncSession (외부 주입)
+        repo_id: 대상 저장소 ID (analysis_jobs.id)
+        fmt:     응답 형식 ("markdown" 또는 "json", 기본값: "markdown")
+
+    Returns:
+        DocGetMarkdownData (format=markdown) 또는 DocGetJsonData (format=json)
+
+    Raises:
+        RepoNotFoundError (404): repo_id에 해당하는 저장소가 없을 때
+        DocsNotFoundError (404): 활성 가이드북이 아직 생성되지 않았을 때
+    '''
+    repo = GenDocRepository(db)
+
+    ## 1. 저장소 존재 여부 확인
+    analysis_job = await repo.get_repo_by_id(repo_id)
+    if analysis_job is None:
+        logger.warning("[DOCS-GEN-API-001] 저장소 없음 | repo_id=%s", repo_id)
+        raise RepoNotFoundError()
+
+    ## 2. 활성 문서 조회
+    doc = await repo.get_active_by_repo_id(repo_id)
+    if doc is None:
+        logger.warning("[DOCS-GEN-API-001] 가이드북 없음 | repo_id=%s", repo_id)
+        raise DocsNotFoundError()
+
+    ## 3. format=json: report_json 기반 구조화 데이터 반환
+    if fmt == "json":
+        report = doc.report_json or {}
+        guide = report.get("guide") or {}
+
+        summary_raw = report.get("summary")
+        core_flow_raw = (
+            summary_raw.get("flow_explanation")
+            if isinstance(summary_raw, dict)
+            else None
+        )
+        core_flow = (
+            core_flow_raw
+            if isinstance(core_flow_raw, str) or core_flow_raw is None
+            else str(core_flow_raw)
+        )
+
+        logger.info(
+            "[DOCS-GEN-API-001] JSON 조회 완료 | repo_id=%s version=%d",
+            repo_id, doc.version,
+        )
+        return DocGetJsonData(
+            repo_id=repo_id,
+            repo_name=getattr(analysis_job, "repo_name", "") or "",
+            summary=_normalize_summary(summary_raw),
+            stack=_normalize_stack(report.get("stack")),
+            reading_order=_normalize_reading_order(guide.get("reading_order")),
+            danger_files=_normalize_danger_files(guide.get("risk_files")),
+            core_flow=core_flow,
+            folder_summaries=_normalize_folder_summaries(report.get("file_map")),
+            generated_at=doc.created_at,
+            version=doc.version,
+        )
+
+    ## 4. format=markdown (기본): Markdown 전문 반환
+    logger.info(
+        "[DOCS-GEN-API-001] Markdown 조회 완료 | repo_id=%s version=%d",
+        repo_id, doc.version,
+    )
+    return DocGetMarkdownData(
+        repo_id=repo_id,
+        repo_name=getattr(analysis_job, "repo_name", "") or "",
+        content=doc.content,
+        generated_at=doc.created_at,
+        version=doc.version,
+    )
 
 
 # ──────────────────────────────────────────────────────────────
@@ -186,3 +377,147 @@ async def validate_and_queue_doc_generation(
         "[DOCS-GEN-API-002] 큐잉 완료 | repo_id=%s version=%d", repo_id, next_version
     )
     return analysis_job.id, next_version
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-003: 가이드북 재생성 (B-207)
+# ──────────────────────────────────────────────────────────────
+async def rebuild_onboarding_doc(
+    db: AsyncSession,
+    repo_id: UUID,
+    background_tasks: BackgroundTasks,
+    model: str = "gpt-4o-mini",
+    reason: str | None = None,
+) -> tuple[UUID, int, int]:
+    '''
+    기존 온보딩 가이드북을 소프트 삭제한 뒤 최신 분석 기반으로 재생성을 큐잉한다.
+
+    DOCS-GEN-B-207 구현:
+      1. repo_id 존재 여부 확인 (404 REPO_NOT_FOUND)
+      2. 활성 문서 조회 → 없으면 404 DOCS_NOT_FOUND
+      3. 활성 문서 소프트 삭제 (is_active=False)
+      4. BackgroundTask로 재생성 파이프라인 큐잉
+      5. (job_id, previous_version, new_version) 반환
+
+    Args:
+        db:               AsyncSession
+        repo_id:          대상 저장소 ID
+        background_tasks: FastAPI BackgroundTasks 인스턴스
+        model:            LLM 모델명 (기본: "gpt-4o-mini")
+        reason:           재생성 요청 사유 (로그용, 선택)
+
+    Returns:
+        (job_id, previous_version, new_version) 튜플
+
+    Raises:
+        RepoNotFoundError (404):  저장소가 없을 때
+        DocsNotFoundError (404):  재생성할 기존 가이드북이 없을 때
+    '''
+    from app.gen.background import run_doc_generation
+
+    repo = GenDocRepository(db)
+    settings = get_settings()
+
+    ## 1. 저장소 존재 여부 확인
+    analysis_job = await repo.get_repo_by_id(repo_id)
+    if analysis_job is None:
+        logger.warning("[DOCS-GEN-API-003] 저장소 없음 | repo_id=%s", repo_id)
+        raise RepoNotFoundError()
+
+    ## 2. 재생성 대상 활성 문서 조회
+    active_doc = await repo.get_active_by_repo_id(repo_id)
+    if active_doc is None:
+        logger.warning("[DOCS-GEN-API-003] 재생성 대상 없음 | repo_id=%s", repo_id)
+        raise DocsNotFoundError("재생성할 온보딩 가이드북이 아직 생성되지 않았습니다.")
+
+    previous_version = active_doc.version
+    new_version = previous_version + 1
+
+    ## 3. 기존 활성 문서 소프트 삭제
+    try:
+        await repo.soft_delete_active_docs(repo_id)
+        await db.commit()
+        logger.info(
+            "[DOCS-GEN-API-003] 소프트 삭제 완료 | repo_id=%s version=%d",
+            repo_id, previous_version,
+        )
+    except Exception as exc:
+        await db.rollback()
+        logger.exception(
+            "[DOCS-GEN-API-003] 소프트 삭제 실패 | repo_id=%s: %s", repo_id, exc
+        )
+        raise DatabaseSaveFailedError() from exc
+
+    ## 4. 재생성 백그라운드 작업 등록
+    ## 프로젝트 표준 클론 경로: {CLONE_BASE_DIR}/{repo_id}/repo
+    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}/repo"
+    if reason:
+        logger.info(
+            "[DOCS-GEN-API-003] 재생성 사유 | repo_id=%s reason=%s",
+            repo_id, reason,
+        )
+
+    background_tasks.add_task(
+        run_doc_generation,
+        repo_id=repo_id,
+        job_id=analysis_job.id,
+        analysis_report=analysis_job.report_json or {},
+        repo_name=analysis_job.repo_name,
+        version=new_version,
+        clone_path=clone_path,
+        model=model,
+    )
+
+    logger.info(
+        "[DOCS-GEN-API-003] 재생성 큐잉 완료 | repo_id=%s prev=%d new=%d",
+        repo_id, previous_version, new_version,
+    )
+    return analysis_job.id, previous_version, new_version
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-004: 가이드북 파일 다운로드 (F-201)
+# ──────────────────────────────────────────────────────────────
+async def get_doc_download_content(
+    db: AsyncSession,
+    repo_id: UUID,
+) -> tuple[str, str]:
+    '''
+    다운로드용 온보딩 가이드북 Markdown 내용과 저장소 이름을 반환한다.
+
+    DOCS-GEN-F-201 구현:
+      1. repo_id 존재 여부 확인 (404 REPO_NOT_FOUND)
+      2. 활성 문서 조회 (404 DOCS_NOT_FOUND)
+      3. (markdown_content, repo_name) 튜플 반환
+
+    Args:
+        db:      AsyncSession (외부 주입)
+        repo_id: 대상 저장소 ID
+
+    Returns:
+        (content, repo_name) 튜플
+
+    Raises:
+        RepoNotFoundError (404):  저장소가 없을 때
+        DocsNotFoundError (404):  활성 가이드북이 없을 때
+    '''
+    repo = GenDocRepository(db)
+
+    ## 1. 저장소 존재 여부 확인
+    analysis_job = await repo.get_repo_by_id(repo_id)
+    if analysis_job is None:
+        logger.warning("[DOCS-GEN-API-004] 저장소 없음 | repo_id=%s", repo_id)
+        raise RepoNotFoundError()
+
+    ## 2. 활성 문서 조회
+    doc = await repo.get_active_by_repo_id(repo_id)
+    if doc is None:
+        logger.warning("[DOCS-GEN-API-004] 가이드북 없음 | repo_id=%s", repo_id)
+        raise DocsNotFoundError()
+
+    repo_name = getattr(analysis_job, "repo_name", "") or "onboarding"
+    logger.info(
+        "[DOCS-GEN-API-004] 다운로드 준비 | repo_id=%s version=%d",
+        repo_id, doc.version,
+    )
+    return doc.content, repo_name

@@ -5,6 +5,7 @@ MCP-style 외부 도구 Job 실행 서비스.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import uuid
 from pathlib import Path
@@ -154,7 +155,7 @@ class CodeMapToolService:
         repo = AnalysisJobRepository(self.db)
         job = await repo.get_job_by_id(job_id)
         if job:
-            report = dict(job.report_json or {})
+            report = copy.deepcopy(job.report_json or {})
             if "health_metrics" not in report:
                 report["health_metrics"] = {}
             report["health_metrics"]["complexity"] = metrics.get("complexity", 50)

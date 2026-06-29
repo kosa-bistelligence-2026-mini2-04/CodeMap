@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, CheckCircle2, XCircle, Clock, Github, FolderOpen } from "lucide-react";
 import type { RepoSource } from "@/features/repository/components/RepoInput";
+import type { TeamWorkspace } from "@/common/types/contracts";
 import { useApp } from "@/common/contexts/AppContext";
-import { fetchAnalysisHistory } from "@/features/analysis/api/api";
-import { deleteAnalysisJob } from "@/features/analysis/api/api";
+import { fetchAnalysisHistory, fetchTeams, deleteAnalysisJob } from "@/features/analysis/api/api";
 import { Trash2 } from "lucide-react";
 
 interface AnalysisRow {
@@ -73,6 +73,7 @@ function normalizeStatus(status: string): AnalysisRow["status"] {
 
 export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "all", teamId = null }: HistoryListProps) {
   const [items, setItems] = useState<AnalysisRow[]>([]);
+  const [teams, setTeams] = useState<TeamWorkspace[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +86,11 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchAnalysisHistory(1, 30, scope, teamId);
+      const [response, fetchedTeams] = await Promise.all([
+        fetchAnalysisHistory(1, 30, scope, teamId),
+        fetchTeams().catch(() => []),
+      ]);
+      setTeams(fetchedTeams);
       setItems(response.data.jobs.map((job) => {
         const normalizedStatus = normalizeStatus(job.status);
         return {
@@ -230,7 +235,9 @@ export function HistoryList({ onSelect, activeJobId, refreshToken = 0, scope = "
                         {it.total_pipeline_ms != null && (
                           <span className={isDark ? "text-zinc-600" : "text-zinc-400"}>{(it.total_pipeline_ms / 1000).toFixed(1)}s</span>
                         )}
-                        <span className={isDark ? "text-zinc-700" : "text-zinc-500"}>{it.visibility === "team" ? "Team" : "Private"}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${it.visibility === "team" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-zinc-500/10 text-zinc-500 border border-zinc-500/20"}`}>
+                          {it.visibility === "team" ? `Team: ${teams.find(t => t.id === it.team_id || t.teamId === it.team_id)?.name || "Unknown"}` : "Private"}
+                        </span>
                         <button
                           type="button"
                           onClick={(e) => {

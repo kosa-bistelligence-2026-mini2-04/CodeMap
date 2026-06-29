@@ -10,7 +10,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.graph import compiled_graph
+from app.agent.graph import get_compiled_graph
 from app.agent.state import CodeMapState
 from app.chat.repository import ChatRepository
 from app.infra.config import get_settings
@@ -68,7 +68,7 @@ class CodeMapAgentService:
                 session_id=session_id,
                 target_file=target_file,
             )
-            final_state = await compiled_graph.ainvoke(
+            final_state = await get_compiled_graph().ainvoke(
                 initial_state,
                 config=self._graph_config(session_id=session_id, run_id=""),
             )
@@ -181,7 +181,7 @@ class CodeMapAgentService:
         compact_context = {}
         worker_results = []
 
-        async for output in compiled_graph.astream(
+        async for output in get_compiled_graph().astream(
             initial_state,
             config=self._graph_config(session_id=session_id, run_id=run_id),
         ):

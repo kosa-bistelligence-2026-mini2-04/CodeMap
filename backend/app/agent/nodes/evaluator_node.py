@@ -199,6 +199,14 @@ def evaluator_node(state: CodeMapState) -> dict[str, Any]:
     replan_count = int(state.get("replan_count") or 0)
     max_replans = int(state.get("max_replans") or 0)
     should_replan = (not evaluator_decision["sufficient"]) and replan_count < max_replans
+
+    # 동일 시그니처 0건 반환 시 재시도 완전 차단
+    approved_plans = state.get("security_result", {}).get("approved", [])
+    if should_replan and state.get("access_plan") and not approved_plans:
+        logger.info("[Evaluator] 새로운 유효 탐색(승인된 plan)이 없어 재시도(replan)를 중단합니다.")
+        should_replan = False
+        evaluator_decision["reason"] += " (중복/0건 탐색 반복으로 중단됨)"
+
     compact_context["evaluatorDecision"] = evaluator_decision
 
     events = [{

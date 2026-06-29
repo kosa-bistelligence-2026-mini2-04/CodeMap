@@ -10,9 +10,10 @@ DB 테이블:
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infra.database import Base
@@ -77,6 +78,21 @@ class OnboardingDoc(Base):
         nullable=False,
         default=1,
         comment="가이드북 버전 번호 (1부터 시작, 재생성 시 증가)",
+    )
+
+    ## 활성 문서 여부 (소프트 삭제 지원: 재생성 시 이전 버전 비활성화)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        comment="활성 문서 여부 (소프트 삭제 지원)",
+    )
+
+    ## master_report JSON 원본 (format=json 조회 응답용)
+    report_json: Mapped[Any] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="master_report JSON 원본 데이터",
     )
 
     ## 생성 시각

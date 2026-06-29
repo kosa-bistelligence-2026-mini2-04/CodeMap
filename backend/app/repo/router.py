@@ -24,6 +24,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infra.auth import get_current_user_optional
 from app.infra.database import async_session_factory, get_db
 from app.common.exceptions import (
     BinaryFileError,
@@ -50,6 +51,7 @@ from app.repo.schemas import (
     WorkspaceCleanupResponse,
 )
 from app.repo.service import AnalysisService, RepoValidateService
+from app.embed.repository import EmbedRepository
 from app.infra.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -471,6 +473,49 @@ def _read_file_safe(clone_root: Path, rel_path: str) -> tuple[str, bool]:
     return text, truncated
 
 
+def _truncate_text(text: str) -> tuple[str, bool]:
+    """문자열을 _MAX_FILE_CHARS 기준으로 잘라 (text, truncated)를 반환한다."""
+    truncated = len(text) > _MAX_FILE_CHARS
+    if truncated:
+        text = text[:_MAX_FILE_CHARS]
+    return text, truncated
+
+
+def _build_file_content_response(
+    clean_path: str, content: str, truncated: bool
+) -> FileContentResponse:
+    """파일 컨텐츠 응답 객체를 생성한다. (로컬·DB fallback 공통)"""
+    lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
+    return FileContentResponse(
+        data=FileContentData(
+            path=clean_path,
+            content=content,
+            language=_detect_language(clean_path),
+            lines=lines,
+            truncated=truncated,
+        )
+    )
+
+
+async def _read_db_fallback_content(
+    db: AsyncSession, job_id: UUID, clean_path: str
+) -> str | None:
+    """
+    DB CodeNode에서 파일 content를 복구 조회한다 (Issue #226).
+
+    조회 실패(세션 오류 등)는 가용성 보강 목적상 치명적이지 않으므로
+    경고 로그만 남기고 None을 반환하여 호출측이 404로 처리하게 한다.
+    """
+    try:
+        repo = EmbedRepository(db)
+        return await repo.get_file_content(job_id, clean_path)
+    except Exception as exc:  # noqa: BLE001 - fallback은 어떤 예외든 흡수
+        logger.warning(
+            "[파일 fallback] DB 복구 조회 실패 (path=%s): %s", clean_path, exc
+        )
+        return None
+
+
 # ──────────────────────────────────────────────
 # API-FILE: job 기준 저장소 파일 컨텐츠 조회
 # GET /api/repo/analysis/{job_id}/files/content
@@ -504,23 +549,20 @@ async def get_file_content(
     - 바이너리 확장자는 422로 차단한다.
     - 50,000자 초과 시 잘린 내용과 truncated=true를 반환한다.
     """
-    ## job 존재 + 접근 권한 확인 (private/team 격리 — 파일 컨텐츠 조회도 동일 정책)
+    ## job 존재 확인
     service = AnalysisService(db)
     user_id = (
         UUID(current_user["sub"])
         if current_user and "sub" in current_user
         else None
     )
-    job_resp = await service.get_job_status(job_id, current_user_id=user_id)
+    await service.get_job_status(job_id, current_user_id=user_id)
 
     settings = get_settings()
     clone_root = (Path(settings.CLONE_BASE_DIR) / str(job_id) / "repo").resolve()
 
-    ## clone workspace 준비 여부 확인
-    if not clone_root.exists():
-        raise WorkspaceNotReadyError()
-
     ## path traversal 사전 차단: 절대 경로 또는 상위 디렉토리 참조 포함 시 거부
+    ##  (clone workspace 존재 여부와 무관하게 항상 먼저 검사한다)
     clean_path = path.lstrip("/").replace("\\", "/")
     if ".." in clean_path.split("/"):
         raise FilePathForbiddenError()
@@ -531,26 +573,30 @@ async def get_file_content(
     except ValueError:
         raise FilePathForbiddenError()
 
-    ## 파일 존재 여부 확인
-    if not target.exists() or not target.is_file():
-        raise WorkspaceNotReadyError(
-            message=f"파일을 찾을 수 없습니다: {clean_path}"
-        )
-
-    ## 바이너리 파일 차단
-    if target.suffix.lower() in _BINARY_EXTENSIONS:
+    ## 바이너리 파일 차단 (확장자 기반 — FS 존재 여부와 무관)
+    if Path(clean_path).suffix.lower() in _BINARY_EXTENSIONS:
         raise BinaryFileError()
 
-    ## 파일 읽기 (블로킹 I/O를 스레드로 격리)
-    content, truncated = await asyncio.to_thread(_read_file_safe, clone_root, clean_path)
-    lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
-
-    return FileContentResponse(
-        data=FileContentData(
-            path=clean_path,
-            content=content,
-            language=_detect_language(clean_path),
-            lines=lines,
-            truncated=truncated,
+    ## 1차: 로컬 clone workspace에서 직접 읽기
+    if clone_root.exists() and target.exists() and target.is_file():
+        content, truncated = await asyncio.to_thread(
+            _read_file_safe, clone_root, clean_path
         )
+        return _build_file_content_response(clean_path, content, truncated)
+
+    ## 2차 방어 (Issue #226): 로컬 FS 누락 시 DB CodeNode content로 복구 fallback.
+    ##  임베딩 누락/예외로 FILE 노드가 비어 있어도 가용성을 유지한다.
+    fallback_content = await _read_db_fallback_content(db, job_id, clean_path)
+    if fallback_content is not None:
+        logger.warning(
+            "[파일 fallback] 로컬 FS 미존재 → DB content 복구 (job=%s, path=%s)",
+            job_id,
+            clean_path,
+        )
+        content, truncated = _truncate_text(fallback_content)
+        return _build_file_content_response(clean_path, content, truncated)
+
+    ## 로컬·DB 모두 실패 → 기존과 동일하게 404
+    raise WorkspaceNotReadyError(
+        message=f"파일을 찾을 수 없습니다: {clean_path}"
     )

@@ -8,6 +8,8 @@ AUTH 도메인 라우터 (PROJECT-AUTH)
   POST /api/auth/logout    — 로그아웃 (AUTH-API-004)
 """
 
+import uuid
+
 from fastapi import APIRouter, Body, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +23,7 @@ from app.auth.schemas import (
     RegisterResponse,
 )
 from app.auth.service import AuthService
+from app.common.exceptions import UnauthorizedError
 from app.infra.auth import get_current_user
 from app.infra.config import get_settings
 from app.infra.database import get_db
@@ -148,3 +151,28 @@ async def logout(
     result = await AuthService(db).logout(refresh_token=_refresh_token_from(request, http_request))
     _clear_refresh_cookie(response)
     return result
+
+# ──────────────────────────────────────────────
+# DELETE /api/auth/me — 회원 탈퇴
+# ──────────────────────────────────────────────
+@router.delete(
+    "/me",
+    summary="회원 탈퇴",
+    description="사용자 계정을 삭제하고 관련된 데이터를 정리(팀 분석 고아 처리 등)합니다.",
+)
+async def withdraw(
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user_id_str = current_user.get("sub")
+    if not user_id_str:
+        raise UnauthorizedError()
+    try:
+        user_id = uuid.UUID(str(user_id_str))
+    except (TypeError, ValueError) as exc:
+        raise UnauthorizedError() from exc
+
+    await AuthService(db).withdraw(user_id)
+    _clear_refresh_cookie(response)
+    return {"code": 200, "message": "success", "data": None}
