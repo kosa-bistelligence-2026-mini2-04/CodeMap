@@ -5,6 +5,13 @@ SQLAlchemy 비동기 엔진과 세션 팩토리를 설정하고,
 FastAPI 의존성 주입(Dependency Injection)용 get_db 함수를 제공한다.
 """
 
+from collections.abc import AsyncGenerator
+from typing import cast
+
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg import AsyncConnection
+from psycopg.rows import DictRow
+from psycopg_pool import AsyncConnectionPool
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
@@ -20,7 +27,7 @@ import re
 db_url_str = (
     settings.DATABASE_URL.get_secret_value()
     if hasattr(settings.DATABASE_URL, "get_secret_value")
-    else settings.DATABASE_URL
+    else str(settings.DATABASE_URL)
 )
 ASYNC_DATABASE_URL = re.sub(
     r"^postgresql(\+[a-zA-Z0-9_]+)?://",
@@ -35,15 +42,14 @@ PSYCOPG_URL = re.sub(
     db_url_str,
 )
 
-# LangGraph checkpoint용 psycopg Connection Pool
-from psycopg_pool import AsyncConnectionPool
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
-checkpoint_pool = AsyncConnectionPool(
-    conninfo=PSYCOPG_URL,
-    max_size=10,
-    kwargs={"autocommit": True, "prepare_threshold": 0},
-    open=False,
+checkpoint_pool = cast(
+    AsyncConnectionPool[AsyncConnection[DictRow]],
+    AsyncConnectionPool(
+        conninfo=PSYCOPG_URL,
+        max_size=10,
+        kwargs={"autocommit": True, "prepare_threshold": 0},
+        open=False,
+    ),
 )
 _checkpoint_saver = None
 
@@ -112,6 +118,7 @@ async def validate_required_schema() -> None:
                     "Please initialize your database schema first."
                 )
 
+
 # 비동기 SQLAlchemy 엔진 생성
 engine = create_async_engine(
     ASYNC_DATABASE_URL,
@@ -133,7 +140,7 @@ class Base(DeclarativeBase):
     pass
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI 의존성 주입용 DB 세션 제공 함수
 

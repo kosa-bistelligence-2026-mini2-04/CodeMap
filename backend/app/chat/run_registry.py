@@ -197,25 +197,175 @@ class RunRecord:
         }
 
 
+import json
+from app.infra.redis import get_redis_client
+
+_REDIS_TTL_SECONDS = 3600
+
+
+def _model_dump_json_safe(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if hasattr(value, "model_dump"):
+        return value.model_dump(mode="json")
+    return dict(value)
+
+
+def _restore_job_snapshot(data: dict[str, Any]) -> AnalysisJob | None:
+    if not data.get("job_id"):
+        return None
+
+    from app.repo.models import AnalysisJob
+
+    return AnalysisJob(
+        id=UUID(str(data["job_id"])),
+        repo_url=str(data.get("repo_url") or ""),
+        repo_name=str(data.get("repo_name") or ""),
+        owner=str(data.get("owner") or ""),
+        branch=str(data.get("branch") or "main"),
+        status=str(data.get("job_status") or ""),
+        user_id=None,
+        team_id=None,
+        is_private=False,
+    )
+
+
 class RunRegistry:
-    """메모리 기반 Run 레지스트리. 단일 프로세스 환경용."""
+    """Redis 기반 Run 레지스트리."""
 
     def __init__(self) -> None:
         self._runs: dict[str, RunRecord] = {}
 
-    def create(self, run_id: str, repo_id: UUID, session_id: str, **kwargs) -> RunRecord:
+    async def create(self, run_id: str, repo_id: UUID, session_id: str, **kwargs) -> RunRecord:
         record = RunRecord(run_id=run_id, repo_id=repo_id, session_id=session_id, **kwargs)
         self._runs[run_id] = record
+        
+        redis = get_redis_client()
+        if redis:
+            job = kwargs.get("job")
+            req = kwargs.get("request")
+            data = {
+                "repo_id": str(repo_id),
+                "session_id": str(session_id),
+                "request": _model_dump_json_safe(req),
+                "job_id": str(job.id) if job else None,
+                "repo_name": job.repo_name if job else None,
+                "repo_url": job.repo_url if job else None,
+                "owner": job.owner if job else None,
+                "branch": job.branch if job else None,
+                "job_status": job.status if job else None,
+                "clone_path": kwargs.get("clone_path", ""),
+                "mode": kwargs.get("mode", "standard")
+            }
+            await redis.setex(
+                f"run_init:{run_id}",
+                _REDIS_TTL_SECONDS,
+                json.dumps(data, ensure_ascii=False, default=str),
+            )
+            await self.sync_to_redis(record)
+            
         return record
 
-    def get(self, run_id: str) -> RunRecord | None:
-        return self._runs.get(run_id)
+    async def get(self, run_id: str) -> RunRecord | None:
+        if run_id in self._runs:
+            return self._runs[run_id]
+            
+        redis = get_redis_client()
+        if redis:
+            init_data = await redis.get(f"run_init:{run_id}")
+            if init_data:
+                data = json.loads(init_data)
+                job = _restore_job_snapshot(data)
+
+                from app.chat.schemas import ChatRunRequest
+                req = ChatRunRequest(**data["request"]) if data.get("request") else None
+                
+                record = RunRecord(
+                    run_id=run_id,
+                    repo_id=UUID(data["repo_id"]),
+                    session_id=data["session_id"],
+                    request=req,
+                    job=job,
+                    clone_path=data["clone_path"],
+                    mode=data["mode"]
+                )
+                self._runs[run_id] = record
+                return record
+        return None
+
+    async def sync_to_redis(self, record: RunRecord) -> None:
+        redis = get_redis_client()
+        if redis:
+            status = record.to_status_response()
+            status["data"]["repoId"] = str(record.repo_id)
+            await redis.setex(
+                f"run_status:{record.run_id}",
+                _REDIS_TTL_SECONDS,
+                json.dumps(status, ensure_ascii=False, default=str),
+            )
+            
+            if record.worker_results:
+                evidence = record.to_evidence_response(include_raw_snippet=True, limit=100)
+                evidence["data"]["repoId"] = str(record.repo_id)
+                await redis.setex(
+                    f"run_evidence:{record.run_id}",
+                    _REDIS_TTL_SECONDS,
+                    json.dumps(evidence, ensure_ascii=False, default=str),
+                )
+
+    async def get_status(self, run_id: str) -> dict | None:
+        if run_id in self._runs:
+            status = self._runs[run_id].to_status_response()
+            status["data"]["repoId"] = str(self._runs[run_id].repo_id)
+            return status
+        redis = get_redis_client()
+        if redis:
+            data = await redis.get(f"run_status:{run_id}")
+            if data:
+                return json.loads(data)
+        return None
+
+    async def get_evidence(self, run_id: str, include_raw_snippet: bool, worker_filter: str | None, limit: int) -> dict | None:
+        if run_id in self._runs:
+            evidence = self._runs[run_id].to_evidence_response(include_raw_snippet, worker_filter, limit)
+            evidence["data"]["repoId"] = str(self._runs[run_id].repo_id)
+            return evidence
+        redis = get_redis_client()
+        if redis:
+            data = await redis.get(f"run_evidence:{run_id}")
+            if data:
+                parsed = json.loads(data)
+                evidence = parsed["data"].get("evidence", [])
+                if worker_filter:
+                    evidence = [e for e in evidence if e.get("worker") == worker_filter]
+                if not include_raw_snippet:
+                    for e in evidence:
+                        e.pop("snippet", None)
+                parsed["data"]["evidence"] = evidence[:limit]
+                return parsed
+        return None
+
+    async def check_cancel(self, run_id: str) -> bool:
+        redis = get_redis_client()
+        if redis:
+            return await redis.exists(f"run_cancel:{run_id}") > 0
+        return False
+
+    async def request_cancel(self, run_id: str) -> bool:
+        if run_id in self._runs:
+            await self._runs[run_id].mark_cancelled()
+            await self.sync_to_redis(self._runs[run_id])
+            return True
+        redis = get_redis_client()
+        if redis:
+            await redis.setex(f"run_cancel:{run_id}", 3600, "1")
+            return True
+        return False
 
     def list_by_repo(self, repo_id: UUID) -> list[RunRecord]:
         return [r for r in self._runs.values() if r.repo_id == repo_id]
 
-    def cleanup_old(self, max_age_seconds: int = 3600) -> int:
-        """1시간 이상 된 완료 run을 정리합니다."""
+    async def cleanup_old(self, max_age_seconds: int = 3600) -> int:
         now = time.time()
         to_remove = [
             rid for rid, r in self._runs.items()
@@ -230,7 +380,7 @@ async def sweep_run_registry(interval_seconds: int = 300, max_age_seconds: int =
     """Periodically prune terminal in-memory run records in single-process deployments."""
     while True:
         await asyncio.sleep(interval_seconds)
-        run_registry.cleanup_old(max_age_seconds=max_age_seconds)
+        await run_registry.cleanup_old(max_age_seconds=max_age_seconds)
 
 
 # 싱글톤 인스턴스

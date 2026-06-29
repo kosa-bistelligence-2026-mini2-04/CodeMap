@@ -3,6 +3,8 @@
  * ERROR_CODES.md 명세에 기반한 에러 처리
  */
 
+import { setAccessToken } from "@/features/auth/utils/tokenMemory";
+
 export interface StandardErrorResponse {
   code: number;
   message: string;
@@ -44,5 +46,12 @@ export async function parseApiError(response: Response): Promise<ApiError> {
     data = { code: response.status, message: response.statusText || "Network Error" };
   }
   
+  if (response.status === 401) {
+    setAccessToken(null);
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
+  }
+
   return new ApiError(response.status, data as StandardErrorResponse);
 }

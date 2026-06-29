@@ -1,8 +1,8 @@
 name: CI
 
 # 모든 PR과 main push에서 자동 실행되는 검증 워크플로우.
-# - backend: pytest(차단) + pyright 타입체크(현재 60건 정리 전까지 report-only)
-# - frontend: eslint + next build (초기 report-only)
+# - backend: pytest(차단) + pyright 타입체크(차단)
+# - frontend: eslint(차단) + next build(차단)
 on:
   pull_request:
   push:
@@ -43,8 +43,7 @@ jobs:
           OPENAI_API_KEY: ""
         run: venv/bin/python -m pytest tests/unit -q
 
-      - name: pyright (type check)     # ⚠️ report-only: #152 양성 60건 정리 후 아래 줄 삭제하면 차단됨
-        continue-on-error: true
+      - name: pyright (type check)     # ✅ 차단
         run: npx -y pyright@latest --pythonpath backend/venv/bin/python backend/app
 
   frontend:
@@ -69,10 +68,8 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: eslint                   # ⚠️ report-only (초기 안정화용)
-        continue-on-error: true
+      - name: eslint                   # ✅ 차단
         run: pnpm lint
 
-      - name: next build               # ⚠️ report-only (env 의존 시 조정 필요)
-        continue-on-error: true
+      - name: next build               # ✅ 차단
         run: pnpm build

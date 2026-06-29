@@ -20,6 +20,26 @@ interface CodeNavigatorPanelProps {
 
 type LoadState = "idle" | "loading" | "success" | "error";
 
+interface FileContentState {
+  requestKey: string;
+  loadState: Exclude<LoadState, "loading">;
+  content: string;
+  language: string | null;
+  lines: number;
+  truncated: boolean;
+  errorMsg: string;
+}
+
+const EMPTY_FILE_CONTENT: FileContentState = {
+  requestKey: "",
+  loadState: "idle",
+  content: "",
+  language: null,
+  lines: 0,
+  truncated: false,
+  errorMsg: "",
+};
+
 // API 언어값 → Monaco language id 매핑
 const MONACO_LANG: Record<string, string> = {
   python: "python",
@@ -62,15 +82,15 @@ export function CodeNavigatorPanel({
 }: CodeNavigatorPanelProps) {
   const { theme } = useApp();
   const isDark = theme === "dark";
+  const requestKey = useMemo(() => `${jobId}:${filePath}`, [jobId, filePath]);
 
-  const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [content, setContent] = useState("");
-  const [language, setLanguage] = useState<string | null>(null);
-  const [lines, setLines] = useState(0);
-  const [truncated, setTruncated] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [activeLine, setActiveLine] = useState<number | null>(null);
+  const [fileContent, setFileContent] = useState<FileContentState>(EMPTY_FILE_CONTENT);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [selectedLine, setSelectedLine] = useState<{
+    requestKey: string;
+    inputLine: number | null;
+    line: number;
+  } | null>(null);
   const [mounted, setMounted] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -78,6 +98,24 @@ export function CodeNavigatorPanel({
   // monaco 인스턴스(Range 등 사용). @monaco-editor/react onMount 2번째 인자.
   const monacoRef = useRef<typeof import("monaco-editor") | null>(null);
   const decorationsRef = useRef<string[]>([]);
+
+  const isCurrentContent = fileContent.requestKey === requestKey;
+  const loadState: LoadState = !filePath
+    ? "idle"
+    : isCurrentContent
+      ? fileContent.loadState
+      : "loading";
+  const content = isCurrentContent ? fileContent.content : "";
+  const language = isCurrentContent ? fileContent.language : null;
+  const lines = isCurrentContent ? fileContent.lines : 0;
+  const truncated = isCurrentContent ? fileContent.truncated : false;
+  const errorMsg = isCurrentContent ? fileContent.errorMsg : "";
+  const copied = copiedKey === requestKey;
+  const propLine = highlightLine ?? null;
+  const activeLine =
+    selectedLine?.requestKey === requestKey && selectedLine.inputLine === propLine
+      ? selectedLine.line
+      : propLine;
 
   const symbols = useMemo(() => extractSymbols(content, language), [content, language]);
 
@@ -89,37 +127,35 @@ export function CodeNavigatorPanel({
     const controller = new AbortController();
     abortRef.current = controller;
 
-    setLoadState("loading");
-    setContent("");
-    setErrorMsg("");
-    setCopied(false);
-    setActiveLine(highlightLine ?? null);
-
     fetchFileContent(jobId, filePath, controller.signal)
       .then((res) => {
-        setContent(res.data.content);
-        setLanguage(res.data.language);
-        setLines(res.data.lines);
-        setTruncated(res.data.truncated);
-        setLoadState("success");
+        setFileContent({
+          requestKey,
+          loadState: "success",
+          content: res.data.content,
+          language: res.data.language,
+          lines: res.data.lines,
+          truncated: res.data.truncated,
+          errorMsg: "",
+        });
       })
       .catch((err: Error) => {
         if (err.name === "AbortError") return;
-        setErrorMsg(err.message);
-        setLoadState("error");
+        setFileContent({
+          requestKey,
+          loadState: "error",
+          content: "",
+          language: null,
+          lines: 0,
+          truncated: false,
+          errorMsg: err.message,
+        });
       });
 
     return () => {
       controller.abort();
     };
-    // highlightLine 변경만으로 재요청하지 않도록 의도적으로 제외
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, filePath]);
-
-  // 외부(채팅 근거 등)에서 전달된 highlightLine을 반영
-  useEffect(() => {
-    setActiveLine(highlightLine ?? null);
-  }, [highlightLine]);
+  }, [jobId, filePath, requestKey]);
 
   // 에디터에 라인 점프 + 하이라이트 적용 (revealLine + deltaDecorations)
   useEffect(() => {
@@ -154,7 +190,7 @@ export function CodeNavigatorPanel({
   };
 
   const handleSymbolSelect = (line: number) => {
-    setActiveLine(line);
+    setSelectedLine({ requestKey, inputLine: propLine, line });
     // 이미 같은 라인이라도 재점프되도록 직접 호출
     editorRef.current?.revealLineInCenter(line);
   };
@@ -162,8 +198,10 @@ export function CodeNavigatorPanel({
   const handleCopy = () => {
     if (!content) return;
     navigator.clipboard.writeText(content).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setCopiedKey(requestKey);
+      setTimeout(() => {
+        setCopiedKey((current) => (current === requestKey ? null : current));
+      }, 1500);
     });
   };
 

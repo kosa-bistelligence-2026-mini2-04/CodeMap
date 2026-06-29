@@ -193,10 +193,17 @@ class PipelineStartFailedError(CodeMapException):
 # PROJECT-AUTH: 인증 관련 예외
 # ──────────────────────────────────────────────
 class UnauthorizedError(CodeMapException):
-    """JWT 토큰 없음 / 만료 / 서명 불일치 (401)"""
+    """JWT 토큰 없음 / 서명 불일치 (401)"""
 
-    def __init__(self, message: str = "토큰이 누락되었거나 만료되었습니다."):
+    def __init__(self, message: str = "로그인이 필요한 서비스입니다."):
         super().__init__(401, "UNAUTHORIZED", message)
+
+
+class TokenExpiredError(CodeMapException):
+    """JWT 토큰 만료 (401)"""
+
+    def __init__(self, message: str = "세션이 만료되었습니다. 다시 로그인해 주세요."):
+        super().__init__(401, "TOKEN_EXPIRED", message)
 
 
 class InvalidCredentialsError(CodeMapException):

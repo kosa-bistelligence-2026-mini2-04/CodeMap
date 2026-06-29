@@ -12,9 +12,9 @@ import json
 import subprocess
 import urllib.request
 import urllib.error
-from typing import Optional
+from typing import ClassVar, Optional
 from pydantic import SecretStr, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
@@ -105,6 +105,9 @@ class Settings(BaseSettings):
     # SecretStr 선언으로 로그/출력 시 자동 마스킹 (보안 정책 대응)
     DATABASE_URL: SecretStr = SecretStr("")
 
+    # Redis 연결 URL (분산 락 및 상태 공유용)
+    REDIS_URL: SecretStr = SecretStr("")
+
     # Git 저장소 clone 시 사용할 임시 디렉토리 경로
     CLONE_BASE_DIR: str = ""
     CLONE_BASE_DIR_WINDOWS: str = "C:/temp/codemap/jobs"
@@ -167,11 +170,10 @@ class Settings(BaseSettings):
     # 내부 서버 간 호출 전용 서비스 토큰
     SERVICE_TOKEN: str = "service-token"
 
-    model_config = {
+    model_config: ClassVar[SettingsConfigDict] = {
         "env_file": env_path,
         "env_file_encoding": "utf-8",
         "extra": "ignore",
-        "env_file_ignore_missing": True
     }
 
 

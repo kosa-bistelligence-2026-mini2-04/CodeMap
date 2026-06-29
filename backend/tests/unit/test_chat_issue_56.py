@@ -162,9 +162,10 @@ class TestAgentLLMClient(unittest.TestCase):
 
         self.assertIsInstance(planner_llm, FakeChatOpenAI)
         self.assertIsInstance(evaluator_llm, FakeChatOpenAI)
+        from pydantic import SecretStr
         self.assertEqual(calls, [
-            {"model": "gpt-4o-mini", "api_key": "sk-test", "temperature": 0},
-            {"model": "gpt-4o-mini", "api_key": "sk-test", "temperature": 0},
+            {"model": "gpt-4o-mini", "api_key": SecretStr("sk-test"), "temperature": 0},
+            {"model": "gpt-4o-mini", "api_key": SecretStr("sk-test"), "temperature": 0},
         ])
 
     def test_final_answer_deep_mode_uses_gpt_4o(self):
@@ -183,8 +184,9 @@ class TestAgentLLMClient(unittest.TestCase):
             llm = create_final_answer_llm(mode="deep", streaming=True)
 
         self.assertIsInstance(llm, FakeChatOpenAI)
+        from pydantic import SecretStr
         self.assertEqual(captured["kwargs"]["model"], "gpt-4o")
-        self.assertEqual(captured["kwargs"]["api_key"], "sk-test")
+        self.assertEqual(captured["kwargs"]["api_key"].get_secret_value(), "sk-test")
         self.assertTrue(captured["kwargs"]["streaming"])
 
 
@@ -244,13 +246,13 @@ class TestChatPrepareTransaction(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service.db.commits, 1)
 
 
-class TestRunRegistry(unittest.TestCase):
-    def test_run_record_preserves_status_and_evidence(self):
+class TestRunRegistry(unittest.IsolatedAsyncioTestCase):
+    async def test_run_record_preserves_status_and_evidence(self):
         from app.chat.run_registry import RunRegistry
 
         repo_id = uuid4()
         registry = RunRegistry()
-        record = registry.create(
+        record = await registry.create(
             run_id="run-1",
             repo_id=repo_id,
             session_id=str(uuid4()),
@@ -272,7 +274,7 @@ class TestRunRegistry(unittest.TestCase):
         status = record.to_status_response()
         evidence = record.to_evidence_response(include_raw_snippet=True)
 
-        self.assertEqual(registry.get("run-1"), record)
+        self.assertEqual(await registry.get("run-1"), record)
         self.assertEqual(status["data"]["status"], "completed")
         self.assertEqual(status["data"]["state"]["workerResultCount"], 1)
         self.assertEqual(evidence["data"]["evidence"][0]["snippet"], "def login(): pass")
@@ -283,7 +285,7 @@ class TestRunRegistryTransitions(unittest.IsolatedAsyncioTestCase):
         from app.chat.run_registry import RunRegistry
 
         repo_id = uuid4()
-        record = RunRegistry().create(
+        record = await RunRegistry().create(
             run_id="run-1",
             repo_id=repo_id,
             session_id=str(uuid4()),
@@ -297,7 +299,7 @@ class TestRunRegistryTransitions(unittest.IsolatedAsyncioTestCase):
     async def test_cancelled_run_cannot_be_completed_later(self):
         from app.chat.run_registry import RunRegistry
 
-        record = RunRegistry().create(
+        record = await RunRegistry().create(
             run_id="run-1",
             repo_id=uuid4(),
             session_id=str(uuid4()),
@@ -313,15 +315,15 @@ class TestRunRegistryTransitions(unittest.IsolatedAsyncioTestCase):
         from app.chat.run_registry import RunRegistry
 
         registry = RunRegistry()
-        old_terminal = registry.create("old", uuid4(), str(uuid4()))
+        old_terminal = await registry.create("old", uuid4(), str(uuid4()))
         old_terminal.status = "completed"
         old_terminal.created_at = 0
-        active = registry.create("active", uuid4(), str(uuid4()))
+        active = await registry.create("active", uuid4(), str(uuid4()))
         active.created_at = 0
 
-        self.assertEqual(registry.cleanup_old(max_age_seconds=1), 1)
-        self.assertIsNone(registry.get("old"))
-        self.assertIsNotNone(registry.get("active"))
+        self.assertEqual(await registry.cleanup_old(max_age_seconds=1), 1)
+        self.assertIsNone(await registry.get("old"))
+        self.assertIsNotNone(await registry.get("active"))
 
 
 class TestChatRunCreation(unittest.IsolatedAsyncioTestCase):
@@ -352,7 +354,7 @@ class TestChatRunCreation(unittest.IsolatedAsyncioTestCase):
             )
 
         run_id = response["data"]["runId"]
-        record = registry.get(run_id)
+        record = await registry.get(run_id)
 
         self.assertIsNotNone(record)
         self.assertEqual(response["data"]["sessionId"], record.session_id)
@@ -376,7 +378,7 @@ class TestRunManagementAPI(unittest.IsolatedAsyncioTestCase):
 
         registry = RunRegistry()
         repo_id = uuid4()
-        record = registry.create(
+        record = await registry.create(
             run_id="run-test",
             repo_id=repo_id,
             session_id=str(uuid4()),
@@ -501,7 +503,7 @@ class TestRunManagementAPI(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(agent_router, "run_registry", registry):
             with self.assertRaises(HTTPException) as ctx:
-                await agent_router.get_run_evidence(repo_id, "run-test", db=_FakeDB())
+                await agent_router.get_run_evidence(repo_id, "run-test", include_raw_snippet=False, worker=None, limit=20, db=_FakeDB())
         self.assertEqual(ctx.exception.status_code, 404)
 
     async def test_get_run_evidence_returns_evidence_after_completion(self):

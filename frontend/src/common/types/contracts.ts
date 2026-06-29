@@ -295,6 +295,7 @@ export interface TeamInviteItem {
   inviteId: string;
   teamId: string;
   teamName: string;
+  email?: string;
   invitedByEmail?: string | null;
   status: string;
   expiresAt: string;
@@ -469,4 +470,55 @@ export interface PreValidateResponse {
   code: number;
   message: string;
   data: PreValidateData;
+}
+
+// ── DOCS-GEN types ─────────────────────────────────────────────────────────────
+
+export interface DocFolderSummary {
+  path: string;
+  summary: string;
+}
+
+export interface DocReadingOrderItem {
+  rank: number;
+  path: string;
+  reason: string;
+}
+
+export interface DocDangerFileItem {
+  path: string;
+  reason: string;
+}
+
+export interface DocGetMarkdownData {
+  repoId: string;
+  repoName: string;
+  content: string;
+  generatedAt: string;
+  version: number;
+}
+
+export interface DocGetJsonData {
+  repoId: string;
+  repoName: string;
+  summary: string | null;
+  stack: string[];
+  readingOrder: DocReadingOrderItem[];
+  dangerFiles: DocDangerFileItem[];
+  coreFlow: string | null;
+  folderSummaries: DocFolderSummary[];
+  generatedAt: string;
+  version: number;
+}
+
+export interface DocGetMarkdownResponse {
+  code: number;
+  message: string;
+  data: DocGetMarkdownData;
+}
+
+export interface DocGetJsonResponse {
+  code: number;
+  message: string;
+  data: DocGetJsonData;
 }

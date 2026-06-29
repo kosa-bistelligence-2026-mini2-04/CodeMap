@@ -128,8 +128,9 @@ def evaluator_node(state: CodeMapState) -> dict[str, Any]:
     grouped: dict[str, list[WorkerResult]] = defaultdict(list)
     no_path: list[WorkerResult] = []
     for result in deduped:
-        if result.get("path"):
-            grouped[result["path"]].append(result)
+        path = result.get("path")
+        if path:
+            grouped[path].append(result)
         else:
             no_path.append(result)
 

@@ -13,6 +13,7 @@ import logging
 from uuid import UUID
 
 from app.infra.database import async_session_factory
+from app.infra.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +24,31 @@ _DOCS_GENERATION_IN_PROGRESS: set[str] = set()
 # ──────────────────────────────────────────────
 # 진행 상태 조회/등록/해제 유틸리티
 # ──────────────────────────────────────────────
-def is_generation_in_progress(repo_id: UUID) -> bool:
+async def is_generation_in_progress(repo_id: UUID) -> bool:
     '''해당 저장소의 가이드북 생성이 현재 진행 중인지 반환한다.'''
+    redis = get_redis_client()
+    if redis:
+        return await redis.exists(f"docs_gen:{repo_id}") > 0
     return str(repo_id) in _DOCS_GENERATION_IN_PROGRESS
 
 
-def _mark_in_progress(repo_id: UUID) -> None:
+async def _mark_in_progress(repo_id: UUID) -> bool:
+    redis = get_redis_client()
+    if redis:
+        acquired = await redis.set(f"docs_gen:{repo_id}", "1", ex=3600, nx=True)
+        return bool(acquired)
+    if str(repo_id) in _DOCS_GENERATION_IN_PROGRESS:
+        return False
     _DOCS_GENERATION_IN_PROGRESS.add(str(repo_id))
+    return True
 
 
-def _mark_done(repo_id: UUID) -> None:
-    _DOCS_GENERATION_IN_PROGRESS.discard(str(repo_id))
+async def _mark_done(repo_id: UUID) -> None:
+    redis = get_redis_client()
+    if redis:
+        await redis.delete(f"docs_gen:{repo_id}")
+    else:
+        _DOCS_GENERATION_IN_PROGRESS.discard(str(repo_id))
 
 
 # ──────────────────────────────────────────────────────────────
@@ -134,4 +149,4 @@ async def run_doc_generation(
             "[DOCS-GEN-BG] 예외 발생 | repo_id=%s: %s", repo_id, exc
         )
     finally:
-        _mark_done(repo_id)
+        await _mark_done(repo_id)

@@ -67,8 +67,10 @@ async def _replay_stream(record):
     """Replay known events for reconnects without starting a second graph run."""
     for event in record.events:
         yield _event(event)
+        await run_registry.sync_to_redis(record)
     if not record.is_terminal:
         yield _event({"type": "run_reconnect", "runId": record.run_id, "status": record.status})
+        await run_registry.sync_to_redis(record)
 
 
 @router.post("/{repo_id}/runs", status_code=202)
@@ -96,7 +98,7 @@ async def create_chat_run(
     run_id = str(uuid.uuid4())
     session_id = request.sessionId or uuid.uuid4()
     prepared_request = request.model_copy(update={"sessionId": session_id})
-    run_registry.create(
+    await run_registry.create(
         run_id=run_id,
         repo_id=repo_id,
         session_id=str(session_id),
@@ -130,7 +132,7 @@ async def stream_chat_run(
     """
     LangGraph 멀티에이전트 SSE 스트리밍.
     """
-    record = run_registry.get(run_id)
+    record = await run_registry.get(run_id)
     if not record or record.repo_id != repo_id:
         raise HTTPException(status_code=404, detail="Run not found")
     current_user_id = _current_user_id(current_user)
@@ -151,6 +153,8 @@ async def stream_chat_run(
     request: ChatRunRequest = record.request
     clone_path = record.clone_path
     job = record.job
+    if job is None:
+        raise HTTPException(status_code=500, detail="Run record missing job metadata")
     mode = record.mode
 
     async def stream():
@@ -165,6 +169,7 @@ async def stream_chat_run(
             graph_started_event = {"type": "graph_started", "runId": run_id, "stateKeys": ["user_query"]}
             record.events.append(graph_started_event)
             yield _event(graph_started_event)
+            await run_registry.sync_to_redis(record)
 
             # Graph Stream
             async for event in service.run_agent_stream(
@@ -175,12 +180,13 @@ async def stream_chat_run(
                 session_id=request.sessionId,
                 target_file=request.targetFile,
             ):
-                if record.cancel_event.is_set():
+                if record.cancel_event.is_set() or await run_registry.check_cancel(run_id):
                     await record.mark_cancelled()
                     cancelled_event = _cancelled_event(run_id, record)
                     if not record.events or record.events[-1] != cancelled_event:
                         record.events.append(cancelled_event)
                     yield _event(cancelled_event)
+                    await run_registry.sync_to_redis(record)
                     await db.rollback()
                     return
 
@@ -191,12 +197,14 @@ async def stream_chat_run(
                 record.events.append(event)
                 record.current_node = event.get("type")
                 yield _event(event)
+                await run_registry.sync_to_redis(record)
 
-            if record.cancel_event.is_set():
+            if record.cancel_event.is_set() or await run_registry.check_cancel(run_id):
                 await record.mark_cancelled()
                 cancelled_event = _cancelled_event(run_id, record)
                 record.events.append(cancelled_event)
                 yield _event(cancelled_event)
+                await run_registry.sync_to_redis(record)
                 await db.rollback()
                 return
 
@@ -210,12 +218,13 @@ async def stream_chat_run(
                 worker_results=record.worker_results,
                 mode=mode,
             ):
-                if record.cancel_event.is_set():
+                if record.cancel_event.is_set() or await run_registry.check_cancel(run_id):
                     await record.mark_cancelled()
                     cancelled_event = _cancelled_event(run_id, record)
                     if not record.events or record.events[-1] != cancelled_event:
                         record.events.append(cancelled_event)
                     yield _event(cancelled_event)
+                    await run_registry.sync_to_redis(record)
                     await db.rollback()
                     return
 
@@ -223,12 +232,14 @@ async def stream_chat_run(
                     record.accumulated_answer += event.get("content", "")
                 record.events.append(event)
                 yield _event(event)
+                await run_registry.sync_to_redis(record)
 
-            if record.cancel_event.is_set():
+            if record.cancel_event.is_set() or await run_registry.check_cancel(run_id):
                 await record.mark_cancelled()
                 cancelled_event = _cancelled_event(run_id, record)
                 record.events.append(cancelled_event)
                 yield _event(cancelled_event)
+                await run_registry.sync_to_redis(record)
                 await db.rollback()
                 return
 
@@ -238,6 +249,7 @@ async def stream_chat_run(
                     cancelled_event = _cancelled_event(run_id, record)
                     record.events.append(cancelled_event)
                     yield _event(cancelled_event)
+                    await run_registry.sync_to_redis(record)
                     await db.rollback()
                     return
                 await service.persist_answer(thread, record.accumulated_answer, mode, record.worker_results)
@@ -251,10 +263,12 @@ async def stream_chat_run(
                 references_event = {"type": "references", "references": record.references}
                 record.events.append(references_event)
                 yield _event(references_event)
+                await run_registry.sync_to_redis(record)
 
             completed_event = {"type": "completed", "runId": run_id, "status": "completed"}
             record.events.append(completed_event)
             yield _event(completed_event)
+            await run_registry.sync_to_redis(record)
 
         except Exception as exc:
             logger.exception("[ChatRouter] SSE stream 오류 run=%s", run_id)
@@ -262,6 +276,7 @@ async def stream_chat_run(
             failed_event = {"type": "failed", "runId": run_id, "error": str(exc)}
             record.events.append(failed_event)
             yield _event(failed_event)
+            await run_registry.sync_to_redis(record)
             await db.rollback()
 
     return StreamingResponse(

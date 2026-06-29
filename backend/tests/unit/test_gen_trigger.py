@@ -241,42 +241,42 @@ class MasterReportToMarkdownTests(unittest.TestCase):
 # 5. background.py 진행 상태 추적기 검증
 # ──────────────────────────────────────────────────────────────
 
-class BackgroundProgressTrackerTests(unittest.TestCase):
+class BackgroundProgressTrackerTests(unittest.IsolatedAsyncioTestCase):
     """is_generation_in_progress / _mark_in_progress / _mark_done 검증"""
 
     def setUp(self):
         """테스트 전 in-progress 집합을 초기화한다."""
         bg_module._DOCS_GENERATION_IN_PROGRESS.clear()
 
-    def test_not_in_progress_by_default(self):
+    async def test_not_in_progress_by_default(self):
         """마킹하지 않은 repo는 진행 중이 아니어야 한다."""
-        self.assertFalse(is_generation_in_progress(_REPO_ID))
+        self.assertFalse(await is_generation_in_progress(_REPO_ID))
 
-    def test_mark_in_progress_sets_flag(self):
+    async def test_mark_in_progress_sets_flag(self):
         """_mark_in_progress 호출 후 is_generation_in_progress는 True이어야 한다."""
-        _mark_in_progress(_REPO_ID)
-        self.assertTrue(is_generation_in_progress(_REPO_ID))
+        await _mark_in_progress(_REPO_ID)
+        self.assertTrue(await is_generation_in_progress(_REPO_ID))
 
-    def test_mark_done_clears_flag(self):
+    async def test_mark_done_clears_flag(self):
         """_mark_done 호출 후 is_generation_in_progress는 False이어야 한다."""
-        _mark_in_progress(_REPO_ID)
-        _mark_done(_REPO_ID)
-        self.assertFalse(is_generation_in_progress(_REPO_ID))
+        await _mark_in_progress(_REPO_ID)
+        await _mark_done(_REPO_ID)
+        self.assertFalse(await is_generation_in_progress(_REPO_ID))
 
-    def test_mark_done_idempotent(self):
+    async def test_mark_done_idempotent(self):
         """_mark_done은 마킹되지 않은 repo에 호출해도 예외가 없어야 한다."""
         other_id = uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
         try:
-            _mark_done(other_id)
+            await _mark_done(other_id)
         except Exception as exc:
             self.fail(f"_mark_done이 예외를 발생시켰습니다: {exc}")
 
-    def test_different_repos_tracked_independently(self):
+    async def test_different_repos_tracked_independently(self):
         """서로 다른 repo_id는 독립적으로 추적되어야 한다."""
         other_id = uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
-        _mark_in_progress(_REPO_ID)
-        self.assertTrue(is_generation_in_progress(_REPO_ID))
-        self.assertFalse(is_generation_in_progress(other_id))
+        await _mark_in_progress(_REPO_ID)
+        self.assertTrue(await is_generation_in_progress(_REPO_ID))
+        self.assertFalse(await is_generation_in_progress(other_id))
 
 
 # ──────────────────────────────────────────────────────────────
@@ -398,6 +398,100 @@ class ValidateAndQueueServiceTests(unittest.IsolatedAsyncioTestCase):
             bg = MagicMock()
             with self.assertRaises(AnalysisNotCompletedError):
                 await validate_and_queue_doc_generation(db, _REPO_ID, False, bg)
+
+    # ──────────────────────────────────────────────────────────────
+    # Issue #230 데드락 회귀 테스트:
+    # 락 획득 후 사전 검증 단계에서 예외가 발생해도, 백그라운드 작업이
+    # 등록되지 않으므로 락(_mark_done)이 반드시 해제되어야 한다.
+    # ──────────────────────────────────────────────────────────────
+    async def test_lock_released_when_already_exists(self):
+        """DocsAlreadyExistsError 발생 시 docs_gen 락이 해제되어야 한다 (데드락 방지)."""
+        from app.gen.service import validate_and_queue_doc_generation
+
+        with (
+            patch(
+                "app.gen.service.GenDocRepository.get_repo_by_id",
+                new=AsyncMock(return_value=self._make_analysis_job()),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.get_latest_version",
+                new=AsyncMock(return_value=1),
+            ),
+        ):
+            db = self._make_db()
+            bg = MagicMock()
+            with self.assertRaises(DocsAlreadyExistsError):
+                await validate_and_queue_doc_generation(db, _REPO_ID, False, bg)
+
+        ## 핵심 단언: 예외 후에도 진행 중 마킹이 남아있으면 안 된다.
+        self.assertFalse(await bg_module.is_generation_in_progress(_REPO_ID))
+
+    async def test_lock_released_when_analysis_not_completed(self):
+        """AnalysisNotCompletedError 발생 시 docs_gen 락이 해제되어야 한다 (데드락 방지)."""
+        from app.gen.service import validate_and_queue_doc_generation
+
+        with (
+            patch(
+                "app.gen.service.GenDocRepository.get_repo_by_id",
+                new=AsyncMock(return_value=self._make_analysis_job(status="IN_PROGRESS")),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.get_latest_version",
+                new=AsyncMock(return_value=0),
+            ),
+        ):
+            db = self._make_db()
+            bg = MagicMock()
+            with self.assertRaises(AnalysisNotCompletedError):
+                await validate_and_queue_doc_generation(db, _REPO_ID, False, bg)
+
+        self.assertFalse(await bg_module.is_generation_in_progress(_REPO_ID))
+
+    async def test_lock_released_when_add_task_fails(self):
+        """모든 검증 통과 후 add_task가 예외를 던져도 락이 해제되어야 한다."""
+        from app.gen.service import validate_and_queue_doc_generation
+
+        with (
+            patch(
+                "app.gen.service.GenDocRepository.get_repo_by_id",
+                new=AsyncMock(return_value=self._make_analysis_job()),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.get_latest_version",
+                new=AsyncMock(return_value=0),
+            ),
+            patch("app.gen.service.get_settings", return_value=MagicMock(CLONE_BASE_DIR="/tmp")),
+        ):
+            db = self._make_db()
+            bg = MagicMock()
+            bg.add_task = MagicMock(side_effect=RuntimeError("queue full"))
+            with self.assertRaises(RuntimeError):
+                await validate_and_queue_doc_generation(db, _REPO_ID, False, bg)
+
+        self.assertFalse(await bg_module.is_generation_in_progress(_REPO_ID))
+
+    async def test_lock_retained_on_success(self):
+        """검증 통과 시에는 락이 유지되어야 한다 (run_doc_generation이 해제 담당)."""
+        from app.gen.service import validate_and_queue_doc_generation
+
+        with (
+            patch(
+                "app.gen.service.GenDocRepository.get_repo_by_id",
+                new=AsyncMock(return_value=self._make_analysis_job()),
+            ),
+            patch(
+                "app.gen.service.GenDocRepository.get_latest_version",
+                new=AsyncMock(return_value=0),
+            ),
+            patch("app.gen.service.get_settings", return_value=MagicMock(CLONE_BASE_DIR="/tmp")),
+        ):
+            db = self._make_db()
+            bg = MagicMock()
+            bg.add_task = MagicMock()
+            await validate_and_queue_doc_generation(db, _REPO_ID, False, bg)
+
+        ## 성공 경로에서는 락이 남아있어야 한다 (백그라운드 작업이 finally로 해제).
+        self.assertTrue(await bg_module.is_generation_in_progress(_REPO_ID))
 
     async def test_success_returns_job_id_and_version(self):
         """모든 검증 통과 시 (job_id, next_version) 튜플을 반환해야 한다."""

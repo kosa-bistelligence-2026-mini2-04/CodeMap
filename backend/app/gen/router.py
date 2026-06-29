@@ -133,10 +133,10 @@ async def trigger_doc_generation(
 
     return DocTriggerResponse(
         data=DocTriggerData(
-            job_id=job_id,
-            repo_id=repo_id,
+            jobId=job_id,
+            repoId=repo_id,
             status="docs_queued",
-            estimated_minutes=2,
+            estimatedMinutes=2,
         )
     )
 
@@ -180,10 +180,12 @@ async def rebuild_doc(
 
     return DocRebuildResponse(
         data=DocRebuildData(
-            job_id=job_id,
-            repo_id=repo_id,
-            previous_version=previous_version,
-            new_version=new_version,
+            **{
+                "job_id": job_id,
+                "repo_id": repo_id,
+                "previous_version": previous_version,
+                "new_version": new_version,
+            }
         )
     )
 
@@ -276,8 +278,8 @@ async def save_doc(
 
     return DocSaveResponse(
         data=DocSaveData(
-            doc_id=doc.id,
-            repo_id=repo_id,
+            docId=doc.id,
+            repoId=repo_id,
             version=doc.version,
         )
     )

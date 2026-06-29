@@ -21,6 +21,7 @@ from app.infra.database import (
 # Import model classes to ensure they register on Base.metadata
 from app.embed.models import CodeNode, Dependency
 from app.gen.models import OnboardingDoc  # noqa: F401 — docs 테이블 Base 등록용
+from app.infra.redis import init_redis, close_redis
 
 from app.auth.router import router as auth_router
 from app.list.router import router as list_router
@@ -38,6 +39,7 @@ from app.team.router import invite_router as team_invite_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await init_redis()
     await open_checkpoint_pool()
 
     run_registry_sweeper = asyncio.create_task(sweep_run_registry())
@@ -53,6 +55,7 @@ async def lifespan(app: FastAPI):
         # 애플리케이션 종료 시 커넥션 풀 닫기
         await engine.dispose()
         await close_checkpoint_pool()
+        await close_redis()
 
 # ──────────────────────────────────────────────
 # FastAPI 앱 인스턴스 생성

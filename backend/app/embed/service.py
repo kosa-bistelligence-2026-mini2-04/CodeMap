@@ -73,7 +73,7 @@ async def _embed_batch(texts: list[str]) -> list[list[float]]:
     embedder = OpenAIEmbeddings(
         model=settings.EMBEDDING_MODEL,           # text-embedding-3-large
         dimensions=settings.EMBEDDING_DIMENSIONS, # 1536 (마트료시카 축소)
-        api_key=settings.OPENAI_API_KEY.get_secret_value(),
+        api_key=settings.OPENAI_API_KEY,
     )
     # LangChain의 aembed_documents는 비동기 배치 임베딩을 지원한다.
     return await embedder.aembed_documents(texts)

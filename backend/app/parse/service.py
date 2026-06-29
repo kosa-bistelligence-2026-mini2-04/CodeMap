@@ -102,11 +102,26 @@ async def run_parse_pipeline(
     run_command_details = await extract_run_command_details(files)
     
     tech_stack_details_raw = await detect_tech_stack_details(files)
-    tech_stack_details = [TechStackItem(**i) for i in tech_stack_details_raw]
+    tech_stack_details = [
+        TechStackItem(
+            name=str(item.get("name") or ""),
+            version=str(item["version"]) if item.get("version") is not None else None,
+            category=str(item.get("category") or "library"),
+            source=str(item["source"]) if item.get("source") is not None else None,
+        )
+        for item in tech_stack_details_raw
+    ]
     tech_stack = sorted(list({str(i.name) for i in tech_stack_details}))
 
     language_composition_raw = analyze_language_composition(files)
-    language_composition = [LanguageCompositionItem(**i) for i in language_composition_raw]
+    language_composition = [
+        LanguageCompositionItem(
+            language=str(item.get("language") or ""),
+            lines=int(item.get("lines") or 0),
+            percentage=float(item.get("percentage") or 0.0),
+        )
+        for item in language_composition_raw
+    ]
 
     files = await chunk_by_ast(files)
     files = await analyze_imports(files)

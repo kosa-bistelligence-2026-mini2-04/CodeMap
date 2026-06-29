@@ -21,6 +21,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Agent Run Management"])
 
 
+def _status_repo_id(status: dict) -> UUID | None:
+    try:
+        value = status.get("data", {}).get("repoId")
+        return UUID(str(value)) if value else None
+    except (TypeError, ValueError):
+        logger.warning("[AgentRouter] Redis Run 상태 repoId 파싱 실패")
+        return None
+
+
 # ──────────────────────────────────────────────
 # LLM-CHAT-API-003: Run 상태 및 State 요약 조회
 # ──────────────────────────────────────────────
@@ -32,10 +41,11 @@ async def get_run_status(
 ):
     """Run 실행 상태, node별 소요 시간, State 요약 조회."""
     logger.info("[AgentRouter] Run 상태 조회 — run_id=%s", run_id)
-    record = run_registry.get(run_id)
-    if not record or record.repo_id != repo_id:
+    status = await run_registry.get_status(run_id)
+    if not status or _status_repo_id(status) != repo_id:
         raise HTTPException(status_code=404, detail="Run not found")
-    return record.to_status_response()
+    status["data"].pop("repoId", None)
+    return status
 
 
 # ──────────────────────────────────────────────
@@ -49,20 +59,21 @@ async def cancel_run(
 ):
     """실행 중인 LangGraph/worker run 취소."""
     logger.info("[AgentRouter] Run 취소 요청 — run_id=%s", run_id)
-    record = run_registry.get(run_id)
-    if not record or record.repo_id != repo_id:
+    status = await run_registry.get_status(run_id)
+    if not status or _status_repo_id(status) != repo_id:
         raise HTTPException(status_code=404, detail="Run not found")
-    if record.is_terminal:
+    if status["data"]["status"] in ("completed", "failed", "cancelled"):
         raise HTTPException(status_code=409, detail="Run already finished")
 
-    await record.mark_cancelled()
+    await run_registry.request_cancel(run_id)
+    from datetime import datetime, timezone
     return {
         "code": 200,
         "message": "cancelled",
         "data": {
             "runId": run_id,
             "status": "cancelled",
-            "cancelledAt": record.completed_at_iso,
+            "cancelledAt": datetime.now(timezone.utc).isoformat(),
         },
     }
 
@@ -81,13 +92,17 @@ async def get_run_evidence(
 ):
     """Worker evidence 및 compact context 조회."""
     logger.info("[AgentRouter] Evidence 조회 — run_id=%s, worker=%s", run_id, worker)
-    record = run_registry.get(run_id)
-    if not record or record.repo_id != repo_id:
-        raise HTTPException(status_code=404, detail="Run not found")
-    if not record.worker_results:
+    evidence = await run_registry.get_evidence(run_id, include_raw_snippet, worker, limit)
+    if not evidence:
+        status = await run_registry.get_status(run_id)
+        if not status or _status_repo_id(status) != repo_id:
+            raise HTTPException(status_code=404, detail="Run not found")
         raise HTTPException(status_code=404, detail="Evidence not found")
-    return record.to_evidence_response(
-        include_raw_snippet=include_raw_snippet,
-        worker_filter=worker,
-        limit=limit,
-    )
+    if _status_repo_id(evidence) != repo_id:
+        raise HTTPException(status_code=404, detail="Run not found")
+    evidence.get("data", {}).pop("repoId", None)
+    
+    if not evidence.get("data", {}).get("evidence") and not evidence.get("data", {}).get("compactContext"):
+        raise HTTPException(status_code=404, detail="Evidence not found")
+        
+    return evidence

@@ -7,6 +7,7 @@ DOCS-GEN 내부 파이프라인(순서 1~6)을 LangGraph StateGraph로 오케스
 
 import logging
 import time
+from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
@@ -107,7 +108,7 @@ class GenFormSupervisor:
         self.work_flow = graph.compile()
         self.logger.info("문서 생성 파이프라인 워크플로우 컴파일 완료")
 
-    async def run(self, initial_state: GenFormState) -> GenFormState:
+    async def run(self, initial_state: GenFormState) -> Any:
         '''
         문서 생성 파이프라인 워크플로우를 실행한다.
 
