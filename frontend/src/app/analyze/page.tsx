@@ -179,7 +179,7 @@ function AnalyzeWorkspace() {
           )}
         </aside>
 
-        <section className={`min-w-0 flex-1 ${selectedFile ? "overflow-hidden" : "overflow-y-auto px-4 py-5 md:px-6 md:py-6"} ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
+        <section className={`min-w-0 flex-1 ${selectedFile ? "flex flex-col overflow-hidden" : "overflow-y-auto px-4 py-5 md:px-6 md:py-6"} ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
           {status === "idle" && (
             <div className="mx-auto flex min-h-full max-w-4xl items-center justify-center py-10">
               <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -230,7 +230,7 @@ function AnalyzeWorkspace() {
           )}
 
           {status === "completed" && report && (
-            <div className={`flex min-h-0 gap-0 ${selectedFile ? "h-full" : ""}`}>
+            <div className={`flex min-h-0 gap-0 ${selectedFile ? "flex-1" : ""}`}>
               <div className={`min-w-0 ${selectedFile ? "hidden xl:block xl:flex-1" : "flex-1"}`}>
                 <WorkspaceReport
                   report={report}
