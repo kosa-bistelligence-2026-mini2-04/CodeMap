@@ -128,6 +128,7 @@ async def validate_and_queue_doc_generation(
         AnalysisNotCompletedError (422)
     '''
     from app.gen.background import (
+        _mark_done,
         _mark_in_progress,
         is_generation_in_progress,
         run_doc_generation,
@@ -142,44 +143,55 @@ async def validate_and_queue_doc_generation(
         logger.warning("[DOCS-GEN-API-002] 저장소 없음 | repo_id=%s", repo_id)
         raise RepoNotFoundError()
 
-    ## 2. 가이드북 생성 중복 실행 검사
+    ## 2. 가이드북 생성 중복 실행 검사 (여기서 분산 락 획득)
+    ##    이 시점부터 백그라운드 작업(run_doc_generation)이 등록되기 전까지
+    ##    예외가 발생하면 락을 해제할 주체가 없어 docs_gen 락이 TTL(3600s)
+    ##    만료까지 남아 데드락이 발생한다. 따라서 락 획득 이후의 모든 검증/
+    ##    큐잉 로직을 try로 감싸 예외 발생 시 반드시 _mark_done()으로 락을
+    ##    해제한 뒤 예외를 재전파한다. (Issue #230 데드락 버그 수정)
     if not await _mark_in_progress(repo_id):
         logger.warning("[DOCS-GEN-API-002] 생성 진행 중 | repo_id=%s", repo_id)
         raise DocsGenerationInProgressError()
 
-    ## 3. 기존 문서 존재 여부 검사 (force=false 이면 409)
-    latest_version = await repo.get_latest_version(repo_id)
-    if latest_version > 0 and not force:
-        logger.warning(
-            "[DOCS-GEN-API-002] 이미 존재 | repo_id=%s version=%d",
-            repo_id, latest_version,
+    try:
+        ## 3. 기존 문서 존재 여부 검사 (force=false 이면 409)
+        latest_version = await repo.get_latest_version(repo_id)
+        if latest_version > 0 and not force:
+            logger.warning(
+                "[DOCS-GEN-API-002] 이미 존재 | repo_id=%s version=%d",
+                repo_id, latest_version,
+            )
+            raise DocsAlreadyExistsError()
+
+        ## 4. RAG 파이프라인 완료 여부 확인
+        if analysis_job.status != JobStatus.COMPLETED.value:
+            logger.warning(
+                "[DOCS-GEN-API-002] 분석 미완료 | repo_id=%s status=%s",
+                repo_id, analysis_job.status,
+            )
+            raise AnalysisNotCompletedError()
+
+        ## 5. 백그라운드 등록 전 동기적으로 진행 중 마킹하여 Race Condition 방지
+        ## (BackgroundTask 내부에서 마킹하면 HTTP 응답 반환 후에야 set에 추가되어,
+        ##  연속 요청 2건이 동시에 검사를 통과하는 경쟁 조건이 발생함)
+        next_version = latest_version + 1
+        clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}/repo"
+
+        background_tasks.add_task(
+            run_doc_generation,
+            repo_id=repo_id,
+            job_id=analysis_job.id,
+            analysis_report=analysis_job.report_json or {},
+            repo_name=analysis_job.repo_name,
+            version=next_version,
+            clone_path=clone_path,
+            model=model,
         )
-        raise DocsAlreadyExistsError()
-
-    ## 4. RAG 파이프라인 완료 여부 확인
-    if analysis_job.status != JobStatus.COMPLETED.value:
-        logger.warning(
-            "[DOCS-GEN-API-002] 분석 미완료 | repo_id=%s status=%s",
-            repo_id, analysis_job.status,
-        )
-        raise AnalysisNotCompletedError()
-
-    ## 5. 백그라운드 등록 전 동기적으로 진행 중 마킹하여 Race Condition 방지
-    ## (BackgroundTask 내부에서 마킹하면 HTTP 응답 반환 후에야 set에 추가되어,
-    ##  연속 요청 2건이 동시에 검사를 통과하는 경쟁 조건이 발생함)
-    next_version = latest_version + 1
-    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}/repo"
-
-    background_tasks.add_task(
-        run_doc_generation,
-        repo_id=repo_id,
-        job_id=analysis_job.id,
-        analysis_report=analysis_job.report_json or {},
-        repo_name=analysis_job.repo_name,
-        version=next_version,
-        clone_path=clone_path,
-        model=model,
-    )
+    except Exception:
+        ## 백그라운드 작업 등록 실패 → run_doc_generation의 finally가 실행되지
+        ## 않으므로 여기서 락을 직접 해제하여 영구 데드락을 방지한다.
+        await _mark_done(repo_id)
+        raise
 
     logger.info(
         "[DOCS-GEN-API-002] 큐잉 완료 | repo_id=%s version=%d", repo_id, next_version
