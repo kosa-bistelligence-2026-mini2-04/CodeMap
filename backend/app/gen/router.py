@@ -1,11 +1,12 @@
 """
-DOCS-GEN API 라우터 (DOCS-GEN-API-001~005)
+DOCS-GEN API 라우터 (DOCS-GEN-API-001~006)
 
 GET  /api/gen/docs/{repo_id}          — 온보딩 가이드북 조회 (API-001)
 POST /api/gen/docs/{repo_id}          — 가이드북 생성 트리거 (API-002)
 PUT  /api/gen/docs/{repo_id}          — 가이드북 재생성 (API-003)
 GET  /api/gen/docs/{repo_id}/download — 가이드북 파일 다운로드 (API-004)
 POST /api/gen/docs/{repo_id}/save     — Markdown DB 저장 (API-005, 내부용)
+GET  /api/gen/docs/{repo_id}/tasks    — 추천 작업 조회 (API-006, B-208)
 """
 
 import logging
@@ -30,6 +31,7 @@ from app.gen.schemas import (
     DocSaveRequest,
     DocSaveData,
     DocSaveResponse,
+    DocTaskResponse,
     DocTriggerRequest,
     DocTriggerData,
     DocTriggerResponse,
@@ -37,6 +39,7 @@ from app.gen.schemas import (
 from app.gen.service import (
     get_doc_download_content,
     get_onboarding_doc,
+    get_recommended_tasks,
     rebuild_onboarding_doc,
     save_onboarding_doc,
     validate_and_queue_doc_generation,
@@ -356,3 +359,27 @@ async def guard_doc(
             ],
         )
     )
+
+
+# ──────────────────────────────────────────────
+# DOCS-GEN-API-006: 추천 작업 조회 (B-208)
+# ──────────────────────────────────────────────
+@router.get(
+    "/{repo_id}/tasks",
+    status_code=status.HTTP_200_OK,
+    response_model=DocTaskResponse,
+    summary="추천 작업 조회 (DOCS-GEN-API-006)",
+)
+async def get_tasks(
+    repo_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> DocTaskResponse:
+    '''
+    가이드북 파이프라인(B-202)이 생성한 첫 기여 추천 작업 목록을 반환한다.
+
+    에러 응답:
+    - 404 REPO_NOT_FOUND: 저장소 없음
+    - 404 DOCS_NOT_FOUND: 가이드북 미생성
+    '''
+    task_data = await get_recommended_tasks(db=db, repo_id=repo_id)
+    return DocTaskResponse(data=task_data)

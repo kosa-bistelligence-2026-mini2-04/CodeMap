@@ -251,4 +251,10 @@ JSON → Markdown / HTML → PDF 다운로드 버튼 제공. 생성된 문서를
 
 GitHub issue 추천. 신규 팀원에게 다음 행동 제안. 코드베이스 분석 결과를 기반으로 첫 기여 가능한 이슈 또는 작업을 자동 추천.
 
+**구현 노트**
+
+- 가이드북 생성 파이프라인(B-202)이 만든 `guide.first_tasks`를 정규화하여 반환
+- `GET /api/gen/docs/{repo_id}/tasks` (DOCS-GEN-API-006)
+- 가이드북이 없으면 404 DOCS_NOT_FOUND 반환
+
 
