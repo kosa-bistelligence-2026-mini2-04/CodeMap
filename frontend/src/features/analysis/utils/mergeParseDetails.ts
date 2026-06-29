@@ -18,7 +18,7 @@ export function mergeParseDetails(
     name: fileName(item.path),
     language: item.language || "Unknown",
     lines: item.lines || 0,
-    size: item.size || 0,
+    bytes: item.bytes || 0,
     kind: /test|spec/.test(item.path.toLowerCase()) ? "test" : "source",
   }));
   const riskFiles = [...details.codemap.heatmap]

@@ -123,7 +123,7 @@ class FileMapItem(BaseModel):
     language: str | None = Field(default=None, description="프로그래밍 언어")
     chunk_count: int = Field(default=0, ge=0, description="AST 청크 수")
     lines: int = Field(default=0, ge=0, description="전체 라인 수")
-    size: int = Field(default=0, ge=0, description="파일 크기(bytes)")
+    bytes: int = Field(default=0, ge=0, description="파일 크기(bytes)")
     imports: list[str] = Field(default_factory=list, description="이 파일이 참조하는 파일 경로 목록")
     imported_by: list[str] = Field(default_factory=list, description="이 파일을 참조하는 파일 경로 목록")
     risk_score: int | None = Field(default=None, description="위험도 점수 (0-100)")

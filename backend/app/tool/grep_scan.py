@@ -59,3 +59,30 @@ def grep_repository_path(clone_path: str, rel_path: str | None, pattern: str) ->
         return f"정규식 오류: {exc}"
 
     return "\n".join(matches) or "(결과 없음)"
+
+
+# ──────────────────────────────────────────────
+# count_todo_annotations
+# ──────────────────────────────────────────────
+def count_todo_annotations(file_paths: list[Path]) -> dict:
+    '''
+    제시된 파일 리스트 내의 TODO/FIXME/HACK 주석 개수를 집계합니다.
+    '''
+    todo_re = re.compile(
+        r"\b(?:TODO|FIXME|HACK)\b", re.IGNORECASE
+    )
+    total_count = 0
+
+    for path in file_paths:
+        try:
+            raw_bytes = path.read_bytes()[:160_000]
+            if b"\x00" in raw_bytes:
+                continue
+            text = raw_bytes.decode("utf-8", errors="replace")
+        except OSError:
+            continue
+
+        matches = todo_re.findall(text)
+        total_count += len(matches)
+
+    return {"total_todos": total_count}

@@ -107,7 +107,8 @@ export interface WorkspaceFile {
   name: string;
   language: string;
   lines: number;
-  size: number;
+  bytes: number;
+  chars?: number;
   kind: 'source' | 'test';
 }
 
@@ -167,7 +168,7 @@ export interface ParseFileMapItem {
   language: string | null;
   chunkCount: number;
   lines: number;
-  size: number;
+  bytes: number;
   imports: string[];
   importedBy: string[];
   riskScore: number | null;
@@ -335,7 +336,7 @@ export interface ReportJsonResponse {
   file_heatmap?: FileHeatmap | null;
   guardrail_telemetry?: GuardrailTelemetry | null;
   agent_durations?: Record<string, number>;
-  executive_summary?: string | null;
+  executive_summary: string | null;
   health_score?: number | null;
   key_strengths?: string[];
   key_risks?: string[];

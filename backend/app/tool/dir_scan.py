@@ -33,3 +33,44 @@ def scan_directory_tree(clone_path: str, rel_path: str | None) -> str:
         return f"탐색 실패: {exc}"
 
     return "\n".join(lines)
+
+
+# ──────────────────────────────────────────────
+# list_repository_files
+# ──────────────────────────────────────────────
+def list_repository_files(cwd: Path, limit: int = 1200) -> list[Path]:
+    '''
+    저장소 CWD를 순회하여 분석 대상이 되는 소스 파일들의 경로 리스트를 반환합니다.
+    '''
+    root = cwd.resolve()
+    if not root.exists():
+        return []
+
+    ignored_dirs = {
+        ".git", ".next", ".turbo", ".venv", "venv", "node_modules",
+        "dist", "build", "coverage", "__pycache__", ".idea", ".vscode",
+    }
+
+    file_paths: list[Path] = []
+    count = 0
+
+    for path in root.rglob("*"):
+        if count >= limit:
+            break
+        if path.is_symlink():
+            continue
+        if not path.is_file():
+            continue
+        if any(part in ignored_dirs for part in path.parts):
+            continue
+
+        ## workspace 탈출 검증 (보안 가드)
+        try:
+            path.resolve().relative_to(root)
+        except ValueError:
+            continue
+
+        file_paths.append(path)
+        count += 1
+
+    return file_paths
