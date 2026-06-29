@@ -30,6 +30,11 @@ TEXT_SUFFIXES = set(LANGUAGE_BY_SUFFIX) | {
     ".toml", ".ini", ".cfg", ".conf", ".xml", ".html", ".css", ".scss",
     ".env.example", ".properties", ".gradle",
 }
+CODE_SUFFIXES = {
+    ".py", ".ts", ".tsx", ".js", ".jsx", ".java", ".kt", ".go", ".rs",
+    ".rb", ".php", ".cs", ".c", ".h", ".cpp", ".hpp", ".swift", ".vue",
+    ".svelte", ".sql", ".sh",
+}
 ENTRYPOINT_NAMES = {
     "main.py", "app.py", "manage.py", "main.ts", "main.tsx", "index.ts",
     "index.tsx", "app.tsx", "page.tsx", "server.ts", "server.js", "main.go",
@@ -43,6 +48,20 @@ STACK_SIGNALS = {
     "docker-compose.yml": "Docker", "docker-compose.yaml": "Docker",
 }
 TOKEN_RE = re.compile(r"[\w][\w./-]{1,}", re.UNICODE)
+
+
+def _normalized_code_lines(text: str) -> list[str]:
+    lines: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if len(stripped) < 16:
+            continue
+        if stripped.startswith(("#", "//", "/*", "*", "--")):
+            continue
+        if stripped.startswith(("import ", "from ")):
+            continue
+        lines.append(re.sub(r"\s+", " ", stripped))
+    return lines
 
 
 def _iter_files(root: Path, limit: int = 1200):
@@ -97,6 +116,8 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
     total_bytes = 0
     test_files = 0
     oversized: list[str] = []
+    code_line_files: dict[str, set[str]] = {}
+    significant_code_lines = 0
 
     for path in _iter_files(root):
         relative = path.relative_to(root).as_posix()
@@ -117,6 +138,12 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
         if path.name in STACK_SIGNALS:
             stack.add(STACK_SIGNALS[path.name])
 
+        if path.suffix.lower() in CODE_SUFFIXES:
+            normalized_lines = _normalized_code_lines(text)
+            significant_code_lines += len(normalized_lines)
+            for normalized_line in set(normalized_lines):
+                code_line_files.setdefault(normalized_line, set()).add(relative)
+
         files.append({
             "path": relative,
             "name": path.name,
@@ -128,17 +155,36 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
 
     primary_language = languages.most_common(1)[0][0] if languages else "Unknown"
     test_ratio = test_files / max(len(files), 1)
-    # [TODO] 건강도(Health Score) 산정 로직 재정의 논의 필요
-    # 현재는 단순 감점(파일 누락, 파일 크기, TODO 개수) 방식으로 하드코딩 되어 있습니다.
-    # 향후 `보안`, `코드품질`, `모듈화`, `테스트 커버리지` 등 다차원 레이더 차트를 위한 지표로 세분화해야 합니다.
-    health_score = 84
-    if test_ratio < 0.05:
-        health_score -= 10
-    if oversized:
-        health_score -= min(8, len(oversized) * 2)
-    if todo_count > 20:
-        health_score -= 5
-    health_score = max(35, min(96, health_score))
+    total = max(1, len(files))
+    test_ratio = test_files / total
+    todo_ratio = todo_count / total
+    oversized_ratio = len(oversized) / total
+    duplicate_code_lines = sum(
+        len(paths) - 1
+        for paths in code_line_files.values()
+        if len(paths) > 1
+    )
+    duplicate_code_ratio = duplicate_code_lines / max(significant_code_lines, 1)
+    duplicate_files = sorted({
+        path
+        for paths in code_line_files.values()
+        if len(paths) > 1
+        for path in paths
+    })
+
+    score = 100
+    score -= min(30, int(oversized_ratio * 100))
+    score -= min(20, int(todo_ratio * 50))
+    score -= min(25, int(duplicate_code_ratio * 100))
+
+    health_score = max(35, min(100, score))
+    health_metrics = {
+        "score": health_score,
+        "test_ratio": round(test_ratio, 3),
+        "todo_ratio": round(todo_ratio, 3),
+        "oversized_ratio": round(oversized_ratio, 3),
+        "duplicate_code_ratio": round(duplicate_code_ratio, 3),
+    }
 
     strengths = [
         f"{len(files):,}개 텍스트 파일과 {total_lines:,}줄을 실제 저장소 스냅샷에서 확인했습니다.",
@@ -146,25 +192,25 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
     ]
     if stack:
         strengths.append(f"{', '.join(sorted(stack))} 기반의 실행 구성이 명확하게 감지됩니다.")
-    if test_ratio >= 0.08:
-        strengths.append(f"테스트 관련 파일 {test_files}개가 있어 변경 검증 기반이 마련되어 있습니다.")
+    if duplicate_code_ratio < 0.03:
+        strengths.append("중복 코드 신호가 낮아 공통 로직 재사용 상태가 양호합니다.")
 
     risks: list[str] = []
-    if test_ratio < 0.05:
-        risks.append("감지된 테스트 파일 비율이 낮아 핵심 흐름의 회귀 테스트 범위를 확인해야 합니다.")
     if oversized:
         risks.append(f"700줄을 넘는 대형 파일 {len(oversized)}개가 있어 책임 분리 검토가 필요합니다.")
     if todo_count:
         risks.append(f"TODO/FIXME/HACK 표식 {todo_count}개가 남아 있어 기술 부채 우선순위를 정해야 합니다.")
+    if duplicate_code_ratio >= 0.08:
+        risks.append("여러 파일에 반복되는 코드 패턴이 감지되어 공통 모듈 추출 검토가 필요합니다.")
     if not risks:
         risks.append("정적 구조상 즉시 드러나는 고위험 신호는 적지만 런타임·권한 경계 검증은 별도로 필요합니다.")
 
     recommendations = []
-    if test_ratio < 0.05:
+    if duplicate_code_ratio >= 0.08:
         recommendations.append({
-            "title": "핵심 사용자 흐름에 회귀 테스트 추가",
-            "detail": "진입점과 API 경계를 중심으로 최소 통합 테스트를 먼저 추가하세요.",
-            "affected_files": entrypoints[:4], "priority": "high",
+            "title": "반복 코드 공통화",
+            "detail": "여러 파일에 반복되는 구현 패턴을 공통 함수나 모듈로 추출하세요.",
+            "affected_files": duplicate_files[:5], "priority": "high",
         })
     if oversized:
         recommendations.append({
@@ -193,6 +239,7 @@ def scan_repository(root_path: str, repo_name: str) -> dict[str, Union[str, int,
         "entrypoints": entrypoints[:12],
         "files": files,
         "health_score": health_score,
+        "health_metrics": health_metrics,
         "executive_summary": (
             f"{repo_name}은(는) {primary_language} 중심의 코드베이스입니다. "
             f"실제 파일 구조, 진입점, 구성 파일과 유지보수 신호를 기준으로 분석했습니다."

@@ -1,8 +1,9 @@
 """
-DOCS-GEN API 라우터 (DOCS-GEN-API-001, 002, 005)
+DOCS-GEN API 라우터 (DOCS-GEN-API-001, 002, 003, 005)
 
 GET  /api/gen/docs/{repo_id}      — 온보딩 가이드북 조회 (API-001)
 POST /api/gen/docs/{repo_id}      — 가이드북 생성 트리거 (API-002)
+PUT  /api/gen/docs/{repo_id}      — 가이드북 재생성 (API-003)
 POST /api/gen/docs/{repo_id}/save — Markdown DB 저장 (API-005, 내부용)
 """
 
@@ -16,6 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.gen.schemas import (
     DocGetMarkdownResponse,
     DocGetJsonResponse,
+    DocRebuildRequest,
+    DocRebuildData,
+    DocRebuildResponse,
     DocSaveRequest,
     DocSaveData,
     DocSaveResponse,
@@ -25,6 +29,7 @@ from app.gen.schemas import (
 )
 from app.gen.service import (
     get_onboarding_doc,
+    rebuild_onboarding_doc,
     save_onboarding_doc,
     validate_and_queue_doc_generation,
 )
@@ -127,6 +132,53 @@ async def trigger_doc_generation(
             repoId=repo_id,
             status="docs_queued",
             estimatedMinutes=2,
+        )
+    )
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-003: 가이드북 재생성
+# ──────────────────────────────────────────────────────────────
+@router.put(
+    "/{repo_id}",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=DocRebuildResponse,
+    summary="온보딩 가이드북 재생성 (DOCS-GEN-API-003)",
+)
+async def rebuild_doc(
+    repo_id: UUID,
+    body: DocRebuildRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> DocRebuildResponse:
+    '''
+    기존 온보딩 가이드북을 소프트 삭제한 뒤 재생성 파이프라인을 시작한다.
+
+    즉시 202를 반환하고, 실제 재생성 작업은 BackgroundTasks로 비동기 실행한다.
+
+    에러 응답:
+    - 404 REPO_NOT_FOUND:  저장소 없음
+    - 404 DOCS_NOT_FOUND:  재생성할 기존 가이드북이 없음
+    '''
+    job_id, previous_version, new_version = await rebuild_onboarding_doc(
+        db=db,
+        repo_id=repo_id,
+        background_tasks=background_tasks,
+        model=body.model,
+        reason=body.reason,
+    )
+
+    logger.info(
+        "[DOCS-GEN-API-003] 재생성 시작 | repo_id=%s job_id=%s prev=%d new=%d",
+        repo_id, job_id, previous_version, new_version,
+    )
+
+    return DocRebuildResponse(
+        data=DocRebuildData(
+            job_id=job_id,
+            repo_id=repo_id,
+            previous_version=previous_version,
+            new_version=new_version,
         )
     )
 

@@ -394,15 +394,13 @@ class TestFileContentEncodingFallback(unittest.TestCase):
 
 
 class TestFileContentAccessControl(unittest.TestCase):
-    """private/team 격리 회귀 방지: 엔드포인트가 current_user_id를 get_job_status에 전달해야 한다.
-      owner 토큰 → 200 / 비소유자 → 404 / 익명 → 404 JOB_NOT_FOUND
-    """
+    """private/team 파일 조회가 job 소유자 기준 권한 검사를 거치는지 검증한다."""
 
     @staticmethod
     def _mock_job_status_access(owner_id: UUID):
         from app.common.exceptions import JobNotFoundError
 
-        def _fake_get_job_status(job_id, current_user_id=None):
+        async def _fake_get_job_status(job_id, current_user_id=None):
             if current_user_id == owner_id:
                 return MagicMock()
             raise JobNotFoundError()
@@ -411,7 +409,8 @@ class TestFileContentAccessControl(unittest.TestCase):
         mock_svc.get_job_status = AsyncMock(side_effect=_fake_get_job_status)
         return patch("app.repo.router.AnalysisService", return_value=mock_svc)
 
-    def _request(self, tmpdir: str, current_user: dict | None):
+    @staticmethod
+    def _request_file(tmpdir: str, current_user: dict | None):
         from app.infra.auth import get_current_user_optional
 
         workspace = Path(tmpdir) / _JOB_ID_STR / "repo" / "src"
@@ -421,33 +420,43 @@ class TestFileContentAccessControl(unittest.TestCase):
         app, settings_patcher = _make_app(tmpdir)
         app.dependency_overrides[get_current_user_optional] = lambda: current_user
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.get(
-            f"/api/repo/analysis/{_JOB_ID_STR}/files/content",
-            params={"path": "src/main.py"},
-        )
-        settings_patcher.stop()
-        return resp
 
-    def test_owner_token_returns_200(self):
-        owner = uuid4()
+        try:
+            return client.get(
+                f"/api/repo/analysis/{_JOB_ID_STR}/files/content",
+                params={"path": "src/main.py"},
+            )
+        finally:
+            settings_patcher.stop()
+
+    def test_owner_token_can_read_file(self):
+        owner_id = uuid4()
+
         with tempfile.TemporaryDirectory() as tmpdir:
-            with self._mock_job_status_access(owner):
-                resp = self._request(tmpdir, {"sub": str(owner)})
+            with self._mock_job_status_access(owner_id):
+                resp = self._request_file(tmpdir, {"sub": str(owner_id)})
+
         self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["data"]["content"], "print('hi')\n")
 
-    def test_non_owner_token_returns_404(self):
-        owner, other = uuid4(), uuid4()
+    def test_non_owner_token_is_denied(self):
+        owner_id = uuid4()
+        other_id = uuid4()
+
         with tempfile.TemporaryDirectory() as tmpdir:
-            with self._mock_job_status_access(owner):
-                resp = self._request(tmpdir, {"sub": str(other)})
+            with self._mock_job_status_access(owner_id):
+                resp = self._request_file(tmpdir, {"sub": str(other_id)})
+
         self.assertEqual(resp.status_code, 404)
         self.assertEqual(resp.json()["error"]["code"], "JOB_NOT_FOUND")
 
-    def test_anonymous_returns_404(self):
-        owner = uuid4()
+    def test_anonymous_user_is_denied(self):
+        owner_id = uuid4()
+
         with tempfile.TemporaryDirectory() as tmpdir:
-            with self._mock_job_status_access(owner):
-                resp = self._request(tmpdir, None)
+            with self._mock_job_status_access(owner_id):
+                resp = self._request_file(tmpdir, None)
+
         self.assertEqual(resp.status_code, 404)
         self.assertEqual(resp.json()["error"]["code"], "JOB_NOT_FOUND")
 

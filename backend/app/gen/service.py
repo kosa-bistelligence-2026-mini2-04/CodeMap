@@ -1,9 +1,10 @@
 """
-DOCS-GEN 서비스 계층 (DOCS-GEN-B-301, DOCS-GEN-API-001, 002)
+DOCS-GEN 서비스 계층 (DOCS-GEN-B-301, DOCS-GEN-API-001, 002, 003)
 
 - save_onboarding_doc: 생성된 Markdown을 DB에 저장 (B-301)
 - get_onboarding_doc: 저장된 가이드북 조회 (API-001)
 - validate_and_queue_doc_generation: 가이드북 생성 사전 검증 (API-002)
+- rebuild_onboarding_doc: 기존 문서 소프트 삭제 후 재생성 큐잉 (API-003)
 """
 
 import logging
@@ -387,3 +388,99 @@ async def validate_and_queue_doc_generation(
         "[DOCS-GEN-API-002] 큐잉 완료 | repo_id=%s version=%d", repo_id, next_version
     )
     return analysis_job.id, next_version
+
+
+# ──────────────────────────────────────────────────────────────
+# DOCS-GEN-API-003: 가이드북 재생성 (B-207)
+# ──────────────────────────────────────────────────────────────
+async def rebuild_onboarding_doc(
+    db: AsyncSession,
+    repo_id: UUID,
+    background_tasks: BackgroundTasks,
+    model: str = "gpt-4o-mini",
+    reason: str | None = None,
+) -> tuple[UUID, int, int]:
+    '''
+    기존 온보딩 가이드북을 소프트 삭제한 뒤 최신 분석 기반으로 재생성을 큐잉한다.
+
+    DOCS-GEN-B-207 구현:
+      1. repo_id 존재 여부 확인 (404 REPO_NOT_FOUND)
+      2. 활성 문서 조회 → 없으면 404 DOCS_NOT_FOUND
+      3. 활성 문서 소프트 삭제 (is_active=False)
+      4. BackgroundTask로 재생성 파이프라인 큐잉
+      5. (job_id, previous_version, new_version) 반환
+
+    Args:
+        db:               AsyncSession
+        repo_id:          대상 저장소 ID
+        background_tasks: FastAPI BackgroundTasks 인스턴스
+        model:            LLM 모델명 (기본: "gpt-4o-mini")
+        reason:           재생성 요청 사유 (로그용, 선택)
+
+    Returns:
+        (job_id, previous_version, new_version) 튜플
+
+    Raises:
+        RepoNotFoundError (404):  저장소가 없을 때
+        DocsNotFoundError (404):  재생성할 기존 가이드북이 없을 때
+    '''
+    from app.gen.background import run_doc_generation
+
+    repo = GenDocRepository(db)
+    settings = get_settings()
+
+    ## 1. 저장소 존재 여부 확인
+    analysis_job = await repo.get_repo_by_id(repo_id)
+    if analysis_job is None:
+        logger.warning("[DOCS-GEN-API-003] 저장소 없음 | repo_id=%s", repo_id)
+        raise RepoNotFoundError()
+
+    ## 2. 재생성 대상 활성 문서 조회
+    active_doc = await repo.get_active_by_repo_id(repo_id)
+    if active_doc is None:
+        logger.warning("[DOCS-GEN-API-003] 재생성 대상 없음 | repo_id=%s", repo_id)
+        raise DocsNotFoundError("재생성할 온보딩 가이드북이 아직 생성되지 않았습니다.")
+
+    previous_version = active_doc.version
+    new_version = previous_version + 1
+
+    ## 3. 기존 활성 문서 소프트 삭제
+    try:
+        await repo.soft_delete_active_docs(repo_id)
+        await db.commit()
+        logger.info(
+            "[DOCS-GEN-API-003] 소프트 삭제 완료 | repo_id=%s version=%d",
+            repo_id, previous_version,
+        )
+    except Exception as exc:
+        await db.rollback()
+        logger.exception(
+            "[DOCS-GEN-API-003] 소프트 삭제 실패 | repo_id=%s: %s", repo_id, exc
+        )
+        raise DatabaseSaveFailedError() from exc
+
+    ## 4. 재생성 백그라운드 작업 등록
+    ## 프로젝트 표준 클론 경로: {CLONE_BASE_DIR}/{repo_id}/repo
+    clone_path = f"{settings.CLONE_BASE_DIR}/{repo_id}/repo"
+    if reason:
+        logger.info(
+            "[DOCS-GEN-API-003] 재생성 사유 | repo_id=%s reason=%s",
+            repo_id, reason,
+        )
+
+    background_tasks.add_task(
+        run_doc_generation,
+        repo_id=repo_id,
+        job_id=analysis_job.id,
+        analysis_report=analysis_job.report_json or {},
+        repo_name=analysis_job.repo_name,
+        version=new_version,
+        clone_path=clone_path,
+        model=model,
+    )
+
+    logger.info(
+        "[DOCS-GEN-API-003] 재생성 큐잉 완료 | repo_id=%s prev=%d new=%d",
+        repo_id, previous_version, new_version,
+    )
+    return analysis_job.id, previous_version, new_version

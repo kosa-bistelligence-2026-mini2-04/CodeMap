@@ -45,9 +45,14 @@ tenacity>=8.0.0
 # pytest-asyncio는 불필요하다.
 pytest>=8.0.0
 
+# [TEST] sqlite+aiosqlite in-memory 엔진 (통합 테스트 test_team_isolation_http.py)
+aiosqlite>=0.19.0
+
 # ── AUTH (JWT 인증) ──
 # [PROJECT-AUTH] JWT 토큰 생성/검증 (HS256)
 python-jose[cryptography]>=3.3.0
 
 # [PROJECT-AUTH] 비밀번호 bcrypt 해싱
 bcrypt>=4.0.1
+langgraph-checkpoint-postgres>=2.0.0
+psycopg[binary]>=3.1.0
