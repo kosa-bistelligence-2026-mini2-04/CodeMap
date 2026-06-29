@@ -49,14 +49,14 @@ jobs:
           script: |
             echo "1. 새 이미지를 도커 허브에서 다운로드합니다."
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
-            
+
             echo "2. 기존에 돌아가던 백엔드 컨테이너를 중지하고 삭제합니다."
             sudo docker rm -f backend_app || true
-            
+
             echo "3. 새 버전의 이미지로 컨테이너를 다시 실행합니다."
             cd ~/CodeMap/backend
-            sudo docker run -d -p 8080:8080 --name backend_app --env-file .env ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
-            
+            sudo docker run -d -p 8080:8000 --name backend_app --env-file .env ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
+
             echo "4. 불필요한 옛날 도커 찌꺼기들을 청소합니다."
             sudo docker image prune -f
             
