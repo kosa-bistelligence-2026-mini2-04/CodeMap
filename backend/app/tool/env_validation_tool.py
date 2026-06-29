@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import re
+import regex as re
 
 
 def calculate_env_validation(clone_path: str, rel_path: str | None = None) -> dict[str, int]:
@@ -29,13 +29,17 @@ def calculate_env_validation(clone_path: str, rel_path: str | None = None) -> di
     hardcoded_secrets_penalty = 0
 
     secret_pattern = re.compile(r"(?i)(password|secret|api[_\-]?key|token)\s*[:=]\s*['\"][^'\"]+['\"]")
+    EXCLUDE_DIRS = {"venv", ".venv", "node_modules", ".git", "__pycache__"}
 
     for file_path in candidates:
         if not file_path.is_file():
             continue
         
-        name = file_path.name.lower()
         parts = file_path.parts
+        if any(part in EXCLUDE_DIRS for part in parts):
+            continue
+        
+        name = file_path.name.lower()
 
         if "dockerfile" in name or name in ("docker-compose.yml", "docker-compose.yaml"):
             has_docker = True
@@ -52,12 +56,19 @@ def calculate_env_validation(clone_path: str, rel_path: str | None = None) -> di
         if name in ("package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "pipfile.lock", "gemfile.lock"):
             has_dependency_lock = True
 
-        # Check for hardcoded secrets
+        # Check for hardcoded secrets (with length limit and regex timeout)
         if file_path.suffix in (".py", ".js", ".ts", ".json", ".yml", ".yaml"):
             try:
                 text = file_path.read_text(encoding="utf-8", errors="ignore")
-                if secret_pattern.search(text):
-                    hardcoded_secrets_penalty += 10
+                # Maximum 1MB limit for reading text to prevent memory issues
+                if len(text) > 1024 * 1024:
+                    text = text[:1024 * 1024]
+                try:
+                    if secret_pattern.search(text, timeout=0.1):
+                        hardcoded_secrets_penalty += 10
+                except TimeoutError:
+                    pass
+
             except Exception:
                 pass
 
