@@ -88,17 +88,21 @@ export function ChatInterface({
   const userScrollIntentRef = useRef(false);
   const [userPausedScroll, setUserPausedScroll] = useState(false);
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
+  const [prevRepoId, setPrevRepoId] = useState<string | null>(repoId);
+
+  // 컴포넌트 렌더링 중에 repoId 변경을 감지하고 상태를 즉시 초기화하여
+  // 하단의 localStorage 저장 useEffect가 이전 repo의 메시지를 새 repo에 저장(누수)하는 것을 원천 차단합니다.
+  if (repoId !== prevRepoId) {
+    setPrevRepoId(repoId);
+    setMessages([]);
+    setActiveThreadId(threadId || null);
+  }
 
   useEffect(() => {
     if (!repoId) return;
     let cancelled = false;
     
     const hydrate = async () => {
-      if (!cancelled) {
-        // 다른 분석 프로젝트로 전환 시 이전 채팅 상태 누수 방지
-        setMessages([]);
-        setActiveThreadId(threadId || null);
-      }
 
       if (threadId && !preview) {
         const stored = await fetchThread(repoId, threadId);
