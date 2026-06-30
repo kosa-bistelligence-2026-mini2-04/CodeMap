@@ -158,7 +158,9 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = ""
 
     # ── [PROJECT-AUTH] JWT 인증 설정 ──────────────────────────────────────────
-    # 서명 키: 운영 환경에서는 반드시 충분히 긴 랜덤 문자열로 교체할 것
+    # 서명 키 파일 경로 (.env 와 동일 폴더 위치의 숨김 파일)
+    JWT_SECRET_KEY_PATH: str = ".jwt_secret_key"
+    # 서명 키: 운영 환경에서는 반드시 충분히 긴 랜덤 문자열로 교체할 것 (키 파일 부재 시 폴백용)
     JWT_SECRET: str = "change-me-in-production-use-long-random-string"
     # 서명 알고리즘 (HS256 고정)
     JWT_ALGORITHM: str = "HS256"
@@ -175,6 +177,23 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }
+
+    @model_validator(mode="after")
+    def load_secret_from_file(self) -> "Settings":
+        """JWT_SECRET_KEY_PATH 지정 파일이 존재할 경우 파일 내용으로 JWT_SECRET을 덮어씁니다."""
+        path = self.JWT_SECRET_KEY_PATH
+        if not os.path.isabs(path):
+            path = os.path.join(backend_dir, path)
+        
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    key_content = f.read().strip()
+                    if key_content:
+                        self.JWT_SECRET = key_content
+            except Exception as e:
+                print(f"[Warning] Failed to read JWT secret key file from {path}: {e}")
+        return self
 
 
     # ──────────────────────────────────────────────

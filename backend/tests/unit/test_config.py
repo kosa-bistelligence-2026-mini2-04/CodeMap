@@ -51,6 +51,34 @@ class TestConfigFallback(unittest.TestCase):
             "postgresql://user:pass@localhost:5432/db",
         )
 
+    def test_settings_loads_jwt_secret_from_file(self):
+        """설정된 키 파일 경로가 실재할 때 파일 내용으로 JWT_SECRET이 정상 덮어써지는지 검증합니다."""
+        import tempfile
+        
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, encoding="utf-8") as tmp:
+            tmp.write("custom-file-based-jwt-secret-key-12345\n")
+            tmp_path = tmp.name
+        
+        try:
+            # 1. 파일이 존재할 때
+            settings = Settings(
+                _env_file=None, 
+                JWT_SECRET_KEY_PATH=tmp_path,
+                DATABASE_URL="postgresql://user:pass@localhost/db"
+            )
+            self.assertEqual(settings.JWT_SECRET, "custom-file-based-jwt-secret-key-12345")
+            
+            # 2. 파일이 존재하지 않을 때 (기본값 또는 .env 값 유지)
+            settings_no_file = Settings(
+                _env_file=None, 
+                JWT_SECRET_KEY_PATH="non_existent_file_path_xyz",
+                DATABASE_URL="postgresql://user:pass@localhost/db"
+            )
+            self.assertEqual(settings_no_file.JWT_SECRET, "change-me-in-production-use-long-random-string")
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
 
 if __name__ == "__main__":
     unittest.main()
