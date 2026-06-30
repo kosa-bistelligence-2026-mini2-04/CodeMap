@@ -27,21 +27,35 @@ from app.common.exceptions import UnauthorizedError, TokenExpiredError
 
 settings = get_settings()
 
-# JWT_SECRET 기반 Fernet 32바이트 대칭키 결정론적 도출
-_secret_bytes = settings.JWT_SECRET.encode("utf-8")
-_key_hash = hashlib.sha256(_secret_bytes).digest()
-_fernet_key = base64.urlsafe_b64encode(_key_hash)
-_cipher_suite = Fernet(_fernet_key)
+# JWT_SECRET 기반 Fernet 32바이트 대칭키 지연 초기화 및 가드 구조 도입
+_cipher_suite: Fernet | None = None
+
+
+def _get_cipher_suite() -> Fernet:
+    """JWT 대칭키 암복호화용 Fernet 인스턴스를 안전하게 지연 초기화 및 검증합니다."""
+    global _cipher_suite
+    if _cipher_suite is not None:
+        return _cipher_suite
+
+    # 키 확보 여부 엄격 가드 (비어 있을 시 암복호화 불가능)
+    if not settings.JWT_SECRET or settings.JWT_SECRET.strip() == "":
+        raise RuntimeError("[Critical] JWT 대칭키가 초기화되지 않았거나 빈 값입니다. 보안을 위해 동작을 거부합니다.")
+
+    _secret_bytes = settings.JWT_SECRET.encode("utf-8")
+    _key_hash = hashlib.sha256(_secret_bytes).digest()
+    _fernet_key = base64.urlsafe_b64encode(_key_hash)
+    _cipher_suite = Fernet(_fernet_key)
+    return _cipher_suite
 
 
 def encrypt_token(raw_token: str) -> str:
     """JWT 문자열을 AES 대칭키(Fernet)로 안전하게 암호화합니다."""
-    return _cipher_suite.encrypt(raw_token.encode("utf-8")).decode("utf-8")
+    return _get_cipher_suite().encrypt(raw_token.encode("utf-8")).decode("utf-8")
 
 
 def decrypt_token(encrypted_token: str) -> str:
     """암호화된 JWT 문자열을 AES 대칭키(Fernet)로 복호화합니다."""
-    return _cipher_suite.decrypt(encrypted_token.encode("utf-8")).decode("utf-8")
+    return _get_cipher_suite().decrypt(encrypted_token.encode("utf-8")).decode("utf-8")
 
 # Bearer 토큰 추출기 — /api/auth/login URL은 인증 불필요이므로 auto_error=False
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
@@ -176,8 +190,7 @@ async def sync_jwt_secret_with_db() -> None:
                 )
                 db_key = result.scalar()
             except Exception as e:
-                print(f"[Warning] Failed to query system_configs table: {e}")
-                return
+                raise RuntimeError(f"Database query failed during JWT secret synchronization: {e}")
 
             # 3. 상황별 동기화 및 복구 처리
             target_key = None
@@ -238,16 +251,15 @@ async def sync_jwt_secret_with_db() -> None:
                             {"k1": target_key}
                         )
                 except Exception as e:
-                    print(f"[Warning] Failed to backup JWT secret key to system_configs table: {e}")
-                    # 내부 트랜잭션 에러 시 상위 asynccontextmanager (conn.begin())가 자동으로 롤백을 수행하므로 수동 롤백 생략
+                    raise RuntimeError(f"Database backup failed during JWT secret synchronization: {e}")
 
         # 4. 메모리상의 설정 캐시 및 Fernet 암복호화 레이어 재바인딩
-        if target_key:
-            settings.JWT_SECRET = target_key
-            
-            global _cipher_suite
-            _secret_bytes = target_key.encode("utf-8")
-            _key_hash = hashlib.sha256(_secret_bytes).digest()
-            _fernet_key = base64.urlsafe_b64encode(_key_hash)
-            _cipher_suite = Fernet(_fernet_key)
-            print("[Info] Successfully bound JWT_SECRET and cipher suite.")
+        if not target_key or target_key.strip() == "":
+            raise RuntimeError("[Critical] JWT secret key resolution failed. Key is empty or null.")
+
+        settings.JWT_SECRET = target_key
+        
+        global _cipher_suite
+        _cipher_suite = None  # 기존 빌드를 소거하여 재생성 및 지연 로드 강제
+        _get_cipher_suite()
+        print("[Info] Successfully bound JWT_SECRET and cipher suite.")

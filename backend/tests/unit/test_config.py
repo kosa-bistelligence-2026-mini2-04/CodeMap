@@ -89,6 +89,41 @@ class TestConfigFallback(unittest.TestCase):
             if os.path.exists(no_file_path):
                 os.remove(no_file_path)
 
+    def test_sync_jwt_secret_with_db_failure_raises_exception(self):
+        """DB 키 조회 실패 또는 최종 키가 비어 있을 때 기동 차단(RuntimeError)이 정상 유발되는지 검증합니다."""
+        import asyncio
+        from app.infra.auth import sync_jwt_secret_with_db, _get_cipher_suite, encrypt_token
+        import app.infra.auth as auth_mod
+        from unittest.mock import AsyncMock, MagicMock
+
+        # 1. DB 쿼리 에러 발생 시 예외 발생 검증
+        mock_engine = MagicMock()
+        mock_conn = AsyncMock()
+        mock_engine.connect.return_value.__aenter__.return_value = mock_conn
+        
+        # async with conn.begin()에 대응하도록 컨텍스트 매니저 모킹
+        mock_transaction = MagicMock()
+        mock_transaction.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_transaction.__aexit__ = AsyncMock(return_value=False)
+        mock_conn.begin = MagicMock(return_value=mock_transaction)
+        mock_conn.execute.side_effect = Exception("DB Connection Refused")
+        
+        with patch("app.infra.database.engine", mock_engine):
+            with self.assertRaises(RuntimeError) as ctx:
+                asyncio.run(sync_jwt_secret_with_db())
+            self.assertIn("Database query failed", str(ctx.exception))
+
+        # 2. 대칭키(settings.JWT_SECRET)가 비어 있는 상황에서 Fernet 암호화 레이어 기동 시 fail-open 차단 검증
+        with patch("app.infra.auth.settings") as mock_settings:
+            mock_settings.JWT_SECRET = ""
+            
+            # 기존 전역 cipher_suite를 소거하여 lazy 재초기화 유도
+            with patch("app.infra.auth._cipher_suite", None):
+                with self.assertRaises(RuntimeError) as ctx_empty:
+                    encrypt_token("some_payload")
+                self.assertIn("JWT 대칭키가 초기화되지 않았거나 빈 값입니다", str(ctx_empty.exception))
+
 
 if __name__ == "__main__":
+    import asyncio
     unittest.main()
