@@ -142,6 +142,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ accessToken: newToken, user, isLoggedIn: true });
         return newToken;
       } catch (err) {
+        console.error("[useAuthStore] refreshToken failed:", err);
         setAccessToken(null);
         set({ user: null, accessToken: null, isLoggedIn: false });
         return null;
