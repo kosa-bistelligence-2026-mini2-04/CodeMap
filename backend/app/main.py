@@ -17,6 +17,7 @@ from app.infra.database import (
     open_checkpoint_pool,
     validate_required_schema,
 )
+from app.infra.auth import sync_jwt_secret_with_db
 
 # Import model classes to ensure they register on Base.metadata
 from app.embed.models import CodeNode, Dependency
@@ -49,6 +50,7 @@ async def lifespan(app: FastAPI):
     # DDL 실행은 database/init.sql의 명시적 초기화 단계에서만 수행한다.
     try:
         await validate_required_schema()
+        await sync_jwt_secret_with_db()
         yield
     finally:
         run_registry_sweeper.cancel()

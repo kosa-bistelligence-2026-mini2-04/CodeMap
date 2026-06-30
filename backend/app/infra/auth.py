@@ -131,3 +131,106 @@ def get_current_user_optional(request: Request, token: str | None = Depends(oaut
         return verify_access_token(token)
     except (UnauthorizedError, TokenExpiredError):
         return None
+
+
+async def sync_jwt_secret_with_db() -> None:
+    """
+    로컬 대칭키 파일과 데이터베이스 system_configs 테이블의 대칭키 값을 상호 동기화 및 복원합니다.
+    (하드코딩 키가 0% 소멸되며, 파일 유실 시 DB 백업본으로 복원하고 메모리 및 Fernet 인스턴스를 재바인딩합니다.)
+    """
+    import os
+    import uuid
+    from sqlalchemy import text
+    from app.infra.config import get_settings, backend_dir
+    from app.infra.database import engine
+
+    settings = get_settings()
+    path = settings.JWT_SECRET_KEY_PATH
+    if not os.path.isabs(path):
+        path = os.path.join(backend_dir, path)
+
+    # 1. 로컬 키 파일의 존재 여부 및 값 파악
+    local_key = None
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                local_key = f.read().strip()
+        except Exception as e:
+            print(f"[Warning] Failed to read local JWT secret file: {e}")
+
+    # 2. DB에서 저장된 대칭키 값 조회
+    db_key = None
+    async with engine.connect() as conn:
+        try:
+            result = await conn.execute(
+                text("SELECT config_value FROM system_configs WHERE config_key = 'jwt_secret_key'")
+            )
+            db_key = result.scalar()
+        except Exception as e:
+            print(f"[Warning] Failed to query system_configs table: {e}")
+            return
+
+        # 3. 상황별 동기화 및 복구 처리
+        target_key = None
+
+        if db_key:
+            # A. DB에 키가 저장되어 있는 경우 (최우선 복구 소스)
+            target_key = db_key
+            # 로컬 파일이 없거나 DB 키와 다르다면 로컬 파일 복원(Restore)
+            if local_key != db_key:
+                try:
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(db_key + "\n")
+                    if os.name != "nt":
+                        os.chmod(path, 0o600)
+                    print(f"[Info] Restored JWT secret key file from database at: {path}")
+                except Exception as e:
+                    print(f"[Warning] Failed to restore JWT secret key file: {e}")
+        else:
+            # B. DB에 키가 없는 경우 (최초 기동 또는 유실 상태)
+            if local_key:
+                target_key = local_key
+            else:
+                # 둘 다 없는 완전 유실 상태 ➡️ 신규 보안 난수 생성
+                import secrets
+                target_key = secrets.token_urlsafe(32)
+                try:
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(target_key + "\n")
+                    if os.name != "nt":
+                        os.chmod(path, 0o600)
+                    print(f"[Info] Generated new JWT secret key file: {path}")
+                except Exception as e:
+                    print(f"[Warning] Failed to write generated JWT secret key file: {e}")
+
+            # DB에 백업본 동기화 저장 (컬럼 5개 사양 엄격 준수)
+            try:
+                # PostgreSQL 호환 쿼리 (NOW() 함수로 created_at, updated_at 5개 컬럼 채우기)
+                await conn.execute(
+                    text(
+                        "INSERT INTO system_configs (id, config_key, config_value, created_at, updated_at) "
+                        "VALUES (:id, 'jwt_secret_key', :val, NOW(), NOW()) "
+                        "ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = NOW()"
+                    ),
+                    {"id": str(uuid.uuid4()), "val": target_key}
+                )
+                await conn.commit()
+            except Exception as e:
+                try:
+                    await conn.rollback()
+                except Exception:
+                    pass
+                print(f"[Warning] Failed to backup JWT secret key to system_configs table: {e}")
+
+        # 4. 메모리상의 설정 캐시 및 Fernet 암복호화 레이어 재바인딩
+        if target_key:
+            settings.JWT_SECRET = target_key
+            
+            global _cipher_suite
+            _secret_bytes = target_key.encode("utf-8")
+            _key_hash = hashlib.sha256(_secret_bytes).digest()
+            _fernet_key = base64.urlsafe_b64encode(_key_hash)
+            _cipher_suite = Fernet(_fernet_key)
+            print("[Info] Successfully bound JWT_SECRET and cipher suite.")

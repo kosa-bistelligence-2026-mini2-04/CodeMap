@@ -60,6 +60,7 @@ REQUIRED_SCHEMA_TABLES = (
     "checkpoints",
     "checkpoint_blobs",
     "checkpoint_writes",
+    "system_configs",
 )
 
 

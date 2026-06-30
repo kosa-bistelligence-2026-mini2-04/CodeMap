@@ -160,8 +160,8 @@ class Settings(BaseSettings):
     # ── [PROJECT-AUTH] JWT 인증 설정 ──────────────────────────────────────────
     # 서명 키 파일 경로 (.env 와 동일 폴더 위치의 숨김 파일)
     JWT_SECRET_KEY_PATH: str = ".jwt_secret_key"
-    # 서명 키: 운영 환경에서는 반드시 충분히 긴 랜덤 문자열로 교체할 것 (키 파일 부재 시 폴백용)
-    JWT_SECRET: str = "change-me-in-production-use-long-random-string"
+    # 서명 키: 파일 로드 및 DB 동기화 복구에 의해 채워짐 (하드코딩 키 삭제)
+    JWT_SECRET: str = ""
     # 서명 알고리즘 (HS256 고정)
     JWT_ALGORITHM: str = "HS256"
     # Access Token 만료 시간 (분), 기본 60분
