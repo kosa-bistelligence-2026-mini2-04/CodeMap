@@ -77,7 +77,7 @@ export function StructureOverview({
         </span>
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className={`rounded-xl border p-4 ${subCard}`}>
           <p className={`mb-3 text-[9px] font-bold uppercase tracking-[0.16em] ${muted}`}>
             {isKo ? "기술 스택" : "Technology stack"}

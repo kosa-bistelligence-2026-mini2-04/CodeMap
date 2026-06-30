@@ -82,7 +82,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
 
       {/* Message bubble */}
       <div
-        className={`group relative max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+        className={`group relative min-w-0 max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser ? "rounded-br-md" : "rounded-bl-md"
         }`}
         style={{
@@ -111,7 +111,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
               />
             )}
 
-            <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            <div className="prose prose-sm prose-invert max-w-none break-words [&_li]:my-0.5 [&_li>p]:my-0 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{

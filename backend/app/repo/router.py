@@ -551,6 +551,8 @@ async def get_file_content(
     """
     ## job 존재 확인
     service = AnalysisService(db)
+    from app.common import access
+    access.touch_last_accessed(db, job_id)
     user_id = (
         UUID(current_user["sub"])
         if current_user and "sub" in current_user
@@ -578,6 +580,17 @@ async def get_file_content(
         raise BinaryFileError()
 
     ## 1차: 로컬 clone workspace에서 직접 읽기
+    if not clone_root.exists():
+        logger.info("[get_file_content] 로컬 스냅샷 부재 감지, 재클론 복구 개시 (job_id=%s)", job_id)
+        try:
+            async with async_session_factory() as session:
+                real_service = AnalysisService(session)
+                await real_service.restore_workspace(job_id)
+                await session.commit()
+        except Exception as exc:
+            logger.error("[get_file_content] 자동 재클론 복구 실패: %s", exc)
+            raise WorkspaceNotReadyError() from exc
+
     if clone_root.exists() and target.exists() and target.is_file():
         content, truncated = await asyncio.to_thread(
             _read_file_safe, clone_root, clean_path

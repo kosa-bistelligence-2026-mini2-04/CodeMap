@@ -12,7 +12,9 @@ import type {
 import type { OnboardingGuidePanelProps } from "../components/OnboardingGuidePanel";
 
 // 타입 보조 함수 — 할당 가능성 검증
-function assertAssignable<T>(_val: T): void { /* 타입 검증 전용 */ }
+function assertAssignable<T>(_val: T): void {
+    void _val; /* 타입 검증 전용 */
+}
 
 
 // ── 1. DocReadingOrderItem 형태 검증 ──────────────────────
