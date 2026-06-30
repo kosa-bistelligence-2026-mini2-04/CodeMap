@@ -91,7 +91,7 @@ function AnalyzeWorkspace() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamName, setSelectedTeamName] = useState<string | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
-  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const isRestoring = useAuthStore((state) => state.isRestoring);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const {
     jobId,
@@ -135,10 +135,10 @@ function AnalyzeWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (isInitialized && !isLoggedIn && !preview) {
+    if (!isRestoring && !isLoggedIn && !preview) {
       router.push("/signin");
     }
-  }, [isInitialized, isLoggedIn, preview, router]);
+  }, [isRestoring, isLoggedIn, preview, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -270,7 +270,7 @@ function AnalyzeWorkspace() {
     />
   );
 
-  if (!isInitialized && !preview) {
+  if (isRestoring && !preview) {
     return (
       <main className={`flex h-[calc(100vh-3.5rem)] min-h-[640px] items-center justify-center flex-col overflow-hidden ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"}`}>
         <LoaderCircle className="size-8 animate-spin text-zinc-500" />

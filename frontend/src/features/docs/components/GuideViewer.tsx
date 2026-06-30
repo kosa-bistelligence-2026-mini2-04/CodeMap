@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { fetchOnboardingDocMarkdown } from "@/features/docs/api/docsApi";
 import {
   AlertTriangle,
   BookOpen,
@@ -23,7 +22,6 @@ import type {
   DocDangerFileItem,
 } from "@/common/types/contracts";
 import { FileSummaryPanel } from "./FileSummaryPanel";
-import { OnboardingGuidePanel } from "./OnboardingGuidePanel";
 
 // ── 탭 정의 ────────────────────────────────────────────────────
 
@@ -263,30 +261,15 @@ function FolderSummariesPanel({
 
 // ── 다운로드 미리보기 전용 컴포넌트 ──────────────────────────────
 
-function MarkdownPreviewPanel({ repoId }: { repoId: string }) {
-  const [content, setContent] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchMarkdown = async () => {
-      try {
-        setIsLoading(true);
-        const resp = await fetchOnboardingDocMarkdown(repoId);
-        if (isMounted) setContent(resp.data.content);
-      } catch (err) {
-        if (isMounted) setError("마크다운 문서를 불러오지 못했습니다.");
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-    void fetchMarkdown();
-    return () => {
-      isMounted = false;
-    };
-  }, [repoId]);
-
+function MarkdownPreviewPanel({
+  content,
+  isLoading,
+  error,
+}: {
+  content: string | null;
+  isLoading: boolean;
+  error: string | null;
+}) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -315,10 +298,33 @@ export interface GuideViewerProps {
   data: DocGetJsonData | null;
   isLoading: boolean;
   error: string | null;
+  markdownContent?: string | null;
+  markdownError?: string | null;
+  isMarkdownLoading?: boolean;
+  onLoadMarkdown?: () => Promise<{ content: string; repoName: string } | null>;
 }
 
-export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
+export function GuideViewer({
+  data,
+  isLoading,
+  error,
+  markdownContent = null,
+  markdownError = null,
+  isMarkdownLoading = false,
+  onLoadMarkdown,
+}: GuideViewerProps) {
   const [activeTab, setActiveTab] = useState<TabId>("summary");
+
+  useEffect(() => {
+    if (
+      activeTab === "onboardingGuide" &&
+      !markdownContent &&
+      !markdownError &&
+      !isMarkdownLoading
+    ) {
+      void onLoadMarkdown?.();
+    }
+  }, [activeTab, isMarkdownLoading, markdownContent, markdownError, onLoadMarkdown]);
 
   if (isLoading) {
     return (
@@ -376,7 +382,13 @@ export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
     coreFlow:        <CoreFlowPanel text={data.coreFlow} />,
     folderSummaries: <FolderSummariesPanel items={data.folderSummaries} />,
     fileSummary:     <FileSummaryPanel docData={data} />,
-    onboardingGuide: <MarkdownPreviewPanel repoId={data.repoId} />,
+    onboardingGuide: (
+      <MarkdownPreviewPanel
+        content={markdownContent}
+        isLoading={isMarkdownLoading}
+        error={markdownError}
+      />
+    ),
   };
 
   return (
@@ -445,7 +457,11 @@ export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
 
       {/* 인쇄용 컨테이너 (평소에는 숨김, 인쇄 시 전체 문서 레이아웃으로 활성화됨) */}
       <div className="hidden print:block w-full text-black bg-white">
-        <MarkdownPreviewPanel repoId={data.repoId} />
+        <MarkdownPreviewPanel
+          content={markdownContent}
+          isLoading={isMarkdownLoading}
+          error={markdownError}
+        />
       </div>
     </>
   );

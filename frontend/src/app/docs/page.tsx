@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import { ApiError } from "@/common/api/error";
 import type { DocGetJsonData } from "@/common/types/contracts";
 import {
   fetchOnboardingDocJson,
+  fetchOnboardingDocMarkdown,
   triggerOnboardingDocGeneration,
 } from "@/features/docs/api/docsApi";
 import { GuideViewer } from "@/features/docs/components/GuideViewer";
@@ -17,16 +18,49 @@ function DocsWorkspace() {
   const searchParams = useSearchParams();
   const repoId = searchParams.get("repo_id");
 
-  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const isRestoring = useAuthStore((state) => state.isRestoring);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
   const [data, setData] = useState<DocGetJsonData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generationNotice, setGenerationNotice] = useState<string | null>(null);
+  const [markdownRepoId, setMarkdownRepoId] = useState<string | null>(null);
+  const [markdownContent, setMarkdownContent] = useState<string | null>(null);
+  const [markdownRepoName, setMarkdownRepoName] = useState<string | null>(null);
+  const [markdownError, setMarkdownError] = useState<string | null>(null);
+  const [isMarkdownLoading, setIsMarkdownLoading] = useState(false);
+
+  const loadMarkdown = useCallback(async () => {
+    if (!repoId) return null;
+    if (markdownRepoId === repoId && markdownContent && markdownRepoName) {
+      return { content: markdownContent, repoName: markdownRepoName };
+    }
+
+    setIsMarkdownLoading(true);
+    setMarkdownError(null);
+    try {
+      const resp = await fetchOnboardingDocMarkdown(repoId);
+      const nextDoc = {
+        content: resp.data.content,
+        repoName: resp.data.repoName,
+      };
+      setMarkdownRepoId(repoId);
+      setMarkdownContent(nextDoc.content);
+      setMarkdownRepoName(nextDoc.repoName);
+      return nextDoc;
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "마크다운 문서를 불러오지 못했습니다.";
+      setMarkdownError(message);
+      return null;
+    } finally {
+      setIsMarkdownLoading(false);
+    }
+  }, [markdownContent, markdownRepoId, markdownRepoName, repoId]);
 
   useEffect(() => {
-    if (!isInitialized) return;
+    if (isRestoring) return;
     if (!isLoggedIn) {
       router.push("/signin");
       return;
@@ -62,6 +96,10 @@ function DocsWorkspace() {
         if (!cancelled) {
           setData(resp.data);
           setGenerationNotice(null);
+          setMarkdownRepoId(null);
+          setMarkdownContent(null);
+          setMarkdownRepoName(null);
+          setMarkdownError(null);
         }
       } catch (err: unknown) {
         if (cancelled) return;
@@ -111,9 +149,9 @@ function DocsWorkspace() {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [repoId, isInitialized, isLoggedIn, router]);
+  }, [repoId, isRestoring, isLoggedIn, router]);
 
-  if (!isInitialized) {
+  if (isRestoring) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -149,7 +187,14 @@ function DocsWorkspace() {
                 섹션별로 확인합니다.
               </p>
             </div>
-            <ExportButtons repoId={repoId} />
+            <ExportButtons
+              repoId={repoId}
+              markdownContent={markdownContent}
+              markdownRepoName={markdownRepoName}
+              markdownError={markdownError}
+              isMarkdownLoading={isMarkdownLoading}
+              onLoadMarkdown={loadMarkdown}
+            />
           </div>
         </div>
 
@@ -187,7 +232,15 @@ function DocsWorkspace() {
             {generationNotice}
           </div>
         )}
-        <GuideViewer data={data} isLoading={isLoading} error={error} />
+        <GuideViewer
+          data={data}
+          isLoading={isLoading}
+          error={error}
+          markdownContent={markdownContent}
+          markdownError={markdownError}
+          isMarkdownLoading={isMarkdownLoading}
+          onLoadMarkdown={loadMarkdown}
+        />
       </section>
     </main>
   );
