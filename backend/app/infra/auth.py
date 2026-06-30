@@ -158,83 +158,88 @@ async def sync_jwt_secret_with_db() -> None:
         except Exception as e:
             print(f"[Warning] Failed to read local JWT secret file: {e}")
 
-    # 2. DB에서 저장된 대칭키 값 조회 (최상단 시퀀스 키를 주 사용 대칭키로 취급)
+    # 2. DB에서 저장된 대칭키 값 조회 및 동기화 처리 (최상단 시퀀스 키를 주 사용 대칭키로 취급)
     db_key = None
     async with engine.connect() as conn:
-        try:
-            result = await conn.execute(
-                text("SELECT secret_key FROM system_configs ORDER BY seq_id ASC LIMIT 1")
-            )
-            db_key = result.scalar()
-        except Exception as e:
-            print(f"[Warning] Failed to query system_configs table: {e}")
-            return
-
-        # 3. 상황별 동기화 및 복구 처리
-        target_key = None
-
-        if db_key:
-            # A. DB에 키가 저장되어 있는 경우 (최우선 복구 소스)
-            target_key = db_key
-            # 로컬 파일이 없거나 DB 키와 다르다면 로컬 파일 복원(Restore)
-            if local_key != db_key:
-                try:
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    with open(path, "w", encoding="utf-8") as f:
-                        f.write(db_key + "\n")
-                    if os.name != "nt":
-                        os.chmod(path, 0o600)
-                    print(f"[Info] Restored JWT secret key file from database at: {path}")
-                except Exception as e:
-                    print(f"[Warning] Failed to restore JWT secret key file: {e}")
-        else:
-            # B. DB에 키가 없는 경우 (최초 기동 또는 유실 상태)
-            if local_key:
-                target_key = local_key
-            else:
-                # 둘 다 없는 완전 유실 상태 ➡️ 신규 보안 난수 생성
-                import secrets
-                target_key = secrets.token_urlsafe(32)
-                try:
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    with open(path, "w", encoding="utf-8") as f:
-                        f.write(target_key + "\n")
-                    if os.name != "nt":
-                        os.chmod(path, 0o600)
-                    print(f"[Info] Generated new JWT secret key file: {path}")
-                except Exception as e:
-                    print(f"[Warning] Failed to write generated JWT secret key file: {e}")
-
-            # DB에 백업본 동기화 저장 (시퀀스 5개 행 사양 엄격 준수)
+        # 단일 트랜잭션 내에서 조회, 난수 생성, 인서트를 직렬화하여 경쟁 상태 차단
+        async with conn.begin():
+            # PostgreSQL 환경에서의 테이블 락 획득 (데드락 및 중복 5개 벌크 인서트 방지)
             try:
-                import secrets
-                count_res = await conn.execute(text("SELECT COUNT(*) FROM system_configs"))
-                
-                if count_res.scalar() == 0:
-                    await conn.execute(
-                        text(
-                            "INSERT INTO system_configs (secret_key) VALUES (:k1), (:k2), (:k3), (:k4), (:k5)"
-                        ),
-                        {
-                            "k1": target_key,
-                            "k2": secrets.token_urlsafe(32),
-                            "k3": secrets.token_urlsafe(32),
-                            "k4": secrets.token_urlsafe(32),
-                            "k5": secrets.token_urlsafe(32)
-                        }
-                    )
-                else:
-                    await conn.execute(
-                        text("UPDATE system_configs SET secret_key = :k1 WHERE seq_id = (SELECT MIN(seq_id) FROM system_configs)"),
-                        {"k1": target_key}
-                    )
-                await conn.commit()
+                await conn.execute(text("LOCK TABLE system_configs IN ACCESS EXCLUSIVE MODE"))
+            except Exception:
+                # SQLite 등 LOCK TABLE 문법을 지원하지 않는 단위 테스트 환경은 무시하고 통과
+                pass
+
+            try:
+                result = await conn.execute(
+                    text("SELECT secret_key FROM system_configs ORDER BY seq_id ASC LIMIT 1")
+                )
+                db_key = result.scalar()
             except Exception as e:
+                print(f"[Warning] Failed to query system_configs table: {e}")
+                return
+
+            # 3. 상황별 동기화 및 복구 처리
+            target_key = None
+
+            if db_key:
+                # A. DB에 키가 저장되어 있는 경우 (최우선 복구 소스)
+                target_key = db_key
+                # 로컬 파일이 없거나 DB 키와 다르다면 로컬 파일 복원(Restore)
+                if local_key != db_key:
+                    try:
+                        os.makedirs(os.path.dirname(path), exist_ok=True)
+                        with open(path, "w", encoding="utf-8") as f:
+                            f.write(db_key + "\n")
+                        if os.name != "nt":
+                            os.chmod(path, 0o600)
+                        print(f"[Info] Restored JWT secret key file from database at: {path}")
+                    except Exception as e:
+                        print(f"[Warning] Failed to restore JWT secret key file: {e}")
+            else:
+                # B. DB에 키가 없는 경우 (최초 기동 또는 유실 상태)
+                if local_key:
+                    target_key = local_key
+                else:
+                    # 둘 다 없는 완전 유실 상태 ➡️ 신규 보안 난수 생성
+                    import secrets
+                    target_key = secrets.token_urlsafe(32)
+                    try:
+                        os.makedirs(os.path.dirname(path), exist_ok=True)
+                        with open(path, "w", encoding="utf-8") as f:
+                            f.write(target_key + "\n")
+                        if os.name != "nt":
+                            os.chmod(path, 0o600)
+                        print(f"[Info] Generated new JWT secret key file: {path}")
+                    except Exception as e:
+                        print(f"[Warning] Failed to write generated JWT secret key file: {e}")
+
+                # DB에 백업본 동기화 저장 (시퀀스 5개 행 사양 엄격 준수)
                 try:
-                    await conn.rollback()
-                except Exception:
-                    pass
-                print(f"[Warning] Failed to backup JWT secret key to system_configs table: {e}")
+                    import secrets
+                    count_res = await conn.execute(text("SELECT COUNT(*) FROM system_configs"))
+                    
+                    if count_res.scalar() == 0:
+                        await conn.execute(
+                            text(
+                                "INSERT INTO system_configs (secret_key) VALUES (:k1), (:k2), (:k3), (:k4), (:k5)"
+                            ),
+                            {
+                                "k1": target_key,
+                                "k2": secrets.token_urlsafe(32),
+                                "k3": secrets.token_urlsafe(32),
+                                "k4": secrets.token_urlsafe(32),
+                                "k5": secrets.token_urlsafe(32)
+                            }
+                        )
+                    else:
+                        await conn.execute(
+                            text("UPDATE system_configs SET secret_key = :k1 WHERE seq_id = (SELECT MIN(seq_id) FROM system_configs)"),
+                            {"k1": target_key}
+                        )
+                except Exception as e:
+                    print(f"[Warning] Failed to backup JWT secret key to system_configs table: {e}")
+                    # 내부 트랜잭션 에러 시 상위 asynccontextmanager (conn.begin())가 자동으로 롤백을 수행하므로 수동 롤백 생략
 
         # 4. 메모리상의 설정 캐시 및 Fernet 암복호화 레이어 재바인딩
         if target_key:
