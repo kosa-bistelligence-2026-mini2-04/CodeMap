@@ -76,7 +76,7 @@ jobs:
               fi
             fi
             echo "스냅샷 볼륨 매핑 경로: $CLONE_PATH"
-            sudo docker run -d -p 8080:8000 -v "$CLONE_PATH:$CLONE_PATH" --name backend_app --env-file .env ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
+            sudo docker run -d -p 8080:8080 -v "$CLONE_PATH:$CLONE_PATH" --name backend_app --env-file .env ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
 
             echo "4. 불필요한 옛날 도커 찌꺼기들을 청소합니다."
             sudo docker image prune -f
