@@ -158,12 +158,12 @@ async def sync_jwt_secret_with_db() -> None:
         except Exception as e:
             print(f"[Warning] Failed to read local JWT secret file: {e}")
 
-    # 2. DB에서 저장된 대칭키 값 조회
+    # 2. DB에서 저장된 대칭키 값 조회 (최상단 시퀀스 키를 주 사용 대칭키로 취급)
     db_key = None
     async with engine.connect() as conn:
         try:
             result = await conn.execute(
-                text("SELECT config_value FROM system_configs WHERE config_key = 'jwt_secret_key'")
+                text("SELECT secret_key FROM system_configs ORDER BY seq_id ASC LIMIT 1")
             )
             db_key = result.scalar()
         except Exception as e:
@@ -205,17 +205,29 @@ async def sync_jwt_secret_with_db() -> None:
                 except Exception as e:
                     print(f"[Warning] Failed to write generated JWT secret key file: {e}")
 
-            # DB에 백업본 동기화 저장 (컬럼 5개 사양 엄격 준수)
+            # DB에 백업본 동기화 저장 (시퀀스 5개 행 사양 엄격 준수)
             try:
-                # PostgreSQL 호환 쿼리 (NOW() 함수로 created_at, updated_at 5개 컬럼 채우기)
-                await conn.execute(
-                    text(
-                        "INSERT INTO system_configs (id, config_key, config_value, created_at, updated_at) "
-                        "VALUES (:id, 'jwt_secret_key', :val, NOW(), NOW()) "
-                        "ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = NOW()"
-                    ),
-                    {"id": str(uuid.uuid4()), "val": target_key}
-                )
+                import secrets
+                count_res = await conn.execute(text("SELECT COUNT(*) FROM system_configs"))
+                
+                if count_res.scalar() == 0:
+                    await conn.execute(
+                        text(
+                            "INSERT INTO system_configs (secret_key) VALUES (:k1), (:k2), (:k3), (:k4), (:k5)"
+                        ),
+                        {
+                            "k1": target_key,
+                            "k2": secrets.token_urlsafe(32),
+                            "k3": secrets.token_urlsafe(32),
+                            "k4": secrets.token_urlsafe(32),
+                            "k5": secrets.token_urlsafe(32)
+                        }
+                    )
+                else:
+                    await conn.execute(
+                        text("UPDATE system_configs SET secret_key = :k1 WHERE seq_id = (SELECT MIN(seq_id) FROM system_configs)"),
+                        {"k1": target_key}
+                    )
                 await conn.commit()
             except Exception as e:
                 try:
