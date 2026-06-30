@@ -88,7 +88,7 @@ export function ChatInterface({
   const userScrollIntentRef = useRef(false);
   const [userPausedScroll, setUserPausedScroll] = useState(false);
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
-  const [prevRepoId, setPrevRepoId] = useState<string | null>(repoId);
+  const [prevRepoId, setPrevRepoId] = useState<string | null | undefined>(repoId);
 
   // 컴포넌트 렌더링 중에 repoId 변경을 감지하고 상태를 즉시 초기화하여
   // 하단의 localStorage 저장 useEffect가 이전 repo의 메시지를 새 repo에 저장(누수)하는 것을 원천 차단합니다.
