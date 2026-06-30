@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, useEffect } from "react";
 import { ChevronDown, Github, RefreshCw, SlidersHorizontal, Sparkles, Info } from "lucide-react";
 import { useApp } from "@/common/contexts/AppContext";
 
@@ -50,6 +50,11 @@ export function RepoInput({
   const { theme, t } = useApp();
   const isDark = theme === "dark";
   const [value, setValue] = useState(initialPath || "");
+
+  // searchParams(initialPath)가 변경되어 Next.js가 컴포넌트를 재사용할 때 상태를 동기화한다.
+  useEffect(() => {
+    if (initialPath) setValue(initialPath);
+  }, [initialPath]);
   const [branch, setBranch] = useState("");
   const [forceRefresh, setForceRefresh] = useState(false);
   const [model, setModel] = useState<"fast" | "thinking">("fast");

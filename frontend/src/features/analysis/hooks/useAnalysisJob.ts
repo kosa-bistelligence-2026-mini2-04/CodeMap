@@ -75,10 +75,23 @@ export function useAnalysisJob({
     }
   }, []);
 
+  // searchParams(queryJobId) 변경 시 Next.js App Router가 컴포넌트를 재사용할 때 상태를 올바르게 초기화/동기화한다.
   useEffect(() => {
-    if (!queryJobId || preview) return;
-    queueMicrotask(() => void loadJob(queryJobId));
-  }, [loadJob, preview, queryJobId]);
+    if (preview) return;
+    if (queryJobId) {
+      setJobId(queryJobId);
+      setShowNewAnalysis(false);
+      setStatus("loading");
+      queueMicrotask(() => void loadJob(queryJobId));
+    } else {
+      setJobId(null);
+      setJob(null);
+      setReport(null);
+      setStatus("idle");
+      setError(null);
+      setShowNewAnalysis(true);
+    }
+  }, [queryJobId, loadJob, preview]);
 
   useEffect(() => {
     if (!jobId || preview || status !== "running") return;
