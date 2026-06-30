@@ -22,6 +22,14 @@ interface Props {
   report: WorkspaceReport;
 }
 
+interface RadarRadiusTickProps {
+  x?: number | string;
+  y?: number | string;
+  payload?: {
+    value?: number | string;
+  };
+}
+
 export function DashboardCharts({ report }: Props) {
   const { theme } = useApp();
   const isDark = theme === "dark";
@@ -42,9 +50,29 @@ export function DashboardCharts({ report }: Props) {
     { subject: "복잡도(Complexity)", A: getScore(metrics?.complexity), fullMark: 100 },
   ];
 
+  const renderRadarRadiusTick = ({ x, y, payload }: RadarRadiusTickProps) => {
+    const tickX = Number(x);
+    const tickY = Number(y);
+    if (!Number.isFinite(tickX) || !Number.isFinite(tickY)) return null;
+
+    return (
+      <text
+        x={tickX + 4}
+        y={tickY}
+        fill={isDark ? "#d4d4d8" : "#52525b"}
+        fontSize={8}
+        fontWeight={700}
+        textAnchor="start"
+        dominantBaseline="central"
+      >
+        {payload?.value}
+      </text>
+    );
+  };
+
   return (
-    <div className={`mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
-      <div className={`p-4 rounded-xl border ${isDark ? "bg-zinc-900/50 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"}`}>
+    <div className={`mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+      <div className={`min-w-0 overflow-hidden p-4 rounded-xl border ${isDark ? "bg-zinc-900/50 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"}`}>
         <h3 className="text-sm font-semibold mb-2">저장소 언어 분포</h3>
         <p className="text-[10px] text-zinc-500 mb-4">소스코드 라인 비중</p>
         <div className="h-[200px] w-full">
@@ -78,15 +106,22 @@ export function DashboardCharts({ report }: Props) {
         </div>
       </div>
 
-      <div className={`p-4 rounded-xl border ${isDark ? "bg-zinc-900/50 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"}`}>
+      <div className={`min-w-0 overflow-hidden p-4 rounded-xl border ${isDark ? "bg-zinc-900/50 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"}`}>
         <h3 className="text-sm font-semibold mb-2">건강도 다차원 분석</h3>
         <p className="text-[10px] text-zinc-500 mb-4">종합 품질 점수(Health Score) 기반 평가</p>
         <div className="h-[200px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart cx="50%" cy="50%" outerRadius={65} data={radarData}>
               <PolarGrid stroke={isDark ? "#3f3f46" : "#e4e4e7"} />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: isDark ? "#a1a1aa" : "#71717a", fontSize: 10 }} />
-              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
+              <PolarAngleAxis dataKey="subject" radius={78} tick={{ fill: isDark ? "#a1a1aa" : "#71717a", fontSize: 10 }} />
+              <PolarRadiusAxis
+                angle={90}
+                axisLine={false}
+                domain={[0, 100]}
+                tick={renderRadarRadiusTick}
+                tickLine={false}
+                ticks={[25, 50, 75, 100]}
+              />
               <Radar name="Repository" dataKey="A" stroke="#818cf8" fill="#818cf8" fillOpacity={0.4} />
               <Tooltip 
                 contentStyle={{ 
