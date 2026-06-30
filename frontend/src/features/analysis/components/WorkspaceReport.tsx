@@ -50,8 +50,8 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
       <section className={`overflow-hidden rounded-2xl border shadow-sm ${card}`}>
         <div className="relative p-5 md:p-7">
           <div className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-blue-500/10 blur-3xl" />
-          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-2xl">
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1 max-w-2xl">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400">
                   <CheckCircle2 className="size-3" /> 실제 스냅샷 분석 완료

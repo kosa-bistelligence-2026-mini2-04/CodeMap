@@ -59,7 +59,7 @@ export function StructureOverview({
         </span>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className={`rounded-xl border p-4 ${subCard}`}>
           <p className={`mb-3 text-[9px] font-bold uppercase tracking-[0.16em] ${muted}`}>
             {isKo ? "기술 스택" : "Technology stack"}
