@@ -92,7 +92,14 @@ export function ChatInterface({
   useEffect(() => {
     if (!repoId) return;
     let cancelled = false;
+    
     const hydrate = async () => {
+      if (!cancelled) {
+        // 다른 분석 프로젝트로 전환 시 이전 채팅 상태 누수 방지
+        setMessages([]);
+        setActiveThreadId(threadId || null);
+      }
+
       if (threadId && !preview) {
         const stored = await fetchThread(repoId, threadId);
         if (!cancelled && stored.length) {

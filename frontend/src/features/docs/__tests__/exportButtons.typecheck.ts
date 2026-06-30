@@ -69,6 +69,6 @@ assertAssignable<ExportButtonsProps>(propsEmpty);
 
 // ── 9. 타입 불일치 컴파일 에러 검증 (명세 준수 확인) ─────────
 // @ts-expect-error repoId에 number 리터럴을 할당하면 에러
-const _badProps: ExportButtonsProps = { repoId: 12345 };
+assertAssignable<ExportButtonsProps>({ repoId: 12345 });
 
 export {};
