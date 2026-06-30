@@ -58,6 +58,14 @@ jobs:
             CLONE_PATH=""
             if [ -f .env ]; then
               CLONE_PATH=$(grep -w CLONE_BASE_DIR .env | cut -d '=' -f2 | tr -d '\r' | xargs 2>/dev/null || true)
+              if [ -z "$CLONE_PATH" ]; then
+                OS_TYPE=$(uname -s 2>/dev/null || echo "Linux")
+                if [[ "$OS_TYPE" == *"NT"* ]] || [[ "$OS_TYPE" == *"MINGW"* ]] || [[ "$OS_TYPE" == *"MSYS"* ]]; then
+                  CLONE_PATH=$(grep -w CLONE_BASE_DIR_WINDOWS .env | cut -d '=' -f2 | tr -d '\r' | xargs 2>/dev/null || true)
+                else
+                  CLONE_PATH=$(grep -w CLONE_BASE_DIR_UNIX .env | cut -d '=' -f2 | tr -d '\r' | xargs 2>/dev/null || true)
+                fi
+              fi
             fi
             if [ -z "$CLONE_PATH" ]; then
               OS_TYPE=$(uname -s 2>/dev/null || echo "Linux")
