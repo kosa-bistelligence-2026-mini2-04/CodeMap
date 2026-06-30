@@ -180,7 +180,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def load_secret_from_file(self) -> "Settings":
-        """JWT_SECRET_KEY_PATH 지정 파일이 존재할 경우 파일 내용으로 JWT_SECRET을 덮어씁니다."""
+        """
+        JWT_SECRET_KEY_PATH 지정 파일이 존재할 경우 파일 내용으로 JWT_SECRET을 덮어씁니다.
+        지정한 보안 키 파일이 존재하지 않는다면, secrets 모듈로 안전한 32바이트
+        랜덤 암호화 서명 키를 자동 생성하여 물리 파일로 영구 보존하고 이를 로드합니다.
+        """
+        import secrets
         path = self.JWT_SECRET_KEY_PATH
         if not os.path.isabs(path):
             path = os.path.join(backend_dir, path)
@@ -193,6 +198,17 @@ class Settings(BaseSettings):
                         self.JWT_SECRET = key_content
             except Exception as e:
                 print(f"[Warning] Failed to read JWT secret key file from {path}: {e}")
+        else:
+            try:
+                # 안전한 난수 기반 32바이트 암호 서명키 생성
+                generated_key = secrets.token_urlsafe(32)
+                # 디렉토리가 없다면 생성
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(generated_key + "\n")
+                self.JWT_SECRET = generated_key
+            except Exception as e:
+                print(f"[Warning] Failed to generate/write JWT secret key file to {path}: {e}")
         return self
 
 
