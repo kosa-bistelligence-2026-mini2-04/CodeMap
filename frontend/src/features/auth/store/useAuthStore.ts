@@ -28,6 +28,7 @@ interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   isLoggedIn: boolean;
+  isRestoring: boolean;
 
   /** 로그인: API 호출 + 토큰 저장 + store 업데이트 */
   login: (payload: LoginRequest) => Promise<void>;
@@ -36,7 +37,7 @@ interface AuthState {
   logout: () => Promise<void>;
 
   /** 페이지 새로고침 시 refresh cookie → store 복원 */
-  restoreSession: () => void;
+  restoreSession: () => Promise<void>;
 
   /** Access Token 만료 시 갱신 (fetch interceptor에서 호출) */
   refreshToken: () => Promise<string | null>;
@@ -56,10 +57,13 @@ function parseJwtPayload(token: string): { sub?: string; email?: string } | null
 
 // ── Zustand Store ─────────────────────────────────────────────────────────────
 
+let refreshPromise: Promise<string | null> | null = null;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
   isLoggedIn: false,
+  isRestoring: true,
 
   // ──────────────────────────────────────────────
   // 로그인
@@ -92,30 +96,61 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ──────────────────────────────────────────────
   // 세션 복원 (새로고침 시 _app 또는 layout에서 호출)
   // ──────────────────────────────────────────────
-  restoreSession: () => {
+  restoreSession: async () => {
     if (typeof window === "undefined") return;
-    void get().refreshToken();
+    // 이미 로그인 상태라면 복원 스킵 및 isRestoring 해제
+    if (get().isLoggedIn) {
+      set({ isRestoring: false });
+      return;
+    }
+    await get().refreshToken();
   },
 
   // ──────────────────────────────────────────────
   // Access Token 갱신
   // ──────────────────────────────────────────────
   refreshToken: async () => {
-    const newToken = await refreshAccessToken();
-    if (!newToken) {
-      setAccessToken(null);
-      set({ user: null, accessToken: null, isLoggedIn: false });
-      return null;
+    // 1. 이미 유효한 토큰이 스토어에 세팅되어 있다면 Early Return
+    if (get().accessToken && get().isLoggedIn) {
+      set({ isRestoring: false });
+      return get().accessToken;
     }
 
-    const jwtPayload = parseJwtPayload(newToken);
-    const user: AuthUser | null =
-      jwtPayload?.sub && jwtPayload?.email
-        ? { userId: jwtPayload.sub as string, email: jwtPayload.email as string }
-        : null;
+    // 2. 이미 활성화된 refresh API Promise가 존재한다면 재사용 (Promise Caching)
+    if (refreshPromise) {
+      return refreshPromise;
+    }
 
-    setAccessToken(newToken);
-    set({ accessToken: newToken, user, isLoggedIn: true });
-    return newToken;
+    set({ isRestoring: true });
+
+    refreshPromise = (async () => {
+      try {
+        const newToken = await refreshAccessToken();
+        if (!newToken) {
+          setAccessToken(null);
+          set({ user: null, accessToken: null, isLoggedIn: false });
+          return null;
+        }
+
+        const jwtPayload = parseJwtPayload(newToken);
+        const user: AuthUser | null =
+          jwtPayload?.sub && jwtPayload?.email
+            ? { userId: jwtPayload.sub as string, email: jwtPayload.email as string }
+            : null;
+
+        setAccessToken(newToken);
+        set({ accessToken: newToken, user, isLoggedIn: true });
+        return newToken;
+      } catch (err) {
+        setAccessToken(null);
+        set({ user: null, accessToken: null, isLoggedIn: false });
+        return null;
+      } finally {
+        refreshPromise = null;
+        set({ isRestoring: false });
+      }
+    })();
+
+    return refreshPromise;
   },
 }));
