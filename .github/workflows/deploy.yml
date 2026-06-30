@@ -53,9 +53,22 @@ jobs:
             echo "2. 기존에 돌아가던 백엔드 컨테이너를 중지하고 삭제합니다."
             sudo docker rm -f backend_app || true
 
-            echo "3. 새 버전의 이미지로 컨테이너를 다시 실행합니다."
+            echo "3. 새 버전의 이미지로 컨테이너를 다시 실행합니다. (동적 스냅샷 볼륨 마운트)"
             cd ~/CodeMap/backend
-            sudo docker run -d -p 8080:8000 --name backend_app --env-file .env ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
+            CLONE_PATH=""
+            if [ -f .env ]; then
+              CLONE_PATH=$(grep -w CLONE_BASE_DIR .env | cut -d '=' -f2 | tr -d '\r' | xargs 2>/dev/null || true)
+            fi
+            if [ -z "$CLONE_PATH" ]; then
+              OS_TYPE=$(uname -s 2>/dev/null || echo "Linux")
+              if [[ "$OS_TYPE" == *"NT"* ]] || [[ "$OS_TYPE" == *"MINGW"* ]] || [[ "$OS_TYPE" == *"MSYS"* ]]; then
+                CLONE_PATH="C:/temp/codemap/jobs"
+              else
+                CLONE_PATH="/tmp/codemap/jobs"
+              fi
+            fi
+            echo "스냅샷 볼륨 매핑 경로: $CLONE_PATH"
+            sudo docker run -d -p 8080:8000 -v "$CLONE_PATH:$CLONE_PATH" --name backend_app --env-file .env ${{ secrets.DOCKERHUB_USERNAME }}/codemap-backend:latest
 
             echo "4. 불필요한 옛날 도커 찌꺼기들을 청소합니다."
             sudo docker image prune -f
