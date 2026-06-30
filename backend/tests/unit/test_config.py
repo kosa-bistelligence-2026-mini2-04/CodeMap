@@ -98,6 +98,7 @@ class TestConfigFallback(unittest.TestCase):
 
         # 1. DB 쿼리 에러 발생 시 예외 발생 검증
         mock_engine = MagicMock()
+        mock_engine.dialect.name = "sqlite"
         mock_conn = AsyncMock()
         mock_engine.connect.return_value.__aenter__.return_value = mock_conn
         
@@ -112,6 +113,51 @@ class TestConfigFallback(unittest.TestCase):
             with self.assertRaises(RuntimeError) as ctx:
                 asyncio.run(sync_jwt_secret_with_db())
             self.assertIn("Database query failed", str(ctx.exception))
+
+        # 1.5. LOCK TABLE 실패 시 SQLite 환경과 비-SQLite(PostgreSQL) 환경에서의 가드 거동 차별화 검증
+        # A. PostgreSQL (비-SQLite) 환경에서 lock 획득 실패 시 RuntimeError 강제 유발 검증
+        mock_engine_pg = MagicMock()
+        mock_engine_pg.dialect.name = "postgresql"
+        mock_conn_pg = AsyncMock()
+        mock_engine_pg.connect.return_value.__aenter__.return_value = mock_conn_pg
+        
+        mock_transaction_pg = MagicMock()
+        mock_transaction_pg.__aenter__ = AsyncMock(return_value=mock_conn_pg)
+        mock_transaction_pg.__aexit__ = AsyncMock(return_value=False)
+        mock_conn_pg.begin = MagicMock(return_value=mock_transaction_pg)
+        mock_conn_pg.execute.side_effect = Exception("ACCESS EXCLUSIVE lock conflict")
+        
+        with patch("app.infra.database.engine", mock_engine_pg):
+            with self.assertRaises(RuntimeError) as ctx_pg:
+                asyncio.run(sync_jwt_secret_with_db())
+            self.assertIn("Failed to acquire system_configs ACCESS EXCLUSIVE lock", str(ctx_pg.exception))
+
+        # B. SQLite 환경에서는 lock 획득 실패(LOCK TABLE 미지원) 예외가 안전히 무시(Bypass)되는지 검증
+        mock_engine_lite = MagicMock()
+        mock_engine_lite.dialect.name = "sqlite"
+        mock_conn_lite = AsyncMock()
+        mock_engine_lite.connect.return_value.__aenter__.return_value = mock_conn_lite
+        
+        mock_transaction_lite = MagicMock()
+        mock_transaction_lite.__aenter__ = AsyncMock(return_value=mock_conn_lite)
+        mock_transaction_lite.__aexit__ = AsyncMock(return_value=False)
+        mock_conn_lite.begin = MagicMock(return_value=mock_transaction_lite)
+        
+        # LOCK TABLE 실행은 예외를 던지지만, select 쿼리는 유효한 결과를 스칼라로 반환하게 세팅
+        mock_scalar = MagicMock()
+        mock_scalar.scalar.return_value = "existing-db-key-value-for-sqlite-test"
+        
+        def execute_side_effect(sql, *args, **kwargs):
+            sql_str = str(sql)
+            if "LOCK TABLE" in sql_str:
+                raise Exception("SQLite syntax error")
+            return mock_scalar
+
+        mock_conn_lite.execute.side_effect = execute_side_effect
+        
+        with patch("app.infra.database.engine", mock_engine_lite):
+            # SQLite에서는 락 에러를 무시하고 복구 동기화가 정상 완수되어야 하므로 예외를 발생시키지 않음
+            asyncio.run(sync_jwt_secret_with_db())
 
         # 2. 대칭키(settings.JWT_SECRET)가 비어 있는 상황에서 Fernet 암호화 레이어 기동 시 fail-open 차단 검증
         with patch("app.infra.auth.settings") as mock_settings:

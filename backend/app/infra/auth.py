@@ -180,9 +180,12 @@ async def sync_jwt_secret_with_db() -> None:
             # PostgreSQL 환경에서의 테이블 락 획득 (데드락 및 중복 5개 벌크 인서트 방지)
             try:
                 await conn.execute(text("LOCK TABLE system_configs IN ACCESS EXCLUSIVE MODE"))
-            except Exception:
+            except Exception as e:
                 # SQLite 등 LOCK TABLE 문법을 지원하지 않는 단위 테스트 환경은 무시하고 통과
-                pass
+                if engine.dialect.name == "sqlite":
+                    pass
+                else:
+                    raise RuntimeError(f"Failed to acquire system_configs ACCESS EXCLUSIVE lock: {e}")
 
             try:
                 result = await conn.execute(
