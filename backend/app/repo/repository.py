@@ -199,3 +199,17 @@ class AnalysisJobRepository:
         await self.db.flush()
         await self.db.refresh(job)
         return job
+
+    # ──────────────────────────────────────────
+    # 최근 접근 시각 업데이트
+    # ──────────────────────────────────────────
+    async def update_last_accessed(self, job_id: UUID) -> bool:
+        """
+        분석 작업의 최근 접근 시각(last_accessed_at)을 현재 시간으로 업데이트한다.
+        """
+        job = await self.get_job_by_id(job_id)
+        if job:
+            job.last_accessed_at = datetime.now(timezone.utc)
+            await self.db.flush()
+            return True
+        return False

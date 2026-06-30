@@ -40,9 +40,18 @@ class RepositoryChatService:
             raise ValueError("분석 프로젝트를 찾을 수 없습니다.")
         if not await self.can_access_job(job, current_user_id):
             raise PermissionError("분석 프로젝트에 접근할 수 없습니다.")
+        from app.common import access
+        access.touch_last_accessed(self.db, repo_id)
         clone_path = Path(self.settings.CLONE_BASE_DIR) / str(repo_id) / "repo"
         if not clone_path.exists():
-            raise ValueError("저장소 스냅샷이 아직 준비되지 않았습니다.")
+            logger.info("[ChatService] 스냅샷 누락 감지, 자동 재클론 수행 (repo_id=%s)", repo_id)
+            from app.repo.service import AnalysisService
+            analysis_service = AnalysisService(self.db)
+            try:
+                await analysis_service.restore_workspace(repo_id)
+            except Exception as exc:
+                logger.error("[ChatService] 자동 재클론 복구 실패: %s", exc)
+                raise ValueError(f"저장소 스냅샷 복구에 실패했습니다: {exc}") from exc
 
         thread = await self.chat_repository.get_or_create_thread(
             repo_id,
@@ -68,9 +77,18 @@ class RepositoryChatService:
             raise ValueError("분석 프로젝트를 찾을 수 없습니다.")
         if not await self.can_access_job(job, current_user_id):
             raise PermissionError("분석 프로젝트에 접근할 수 없습니다.")
+        from app.common import access
+        access.touch_last_accessed(self.db, repo_id)
         clone_path = Path(self.settings.CLONE_BASE_DIR) / str(repo_id) / "repo"
         if not clone_path.exists():
-            raise ValueError("저장소 스냅샷이 아직 준비되지 않았습니다.")
+            logger.info("[ChatService] 스냅샷 누락 감지, 자동 재클론 수행 (repo_id=%s)", repo_id)
+            from app.repo.service import AnalysisService
+            analysis_service = AnalysisService(self.db)
+            try:
+                await analysis_service.restore_workspace(repo_id)
+            except Exception as exc:
+                logger.error("[ChatService] 자동 재클론 복구 실패: %s", exc)
+                raise ValueError(f"저장소 스냅샷 복구에 실패했습니다: {exc}") from exc
         return job, request.mode, str(clone_path)
 
     async def can_access_job(self, job, current_user_id: UUID | None) -> bool:

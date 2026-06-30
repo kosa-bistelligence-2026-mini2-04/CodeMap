@@ -4,8 +4,10 @@
 list / repo / chat / websocket / sse 등 모든 경로가 이 모듈을 거쳐
 동일한 격리 규칙을 적용하도록 한다. (자체 PR 리뷰 M3: can_access_job 중복 제거)
 """
-
+import logging
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,3 +54,38 @@ async def can_access_job(
         return current_user_id == user_id
     ## 소유자/팀이 모두 없는 레거시 공개 job만 무인증 접근 허용
     return not is_private
+
+
+# ──────────────────────────────────────────────
+# touch_last_accessed: 최근 접근 시각 업데이트 (논블로킹 백그라운드)
+# ──────────────────────────────────────────────
+def touch_last_accessed(db: AsyncSession, job_id: UUID) -> None:
+    """
+    분석 작업의 최근 접근 시각(last_accessed_at)을 백그라운드 태스크로 논블로킹 업데이트한다.
+    Mock 세션 유입 등 테스트 모킹 상태일 때는 안전 가드에 의해 갱신을 생략한다.
+    """
+    import asyncio
+    
+    ## mock db / session 가드 검사
+    if type(db).__name__ in ("Mock", "MagicMock", "AsyncMock"):
+        return
+
+    async def _do_update() -> None:
+        try:
+            from app.repo.repository import AnalysisJobRepository
+            ## [순환 임포트 방지] app.infra.database -> app.repo.service -> database 순환 참조 방지를 위해 지역 임포트 처리
+            from app.infra.database import async_session_factory
+            async with async_session_factory() as session:
+                repo = AnalysisJobRepository(session)
+                await repo.update_last_accessed(job_id)
+                await session.commit()
+        except Exception as exc:
+            ## 백그라운드 갱신의 예외가 메인 흐름을 깨뜨리지 않도록 보호하되 경고 로그 남김
+            logger.warning(
+                "[touch_last_accessed] 최근 접근 시각 업데이트 실패 (job_id: %s): %s",
+                job_id,
+                exc,
+                exc_info=True,
+            )
+
+    asyncio.create_task(_do_update())

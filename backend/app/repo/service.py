@@ -255,6 +255,9 @@ class AnalysisService:
             is_private=is_private,
             team_id=team_id,
         )
+        # 클론 시작 전 디스크 공간 감시 및 정리 (Guard)
+        await self.auto_cleanup_disk_usage()
+
         workspace = Path(settings.CLONE_BASE_DIR) / str(job.id) / "repo"
         file_count, total_bytes = await save_local_upload(
             files,
@@ -309,6 +312,8 @@ class AnalysisService:
             raise JobNotFoundError()
         if not await self.can_access_job(job, current_user_id):
             raise JobNotFoundError()
+        from app.common import access
+        access.touch_last_accessed(self.db, job_id)
         import os
         clone_path = os.path.join(
             settings.CLONE_BASE_DIR, str(job.id), "repo"
@@ -383,6 +388,9 @@ class AnalysisService:
                 "CLONE_ALREADY_DONE",
                 "이미 clone이 완료된 job입니다.",
             )
+
+        # 클론 시작 전 디스크 공간 감시 및 정리 (Guard)
+        await self.auto_cleanup_disk_usage()
 
         # 이전 시도에서 남은 불완전 workspace 정리 후 재시도
         if clone_path.exists():
@@ -555,6 +563,108 @@ class AnalysisService:
                 cleanedAt=datetime.now(timezone.utc),
             ),
         )
+
+    # ──────────────────────────────────────────
+    # 디스크 점유율 감지 및 LRU 가비지 컬렉션
+    # ──────────────────────────────────────────
+    async def auto_cleanup_disk_usage(
+        self, threshold_percent: float = 80.0, target_percent: float = 70.0
+    ) -> float:
+        """
+        로컬 디스크 점유율을 검사하여 threshold_percent를 초과하면
+        가장 오랫동안 사용되지 않은(LRU) 프로젝트의 스냅샷 디렉토리를 순차 삭제하여
+        target_percent 이하로 복구한다.
+        """
+        import shutil
+        from sqlalchemy import select
+
+        base_dir = Path(settings.CLONE_BASE_DIR)
+        if not base_dir.exists():
+            return 0.0
+
+        def _get_usage() -> float:
+            total, used, free = shutil.disk_usage(str(base_dir))
+            return (used / total) * 100
+
+        current_percent = await asyncio.to_thread(_get_usage)
+        if current_percent <= threshold_percent:
+            return current_percent
+
+        logger.info(
+            "[디스크 정리] 점유율 %.1f%% 가 임계치(%.1f%%)를 초과하여 LRU 정리를 개시합니다.",
+            current_percent, threshold_percent
+        )
+
+        cleaned_count = 0
+        stmt = (
+            select(AnalysisJob)
+            .where(AnalysisJob.status.in_([JobStatus.COMPLETED.value, JobStatus.FAILED.value]))
+            .order_by(AnalysisJob.last_accessed_at.asc())
+        )
+        result = await self.db.execute(stmt)
+        candidate_jobs = result.scalars().all()
+
+        for job in candidate_jobs:
+            job_repo_dir = base_dir / str(job.id) / "repo"
+            if job_repo_dir.exists():
+                logger.info(
+                    "[디스크 정리] LRU 대상 제거: job_id=%s, 최근 접근=%s",
+                    job.id, job.last_accessed_at
+                )
+                try:
+                    await asyncio.to_thread(_safe_remove, job_repo_dir)
+                    if job_repo_dir.parent != base_dir:
+                        await asyncio.to_thread(_remove_empty_parent, job_repo_dir.parent)
+                    cleaned_count += 1
+                except Exception as exc:
+                    logger.warning("[디스크 정리] %s 삭제 실패: %s", job_repo_dir, exc)
+
+                current_percent = await asyncio.to_thread(_get_usage)
+                if current_percent <= target_percent:
+                    logger.info(
+                        "[디스크 정리] 정리 완료 (제거된 스냅샷: %d개, 최종 점유율: %.1f%%)",
+                        cleaned_count, current_percent
+                    )
+                    break
+        else:
+            logger.info(
+                "[디스크 정리] 더 이상 지울 수 있는 프로젝트 스냅샷이 없습니다. 최종 점유율: %.1f%%",
+                current_percent
+            )
+
+        return current_percent
+
+    # ──────────────────────────────────────────
+    # 로컬 워크스페이스 복구 (Lazy Loading)
+    # ──────────────────────────────────────────
+    async def restore_workspace(self, job_id: UUID, timeout_seconds: int = 120) -> Path:
+        """
+        가비지 컬렉터에 의해 정리되었거나 존재하지 않는 프로젝트의
+        로컬 깃 clone 워크스페이스를 안전하게 복구(Re-clone)한다.
+        """
+        job = await self.repository.get_job_by_id(job_id)
+        if not job:
+            raise JobNotFoundError()
+
+        clone_path = Path(settings.CLONE_BASE_DIR) / str(job_id) / "repo"
+        if clone_path.exists():
+            return clone_path
+
+        logger.info("[restore_workspace] 로컬 스냅샷 복구 개시: job_id=%s", job_id)
+        clone_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 디스크 용량 정리 가드 기동
+        await self.auto_cleanup_disk_usage()
+        
+        # 원격지 리포지토리로부터 git clone 및 필터링 수행
+        await self._run_git_clone(
+            repo_url=job.repo_url,
+            branch=job.branch,
+            clone_path=clone_path,
+            timeout_seconds=timeout_seconds,
+        )
+        await asyncio.to_thread(_filter_workspace, clone_path)
+        return clone_path
 
     # ──────────────────────────────────────────
     # API-007: 전체 분석 파이프라인 시작
@@ -1322,3 +1432,21 @@ def _format_report_for_frontend(
         formatted["files"] = mapped_files
 
     return formatted
+
+
+async def sweep_disk_cleanup(interval_seconds: int = 300) -> None:
+    """
+    주기적으로 로컬 디스크 용량을 감시하여 80% 초과 시
+    오래된 스냅샷 파일부터 순차 자동 정리(Cleanup)한다.
+    """
+    while True:
+        try:
+            ## [순환 임포트 방지] app.infra.database -> app.repo.service -> database 순환 참조 방지를 위해 지역 임포트 처리
+            from app.infra.database import async_session_factory
+            async with async_session_factory() as session:
+                service = AnalysisService(session)
+                await service.auto_cleanup_disk_usage(threshold_percent=80.0, target_percent=70.0)
+                await session.commit()
+        except Exception as exc:
+            logger.exception("[디스크 정리 스위퍼] 가비지 컬렉터 실행 실패: %s", exc)
+        await asyncio.sleep(interval_seconds)
