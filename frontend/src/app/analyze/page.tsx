@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -30,6 +30,22 @@ import { useApp } from "@/common/contexts/AppContext";
 
 // 모바일 드로워 닫기 모션이 끝난 뒤 데이터 갱신을 트리거하기까지의 디바운스(ms)
 const MOBILE_DRAWER_CLOSE_MS = 180;
+const CODE_PANEL_WIDTH_STORAGE_KEY = "codemap:analyze:code-panel-width";
+const CODE_PANEL_DEFAULT_WIDTH = 560;
+const CODE_PANEL_MIN_WIDTH = 420;
+const CODE_PANEL_MAX_WIDTH = 760;
+
+function clampCodePanelWidth(width: number) {
+  return Math.min(CODE_PANEL_MAX_WIDTH, Math.max(CODE_PANEL_MIN_WIDTH, Math.round(width)));
+}
+
+function getInitialCodePanelWidth() {
+  if (typeof window === "undefined") return CODE_PANEL_DEFAULT_WIDTH;
+  const savedWidth = Number(window.localStorage.getItem(CODE_PANEL_WIDTH_STORAGE_KEY));
+  return Number.isFinite(savedWidth) && savedWidth > 0
+    ? clampCodePanelWidth(savedWidth)
+    : CODE_PANEL_DEFAULT_WIDTH;
+}
 
 function AnalyzeWorkspace() {
   const { theme, locale } = useApp();
@@ -47,6 +63,8 @@ function AnalyzeWorkspace() {
   const [chatPromptNonce, setChatPromptNonce] = useState(0);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [codePanelWidth, setCodePanelWidth] = useState(getInitialCodePanelWidth);
+  const [isCodePanelResizing, setIsCodePanelResizing] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(searchParams.get("thread"));
   const [workspaceScope, setWorkspaceScope] = useState<WorkspaceScope>("private");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -77,12 +95,55 @@ function AnalyzeWorkspace() {
   // 모바일 드로워: 닫기 애니메이션과 데이터 갱신 타이밍 분리 (#229)
   // ──────────────────────────────────────────────
   const mobileSelectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const codePanelResizeRef = useRef({
+    startX: 0,
+    startWidth: CODE_PANEL_DEFAULT_WIDTH,
+  });
 
   useEffect(() => {
     return () => {
       if (mobileSelectTimer.current) clearTimeout(mobileSelectTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CODE_PANEL_WIDTH_STORAGE_KEY, String(codePanelWidth));
+  }, [codePanelWidth]);
+
+  useEffect(() => {
+    if (!isCodePanelResizing) return;
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      const { startX, startWidth } = codePanelResizeRef.current;
+      setCodePanelWidth(clampCodePanelWidth(startWidth - (event.clientX - startX)));
+    };
+
+    const handlePointerUp = () => {
+      setIsCodePanelResizing(false);
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [isCodePanelResizing]);
+
+  const handleCodePanelResizeStart = useCallback((event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    codePanelResizeRef.current = {
+      startX: event.clientX,
+      startWidth: codePanelWidth,
+    };
+    setIsCodePanelResizing(true);
+  }, [codePanelWidth]);
 
   const handleMobileHistorySelect = useCallback(
     (id: string) => {
@@ -179,7 +240,7 @@ function AnalyzeWorkspace() {
           )}
         </aside>
 
-        <section className={`min-w-0 flex-1 ${selectedFile ? "flex flex-col overflow-hidden" : "overflow-y-auto px-4 py-5 md:px-6 md:py-6"} ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
+        <section className={`min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
           {status === "idle" && (
             <div className="mx-auto flex min-h-full max-w-4xl items-center justify-center py-10">
               <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -230,37 +291,56 @@ function AnalyzeWorkspace() {
           )}
 
           {status === "completed" && report && (
-            <div className={`flex min-h-0 gap-0 ${selectedFile ? "flex-1" : ""}`}>
-              <div className={`min-w-0 ${selectedFile ? "hidden xl:block xl:flex-1" : "flex-1"}`}>
-                <WorkspaceReport
-                  report={report}
-                  preview={preview}
-                  onAsk={ask}
-                  onFileSelect={(file) => {
-                    setSelectedFile(file);
-                    setSelectedLine(null);
-                    setSelectedLineEnd(null);
-                  }}
-                />
-              </div>
-              {selectedFile && jobId && (
-                <div className="w-full flex-1 xl:max-w-[880px]">
-                  <CodeNavigatorPanel
-                    jobId={jobId}
-                    filePath={selectedFile}
-                    highlightLine={selectedLine}
-                    highlightLineEnd={selectedLineEnd}
-                    onClose={() => {
-                      setSelectedFile(null);
-                      setSelectedLine(null);
-                      setSelectedLineEnd(null);
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            <WorkspaceReport
+              report={report}
+              preview={preview}
+              onAsk={ask}
+              onFileSelect={(file) => {
+                setSelectedFile(file);
+                setSelectedLine(null);
+                setSelectedLineEnd(null);
+              }}
+            />
           )}
         </section>
+
+        {selectedFile && jobId && (
+          <>
+            <button
+              type="button"
+              aria-label="코드 패널 너비 조절"
+              title="코드 패널 너비 조절"
+              onPointerDown={handleCodePanelResizeStart}
+              className={`group hidden w-2 shrink-0 cursor-col-resize items-center justify-center transition xl:flex ${
+                isDark ? "bg-zinc-950 hover:bg-zinc-900" : "bg-zinc-50 hover:bg-zinc-100"
+              } ${isCodePanelResizing ? "bg-blue-500/10" : ""}`}
+            >
+              <span className={`h-12 w-0.5 rounded-full transition ${
+                isCodePanelResizing
+                  ? "bg-blue-400"
+                  : isDark
+                    ? "bg-zinc-700 group-hover:bg-blue-400"
+                    : "bg-zinc-300 group-hover:bg-blue-500"
+              }`} />
+            </button>
+            <aside
+              className="fixed inset-0 z-[70] min-h-0 bg-zinc-950 xl:static xl:z-auto xl:block xl:w-[var(--code-panel-width)] xl:shrink-0"
+              style={{ "--code-panel-width": `${codePanelWidth}px` } as CSSProperties}
+            >
+              <CodeNavigatorPanel
+                jobId={jobId}
+                filePath={selectedFile}
+                highlightLine={selectedLine}
+                highlightLineEnd={selectedLineEnd}
+                onClose={() => {
+                  setSelectedFile(null);
+                  setSelectedLine(null);
+                  setSelectedLineEnd(null);
+                }}
+              />
+            </aside>
+          </>
+        )}
 
         <aside className={`hidden w-[400px] shrink-0 border-l xl:block ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
           <ChatInterface
