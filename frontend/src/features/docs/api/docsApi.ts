@@ -2,6 +2,7 @@ import type {
   DocGetJsonResponse,
   DocGetMarkdownResponse,
   DocGuardResponse,
+  DocTriggerResponse,
 } from "@/common/types/contracts";
 import { parseApiError } from "@/common/api/error";
 import { apiPath } from "@/features/analysis/api/api";
@@ -44,6 +45,28 @@ export async function fetchOnboardingDocJson(
     throw await parseApiError(resp);
   }
   return resp.json() as Promise<DocGetJsonResponse>;
+}
+
+/**
+ * POST /api/gen/docs/{repo_id}
+ * 온보딩 가이드북 생성 트리거 (DOCS-GEN-API-002)
+ */
+export async function triggerOnboardingDocGeneration(
+  repoId: string,
+  force = false,
+): Promise<DocTriggerResponse> {
+  const resp = await fetch(
+    apiPath(`/gen/docs/${repoId}`),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeader() },
+      body: JSON.stringify({ force }),
+    },
+  );
+  if (!resp.ok) {
+    throw await parseApiError(resp);
+  }
+  return resp.json() as Promise<DocTriggerResponse>;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 import type {
   JobStatusData,
   WorkspaceReport as WorkspaceReportData,
@@ -47,6 +48,7 @@ export function useAnalysisJob({
   const [status, setStatus] = useState<ViewStatus>(preview ? "completed" : queryJobId ? "loading" : "idle");
   const [error, setError] = useState<string | null>(null);
   const [showNewAnalysis, setShowNewAnalysis] = useState(!preview && !queryJobId);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
 
   const loadJob = useCallback(async (id: string) => {
     try {
@@ -78,6 +80,7 @@ export function useAnalysisJob({
   // searchParams(queryJobId) 변경 시 Next.js App Router가 컴포넌트를 재사용할 때 상태를 올바르게 초기화/동기화한다.
   useEffect(() => {
     if (preview) return;
+    if (!isInitialized) return;
     if (queryJobId) {
       queueMicrotask(() => {
         setJobId(queryJobId);
@@ -95,7 +98,7 @@ export function useAnalysisJob({
         setShowNewAnalysis(true);
       });
     }
-  }, [queryJobId, loadJob, preview]);
+  }, [queryJobId, loadJob, preview, isInitialized]);
 
   useEffect(() => {
     if (!jobId || preview || status !== "running") return;

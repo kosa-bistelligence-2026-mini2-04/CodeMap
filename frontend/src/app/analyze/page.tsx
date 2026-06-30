@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowRight,
+  BookOpen,
   CheckCircle2,
   ChevronLeft,
   Github,
@@ -27,6 +28,7 @@ import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
 import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
 import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 // 모바일 드로워 닫기 모션이 끝난 뒤 데이터 갱신을 트리거하기까지의 디바운스(ms)
 const MOBILE_DRAWER_CLOSE_MS = 180;
@@ -89,6 +91,8 @@ function AnalyzeWorkspace() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamName, setSelectedTeamName] = useState<string | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const {
     jobId,
     job,
@@ -129,6 +133,12 @@ function AnalyzeWorkspace() {
       if (mobileSelectTimer.current) clearTimeout(mobileSelectTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (isInitialized && !isLoggedIn && !preview) {
+      router.push("/signin");
+    }
+  }, [isInitialized, isLoggedIn, preview, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -260,6 +270,14 @@ function AnalyzeWorkspace() {
     />
   );
 
+  if (!isInitialized && !preview) {
+    return (
+      <main className={`flex h-[calc(100vh-3.5rem)] min-h-[640px] items-center justify-center flex-col overflow-hidden ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"}`}>
+        <LoaderCircle className="size-8 animate-spin text-zinc-500" />
+      </main>
+    );
+  }
+
   return (
     <main className={`flex h-[calc(100vh-3.5rem)] min-h-[640px] flex-col overflow-hidden ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"}`}>
       <header className={`flex h-12 shrink-0 items-center gap-3 border-b px-3 md:px-4 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
@@ -276,13 +294,32 @@ function AnalyzeWorkspace() {
           </div>
         </div>
         {status !== "idle" && (
-          <div className="ml-2 hidden items-center gap-2 sm:flex">
-            <span className={`size-1.5 rounded-full ${status === "completed" ? "bg-emerald-400" : status === "failed" ? "bg-red-400" : "animate-pulse bg-blue-400"}`} />
-            <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">{status === "completed" ? "Ready" : status === "failed" ? "Failed" : `${job?.stage || "Preparing"} · ${progress}%`}</span>
+          <div className="ml-2 hidden items-center gap-2.5 sm:flex">
+            <div className="flex items-center gap-1.5">
+              <span className={`size-1.5 rounded-full ${status === "completed" ? "bg-emerald-400" : status === "failed" ? "bg-red-400" : "animate-pulse bg-blue-400"}`} />
+              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">{status === "completed" ? "Ready" : status === "failed" ? "Failed" : `${job?.stage || "Preparing"} · ${progress}%`}</span>
+            </div>
+            {report && (
+              <span className={`rounded-md border px-2 py-1 font-mono text-[8px] ${isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-500" : "border-zinc-200 bg-zinc-100 text-zinc-500"}`}>
+                {preview ? "PREVIEW" : jobId?.slice(0, 8)}
+              </span>
+            )}
           </div>
         )}
         <div className="ml-auto flex items-center gap-1.5">
-          {report && <span className={`hidden rounded-md border px-2 py-1 font-mono text-[8px] md:inline ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-600" : "border-zinc-200 bg-zinc-100 text-zinc-500"}`}>{preview ? "PREVIEW" : jobId?.slice(0, 8)}</span>}
+          {report && jobId && (
+            <button
+              onClick={() => window.open(`/docs?repo_id=${jobId}`, "_blank")}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition ${
+                isDark
+                  ? "border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700 hover:text-white"
+                  : "border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"
+              }`}
+            >
+              <BookOpen className="size-3" />
+              {isKo ? "가이드북" : "Guidebook"}
+            </button>
+          )}
           <button onClick={() => setShowNewAnalysis(true)} className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition ${isDark ? "border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"}`}><Plus className="size-3" /> {isKo ? "새 분석" : "New Analysis"}</button>
           <button
             onClick={() => setMobileChatOpen((open) => !open)}

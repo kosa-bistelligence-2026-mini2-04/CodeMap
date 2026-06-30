@@ -536,6 +536,19 @@ export interface DocGetJsonResponse {
   data: DocGetJsonData;
 }
 
+export interface DocTriggerData {
+  jobId: string;
+  repoId: string;
+  status: string;
+  estimatedMinutes: number;
+}
+
+export interface DocTriggerResponse {
+  code: number;
+  message: string;
+  data: DocTriggerData;
+}
+
 // ── DOCS-GEN-F-202 파일 단위 요약 타입 ────────────────────────────────────────
 
 /** API 원본 응답 타입 — 백엔드 DocFileSummaryItem과 1:1 대응 */

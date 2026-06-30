@@ -28,6 +28,7 @@ interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   isLoggedIn: boolean;
+  isInitialized: boolean;
 
   /** 로그인: API 호출 + 토큰 저장 + store 업데이트 */
   login: (payload: LoginRequest) => Promise<void>;
@@ -60,6 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
   isLoggedIn: false,
+  isInitialized: false,
 
   // ──────────────────────────────────────────────
   // 로그인
@@ -77,7 +79,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       : null;
 
     setAccessToken(accessToken);
-    set({ accessToken, user, isLoggedIn: true });
+    set({ accessToken, user, isLoggedIn: true, isInitialized: true });
   },
 
   // ──────────────────────────────────────────────
@@ -94,7 +96,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ──────────────────────────────────────────────
   restoreSession: () => {
     if (typeof window === "undefined") return;
-    void get().refreshToken();
+    void (async () => {
+      try {
+        await get().refreshToken();
+      } catch (e) {
+        console.error("Failed to restore session:", e);
+      } finally {
+        set({ isInitialized: true });
+      }
+    })();
   },
 
   // ──────────────────────────────────────────────

@@ -1,41 +1,107 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import { ApiError } from "@/common/api/error";
 import type { DocGetJsonData } from "@/common/types/contracts";
-import { fetchOnboardingDocJson } from "@/features/docs/api/docsApi";
+import {
+  fetchOnboardingDocJson,
+  triggerOnboardingDocGeneration,
+} from "@/features/docs/api/docsApi";
 import { GuideViewer } from "@/features/docs/components/GuideViewer";
 import { ExportButtons } from "@/features/docs/components/ExportButtons";
 
 function DocsWorkspace() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const repoId = searchParams.get("repo_id");
+
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
   const [data, setData] = useState<DocGetJsonData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generationNotice, setGenerationNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isInitialized) return;
+    if (!isLoggedIn) {
+      router.push("/signin");
+      return;
+    }
     if (!repoId) return;
 
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryCount = 0;
+    let triggerRequested = false;
+
+    const scheduleReload = (load: () => Promise<void>) => {
+      retryCount += 1;
+      if (retryCount > 40) {
+        setIsLoading(false);
+        setError("온보딩 가이드북 생성이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void load();
+      }, 3000);
+    };
 
     const load = async () => {
       setIsLoading(true);
       setError(null);
-      setData(null);
+      if (retryCount === 0) setData(null);
 
       try {
         const resp = await fetchOnboardingDocJson(repoId);
-        if (!cancelled) setData(resp.data);
+        if (!cancelled) {
+          setData(resp.data);
+          setGenerationNotice(null);
+        }
       } catch (err: unknown) {
+        if (cancelled) return;
+
+        if (err instanceof ApiError && err.code === "DOCS_NOT_FOUND") {
+          try {
+            if (!triggerRequested) {
+              triggerRequested = true;
+              setGenerationNotice("온보딩 가이드북이 없어 자동 생성 중입니다. 완료되면 화면이 갱신됩니다.");
+              await triggerOnboardingDocGeneration(repoId);
+            } else {
+              setGenerationNotice("온보딩 가이드북을 생성 중입니다. 완료되면 화면이 갱신됩니다.");
+            }
+            scheduleReload(load);
+          } catch (triggerErr: unknown) {
+            if (
+              triggerErr instanceof ApiError &&
+              triggerErr.code === "DOCS_GENERATION_IN_PROGRESS"
+            ) {
+              setGenerationNotice("온보딩 가이드북 생성이 이미 진행 중입니다. 완료되면 화면이 갱신됩니다.");
+              scheduleReload(load);
+              return;
+            }
+
+            setError(
+              triggerErr instanceof Error
+                ? triggerErr.message
+                : "온보딩 가이드북 생성을 시작하지 못했습니다.",
+            );
+          }
+          return;
+        }
+
         if (!cancelled) {
           setError(
             err instanceof Error ? err.message : "가이드북 조회에 실패했습니다.",
           );
         }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled && !retryTimer) setIsLoading(false);
       }
     };
 
@@ -43,8 +109,20 @@ function DocsWorkspace() {
 
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [repoId]);
+  }, [repoId, isInitialized, isLoggedIn, router]);
+
+  if (!isInitialized) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--bg-primary)" }}
+      >
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <main
@@ -98,6 +176,17 @@ function DocsWorkspace() {
         )}
 
         {/* 가이드북 뷰어 */}
+        {generationNotice && (
+          <div
+            className="rounded-2xl border px-6 py-4 text-sm"
+            style={{
+              borderColor: "var(--border-primary)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            {generationNotice}
+          </div>
+        )}
         <GuideViewer data={data} isLoading={isLoading} error={error} />
       </section>
     </main>

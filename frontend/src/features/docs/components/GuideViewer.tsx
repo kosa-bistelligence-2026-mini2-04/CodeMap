@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { fetchOnboardingDocMarkdown } from "@/features/docs/api/docsApi";
 import {
   AlertTriangle,
   BookOpen,
@@ -258,6 +261,54 @@ function FolderSummariesPanel({
   );
 }
 
+// ── 다운로드 미리보기 전용 컴포넌트 ──────────────────────────────
+
+function MarkdownPreviewPanel({ repoId }: { repoId: string }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchMarkdown = async () => {
+      try {
+        setIsLoading(true);
+        const resp = await fetchOnboardingDocMarkdown(repoId);
+        if (isMounted) setContent(resp.data.content);
+      } catch (err) {
+        if (isMounted) setError("마크다운 문서를 불러오지 못했습니다.");
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    void fetchMarkdown();
+    return () => {
+      isMounted = false;
+    };
+  }, [repoId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <LoaderCircle className="size-6 animate-spin" style={{ color: "var(--text-muted)" }} />
+        <span className="ml-3 text-sm" style={{ color: "var(--text-muted)" }}>문서를 불러오는 중...</span>
+      </div>
+    );
+  }
+
+  if (error || !content) {
+    return <p className="text-sm text-red-500">{error || "내용이 없습니다."}</p>;
+  }
+
+  return (
+    <div className="prose prose-sm prose-invert max-w-none break-words [&_li]:my-0.5 [&_li>p]:my-0 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 // ── 메인 컴포넌트 ──────────────────────────────────────────────
 
 export interface GuideViewerProps {
@@ -325,17 +376,13 @@ export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
     coreFlow:        <CoreFlowPanel text={data.coreFlow} />,
     folderSummaries: <FolderSummariesPanel items={data.folderSummaries} />,
     fileSummary:     <FileSummaryPanel docData={data} />,
-    onboardingGuide: (
-      <OnboardingGuidePanel
-        readingOrder={data.readingOrder}
-        dangerFiles={data.dangerFiles}
-      />
-    ),
+    onboardingGuide: <MarkdownPreviewPanel repoId={data.repoId} />,
   };
 
   return (
-    <article
-      className="rounded-2xl border"
+    <>
+      <article
+        className="rounded-2xl border print:hidden"
       style={{ borderColor: "var(--border-primary)" }}
     >
       {/* 탭 바 */}
@@ -395,5 +442,11 @@ export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
         {panelContent[activeTab]}
       </div>
     </article>
+
+      {/* 인쇄용 컨테이너 (평소에는 숨김, 인쇄 시 전체 문서 레이아웃으로 활성화됨) */}
+      <div className="hidden print:block w-full text-black bg-white">
+        <MarkdownPreviewPanel repoId={data.repoId} />
+      </div>
+    </>
   );
 }
