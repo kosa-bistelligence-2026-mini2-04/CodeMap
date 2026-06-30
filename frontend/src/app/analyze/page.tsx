@@ -121,6 +121,7 @@ function AnalyzeWorkspace() {
   const chatPanelResizeRef = useRef({
     startX: 0,
     startWidth: CHAT_PANEL_DEFAULT_WIDTH,
+    startCodeWidth: 0,
   });
 
   useEffect(() => {
@@ -168,8 +169,13 @@ function AnalyzeWorkspace() {
     if (!isChatPanelResizing) return;
 
     const handlePointerMove = (event: globalThis.PointerEvent) => {
-      const { startX, startWidth } = chatPanelResizeRef.current;
-      setChatPanelWidth(clampChatPanelWidth(startWidth - (event.clientX - startX)));
+      const { startX, startWidth, startCodeWidth } = chatPanelResizeRef.current;
+      const newChatWidth = clampChatPanelWidth(startWidth - (event.clientX - startX));
+      const delta = newChatWidth - startWidth;
+      setChatPanelWidth(newChatWidth);
+      if (startCodeWidth > 0) {
+        setCodePanelWidth(clampCodePanelWidth(startCodeWidth - delta));
+      }
     };
 
     const handlePointerUp = () => {
@@ -203,9 +209,10 @@ function AnalyzeWorkspace() {
     chatPanelResizeRef.current = {
       startX: event.clientX,
       startWidth: chatPanelWidth,
+      startCodeWidth: selectedFile && jobId ? codePanelWidth : 0,
     };
     setIsChatPanelResizing(true);
-  }, [chatPanelWidth]);
+  }, [chatPanelWidth, codePanelWidth, selectedFile, jobId]);
 
   const handleMobileHistorySelect = useCallback(
     (id: string) => {
