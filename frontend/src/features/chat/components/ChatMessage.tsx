@@ -92,7 +92,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
         }}
       >
         {isUser ? (
-          <div className="flex flex-col gap-2">
+          <div className="notranslate flex flex-col gap-2" translate="no">
             {message.contextFile && (
               <div className="flex items-center gap-1.5 opacity-80">
                 <FileCode2 className="size-3 text-blue-400" />
@@ -102,7 +102,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
             <p className="whitespace-pre-wrap">{message.content}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="notranslate flex flex-col gap-3" translate="no">
             {/* Agent Exploration Steps */}
             {message.explorationSteps && message.explorationSteps.length > 0 && (
               <AgentExplorationTimeline 
