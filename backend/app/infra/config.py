@@ -206,6 +206,14 @@ class Settings(BaseSettings):
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(generated_key + "\n")
+                
+                # 리눅스/Unix 계열에서 소유자 외 접근을 차단하기 위한 권한 변경 (Issue #262 피드백 반영)
+                if os.name != "nt":
+                    try:
+                        os.chmod(path, 0o600)
+                    except Exception as exc:
+                        print(f"[Warning] Failed to set 600 permissions on {path}: {exc}")
+
                 self.JWT_SECRET = generated_key
             except Exception as e:
                 print(f"[Warning] Failed to generate/write JWT secret key file to {path}: {e}")
