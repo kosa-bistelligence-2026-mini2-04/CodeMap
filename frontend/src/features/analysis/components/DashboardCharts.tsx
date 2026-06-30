@@ -43,8 +43,8 @@ export function DashboardCharts({ report }: Props) {
   ];
 
   return (
-    <div className={`mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
-      <div className={`p-4 rounded-xl border ${isDark ? "bg-zinc-900/50 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"}`}>
+    <div className={`mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+      <div className={`min-w-0 overflow-hidden p-4 rounded-xl border ${isDark ? "bg-zinc-900/50 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"}`}>
         <h3 className="text-sm font-semibold mb-2">저장소 언어 분포</h3>
         <p className="text-[10px] text-zinc-500 mb-4">소스코드 라인 비중</p>
         <div className="h-[200px] w-full">
@@ -78,7 +78,7 @@ export function DashboardCharts({ report }: Props) {
         </div>
       </div>
 
-      <div className={`p-4 rounded-xl border ${isDark ? "bg-zinc-900/50 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"}`}>
+      <div className={`min-w-0 overflow-hidden p-4 rounded-xl border ${isDark ? "bg-zinc-900/50 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"}`}>
         <h3 className="text-sm font-semibold mb-2">건강도 다차원 분석</h3>
         <p className="text-[10px] text-zinc-500 mb-4">종합 품질 점수(Health Score) 기반 평가</p>
         <div className="h-[200px] w-full">

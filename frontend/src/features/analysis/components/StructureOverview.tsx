@@ -20,7 +20,8 @@ interface StructureOverviewProps {
   onFileSelect: (file: string) => void;
 }
 
-const DEFAULT_VISIBLE_ITEM_COUNT = 8;
+const DEFAULT_VISIBLE_TECHNOLOGY_COUNT = 8;
+const DEFAULT_VISIBLE_ENTRYPOINT_COUNT = 3;
 
 function getStackIcon(name: string): LucideIcon {
   const normalized = name.toLowerCase();
@@ -43,10 +44,10 @@ export function StructureOverview({
   const isDark = theme === "dark";
   const isKo = locale === "ko";
   const technologies = [...new Set([primaryLanguage, ...stack].filter((item): item is string => Boolean(item)))];
-  const visibleTechnologies = showAllTechnologies ? technologies : technologies.slice(0, DEFAULT_VISIBLE_ITEM_COUNT);
-  const visibleEntryPoints = showAllEntryPoints ? entrypoints : entrypoints.slice(0, DEFAULT_VISIBLE_ITEM_COUNT);
-  const hasHiddenTechnologies = technologies.length > DEFAULT_VISIBLE_ITEM_COUNT;
-  const hasHiddenEntryPoints = entrypoints.length > DEFAULT_VISIBLE_ITEM_COUNT;
+  const visibleTechnologies = showAllTechnologies ? technologies : technologies.slice(0, DEFAULT_VISIBLE_TECHNOLOGY_COUNT);
+  const visibleEntryPoints = showAllEntryPoints ? entrypoints : entrypoints.slice(0, DEFAULT_VISIBLE_ENTRYPOINT_COUNT);
+  const hasHiddenTechnologies = technologies.length > DEFAULT_VISIBLE_TECHNOLOGY_COUNT;
+  const hasHiddenEntryPoints = entrypoints.length > DEFAULT_VISIBLE_ENTRYPOINT_COUNT;
   const card = isDark ? "border-zinc-800 bg-zinc-900/55" : "border-zinc-200 bg-white";
   const subCard = isDark ? "border-zinc-800 bg-zinc-950/45" : "border-zinc-200 bg-zinc-50";
   const muted = "text-zinc-500";
