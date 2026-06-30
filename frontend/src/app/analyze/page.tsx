@@ -47,6 +47,23 @@ function getInitialCodePanelWidth() {
     : CODE_PANEL_DEFAULT_WIDTH;
 }
 
+const CHAT_PANEL_WIDTH_STORAGE_KEY = "codemap:analyze:chat-panel-width";
+const CHAT_PANEL_DEFAULT_WIDTH = 400;
+const CHAT_PANEL_MIN_WIDTH = 400;
+const CHAT_PANEL_MAX_WIDTH = 600;
+
+function clampChatPanelWidth(width: number) {
+  return Math.min(CHAT_PANEL_MAX_WIDTH, Math.max(CHAT_PANEL_MIN_WIDTH, Math.round(width)));
+}
+
+function getInitialChatPanelWidth() {
+  if (typeof window === "undefined") return CHAT_PANEL_DEFAULT_WIDTH;
+  const savedWidth = Number(window.localStorage.getItem(CHAT_PANEL_WIDTH_STORAGE_KEY));
+  return Number.isFinite(savedWidth) && savedWidth > 0
+    ? clampChatPanelWidth(savedWidth)
+    : CHAT_PANEL_DEFAULT_WIDTH;
+}
+
 function AnalyzeWorkspace() {
   const { theme, locale } = useApp();
   const isDark = theme === "dark";
@@ -65,6 +82,8 @@ function AnalyzeWorkspace() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [codePanelWidth, setCodePanelWidth] = useState(getInitialCodePanelWidth);
   const [isCodePanelResizing, setIsCodePanelResizing] = useState(false);
+  const [chatPanelWidth, setChatPanelWidth] = useState(getInitialChatPanelWidth);
+  const [isChatPanelResizing, setIsChatPanelResizing] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(searchParams.get("thread"));
   const [workspaceScope, setWorkspaceScope] = useState<WorkspaceScope>("private");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -99,6 +118,11 @@ function AnalyzeWorkspace() {
     startX: 0,
     startWidth: CODE_PANEL_DEFAULT_WIDTH,
   });
+  const chatPanelResizeRef = useRef({
+    startX: 0,
+    startWidth: CHAT_PANEL_DEFAULT_WIDTH,
+    startCodeWidth: 0,
+  });
 
   useEffect(() => {
     return () => {
@@ -110,6 +134,11 @@ function AnalyzeWorkspace() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(CODE_PANEL_WIDTH_STORAGE_KEY, String(codePanelWidth));
   }, [codePanelWidth]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CHAT_PANEL_WIDTH_STORAGE_KEY, String(chatPanelWidth));
+  }, [chatPanelWidth]);
 
   useEffect(() => {
     if (!isCodePanelResizing) return;
@@ -136,6 +165,36 @@ function AnalyzeWorkspace() {
     };
   }, [isCodePanelResizing]);
 
+  useEffect(() => {
+    if (!isChatPanelResizing) return;
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      const { startX, startWidth, startCodeWidth } = chatPanelResizeRef.current;
+      const newChatWidth = clampChatPanelWidth(startWidth - (event.clientX - startX));
+      const delta = newChatWidth - startWidth;
+      setChatPanelWidth(newChatWidth);
+      if (startCodeWidth > 0) {
+        setCodePanelWidth(clampCodePanelWidth(startCodeWidth - delta));
+      }
+    };
+
+    const handlePointerUp = () => {
+      setIsChatPanelResizing(false);
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [isChatPanelResizing]);
+
   const handleCodePanelResizeStart = useCallback((event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     codePanelResizeRef.current = {
@@ -144,6 +203,16 @@ function AnalyzeWorkspace() {
     };
     setIsCodePanelResizing(true);
   }, [codePanelWidth]);
+
+  const handleChatPanelResizeStart = useCallback((event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    chatPanelResizeRef.current = {
+      startX: event.clientX,
+      startWidth: chatPanelWidth,
+      startCodeWidth: selectedFile && jobId ? codePanelWidth : 0,
+    };
+    setIsChatPanelResizing(true);
+  }, [chatPanelWidth, codePanelWidth, selectedFile, jobId]);
 
   const handleMobileHistorySelect = useCallback(
     (id: string) => {
@@ -350,10 +419,32 @@ function AnalyzeWorkspace() {
           </>
         )}
 
-        <aside className={`hidden shrink-0 overflow-hidden border-l transition-[width] duration-200 ease-out xl:block ${
-          mobileChatOpen ? "w-[400px]" : "w-0 border-l-0"
-        } ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-          <div className="h-full w-[400px]">
+        {mobileChatOpen && (
+          <button
+            type="button"
+            aria-label="채팅 패널 너비 조절"
+            title="채팅 패널 너비 조절"
+            onPointerDown={handleChatPanelResizeStart}
+            className={`group hidden w-2 shrink-0 cursor-col-resize items-center justify-center transition xl:flex ${
+              isDark ? "bg-zinc-950 hover:bg-zinc-900" : "bg-zinc-50 hover:bg-zinc-100"
+            } ${isChatPanelResizing ? "bg-blue-500/10" : ""}`}
+          >
+            <span className={`h-12 w-0.5 rounded-full transition ${
+              isChatPanelResizing
+                ? "bg-blue-400"
+                : isDark
+                  ? "bg-zinc-700 group-hover:bg-blue-400"
+                  : "bg-zinc-300 group-hover:bg-blue-500"
+            }`} />
+          </button>
+        )}
+        <aside
+          className={`hidden shrink-0 overflow-hidden border-l xl:block ${
+            !isChatPanelResizing ? "transition-[width] duration-200 ease-out" : ""
+          } ${mobileChatOpen ? "" : "w-0 border-l-0"} ${isDark ? "border-zinc-800" : "border-zinc-200"}`}
+          style={{ width: mobileChatOpen ? `${chatPanelWidth}px` : 0 } as CSSProperties}
+        >
+          <div className="h-full" style={{ width: `${chatPanelWidth}px` }}>
             <ChatInterface
               repoId={chatRepoId}
               repoName={repoName}

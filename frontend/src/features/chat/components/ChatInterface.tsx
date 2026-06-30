@@ -346,7 +346,7 @@ export function ChatInterface({
 
   const empty = messages.length === 0;
   return (
-    <section className={`relative flex h-full min-h-0 flex-col ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"} ${compact ? "" : "h-[calc(100vh-3.5rem)]"}`}>
+    <section className={`flex h-full min-h-0 flex-col ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"} ${compact ? "" : "h-[calc(100vh-3.5rem)]"}`}>
       <header className={`shrink-0 border-b px-3.5 py-2.5 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2"><MessageSquareText className="size-3.5 shrink-0 text-blue-400" /><h2 className="truncate text-xs font-bold">CodeMap AI chat</h2>{preview && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">PREVIEW</span>}</div>
@@ -363,64 +363,66 @@ export function ChatInterface({
         </div>
       </header>
 
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        onWheel={markUserScrollIntent}
-        onTouchMove={markUserScrollIntent}
-        onPointerDown={markUserScrollIntent}
-        onKeyDown={markUserScrollIntent}
-        data-chat-scroll-container
-        className="flex-1 overflow-y-auto px-3.5 py-4"
-      >
-        <div className={`mx-auto flex flex-col gap-6 ${compact ? "max-w-xl" : "max-w-3xl"}`}>
-          <AnimatePresence mode="wait">
-            {empty ? (
-              <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <div className="mb-5 rounded-xl border border-blue-500/15 bg-blue-500/5 p-3">
-                  <p className="text-[11px] font-semibold text-blue-300">분석과 같은 컨텍스트를 사용합니다</p>
-                  <p className="mt-1 text-[10px] leading-5 text-zinc-500">리포트의 파일·위험 신호·권장사항을 질문하면 실제 코드 출처와 함께 답합니다.</p>
-                </div>
-                <SuggestionChips onSelect={(question) => void handleSend(question)} />
-              </motion.div>
-            ) : (
-              <motion.div key="messages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-6">
-                {messages.map((message, index) => (
-                  <ChatMessageBubble
-                    key={message.id}
-                    message={message}
-                    isStreaming={isStreaming && message.role === "assistant" && index === messages.length - 1}
-                    onReferenceClick={onReferenceClick}
-                    onSuggestionSelect={(question) => void handleSend(question)}
-                  />
-                ))}
-                {isStreaming && streamPhase && streamPhase !== "complete" && <div className="pl-10"><StreamingStatus phase={streamPhase} /></div>}
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <div ref={messagesEndRef} />
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          onWheel={markUserScrollIntent}
+          onTouchMove={markUserScrollIntent}
+          onPointerDown={markUserScrollIntent}
+          onKeyDown={markUserScrollIntent}
+          data-chat-scroll-container
+          className="h-full overflow-y-auto px-3.5 py-4"
+        >
+          <div className={`mx-auto flex flex-col gap-6 ${compact ? "max-w-xl" : "max-w-3xl"}`}>
+            <AnimatePresence mode="wait">
+              {empty ? (
+                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <div className="mb-5 rounded-xl border border-blue-500/15 bg-blue-500/5 p-3">
+                    <p className="text-[11px] font-semibold text-blue-300">분석과 같은 컨텍스트를 사용합니다</p>
+                    <p className="mt-1 text-[10px] leading-5 text-zinc-500">리포트의 파일·위험 신호·권장사항을 질문하면 실제 코드 출처와 함께 답합니다.</p>
+                  </div>
+                  <SuggestionChips onSelect={(question) => void handleSend(question)} />
+                </motion.div>
+              ) : (
+                <motion.div key="messages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-6">
+                  {messages.map((message, index) => (
+                    <ChatMessageBubble
+                      key={message.id}
+                      message={message}
+                      isStreaming={isStreaming && message.role === "assistant" && index === messages.length - 1}
+                      onReferenceClick={onReferenceClick}
+                      onSuggestionSelect={(question) => void handleSend(question)}
+                    />
+                  ))}
+                  {isStreaming && streamPhase && streamPhase !== "complete" && <div className="pl-10"><StreamingStatus phase={streamPhase} /></div>}
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <div ref={messagesEndRef} />
+          </div>
         </div>
-      </div>
 
-      <AnimatePresence>
-        {showScrollToLatest && (
-          <motion.button
-            type="button"
-            onClick={jumpToLatest}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className={`absolute bottom-[6.75rem] right-4 z-10 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-              isDark
-                ? "border-blue-400/40 bg-zinc-900/95 text-blue-100 hover:border-blue-300 hover:bg-blue-950"
-                : "border-blue-200 bg-white/95 text-blue-700 hover:border-blue-300 hover:bg-blue-50"
-            }`}
-          >
-            <ArrowDown className="size-3" />
-            최신 답변
-          </motion.button>
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {showScrollToLatest && (
+            <motion.button
+              type="button"
+              onClick={jumpToLatest}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className={`absolute bottom-4 right-4 z-10 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                isDark
+                  ? "border-blue-400/40 bg-zinc-900/95 text-blue-100 hover:border-blue-300 hover:bg-blue-950"
+                  : "border-blue-200 bg-white/95 text-blue-700 hover:border-blue-300 hover:bg-blue-50"
+              }`}
+            >
+              <ArrowDown className="size-3" />
+              최신 답변
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
 
       <footer className={`shrink-0 border-t ${isDark ? "border-zinc-800" : "border-zinc-200"} px-3.5 py-3`}>
         <div className={`p-4 ${isDark ? "" : "bg-white"}`}>
