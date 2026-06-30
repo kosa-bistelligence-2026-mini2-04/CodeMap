@@ -30,6 +30,7 @@ from app.repo.router import router as repo_router
 from app.pipeline.websocket import ws_router as repo_ws_router
 from app.chat.router import router as chat_router
 from app.chat.run_registry import sweep_run_registry
+from app.repo.service import sweep_disk_cleanup
 from app.agent.router import router as agent_router
 from app.parse.router import router as parse_router
 from app.tool.router import router as tool_router
@@ -43,6 +44,7 @@ async def lifespan(app: FastAPI):
     await open_checkpoint_pool()
 
     run_registry_sweeper = asyncio.create_task(sweep_run_registry())
+    disk_cleanup_sweeper = asyncio.create_task(sweep_disk_cleanup(interval_seconds=300))
     # 애플리케이션 시작 시 DB extension 및 필수 테이블 존재 여부만 검증
     # DDL 실행은 database/init.sql의 명시적 초기화 단계에서만 수행한다.
     try:
@@ -50,8 +52,9 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         run_registry_sweeper.cancel()
+        disk_cleanup_sweeper.cancel()
         with suppress(asyncio.CancelledError):
-            await run_registry_sweeper
+            await asyncio.gather(run_registry_sweeper, disk_cleanup_sweeper)
         # 애플리케이션 종료 시 커넥션 풀 닫기
         await engine.dispose()
         await close_checkpoint_pool()

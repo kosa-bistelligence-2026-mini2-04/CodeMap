@@ -60,6 +60,7 @@ def _mock_job_status_ok(target: str = "app.repo.router.AnalysisService") -> Magi
     """get_job_status 가 정상 응답을 반환하도록 mock."""
     mock_svc = MagicMock()
     mock_svc.get_job_status = AsyncMock(return_value=MagicMock())
+    mock_svc.restore_workspace = AsyncMock()
     patcher = patch(target, return_value=mock_svc)
     return patcher
 

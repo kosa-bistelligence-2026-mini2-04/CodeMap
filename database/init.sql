@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     progress INTEGER NOT NULL DEFAULT 0,
     message TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_accessed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS model_used VARCHAR(255) NOT NULL DEFAULT 'auto';
@@ -24,6 +25,7 @@ ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS report_json JSONB;
 ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS user_id UUID;
 ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS team_id UUID;
 ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS last_accessed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
 -- 2.5 Teams
 CREATE TABLE IF NOT EXISTS teams (
@@ -150,6 +152,9 @@ CREATE INDEX IF NOT EXISTS idx_code_nodes_language ON code_nodes (language);
 
 -- 분석 작업 상태 조회 성능 향상을 위한 인덱스
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_status ON analysis_jobs (status);
+
+-- LRU 디스크 가비지 컬렉션 성능 향상을 위한 정렬 인덱스
+CREATE INDEX IF NOT EXISTS idx_analysis_jobs_last_accessed_at ON analysis_jobs (last_accessed_at);
 
 -- 동일 저장소 중복 분석 확인을 위한 일반 인덱스 (기존 유지, 단순 검색용)
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_repo_branch ON analysis_jobs (repo_url, branch, status);
