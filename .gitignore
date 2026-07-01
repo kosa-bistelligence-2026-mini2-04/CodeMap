@@ -261,3 +261,6 @@ package-lock.json
 
 # Agent rules and history
 .agents/
+
+# JWT Symmetric Encryption secret key file (Issue #262)
+backend/.jwt_secret_key

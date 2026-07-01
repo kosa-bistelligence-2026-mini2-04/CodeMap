@@ -25,6 +25,7 @@ from app.auth.schemas import (
 from app.infra.auth import create_access_token
 from app.infra.config import get_settings
 from app.team.service import TeamService
+from cryptography.fernet import InvalidToken as FernetInvalidToken
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -53,10 +54,11 @@ def _verify_password(plain: str, hashed: str) -> bool:
 
 def _create_refresh_token(user_id: str, email: str) -> str:
     """
-    Refresh Token도 JWT로 생성 (만료 기간만 더 길게).
+    Refresh Token도 JWT로 생성 (만료 기간만 더 길게) 및 AES 대칭 암호화.
     payload에 type=refresh 를 추가해 Access Token과 구분.
     """
-    from jose import jwt
+    import jwt
+    from app.infra.auth import encrypt_token
 
     now = datetime.now(timezone.utc)
     expire = now + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
@@ -68,7 +70,8 @@ def _create_refresh_token(user_id: str, email: str) -> str:
         "exp": expire,
         "iat": now,
     }
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    raw_token = jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    return encrypt_token(raw_token)
 
 
 class AuthService:
@@ -148,7 +151,8 @@ class AuthService:
         """
         Refresh Token 검증 후 새 Access Token 발급 (Rotation).
         """
-        from jose import JWTError, jwt
+        import jwt
+        from app.infra.auth import decrypt_token
 
         # 1. DB에서 토큰 존재 여부 확인
         rt_record = await self.repo.get_refresh_token(refresh_token)
@@ -165,16 +169,21 @@ class AuthService:
 
         # 3. JWT 서명 검증 및 payload 추출
         try:
+            # AES 대칭키 복호화 선수행
+            raw_token = decrypt_token(refresh_token)
             payload = jwt.decode(
-                refresh_token,
+                raw_token,
                 settings.JWT_SECRET,
                 algorithms=[settings.JWT_ALGORITHM],
             )
             if payload.get("type") != "refresh":
                 logger.warning("[AUTH] 토큰 갱신 실패: 타입 불일치")
                 return RefreshResponse(success=False, message="유효하지 않은 토큰 타입입니다.")
-        except JWTError:
-            logger.warning("[AUTH] 토큰 갱신 실패: JWT 서명 검증 실패")
+        except jwt.ExpiredSignatureError:
+            logger.warning("[AUTH] 토큰 갱신 실패: JWT 서명 만료", exc_info=True)
+            return RefreshResponse(success=False, message="토큰이 만료되었습니다. 다시 로그인해주세요.")
+        except (jwt.PyJWTError, FernetInvalidToken):
+            logger.warning("[AUTH] 토큰 갱신 실패: JWT 서명 검증 및 복호화 실패", exc_info=True)
             return RefreshResponse(success=False, message="유효하지 않은 토큰입니다.")
 
         # 4. 새 토큰 발급 (Access & Refresh - Rotation)

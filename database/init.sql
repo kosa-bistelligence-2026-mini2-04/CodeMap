@@ -273,6 +273,12 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens (user_id
 CREATE UNIQUE INDEX IF NOT EXISTS uq_refresh_tokens_token ON refresh_tokens (token);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens (expires_at);
 
+-- 9.2 시스템 메타 설정 테이블 (대칭키 물리 격리 복원 보장용 - 오롯이 예비 난수 5개 시퀀스 형태 유지 목적)
+CREATE TABLE IF NOT EXISTS system_configs (
+    seq_id SERIAL PRIMARY KEY,
+    secret_key VARCHAR(255) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS chat_conversations (
     id UUID PRIMARY KEY,
     repo_id UUID NOT NULL REFERENCES analysis_jobs(id) ON DELETE CASCADE,

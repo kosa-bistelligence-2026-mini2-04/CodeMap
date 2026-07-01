@@ -158,8 +158,10 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = ""
 
     # ── [PROJECT-AUTH] JWT 인증 설정 ──────────────────────────────────────────
-    # 서명 키: 운영 환경에서는 반드시 충분히 긴 랜덤 문자열로 교체할 것
-    JWT_SECRET: str = "change-me-in-production-use-long-random-string"
+    # 서명 키 파일 경로 (.env 와 동일 폴더 위치의 숨김 파일)
+    JWT_SECRET_KEY_PATH: str = ".jwt_secret_key"
+    # 서명 키: 파일 로드 및 DB 동기화 복구에 의해 채워짐 (하드코딩 키 삭제)
+    JWT_SECRET: str = ""
     # 서명 알고리즘 (HS256 고정)
     JWT_ALGORITHM: str = "HS256"
     # Access Token 만료 시간 (분), 기본 60분
@@ -175,6 +177,47 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }
+
+    @model_validator(mode="after")
+    def load_secret_from_file(self) -> "Settings":
+        """
+        JWT_SECRET_KEY_PATH 지정 파일이 존재할 경우 파일 내용으로 JWT_SECRET을 덮어씁니다.
+        지정한 보안 키 파일이 존재하지 않는다면, secrets 모듈로 안전한 32바이트
+        랜덤 암호화 서명 키를 자동 생성하여 물리 파일로 영구 보존하고 이를 로드합니다.
+        """
+        import secrets
+        path = self.JWT_SECRET_KEY_PATH
+        if not os.path.isabs(path):
+            path = os.path.join(backend_dir, path)
+        
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    key_content = f.read().strip()
+                    if key_content:
+                        self.JWT_SECRET = key_content
+            except Exception as e:
+                print(f"[Warning] Failed to read JWT secret key file from {path}: {e}")
+        else:
+            try:
+                # 안전한 난수 기반 32바이트 암호 서명키 생성
+                generated_key = secrets.token_urlsafe(32)
+                # 디렉토리가 없다면 생성
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(generated_key + "\n")
+                
+                # 리눅스/Unix 계열에서 소유자 외 접근을 차단하기 위한 권한 변경 (Issue #262 피드백 반영)
+                if os.name != "nt":
+                    try:
+                        os.chmod(path, 0o600)
+                    except Exception as exc:
+                        print(f"[Warning] Failed to set 600 permissions on {path}: {exc}")
+
+                self.JWT_SECRET = generated_key
+            except Exception as e:
+                print(f"[Warning] Failed to generate/write JWT secret key file to {path}: {e}")
+        return self
 
 
     # ──────────────────────────────────────────────
