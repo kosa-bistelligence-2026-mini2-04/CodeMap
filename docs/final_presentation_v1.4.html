@@ -552,6 +552,78 @@
       color: #c7d2fe;
     }
 
+    .screen-carousel {
+      min-height: 386px;
+    }
+
+    .screen-carousel .screen-body {
+      padding: 0;
+    }
+
+    .screen-slide-track {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 100%;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(199,210,254,.38) transparent;
+    }
+
+    .screen-slide-track::-webkit-scrollbar { height: 7px; }
+    .screen-slide-track::-webkit-scrollbar-thumb {
+      background: rgba(199,210,254,.38);
+      border-radius: 999px;
+    }
+
+    .screen-slide {
+      position: relative;
+      min-height: 350px;
+      scroll-snap-align: start;
+    }
+
+    .screen-slide.code-mock {
+      padding: 24px 28px;
+    }
+
+    .screen-shot {
+      overflow: hidden;
+      background: #f8fafc;
+    }
+
+    .screen-shot img {
+      display: block;
+      width: 100%;
+      height: 350px;
+      object-fit: cover;
+      object-position: top left;
+    }
+
+    .screen-slide-caption {
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+      max-width: calc(100% - 36px);
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(17,24,39,.86);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      backdrop-filter: blur(10px);
+    }
+
+    .screen-scroll-hint {
+      position: absolute;
+      right: 18px;
+      bottom: 16px;
+      color: #c7d2fe;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
     .metric-row {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -1242,15 +1314,28 @@ CodeMapState
           <span class="kicker">Feature 3</span>
           <h2>코드 탐색 에디터: 근거 클릭에서 라인 하이라이트까지</h2>
           <div class="split-heavy">
-            <div class="screen">
+            <div class="screen screen-carousel">
               <div class="screen-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
               <div class="screen-body">
-                <div class="terminal-line">src/features/chat/components/ChatMessage.tsx  L37-L49</div>
-                <div class="terminal-line">37 const getReferenceLineStart = ...</div>
-                <div class="terminal-line">38 const getReferenceLineEnd = ...</div>
-                <div class="terminal-line" style="background:rgba(250,204,21,.15); color:#fef3c7; padding:2px 8px; border-radius:6px;">39 const getReferenceLineLabel = ...</div>
-                <div class="terminal-line">40 if (lineStart === null) return "라인 미확인";</div>
-                <div class="terminal-line">41 return `L${lineStart}`;</div>
+                <div class="screen-slide-track" aria-label="코드 프리뷰와 실제 화면 캡처">
+                  <div class="screen-slide code-mock">
+                    <div class="terminal-line">src/features/chat/components/ChatMessage.tsx  L37-L49</div>
+                    <div class="terminal-line">37 const getReferenceLineStart = ...</div>
+                    <div class="terminal-line">38 const getReferenceLineEnd = ...</div>
+                    <div class="terminal-line" style="background:rgba(250,204,21,.15); color:#fef3c7; padding:2px 8px; border-radius:6px;">39 const getReferenceLineLabel = ...</div>
+                    <div class="terminal-line">40 if (lineStart === null) return "라인 미확인";</div>
+                    <div class="terminal-line">41 return `L${lineStart}`;</div>
+                    <div class="screen-scroll-hint">scroll →</div>
+                  </div>
+                  <figure class="screen-slide screen-shot">
+                    <img src="assets/final_presentation/live-workspace-ko-light.png" alt="CodeMap workspace analysis dashboard in Korean light mode">
+                    <figcaption class="screen-slide-caption">분석 대시보드 · 파일 트리 · 진입점 카드</figcaption>
+                  </figure>
+                  <figure class="screen-slide screen-shot">
+                    <img src="assets/final_presentation/live-code-panel-ko-light.png" alt="CodeMap file context panel in Korean light mode">
+                    <figcaption class="screen-slide-caption">파일 클릭 · 우측 컨텍스트 패널 · 채팅 연결</figcaption>
+                  </figure>
+                </div>
               </div>
             </div>
             <article class="card">
@@ -1264,21 +1349,10 @@ CodeMapState
               </ul>
             </article>
           </div>
-          <div class="capture-gallery">
-            <div class="gallery-head">
-              <div class="gallery-title">Live Demo 캡처: 워크스페이스와 파일 컨텍스트 패널</div>
-              <div class="gallery-hint">scroll →</div>
-            </div>
-            <div class="capture-track" aria-label="코드 탐색 실제 화면 갤러리">
-              <figure class="capture-card tall">
-                <img src="assets/final_presentation/live-workspace-ko-light.png" alt="CodeMap workspace analysis dashboard in Korean light mode">
-                <figcaption class="capture-caption">분석 대시보드 · 파일 트리 · 진입점 카드</figcaption>
-              </figure>
-              <figure class="capture-card tall">
-                <img src="assets/final_presentation/live-code-panel-ko-light.png" alt="CodeMap file context panel in Korean light mode">
-                <figcaption class="capture-caption">파일 클릭 · 우측 컨텍스트 패널 · 채팅 연결</figcaption>
-              </figure>
-            </div>
+          <div class="grid-3">
+            <article class="card compact blue"><h3>파일 접근 경계</h3><p class="body">사용자-facing 파일 프리뷰는 repo 도메인의 job-scoped API를 통해서만 접근합니다.</p></article>
+            <article class="card compact green"><h3>라인 계약</h3><p class="body">`line`, `lineStart`, `lineEnd`, `lineLabel`을 모두 흡수해 기존/신규 API 계약을 함께 지원합니다.</p></article>
+            <article class="card compact orange"><h3>대용량 방어</h3><p class="body">큰 파일은 일정 길이에서 잘라 표시하고, 복사·닫기·오류 상태를 UI에서 분리합니다.</p></article>
           </div>
         </div>
       </div>
