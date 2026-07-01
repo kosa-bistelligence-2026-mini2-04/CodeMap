@@ -49,7 +49,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Restore Auth Session
       const { useAuthStore } = await import("@/features/auth/store/useAuthStore");
-      useAuthStore.getState().restoreSession();
+      await useAuthStore.getState().restoreSession();
 
       setMounted(true);
     });

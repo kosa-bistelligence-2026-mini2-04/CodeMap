@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowRight,
+  BookOpen,
   CheckCircle2,
   ChevronLeft,
   Github,
@@ -27,9 +28,43 @@ import { useAnalysisJob } from "@/features/analysis/hooks/useAnalysisJob";
 import { WorkspaceSelector, type WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
 import { useConfirm } from "@/common/hooks/useConfirm";
 import { useApp } from "@/common/contexts/AppContext";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
 
 // 모바일 드로워 닫기 모션이 끝난 뒤 데이터 갱신을 트리거하기까지의 디바운스(ms)
 const MOBILE_DRAWER_CLOSE_MS = 180;
+const CODE_PANEL_WIDTH_STORAGE_KEY = "codemap:analyze:code-panel-width";
+const CODE_PANEL_DEFAULT_WIDTH = 560;
+const CODE_PANEL_MIN_WIDTH = 420;
+const CODE_PANEL_MAX_WIDTH = 760;
+
+function clampCodePanelWidth(width: number) {
+  return Math.min(CODE_PANEL_MAX_WIDTH, Math.max(CODE_PANEL_MIN_WIDTH, Math.round(width)));
+}
+
+function getInitialCodePanelWidth() {
+  if (typeof window === "undefined") return CODE_PANEL_DEFAULT_WIDTH;
+  const savedWidth = Number(window.localStorage.getItem(CODE_PANEL_WIDTH_STORAGE_KEY));
+  return Number.isFinite(savedWidth) && savedWidth > 0
+    ? clampCodePanelWidth(savedWidth)
+    : CODE_PANEL_DEFAULT_WIDTH;
+}
+
+const CHAT_PANEL_WIDTH_STORAGE_KEY = "codemap:analyze:chat-panel-width";
+const CHAT_PANEL_DEFAULT_WIDTH = 400;
+const CHAT_PANEL_MIN_WIDTH = 400;
+const CHAT_PANEL_MAX_WIDTH = 600;
+
+function clampChatPanelWidth(width: number) {
+  return Math.min(CHAT_PANEL_MAX_WIDTH, Math.max(CHAT_PANEL_MIN_WIDTH, Math.round(width)));
+}
+
+function getInitialChatPanelWidth() {
+  if (typeof window === "undefined") return CHAT_PANEL_DEFAULT_WIDTH;
+  const savedWidth = Number(window.localStorage.getItem(CHAT_PANEL_WIDTH_STORAGE_KEY));
+  return Number.isFinite(savedWidth) && savedWidth > 0
+    ? clampChatPanelWidth(savedWidth)
+    : CHAT_PANEL_DEFAULT_WIDTH;
+}
 
 function AnalyzeWorkspace() {
   const { theme, locale } = useApp();
@@ -47,11 +82,17 @@ function AnalyzeWorkspace() {
   const [chatPromptNonce, setChatPromptNonce] = useState(0);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [codePanelWidth, setCodePanelWidth] = useState(getInitialCodePanelWidth);
+  const [isCodePanelResizing, setIsCodePanelResizing] = useState(false);
+  const [chatPanelWidth, setChatPanelWidth] = useState(getInitialChatPanelWidth);
+  const [isChatPanelResizing, setIsChatPanelResizing] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(searchParams.get("thread"));
   const [workspaceScope, setWorkspaceScope] = useState<WorkspaceScope>("private");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamName, setSelectedTeamName] = useState<string | null>(null);
   const { confirm, ConfirmDialog } = useConfirm();
+  const isRestoring = useAuthStore((state) => state.isRestoring);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const {
     jobId,
     job,
@@ -77,12 +118,111 @@ function AnalyzeWorkspace() {
   // 모바일 드로워: 닫기 애니메이션과 데이터 갱신 타이밍 분리 (#229)
   // ──────────────────────────────────────────────
   const mobileSelectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const codePanelResizeRef = useRef({
+    startX: 0,
+    startWidth: CODE_PANEL_DEFAULT_WIDTH,
+  });
+  const chatPanelResizeRef = useRef({
+    startX: 0,
+    startWidth: CHAT_PANEL_DEFAULT_WIDTH,
+    startCodeWidth: 0,
+  });
 
   useEffect(() => {
     return () => {
       if (mobileSelectTimer.current) clearTimeout(mobileSelectTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isRestoring && !isLoggedIn && !preview) {
+      router.push("/signin");
+    }
+  }, [isRestoring, isLoggedIn, preview, router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CODE_PANEL_WIDTH_STORAGE_KEY, String(codePanelWidth));
+  }, [codePanelWidth]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CHAT_PANEL_WIDTH_STORAGE_KEY, String(chatPanelWidth));
+  }, [chatPanelWidth]);
+
+  useEffect(() => {
+    if (!isCodePanelResizing) return;
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      const { startX, startWidth } = codePanelResizeRef.current;
+      setCodePanelWidth(clampCodePanelWidth(startWidth - (event.clientX - startX)));
+    };
+
+    const handlePointerUp = () => {
+      setIsCodePanelResizing(false);
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [isCodePanelResizing]);
+
+  useEffect(() => {
+    if (!isChatPanelResizing) return;
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      const { startX, startWidth, startCodeWidth } = chatPanelResizeRef.current;
+      const newChatWidth = clampChatPanelWidth(startWidth - (event.clientX - startX));
+      const delta = newChatWidth - startWidth;
+      setChatPanelWidth(newChatWidth);
+      if (startCodeWidth > 0) {
+        setCodePanelWidth(clampCodePanelWidth(startCodeWidth - delta));
+      }
+    };
+
+    const handlePointerUp = () => {
+      setIsChatPanelResizing(false);
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [isChatPanelResizing]);
+
+  const handleCodePanelResizeStart = useCallback((event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    codePanelResizeRef.current = {
+      startX: event.clientX,
+      startWidth: codePanelWidth,
+    };
+    setIsCodePanelResizing(true);
+  }, [codePanelWidth]);
+
+  const handleChatPanelResizeStart = useCallback((event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    chatPanelResizeRef.current = {
+      startX: event.clientX,
+      startWidth: chatPanelWidth,
+      startCodeWidth: selectedFile && jobId ? codePanelWidth : 0,
+    };
+    setIsChatPanelResizing(true);
+  }, [chatPanelWidth, codePanelWidth, selectedFile, jobId]);
 
   const handleMobileHistorySelect = useCallback(
     (id: string) => {
@@ -102,7 +242,7 @@ function AnalyzeWorkspace() {
     if (contextFile) setSelectedFile(contextFile);
     setChatPrompt(prompt);
     setChatPromptNonce((value) => value + 1);
-    if (window.matchMedia("(max-width: 1279px)").matches) setMobileChatOpen(true);
+    setMobileChatOpen(true);
   };
 
   const repoName = report?.repository.name || job?.repoName || "새 프로젝트";
@@ -130,6 +270,14 @@ function AnalyzeWorkspace() {
     />
   );
 
+  if (isRestoring && !preview) {
+    return (
+      <main className={`flex h-[calc(100vh-3.5rem)] min-h-[640px] items-center justify-center flex-col overflow-hidden ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"}`}>
+        <LoaderCircle className="size-8 animate-spin text-zinc-500" />
+      </main>
+    );
+  }
+
   return (
     <main className={`flex h-[calc(100vh-3.5rem)] min-h-[640px] flex-col overflow-hidden ${isDark ? "bg-zinc-950 text-white" : "bg-white text-zinc-900"}`}>
       <header className={`flex h-12 shrink-0 items-center gap-3 border-b px-3 md:px-4 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
@@ -146,15 +294,42 @@ function AnalyzeWorkspace() {
           </div>
         </div>
         {status !== "idle" && (
-          <div className="ml-2 hidden items-center gap-2 sm:flex">
-            <span className={`size-1.5 rounded-full ${status === "completed" ? "bg-emerald-400" : status === "failed" ? "bg-red-400" : "animate-pulse bg-blue-400"}`} />
-            <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">{status === "completed" ? "Ready" : status === "failed" ? "Failed" : `${job?.stage || "Preparing"} · ${progress}%`}</span>
+          <div className="ml-2 hidden items-center gap-2.5 sm:flex">
+            <div className="flex items-center gap-1.5">
+              <span className={`size-1.5 rounded-full ${status === "completed" ? "bg-emerald-400" : status === "failed" ? "bg-red-400" : "animate-pulse bg-blue-400"}`} />
+              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">{status === "completed" ? "Ready" : status === "failed" ? "Failed" : `${job?.stage || "Preparing"} · ${progress}%`}</span>
+            </div>
+            {report && (
+              <span className={`rounded-md border px-2 py-1 font-mono text-[8px] ${isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-500" : "border-zinc-200 bg-zinc-100 text-zinc-500"}`}>
+                {preview ? "PREVIEW" : jobId?.slice(0, 8)}
+              </span>
+            )}
           </div>
         )}
         <div className="ml-auto flex items-center gap-1.5">
-          {report && <span className={`hidden rounded-md border px-2 py-1 font-mono text-[8px] md:inline ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-600" : "border-zinc-200 bg-zinc-100 text-zinc-500"}`}>{preview ? "PREVIEW" : jobId?.slice(0, 8)}</span>}
+          {report && jobId && (
+            <button
+              onClick={() => window.open(`/docs?repo_id=${jobId}`, "_blank")}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition ${
+                isDark
+                  ? "border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700 hover:text-white"
+                  : "border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"
+              }`}
+            >
+              <BookOpen className="size-3" />
+              {isKo ? "가이드북" : "Guidebook"}
+            </button>
+          )}
           <button onClick={() => setShowNewAnalysis(true)} className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition ${isDark ? "border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"}`}><Plus className="size-3" /> {isKo ? "새 분석" : "New Analysis"}</button>
-          <button onClick={() => setMobileChatOpen(true)} disabled={!chatRepoId} className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-2.5 py-1.5 text-[10px] font-bold text-white transition hover:bg-blue-400 disabled:bg-zinc-900 disabled:text-zinc-700 xl:hidden`}><PanelRightOpen className="size-3" /> AI Chat</button>
+          <button
+            onClick={() => setMobileChatOpen((open) => !open)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-white transition ${
+              mobileChatOpen ? "bg-zinc-700 hover:bg-zinc-600" : "bg-blue-500 hover:bg-blue-400"
+            }`}
+          >
+            <PanelRightOpen className="size-3" />
+            {mobileChatOpen ? (isKo ? "숨김" : "Close") : (isKo ? "AI 채팅" : "AI Chat")}
+          </button>
         </div>
       </header>
 
@@ -179,7 +354,7 @@ function AnalyzeWorkspace() {
           )}
         </aside>
 
-        <section className={`min-w-0 flex-1 ${selectedFile ? "flex flex-col overflow-hidden" : "overflow-y-auto px-4 py-5 md:px-6 md:py-6"} ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
+        <section className={`min-w-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 ${isDark ? "bg-[#0b0b0e]" : "bg-zinc-50"}`}>
           {status === "idle" && (
             <div className="mx-auto flex min-h-full max-w-4xl items-center justify-center py-10">
               <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -230,57 +405,102 @@ function AnalyzeWorkspace() {
           )}
 
           {status === "completed" && report && (
-            <div className={`flex min-h-0 gap-0 ${selectedFile ? "flex-1" : ""}`}>
-              <div className={`min-w-0 ${selectedFile ? "hidden xl:block xl:flex-1" : "flex-1"}`}>
-                <WorkspaceReport
-                  report={report}
-                  preview={preview}
-                  onAsk={ask}
-                  onFileSelect={(file) => {
-                    setSelectedFile(file);
-                    setSelectedLine(null);
-                    setSelectedLineEnd(null);
-                  }}
-                />
-              </div>
-              {selectedFile && jobId && (
-                <div className="w-full flex-1 xl:max-w-[880px]">
-                  <CodeNavigatorPanel
-                    jobId={jobId}
-                    filePath={selectedFile}
-                    highlightLine={selectedLine}
-                    highlightLineEnd={selectedLineEnd}
-                    onClose={() => {
-                      setSelectedFile(null);
-                      setSelectedLine(null);
-                      setSelectedLineEnd(null);
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            <WorkspaceReport
+              report={report}
+              preview={preview}
+              onAsk={ask}
+              onFileSelect={(file) => {
+                setSelectedFile(file);
+                setSelectedLine(null);
+                setSelectedLineEnd(null);
+              }}
+            />
           )}
         </section>
 
-        <aside className={`hidden w-[400px] shrink-0 border-l xl:block ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-          <ChatInterface
-            repoId={chatRepoId}
-            repoName={repoName}
-            threadId={threadId}
-            compact
-            preview={preview}
-            contextFile={selectedFile}
-            initialPrompt={chatPrompt}
-            initialPromptKey={chatPromptNonce}
-            onThreadChange={setThreadId}
-            onReferenceClick={(file, line, lineEnd) => {
-              setSelectedFile(file);
-              setSelectedLine(line ?? null);
-              setSelectedLineEnd(lineEnd ?? null);
-            }}
-            onClearContextFile={() => setSelectedFile(null)}
-            expandHref={fullChatUrl}
-          />
+        {selectedFile && jobId && (
+          <>
+            <button
+              type="button"
+              aria-label="코드 패널 너비 조절"
+              title="코드 패널 너비 조절"
+              onPointerDown={handleCodePanelResizeStart}
+              className={`group hidden w-2 shrink-0 cursor-col-resize items-center justify-center transition xl:flex ${
+                isDark ? "bg-zinc-950 hover:bg-zinc-900" : "bg-zinc-50 hover:bg-zinc-100"
+              } ${isCodePanelResizing ? "bg-blue-500/10" : ""}`}
+            >
+              <span className={`h-12 w-0.5 rounded-full transition ${
+                isCodePanelResizing
+                  ? "bg-blue-400"
+                  : isDark
+                    ? "bg-zinc-700 group-hover:bg-blue-400"
+                    : "bg-zinc-300 group-hover:bg-blue-500"
+              }`} />
+            </button>
+            <aside
+              className="fixed inset-0 z-[70] min-h-0 bg-zinc-950 xl:static xl:z-auto xl:block xl:w-[var(--code-panel-width)] xl:shrink-0"
+              style={{ "--code-panel-width": `${codePanelWidth}px` } as CSSProperties}
+            >
+              <CodeNavigatorPanel
+                jobId={jobId}
+                filePath={selectedFile}
+                highlightLine={selectedLine}
+                highlightLineEnd={selectedLineEnd}
+                onClose={() => {
+                  setSelectedFile(null);
+                  setSelectedLine(null);
+                  setSelectedLineEnd(null);
+                }}
+              />
+            </aside>
+          </>
+        )}
+
+        {mobileChatOpen && (
+          <button
+            type="button"
+            aria-label="채팅 패널 너비 조절"
+            title="채팅 패널 너비 조절"
+            onPointerDown={handleChatPanelResizeStart}
+            className={`group hidden w-2 shrink-0 cursor-col-resize items-center justify-center transition xl:flex ${
+              isDark ? "bg-zinc-950 hover:bg-zinc-900" : "bg-zinc-50 hover:bg-zinc-100"
+            } ${isChatPanelResizing ? "bg-blue-500/10" : ""}`}
+          >
+            <span className={`h-12 w-0.5 rounded-full transition ${
+              isChatPanelResizing
+                ? "bg-blue-400"
+                : isDark
+                  ? "bg-zinc-700 group-hover:bg-blue-400"
+                  : "bg-zinc-300 group-hover:bg-blue-500"
+            }`} />
+          </button>
+        )}
+        <aside
+          className={`hidden shrink-0 overflow-hidden border-l xl:block ${
+            !isChatPanelResizing ? "transition-[width] duration-200 ease-out" : ""
+          } ${mobileChatOpen ? "" : "w-0 border-l-0"} ${isDark ? "border-zinc-800" : "border-zinc-200"}`}
+          style={{ width: mobileChatOpen ? `${chatPanelWidth}px` : 0 } as CSSProperties}
+        >
+          <div className="h-full" style={{ width: `${chatPanelWidth}px` }}>
+            <ChatInterface
+              repoId={chatRepoId}
+              repoName={repoName}
+              threadId={threadId}
+              compact
+              preview={preview}
+              contextFile={selectedFile}
+              initialPrompt={chatPrompt}
+              initialPromptKey={chatPromptNonce}
+              onThreadChange={setThreadId}
+              onReferenceClick={(file, line, lineEnd) => {
+                setSelectedFile(file);
+                setSelectedLine(line ?? null);
+                setSelectedLineEnd(lineEnd ?? null);
+              }}
+              onClearContextFile={() => setSelectedFile(null)}
+              expandHref={fullChatUrl}
+            />
+          </div>
         </aside>
       </div>
 

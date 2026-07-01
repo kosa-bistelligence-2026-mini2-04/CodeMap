@@ -3,6 +3,7 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/common/components/layout/Navbar";
 import { AppProvider } from "@/common/contexts/AppContext";
+import { AuthGuard } from "@/features/auth/components/AuthGuard";
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -38,8 +39,10 @@ export default function RootLayout({
     >
       <body className="antialiased font-sans" suppressHydrationWarning>
         <AppProvider>
-          <Navbar />
-          {children}
+          <AuthGuard>
+            <Navbar />
+            {children}
+          </AuthGuard>
         </AppProvider>
       </body>
     </html>

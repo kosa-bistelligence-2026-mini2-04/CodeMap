@@ -358,3 +358,29 @@ body {
 .prose-invert a {
   color: var(--accent-blue);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Print Styles (PDF Export)
+══════════════════════════════════════════════════════════════════════════ */
+
+@media print {
+  :root, [data-theme="dark"], [data-theme="light"], body {
+    --bg-primary: #ffffff !important;
+    --text-primary: #000000 !important;
+    --text-secondary: #1a1a1a !important;
+    --text-muted: #333333 !important;
+    --border-primary: #cccccc !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* 강제 스타일 초기화 */
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+}

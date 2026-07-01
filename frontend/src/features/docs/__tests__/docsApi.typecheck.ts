@@ -19,7 +19,7 @@ import type { ExportButtonsProps } from "@/features/docs/components/ExportButton
 
 // ── 헬퍼: 값이 특정 타입에 할당 가능한지 컴파일 타임에 확인 ────────────────
 function assertAssignable<T>(_val: T): void {
-  // 런타임 실행 불필요 — 컴파일 타임 검증 전용
+  void _val; // 런타임 실행 불필요 — 컴파일 타임 검증 전용
 }
 
 // ── 1. DocFolderSummary 구조 ───────────────────────────────────────────────
@@ -143,8 +143,10 @@ assertAssignable<string>(downloadUrl);
 // ── 9. 타입 불일치 시 컴파일 에러 발생 검증 (주석 해제 시 에러 확인 가능) ──
 // @ts-expect-error version은 string 불가
 const _badVersion: DocGetJsonData = { ...jsonData, version: "v1" };
+void _badVersion;
 
 // @ts-expect-error repoId는 null 불가
 const _badMarkdown: DocGetMarkdownData = { ...markdownData, repoId: null };
+void _badMarkdown;
 
 export {};

@@ -50,8 +50,8 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
       <section className={`overflow-hidden rounded-2xl border shadow-sm ${card}`}>
         <div className="relative p-5 md:p-7">
           <div className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-blue-500/10 blur-3xl" />
-          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-2xl">
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1 max-w-2xl">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400">
                   <CheckCircle2 className="size-3" /> 실제 스냅샷 분석 완료
@@ -99,8 +99,8 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
       {/* 새롭게 추가된 대시보드 시각화 컴포넌트 */}
       <DashboardCharts report={report} />
 
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <section className={`rounded-2xl border p-5 shadow-sm ${card}`}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-5">
+        <section className={`min-w-0 overflow-hidden rounded-2xl border p-5 shadow-sm ${card}`}>
           <div className="mb-5 flex items-center justify-between">
             <div><h2 className="text-sm font-bold">언어 구성</h2><p className={`mt-0.5 text-[10px] ${muted}`}>실제 소스 라인 기준</p></div>
             <FileCode2 className="size-4 text-blue-400" />
@@ -108,7 +108,7 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
           <div className="space-y-3.5">
             {report.languages.slice(0, 6).map((language) => (
               <div key={language.name}>
-                <div className="mb-1.5 flex justify-between text-[10px]"><span className="font-semibold">{language.name}</span><span className={muted}>{language.lines.toLocaleString()} lines</span></div>
+                <div className="mb-1.5 flex min-w-0 justify-between gap-2 text-[10px]"><span className="min-w-0 break-words font-semibold">{language.name}</span><span className={`shrink-0 text-right ${muted}`}>{language.lines.toLocaleString()} lines</span></div>
                 <div className={`h-1.5 overflow-hidden rounded-full ${isDark ? "bg-zinc-800" : "bg-zinc-100"}`}>
                   <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" style={{ width: `${Math.max(5, language.lines / maxLanguageLines * 100)}%` }} />
                 </div>
@@ -117,7 +117,7 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
           </div>
         </section>
 
-        <section className={`rounded-2xl border p-5 shadow-sm ${card}`}>
+        <section className={`min-w-0 overflow-hidden rounded-2xl border p-5 shadow-sm ${card}`}>
           <div className="mb-4 flex items-center justify-between">
             <div><h2 className="text-sm font-bold">추천 읽기 순서</h2><p className={`mt-0.5 text-[10px] ${muted}`}>진입점과 실행 구성을 우선 정렬</p></div>
             <ArrowRight className="size-4 text-violet-400" />
@@ -138,17 +138,17 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
         </section>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <section className={`rounded-2xl border p-5 shadow-sm ${card}`}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-5">
+        <section className={`min-w-0 overflow-hidden rounded-2xl border p-5 shadow-sm ${card}`}>
           <div className="mb-4 flex items-center gap-2"><CheckCircle2 className="size-4 text-emerald-400" /><h2 className="text-sm font-bold">확인된 강점</h2></div>
           <div className="space-y-3">
-            {report.key_strengths.map((item) => <p key={item} className={`text-xs leading-5 ${muted}`}>• {item}</p>)}
+            {report.key_strengths.map((item) => <p key={item} className={`text-xs leading-5 [overflow-wrap:anywhere] ${muted}`}>• {item}</p>)}
           </div>
         </section>
-        <section className={`rounded-2xl border p-5 shadow-sm ${card}`}>
+        <section className={`min-w-0 overflow-hidden rounded-2xl border p-5 shadow-sm ${card}`}>
           <div className="mb-4 flex items-center gap-2"><ShieldAlert className="size-4 text-amber-400" /><h2 className="text-sm font-bold">검토할 신호</h2></div>
           <div className="space-y-3">
-            {report.key_risks.map((item) => <p key={item} className={`text-xs leading-5 ${muted}`}>• {item}</p>)}
+            {report.key_risks.map((item) => <p key={item} className={`text-xs leading-5 [overflow-wrap:anywhere] ${muted}`}>• {item}</p>)}
           </div>
           <button onClick={() => onAsk("이 분석에서 우선 확인해야 할 위험 요소와 근거 파일을 알려줘")} className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-semibold text-blue-400 hover:text-blue-300">
             채팅에서 근거 확인 <ArrowRight className="size-3" />
@@ -158,11 +158,11 @@ export function WorkspaceReport({ report, preview, onAsk, onFileSelect }: Worksp
 
       <section className={`rounded-2xl border p-5 shadow-sm ${card}`}>
         <div className="mb-4 flex items-center gap-2"><Sparkles className="size-4 text-blue-400" /><h2 className="text-sm font-bold">실행 권장사항</h2></div>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3">
           {report.recommendations.map((recommendation) => (
-            <article key={recommendation.title} className={`rounded-xl border p-4 ${isDark ? "border-zinc-800 bg-zinc-950/35" : "border-zinc-200 bg-zinc-50"}`}>
-              <div className="flex items-start justify-between gap-3"><h3 className="text-xs font-bold leading-5">{recommendation.title}</h3><span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-blue-400">{recommendation.priority}</span></div>
-              <p className={`mt-2 text-[11px] leading-5 ${muted}`}>{recommendation.detail}</p>
+            <article key={recommendation.title} className={`min-w-0 overflow-hidden rounded-xl border p-4 ${isDark ? "border-zinc-800 bg-zinc-950/35" : "border-zinc-200 bg-zinc-50"}`}>
+              <div className="flex min-w-0 items-start justify-between gap-3"><h3 className="min-w-0 text-xs font-bold leading-5 [overflow-wrap:anywhere]">{recommendation.title}</h3><span className="shrink-0 rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase text-blue-400">{recommendation.priority}</span></div>
+              <p className={`mt-2 text-[11px] leading-5 [overflow-wrap:anywhere] ${muted}`}>{recommendation.detail}</p>
               <button onClick={() => onAsk(`${recommendation.title}을 실제 코드 기준으로 어떻게 진행하면 좋을지 알려줘`, recommendation.affected_files[0])} className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-400">
                 이 권장사항 질문하기 <MessageSquareText className="size-3" />
               </button>

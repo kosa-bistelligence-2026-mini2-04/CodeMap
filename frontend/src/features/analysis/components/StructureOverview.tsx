@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Boxes,
   Braces,
@@ -19,6 +20,9 @@ interface StructureOverviewProps {
   onFileSelect: (file: string) => void;
 }
 
+const DEFAULT_VISIBLE_TECHNOLOGY_COUNT = 8;
+const DEFAULT_VISIBLE_ENTRYPOINT_COUNT = 3;
+
 function getStackIcon(name: string): LucideIcon {
   const normalized = name.toLowerCase();
   if (/postgres|mysql|mongo|redis|database|sql/.test(normalized)) return Database;
@@ -35,12 +39,26 @@ export function StructureOverview({
   onFileSelect,
 }: StructureOverviewProps) {
   const { theme, locale } = useApp();
+  const [showAllTechnologies, setShowAllTechnologies] = useState(false);
+  const [showAllEntryPoints, setShowAllEntryPoints] = useState(false);
   const isDark = theme === "dark";
   const isKo = locale === "ko";
   const technologies = [...new Set([primaryLanguage, ...stack].filter((item): item is string => Boolean(item)))];
+  const visibleTechnologies = showAllTechnologies ? technologies : technologies.slice(0, DEFAULT_VISIBLE_TECHNOLOGY_COUNT);
+  const visibleEntryPoints = showAllEntryPoints ? entrypoints : entrypoints.slice(0, DEFAULT_VISIBLE_ENTRYPOINT_COUNT);
+  const hasHiddenTechnologies = technologies.length > DEFAULT_VISIBLE_TECHNOLOGY_COUNT;
+  const hasHiddenEntryPoints = entrypoints.length > DEFAULT_VISIBLE_ENTRYPOINT_COUNT;
   const card = isDark ? "border-zinc-800 bg-zinc-900/55" : "border-zinc-200 bg-white";
   const subCard = isDark ? "border-zinc-800 bg-zinc-950/45" : "border-zinc-200 bg-zinc-50";
   const muted = "text-zinc-500";
+  const toggleClass = `mt-3 inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition ${
+    isDark
+      ? "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-600 hover:bg-zinc-800 hover:text-white"
+      : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-100 hover:text-zinc-900"
+  }`;
+  const getToggleLabel = (isOpen: boolean) => (
+    isOpen ? (isKo ? "숨김" : "close") : (isKo ? "더보기" : "more")
+  );
 
   return (
     <section className={`rounded-2xl border p-5 shadow-sm ${card}`} aria-labelledby="structure-overview-title">
@@ -59,28 +77,39 @@ export function StructureOverview({
         </span>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))]">
         <div className={`rounded-xl border p-4 ${subCard}`}>
           <p className={`mb-3 text-[9px] font-bold uppercase tracking-[0.16em] ${muted}`}>
             {isKo ? "기술 스택" : "Technology stack"}
           </p>
           {technologies.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {technologies.map((technology) => {
-                const Icon = getStackIcon(technology);
-                return (
-                  <span
-                    key={technology}
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold ${
-                      isDark ? "border-zinc-700 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-white text-zinc-700"
-                    }`}
-                  >
-                    <Icon className="size-3.5 text-blue-400" />
-                    {technology}
-                  </span>
-                );
-              })}
-            </div>
+            <>
+              <div className="flex flex-wrap gap-2">
+                {visibleTechnologies.map((technology) => {
+                  const Icon = getStackIcon(technology);
+                  return (
+                    <span
+                      key={technology}
+                      className={`inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold ${
+                        isDark ? "border-zinc-700 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-white text-zinc-700"
+                      }`}
+                    >
+                      <Icon className="size-3.5 shrink-0 text-blue-400" />
+                      <span className="min-w-0 break-words">{technology}</span>
+                    </span>
+                  );
+                })}
+              </div>
+              {hasHiddenTechnologies && (
+                <button
+                  type="button"
+                  className={toggleClass}
+                  onClick={() => setShowAllTechnologies((value) => !value)}
+                >
+                  {getToggleLabel(showAllTechnologies)}
+                </button>
+              )}
+            </>
           ) : (
             <p className={`text-[10px] ${muted}`}>{isKo ? "탐지된 기술 스택이 없습니다." : "No technologies detected."}</p>
           )}
@@ -91,30 +120,41 @@ export function StructureOverview({
             {isKo ? "진입점" : "Entry points"}
           </p>
           {entrypoints.length > 0 ? (
-            <ul className="space-y-1.5">
-              {entrypoints.slice(0, 8).map((file) => (
-                <li key={file}>
-                  <button
-                    type="button"
-                    onClick={() => onFileSelect(file)}
-                    title={file}
-                    className={`group flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition ${
-                      isDark
-                        ? "border-emerald-500/10 bg-emerald-500/5 text-zinc-300 hover:border-emerald-500/30 hover:bg-emerald-500/10"
-                        : "border-emerald-200 bg-emerald-50/60 text-zinc-700 hover:border-emerald-300 hover:bg-emerald-50"
-                    }`}
-                  >
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-emerald-500/10">
-                      <Play className="size-2.5 fill-emerald-400/20 text-emerald-400" />
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-[10px]">{file}</span>
-                    <span className="text-[8px] font-bold uppercase tracking-wide text-emerald-500 opacity-70 transition group-hover:opacity-100">
-                      entry
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="space-y-1.5">
+                {visibleEntryPoints.map((file) => (
+                  <li key={file}>
+                    <button
+                      type="button"
+                      onClick={() => onFileSelect(file)}
+                      title={file}
+                      className={`group flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition ${
+                        isDark
+                          ? "border-emerald-500/10 bg-emerald-500/5 text-zinc-300 hover:border-emerald-500/30 hover:bg-emerald-500/10"
+                          : "border-emerald-200 bg-emerald-50/60 text-zinc-700 hover:border-emerald-300 hover:bg-emerald-50"
+                      }`}
+                    >
+                      <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-emerald-500/10">
+                        <Play className="size-2.5 fill-emerald-400/20 text-emerald-400" />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-[10px]">{file}</span>
+                      <span className="text-[8px] font-bold uppercase tracking-wide text-emerald-500 opacity-70 transition group-hover:opacity-100">
+                        entry
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {hasHiddenEntryPoints && (
+                <button
+                  type="button"
+                  className={toggleClass}
+                  onClick={() => setShowAllEntryPoints((value) => !value)}
+                >
+                  {getToggleLabel(showAllEntryPoints)}
+                </button>
+              )}
+            </>
           ) : (
             <p className={`text-[10px] ${muted}`}>{isKo ? "탐지된 진입점이 없습니다." : "No entry points detected."}</p>
           )}

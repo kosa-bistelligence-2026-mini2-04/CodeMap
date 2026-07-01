@@ -1,41 +1,145 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuthStore } from "@/features/auth/store/useAuthStore";
+import { ApiError } from "@/common/api/error";
 import type { DocGetJsonData } from "@/common/types/contracts";
-import { fetchOnboardingDocJson } from "@/features/docs/api/docsApi";
+import {
+  fetchOnboardingDocJson,
+  fetchOnboardingDocMarkdown,
+  triggerOnboardingDocGeneration,
+} from "@/features/docs/api/docsApi";
 import { GuideViewer } from "@/features/docs/components/GuideViewer";
 import { ExportButtons } from "@/features/docs/components/ExportButtons";
 
 function DocsWorkspace() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const repoId = searchParams.get("repo_id");
+
+  const isRestoring = useAuthStore((state) => state.isRestoring);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
   const [data, setData] = useState<DocGetJsonData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generationNotice, setGenerationNotice] = useState<string | null>(null);
+  const [markdownRepoId, setMarkdownRepoId] = useState<string | null>(null);
+  const [markdownContent, setMarkdownContent] = useState<string | null>(null);
+  const [markdownRepoName, setMarkdownRepoName] = useState<string | null>(null);
+  const [markdownError, setMarkdownError] = useState<string | null>(null);
+  const [isMarkdownLoading, setIsMarkdownLoading] = useState(false);
+
+  const loadMarkdown = useCallback(async () => {
+    if (!repoId) return null;
+    if (markdownRepoId === repoId && markdownContent && markdownRepoName) {
+      return { content: markdownContent, repoName: markdownRepoName };
+    }
+
+    setIsMarkdownLoading(true);
+    setMarkdownError(null);
+    try {
+      const resp = await fetchOnboardingDocMarkdown(repoId);
+      const nextDoc = {
+        content: resp.data.content,
+        repoName: resp.data.repoName,
+      };
+      setMarkdownRepoId(repoId);
+      setMarkdownContent(nextDoc.content);
+      setMarkdownRepoName(nextDoc.repoName);
+      return nextDoc;
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "마크다운 문서를 불러오지 못했습니다.";
+      setMarkdownError(message);
+      return null;
+    } finally {
+      setIsMarkdownLoading(false);
+    }
+  }, [markdownContent, markdownRepoId, markdownRepoName, repoId]);
 
   useEffect(() => {
+    if (isRestoring) return;
+    if (!isLoggedIn) {
+      router.push("/signin");
+      return;
+    }
     if (!repoId) return;
 
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryCount = 0;
+    let triggerRequested = false;
+
+    const scheduleReload = (load: () => Promise<void>) => {
+      retryCount += 1;
+      if (retryCount > 40) {
+        setIsLoading(false);
+        setError("온보딩 가이드북 생성이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void load();
+      }, 3000);
+    };
 
     const load = async () => {
       setIsLoading(true);
       setError(null);
-      setData(null);
+      if (retryCount === 0) setData(null);
 
       try {
         const resp = await fetchOnboardingDocJson(repoId);
-        if (!cancelled) setData(resp.data);
+        if (!cancelled) {
+          setData(resp.data);
+          setGenerationNotice(null);
+          setMarkdownRepoId(null);
+          setMarkdownContent(null);
+          setMarkdownRepoName(null);
+          setMarkdownError(null);
+        }
       } catch (err: unknown) {
+        if (cancelled) return;
+
+        if (err instanceof ApiError && err.code === "DOCS_NOT_FOUND") {
+          try {
+            if (!triggerRequested) {
+              triggerRequested = true;
+              setGenerationNotice("온보딩 가이드북이 없어 자동 생성 중입니다. 완료되면 화면이 갱신됩니다.");
+              await triggerOnboardingDocGeneration(repoId);
+            } else {
+              setGenerationNotice("온보딩 가이드북을 생성 중입니다. 완료되면 화면이 갱신됩니다.");
+            }
+            scheduleReload(load);
+          } catch (triggerErr: unknown) {
+            if (
+              triggerErr instanceof ApiError &&
+              triggerErr.code === "DOCS_GENERATION_IN_PROGRESS"
+            ) {
+              setGenerationNotice("온보딩 가이드북 생성이 이미 진행 중입니다. 완료되면 화면이 갱신됩니다.");
+              scheduleReload(load);
+              return;
+            }
+
+            setError(
+              triggerErr instanceof Error
+                ? triggerErr.message
+                : "온보딩 가이드북 생성을 시작하지 못했습니다.",
+            );
+          }
+          return;
+        }
+
         if (!cancelled) {
           setError(
             err instanceof Error ? err.message : "가이드북 조회에 실패했습니다.",
           );
         }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled && !retryTimer) setIsLoading(false);
       }
     };
 
@@ -43,8 +147,20 @@ function DocsWorkspace() {
 
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [repoId]);
+  }, [repoId, isRestoring, isLoggedIn, router]);
+
+  if (isRestoring) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--bg-primary)" }}
+      >
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <main
@@ -71,7 +187,14 @@ function DocsWorkspace() {
                 섹션별로 확인합니다.
               </p>
             </div>
-            <ExportButtons repoId={repoId} />
+            <ExportButtons
+              repoId={repoId}
+              markdownContent={markdownContent}
+              markdownRepoName={markdownRepoName}
+              markdownError={markdownError}
+              isMarkdownLoading={isMarkdownLoading}
+              onLoadMarkdown={loadMarkdown}
+            />
           </div>
         </div>
 
@@ -98,7 +221,26 @@ function DocsWorkspace() {
         )}
 
         {/* 가이드북 뷰어 */}
-        <GuideViewer data={data} isLoading={isLoading} error={error} />
+        {generationNotice && (
+          <div
+            className="rounded-2xl border px-6 py-4 text-sm"
+            style={{
+              borderColor: "var(--border-primary)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            {generationNotice}
+          </div>
+        )}
+        <GuideViewer
+          data={data}
+          isLoading={isLoading}
+          error={error}
+          markdownContent={markdownContent}
+          markdownError={markdownError}
+          isMarkdownLoading={isMarkdownLoading}
+          onLoadMarkdown={loadMarkdown}
+        />
       </section>
     </main>
   );

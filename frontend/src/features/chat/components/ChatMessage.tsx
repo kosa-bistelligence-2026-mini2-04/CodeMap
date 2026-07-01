@@ -82,7 +82,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
 
       {/* Message bubble */}
       <div
-        className={`group relative max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+        className={`group relative min-w-0 max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser ? "rounded-br-md" : "rounded-bl-md"
         }`}
         style={{
@@ -92,7 +92,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
         }}
       >
         {isUser ? (
-          <div className="flex flex-col gap-2">
+          <div className="notranslate flex flex-col gap-2" translate="no">
             {message.contextFile && (
               <div className="flex items-center gap-1.5 opacity-80">
                 <FileCode2 className="size-3 text-blue-400" />
@@ -102,7 +102,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
             <p className="whitespace-pre-wrap">{message.content}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="notranslate flex flex-col gap-3" translate="no">
             {/* Agent Exploration Steps */}
             {message.explorationSteps && message.explorationSteps.length > 0 && (
               <AgentExplorationTimeline 
@@ -111,7 +111,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
               />
             )}
 
-            <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            <div className="prose prose-sm prose-invert max-w-none break-words [&_li]:my-0.5 [&_li>p]:my-0 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{

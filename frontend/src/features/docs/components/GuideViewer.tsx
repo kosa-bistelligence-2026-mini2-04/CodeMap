@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   AlertTriangle,
   BookOpen,
@@ -20,7 +22,6 @@ import type {
   DocDangerFileItem,
 } from "@/common/types/contracts";
 import { FileSummaryPanel } from "./FileSummaryPanel";
-import { OnboardingGuidePanel } from "./OnboardingGuidePanel";
 
 // ── 탭 정의 ────────────────────────────────────────────────────
 
@@ -258,16 +259,72 @@ function FolderSummariesPanel({
   );
 }
 
+// ── 다운로드 미리보기 전용 컴포넌트 ──────────────────────────────
+
+function MarkdownPreviewPanel({
+  content,
+  isLoading,
+  error,
+}: {
+  content: string | null;
+  isLoading: boolean;
+  error: string | null;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <LoaderCircle className="size-6 animate-spin" style={{ color: "var(--text-muted)" }} />
+        <span className="ml-3 text-sm" style={{ color: "var(--text-muted)" }}>문서를 불러오는 중...</span>
+      </div>
+    );
+  }
+
+  if (error || !content) {
+    return <p className="text-sm text-red-500">{error || "내용이 없습니다."}</p>;
+  }
+
+  return (
+    <div className="prose prose-sm prose-invert max-w-none break-words [&_li]:my-0.5 [&_li>p]:my-0 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 // ── 메인 컴포넌트 ──────────────────────────────────────────────
 
 export interface GuideViewerProps {
   data: DocGetJsonData | null;
   isLoading: boolean;
   error: string | null;
+  markdownContent?: string | null;
+  markdownError?: string | null;
+  isMarkdownLoading?: boolean;
+  onLoadMarkdown?: () => Promise<{ content: string; repoName: string } | null>;
 }
 
-export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
+export function GuideViewer({
+  data,
+  isLoading,
+  error,
+  markdownContent = null,
+  markdownError = null,
+  isMarkdownLoading = false,
+  onLoadMarkdown,
+}: GuideViewerProps) {
   const [activeTab, setActiveTab] = useState<TabId>("summary");
+
+  useEffect(() => {
+    if (
+      activeTab === "onboardingGuide" &&
+      !markdownContent &&
+      !markdownError &&
+      !isMarkdownLoading
+    ) {
+      void onLoadMarkdown?.();
+    }
+  }, [activeTab, isMarkdownLoading, markdownContent, markdownError, onLoadMarkdown]);
 
   if (isLoading) {
     return (
@@ -326,16 +383,18 @@ export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
     folderSummaries: <FolderSummariesPanel items={data.folderSummaries} />,
     fileSummary:     <FileSummaryPanel docData={data} />,
     onboardingGuide: (
-      <OnboardingGuidePanel
-        readingOrder={data.readingOrder}
-        dangerFiles={data.dangerFiles}
+      <MarkdownPreviewPanel
+        content={markdownContent}
+        isLoading={isMarkdownLoading}
+        error={markdownError}
       />
     ),
   };
 
   return (
-    <article
-      className="rounded-2xl border"
+    <>
+      <article
+        className="rounded-2xl border print:hidden"
       style={{ borderColor: "var(--border-primary)" }}
     >
       {/* 탭 바 */}
@@ -395,5 +454,15 @@ export function GuideViewer({ data, isLoading, error }: GuideViewerProps) {
         {panelContent[activeTab]}
       </div>
     </article>
+
+      {/* 인쇄용 컨테이너 (평소에는 숨김, 인쇄 시 전체 문서 레이아웃으로 활성화됨) */}
+      <div className="hidden print:block w-full text-black bg-white">
+        <MarkdownPreviewPanel
+          content={markdownContent}
+          isLoading={isMarkdownLoading}
+          error={markdownError}
+        />
+      </div>
+    </>
   );
 }

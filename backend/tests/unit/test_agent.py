@@ -45,6 +45,23 @@ class TestCodeMapState(unittest.TestCase):
         self.assertEqual(state["session_id"], "session-1")
         self.assertIsNone(state["final_answer"])
 
+    def test_merge_signatures_reducer(self):
+        from app.agent.state import merge_signatures
+        
+        # 1. 양측 값이 모두 유효한 경우
+        left = {("search", "query1")}
+        right = {("search", "query2")}
+        self.assertEqual(merge_signatures(left, right), {("search", "query1"), ("search", "query2")})
+
+        # 2. 왼쪽 값이 None인 경우 (에러 유발 가능 시나리오)
+        self.assertEqual(merge_signatures(None, right), {("search", "query2")})
+
+        # 3. 오른쪽 값이 None인 경우
+        self.assertEqual(merge_signatures(left, None), {("search", "query1")})
+
+        # 4. 양측 값이 모두 None인 경우
+        self.assertEqual(merge_signatures(None, None), set())
+
     def test_worker_result_structure(self):
         from app.agent.state import WorkerResult
         r = WorkerResult(
