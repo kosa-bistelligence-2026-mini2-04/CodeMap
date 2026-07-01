@@ -32,7 +32,7 @@ class TestCodeMapState(unittest.TestCase):
             "rewritten_query": "login authentication",
             "access_plan": [],
             "security_result": {"approved": [], "rejected": []},
-            "attempted_signatures": set(),
+            "attempted_signatures": [],
             "worker_results": [],
             "compact_context": {},
             "evaluator_decision": None,
@@ -44,23 +44,6 @@ class TestCodeMapState(unittest.TestCase):
         self.assertEqual(state["user_query"], "로그인 코드 어디에 있어?")
         self.assertEqual(state["session_id"], "session-1")
         self.assertIsNone(state["final_answer"])
-
-    def test_merge_signatures_reducer(self):
-        from app.agent.state import merge_signatures
-        
-        # 1. 양측 값이 모두 유효한 경우
-        left = {("search", "query1")}
-        right = {("search", "query2")}
-        self.assertEqual(merge_signatures(left, right), {("search", "query1"), ("search", "query2")})
-
-        # 2. 왼쪽 값이 None인 경우 (에러 유발 가능 시나리오)
-        self.assertEqual(merge_signatures(None, right), {("search", "query2")})
-
-        # 3. 오른쪽 값이 None인 경우
-        self.assertEqual(merge_signatures(left, None), {("search", "query1")})
-
-        # 4. 양측 값이 모두 None인 경우
-        self.assertEqual(merge_signatures(None, None), set())
 
     def test_worker_result_structure(self):
         from app.agent.state import WorkerResult
@@ -125,6 +108,7 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
                 {"tool": "read", "path": "../../../etc/passwd", "query": "", "scope": "file"},  # 차단
             ],
             "security_result": {"approved": [], "rejected": []},
+            "attempted_signatures": [],
             "worker_results": [],
             "events": [],
             "errors": [],
@@ -165,6 +149,7 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
                 {"tool": "read", "path": "../../../etc/passwd", "query": "", "scope": "file"},
             ],
             "security_result": {"approved": [], "rejected": []},
+            "attempted_signatures": [],
             "worker_results": [],
             "events": [],
             "errors": [],
@@ -183,7 +168,7 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
         from app.agent.nodes.dispatcher_node import dispatcher_node
         state = {
             "clone_path": "/tmp",
-            "attempted_signatures": {("search", "empty query")},
+            "attempted_signatures": ["search:empty query"],
             "access_plan": [
                 {"tool": "search", "path": None, "query": "empty query", "scope": "chunk"},
                 {"tool": "read", "path": "app/new.py", "query": "", "scope": "file"},
@@ -207,6 +192,7 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
                 {"tool": "read", "path": "app/main.py", "query": "", "scope": "file"},
                 {"tool": "read", "path": "app/main.py", "query": "", "scope": "file"},       # 중복
             ],
+            "attempted_signatures": [],
             "worker_results": [],
         }
 
@@ -225,6 +211,7 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
                 {"tool": "search", "path": None, "query": "login flow", "scope": "chunk"},  # 이미 실행됨
                 {"tool": "read", "path": "app/new.py", "query": "", "scope": "file"},        # 신규
             ],
+            "attempted_signatures": [],
             # search/grep은 metadata.query=query, dir/read는 metadata.query=path 로 저장됨
             "worker_results": [
                 {"id": "ev1", "path": "app/auth.py", "lineStart": 1, "lineEnd": 2,
@@ -249,6 +236,7 @@ class TestDispatcherNodeSecurity(unittest.TestCase):
                 {"tool": "grep", "path": "app/auth.py", "query": "login", "scope": "file"},
                 {"tool": "grep", "path": "app/user.py", "query": "login", "scope": "file"},
             ],
+            "attempted_signatures": [],
             "worker_results": [],
         }
 
