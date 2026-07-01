@@ -65,7 +65,7 @@ export function useAnalysisJob({
       const response = await fetchJobStatus(id);
       const nextJob = response.data;
       let nextReport = nextJob.report || null;
-      
+
       if (nextJob.status === "COMPLETED") {
         if (nextJob.report) {
           try {
@@ -75,7 +75,7 @@ export function useAnalysisJob({
             nextReport = nextJob.report;
           }
         }
-        
+
         setJob(nextJob);
         setReport(nextReport);
         setStatus("completed");
@@ -106,6 +106,7 @@ export function useAnalysisJob({
         setJobId(queryJobId);
         setShowNewAnalysis(false);
         setStatus("loading");
+        setError(null);
         void loadJob(queryJobId);
       });
     } else {
