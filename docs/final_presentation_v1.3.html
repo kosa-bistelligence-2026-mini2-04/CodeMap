@@ -255,6 +255,15 @@
     li + li { margin-top: 7px; }
     strong { color: var(--ink); }
 
+    .role-list {
+      font-size: 15px;
+      line-height: 1.44;
+    }
+
+    .role-list li + li {
+      margin-top: 9px;
+    }
+
     code {
       font-family: var(--mono);
       font-size: .86em;
@@ -443,6 +452,11 @@
       gap: 14px;
     }
 
+    .erd.dense {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
     .table-card {
       min-height: 128px;
       border: 1px solid rgba(17,24,39,.12);
@@ -451,6 +465,11 @@
       padding: var(--panel-pad-compact);
       box-shadow: 0 8px 24px rgba(31, 42, 68, .05);
       transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+    }
+
+    .erd.dense .table-card {
+      min-height: 106px;
+      padding: 14px;
     }
 
     .table-card:hover {
@@ -471,6 +490,17 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.45;
+    }
+
+    .erd.dense .table-card h3 {
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .erd.dense .table-card p {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.38;
     }
 
     .screen {
@@ -824,10 +854,10 @@
           <div class="grid-2 team-grid">
             <article class="card">
               <span class="label">역할 분담</span>
-              <ul>
-                <li><a class="github-link" href="https://github.com/oosuhada" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@oosuhada</a>: Agent UX/UI, 분석 워크스페이스, 채팅 세션 복원, localStorage 캐시, Agent 방어 로직 및 CI 안정화</li>
-                <li><a class="github-link" href="https://github.com/smmini" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@smmini</a>: Agent Core, LangGraph 상태 안정화, 인증/JWT, 배포·컨테이너·인프라 안정화</li>
-                <li><a class="github-link" href="https://github.com/woovii000" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@woovii000</a>: Pipeline 및 Docs 영역, 온보딩 가이드 UI/다운로드, 리포트 레이아웃, 코드 패널 UX 개선</li>
+              <ul class="role-list">
+                <li><a class="github-link" href="https://github.com/oosuhada" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@oosuhada</a>: Agent UX/UI, 분석 워크스페이스, 채팅 세션 복원, localStorage 캐시, Agent 방어 로직, CI 안정화, 분석 진행 타임라인, 근거 칩 상호작용, 프리뷰 모드</li>
+                <li><a class="github-link" href="https://github.com/smmini" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@smmini</a>: Agent Core, LangGraph 상태 안정화, 인증/JWT, 배포·컨테이너·인프라 안정화, Planner/Dispatcher 라우팅, checkpoint 복원, API 에러 계약</li>
+                <li><a class="github-link" href="https://github.com/woovii000" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@woovii000</a>: Pipeline 및 Docs 영역, 온보딩 가이드 UI/다운로드, 리포트 레이아웃, 코드 패널 UX 개선, 분석 리포트 JSON, 문서 재생성 플로우, 파일 트리/심볼 요약</li>
               </ul>
             </article>
             <article class="card">
@@ -1001,16 +1031,19 @@ CodeMapState
             <article class="card compact green"><h3>중복 방지</h3><p class="body"><code>job_id + path + chunk_index</code> 유니크 제약과 in-progress 부분 유니크 인덱스로 중복 분석을 제어합니다.</p></article>
             <article class="card compact orange"><h3>복원성</h3><p class="body">채팅 메시지, references, checkpoints를 분리 저장해 UI 복원과 Agent 실행 복원을 동시에 지원합니다.</p></article>
           </div>
-          <div class="erd">
-            <div class="table-card"><h3>users</h3><p>email, hashed_password, refresh_tokens와 연결되는 인증 기준 테이블</p></div>
-            <div class="table-card"><h3>analysis_jobs</h3><p>repo_url, owner, branch, status, stage, progress, report_json, visibility, last_accessed_at</p></div>
-            <div class="table-card"><h3>code_nodes</h3><p>job_id, path, type, depth, content, summary, embedding vector(1536), metadata</p></div>
-            <div class="table-card"><h3>code_dependencies</h3><p>source_id, target_id, relation으로 파일 간 import 그래프 저장</p></div>
+          <div class="erd dense">
+            <div class="table-card"><h3>users</h3><p>email, hashed_password, refresh_tokens FK로 회원 인증 기준을 보존</p></div>
+            <div class="table-card"><h3>refresh_tokens</h3><p>user_id, token, expires_at 인덱스로 JWT 재발급과 로그아웃 처리</p></div>
+            <div class="table-card"><h3>analysis_jobs</h3><p>repo_url, branch, status, stage, progress, report_json, user/team 범위</p></div>
+            <div class="table-card"><h3>source_files</h3><p>repo_id, file_path, raw_code, file_summary로 원본 파일 스냅샷 저장</p></div>
+            <div class="table-card"><h3>code_chunks</h3><p>file_id, start_line, end_line, symbol, language, embedding_vector 검색 단위</p></div>
+            <div class="table-card"><h3>file_dependencies</h3><p>source_file_id와 target_file_path로 파일 import fan-in/out 구성</p></div>
+            <div class="table-card"><h3>code_nodes</h3><p>job_id, path, type, depth, chunk_index, content, summary, embedding, metadata</p></div>
+            <div class="table-card"><h3>code_dependencies</h3><p>source_id, target_id, relation 복합 PK로 코드 노드 간 의존 관계 저장</p></div>
             <div class="table-card"><h3>docs</h3><p>repo_id, job_id, doc_type, content, version, is_active, report_json</p></div>
-            <div class="table-card"><h3>chat_conversations</h3><p>repo_id 기준 대화 스레드와 title, created_at, updated_at 보존</p></div>
-            <div class="table-card"><h3>chat_messages</h3><p>conversation_id, role, content, mode, references JSONB로 근거 복원</p></div>
-            <div class="table-card"><h3>checkpoints</h3><p>LangGraph AsyncPostgresSaver가 thread_id별 실행 상태 저장</p></div>
-            <div class="table-card"><h3>teams</h3><p>team_members, team_invites와 함께 팀 workspace 공유 범위 확장</p></div>
+            <div class="table-card"><h3>chat_conversations</h3><p>repo_id별 title, created_at, updated_at으로 대화 스레드 복원</p></div>
+            <div class="table-card"><h3>chat_messages</h3><p>conversation_id, role, content, mode, references JSONB로 근거 칩 보존</p></div>
+            <div class="table-card"><h3>teams / checkpoints</h3><p>teams, members, invites로 공유 범위 관리. checkpoints/blobs/writes는 Agent 상태 저장</p></div>
           </div>
         </div>
       </div>
