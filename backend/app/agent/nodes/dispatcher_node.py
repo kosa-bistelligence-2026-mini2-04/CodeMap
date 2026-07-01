@@ -56,8 +56,8 @@ def _is_safe_path(path: str | None, clone_root: str | None = None) -> bool:
     return True
 
 
-def _dedup_signature(tool: str, path: str | None, query: str | None) -> tuple[str, str]:
-    """탐색 동일성 판정 키 (tool, target).
+def _dedup_signature(tool: str, path: str | None, query: str | None) -> str:
+    """탐색 중복 방지 키 (tool, target).
 
     search는 `query`, grep은 `path+query`, dir/read는 `path`가 탐색 대상이다.
     grep에서 path를 누락하면 같은 패턴을 다른 파일/디렉터리에 적용하는 탐색까지
@@ -71,7 +71,8 @@ def _dedup_signature(tool: str, path: str | None, query: str | None) -> tuple[st
         target = f"{normalized_path}\0{normalized_query}"
     else:
         target = normalized_path
-    return (tool, (target or "").strip().replace("\\", "/"))
+    target_str = (target or "").strip().replace("\\", "/")
+    return f"{tool}:{target_str}"
 
 
 def dispatcher_node(state: CodeMapState) -> dict:
@@ -80,9 +81,9 @@ def dispatcher_node(state: CodeMapState) -> dict:
     approved: list[AccessPlanItem] = []
     rejected: list[AccessPlanItem] = []
 
-    # 이전 반복(재계획)에서 이미 실행된 (tool, target) 집합 — 누적 worker_results에서 도출.
-    # 같은 path/query를 또 탐색하지 않도록 결정론적으로 스킵한다(프롬프트 soft 지시 보강).
-    executed: set[tuple[str, str]] = set(state.get("attempted_signatures") or set())
+    # 이전 반복(단계)에서 이미 수행한 (tool, target) 집합 을 누적 state에서 추출.
+    # 같은 path/query에 대한 탐색 시도는 결정론적으로 스킵합니다(프롬프트 soft 지시 보강).
+    executed: set[str] = set(state.get("attempted_signatures") or [])
     for result in state.get("worker_results", []):
         meta = result.get("metadata") or {}
         worker = meta.get("worker")
@@ -93,7 +94,7 @@ def dispatcher_node(state: CodeMapState) -> dict:
                 meta.get("query"),
             ))
 
-    seen: set[tuple[str, str]] = set()  # 동일 plan 내 중복도 1회로 접는다
+    seen: set[str] = set()  # 단일 plan 내 중복을 1회로 잡는 용도
     duplicates = 0
 
     for item in plan:
@@ -109,7 +110,7 @@ def dispatcher_node(state: CodeMapState) -> dict:
         if signature in executed or signature in seen:
             duplicates += 1
             logger.info(
-                "[Dispatcher] 중복 탐색 스킵 — tool=%s target=%s", signature[0], signature[1],
+                "[Dispatcher] 중복 탐색 스킵 : %s", signature,
             )
             continue
         seen.add(signature)
@@ -123,7 +124,7 @@ def dispatcher_node(state: CodeMapState) -> dict:
 
     return {
         "security_result": {"approved": approved, "rejected": rejected},
-        "attempted_signatures": seen,
+        "attempted_signatures": list(seen),
         "events": [{
             "type": "route_validated",
             "allowed": len(approved) > 0,

@@ -12,15 +12,6 @@ from typing import Annotated, TypedDict, Any, NotRequired
 import operator
 
 
-def merge_signatures(left: set[tuple[str, str]] | None, right: set[tuple[str, str]] | None) -> set[tuple[str, str]]:
-    """
-    attempted_signatures 상태 병합용 안전한 Reducer.
-    
-    체크포인트 역직렬화 시 None이 유입되거나, 특정 노드의 상태 반환에
-    해당 필드가 누락되어 None이 인입될 때 TypeError(NoneType and set)를 원천 차단합니다.
-    """
-    return (left or set()) | (right or set())
-
 
 class WorkerResult(TypedDict):
     """단일 Worker가 수집한 원본 결과 (명세 반영)."""
@@ -78,7 +69,7 @@ class CodeMapState(TypedDict):
 
     # ── Dispatcher Node 출력 ─────────────────────────
     security_result: SecurityResult   # 보안 검증 결과 (allowlist 통과 여부)
-    attempted_signatures: NotRequired[Annotated[set[tuple[str, str]], merge_signatures]]  # 시도된 탐색 시그니처 누적
+    attempted_signatures: Annotated[list[str], operator.add]  # 시도된 탐색 시그니처 누적 (JSON 직렬화 호환)
 
     # ── Worker 출력 (fan-in: 병렬 병합) ───────────────
     worker_results: Annotated[list[WorkerResult], operator.add]

@@ -111,7 +111,7 @@ class CodeMapAgentService:
                 "_plan_item": None,
                 "access_plan": [],
                 "security_result": {"approved": [], "rejected": []},
-                "attempted_signatures": set(),
+                "attempted_signatures": [],
                 "worker_results": [],
                 "events": [],
                 "errors": [],
