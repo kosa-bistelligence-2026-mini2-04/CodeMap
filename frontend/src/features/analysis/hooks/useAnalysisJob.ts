@@ -8,6 +8,7 @@ import type { RepoSource } from "@/features/repository/components/RepoInput";
 import { fetchJobStatus, fetchParseDetails, startAnalysis, validateRepository } from "@/features/analysis/api/api";
 import { mergeParseDetails } from "@/features/analysis/utils/mergeParseDetails";
 import type { WorkspaceScope } from "@/features/team/components/WorkspaceSelector";
+import { getAnalysisCache, setAnalysisCache } from "@/common/utils/localStorageCache";
 
 export type ViewStatus = "idle" | "loading" | "running" | "completed" | "failed";
 
@@ -50,30 +51,49 @@ export function useAnalysisJob({
   const [showNewAnalysis, setShowNewAnalysis] = useState(!preview && !queryJobId);
   const isRestoring = useAuthStore((state) => state.isRestoring);
 
-  const loadJob = useCallback(async (id: string) => {
+  const loadJob = useCallback(async (id: string, useCache = true) => {
+    if (useCache) {
+      const cached = getAnalysisCache(id);
+      if (cached) {
+        setJob(cached.job);
+        if (cached.report) setReport(cached.report);
+        setStatus(cached.job.status === "COMPLETED" ? "completed" : "running");
+      }
+    }
+
     try {
       const response = await fetchJobStatus(id);
       const nextJob = response.data;
-      setJob(nextJob);
+      let nextReport = nextJob.report || null;
+
       if (nextJob.status === "COMPLETED") {
         if (nextJob.report) {
           try {
             const parseDetails = await fetchParseDetails(id);
-            setReport(mergeParseDetails(nextJob.report, parseDetails));
+            nextReport = mergeParseDetails(nextJob.report, parseDetails);
           } catch {
-            setReport(nextJob.report);
+            nextReport = nextJob.report;
           }
         }
+
+        setJob(nextJob);
+        setReport(nextReport);
         setStatus("completed");
+        setAnalysisCache(id, { job: nextJob, report: nextReport });
       } else if (nextJob.status === "FAILED") {
+        setJob(nextJob);
         setStatus("failed");
         setError(nextJob.statusMessage || "분석에 실패했습니다.");
       } else {
+        setJob(nextJob);
         setStatus("running");
+        setAnalysisCache(id, { job: nextJob, report: nextReport });
       }
     } catch (requestError) {
-      setStatus("failed");
-      setError(requestError instanceof Error ? requestError.message : "분석 상태를 불러오지 못했습니다.");
+      if (!getAnalysisCache(id)) {
+        setStatus("failed");
+        setError(requestError instanceof Error ? requestError.message : "분석 상태를 불러오지 못했습니다.");
+      }
     }
   }, []);
 
@@ -86,6 +106,7 @@ export function useAnalysisJob({
         setJobId(queryJobId);
         setShowNewAnalysis(false);
         setStatus("loading");
+        setError(null);
         void loadJob(queryJobId);
       });
     } else {
@@ -102,7 +123,8 @@ export function useAnalysisJob({
 
   useEffect(() => {
     if (!jobId || preview || status !== "running") return;
-    const timer = window.setInterval(() => void loadJob(jobId), 1400);
+    // 타이머에 의한 폴링은 캐시를 보지 않고 강제 요청
+    const timer = window.setInterval(() => void loadJob(jobId, false), 1400);
     return () => window.clearInterval(timer);
   }, [jobId, loadJob, preview, status]);
 
