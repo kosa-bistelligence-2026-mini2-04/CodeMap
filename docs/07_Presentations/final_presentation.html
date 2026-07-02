@@ -1068,7 +1068,7 @@
 
     <section class="slide">
       <div class="slide-inner">
-        <span class="page-no">Page 02 / 10</span>
+        <span class="page-no">Page 02-A / 10 (협업 규칙 Left)</span>
         <div class="content">
           <span class="kicker">Team & Environment</span>
           <h2>개발 환경 및 팀 구성</h2>
@@ -1121,16 +1121,105 @@
               <div class="node">Main 병합<br>자동 배포</div>
             </div>
           </article>
-          <article class="card compact" style="background: linear-gradient(135deg, rgba(37, 99, 235, .06), rgba(8, 145, 178, .04));">
-            <span class="label">협업 방식</span>
-            <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
-              <li><strong>형상 관리:</strong> GitHub Org 중앙 저장소에서 Feature Branch 전략과 Conventional Commits을 적용해 커밋 추적성을 높였습니다.</li>
-              <li><strong>코드 리뷰:</strong> PR Template과 전용 Agent Skill로 명세 불일치를 자동 검증하고, 모든 PR은 반드시 <strong style="color: var(--blue);">팀원 2명의 Approve</strong> 후 병합했습니다.</li>
-              <li><strong>산출물 문서화:</strong> 프로젝트 SSOT 유지를 위해 <code>docs/03_Specifications</code>(요구사항·API)와 <code>docs/04_Decisions</code>(설계 결정)로 분리 관리하고, 코드 변경 시 함께 현행화했습니다.</li>
-              <li><strong>이슈·일정 관리:</strong> GitHub Issues로 기술 태스크를 트래킹하고, Notion 칸반보드를 병행해 전체 마일스톤과 우선순위를 시각적으로 관리했습니다.</li>
-              <li><strong>의사소통:</strong> 매일 오전 스크럼으로 진행 상황을 공유하고, 긴급 이슈는 실시간 논의 후 GitHub와 Notion에 기록해 비동기 협업을 극대화했습니다.</li>
-            </ul>
+          <div style="display: grid; grid-template-columns: 1fr 1.8fr; gap: 22px;">
+            <article class="card compact">
+              <span class="label">협업 규칙</span>
+              <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
+                <li><strong>코드 작성 규칙:</strong> pep8 준수</li>
+                <li><strong>branch 규칙:</strong> {분류} / {기능명}</li>
+                <li><strong>commit 규칙:</strong> {commit 유형} / {제목}</li>
+              </ul>
+            </article>
+            <article class="card compact" style="background: linear-gradient(135deg, rgba(37, 99, 235, .06), rgba(8, 145, 178, .04));">
+              <span class="label">협업 방식</span>
+              <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
+                <li><strong>형상 관리:</strong> GitHub Org 중앙 저장소에서 Feature Branch 전략과 Conventional Commits을 적용해 커밋 추적성을 높였습니다.</li>
+                <li><strong>코드 리뷰:</strong> PR Template과 전용 Agent Skill로 명세 불일치를 자동 검증하고, 모든 PR은 반드시 <strong style="color: var(--blue);">팀원 2명의 Approve</strong> 후 병합했습니다.</li>
+                <li><strong>산출물 문서화:</strong> <code>docs/</code> 폴더에 요구사항 명세서, API 계약, 설계 결정 문서를 관리하고 코드 변경 시 함께 현행화했습니다.</li>
+                <li><strong>이슈·일정 관리:</strong> GitHub Issues로 기술 태스크를 트래킹하고, Notion 칸반보드를 병행해 전체 마일스톤과 우선순위를 시각적으로 관리했습니다.</li>
+                <li><strong>의사소통:</strong> 매일 오전 스크럼으로 진행 상황을 공유하고, 긴급 이슈는 실시간 논의 후 GitHub와 Notion에 기록해 비동기 협업을 극대화했습니다.</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 02-B / 10 (협업 규칙 Right)</span>
+        <div class="content">
+          <span class="kicker">Team & Environment</span>
+          <h2>개발 환경 및 팀 구성</h2>
+          <div class="grid-2 team-grid">
+            <article class="card" style="padding: 18px; display: flex; flex-direction: column; justify-content: center;">
+              <div style="display: flex; align-items: center; gap: 14px; padding-bottom: 18px; border-bottom: 1px solid var(--line);">
+                <span style="font-size: 15px; font-weight: 800; color: var(--ink); white-space: nowrap; min-width: 76px;">팀 구성</span>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                  <a class="github-link" href="https://github.com/oosuhada" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@oosuhada</a>
+                  <a class="github-link" href="https://github.com/smmini" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@smmini</a>
+                  <a class="github-link" href="https://github.com/woovii000" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@woovii000</a>
+                </div>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--line);">
+                <span style="font-size: 15px; font-weight: 800; color: var(--ink); white-space: nowrap; min-width: 76px;">교육 과정</span>
+                <span class="body" style="font-size: 13px;">한국인공지능소프트웨어협회 비스텔리전스 채용연계형 AI 응용개발자 과정 미니프로젝트</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 14px; padding-top: 18px;">
+                <span style="font-size: 15px; font-weight: 800; color: var(--ink); white-space: nowrap; min-width: 76px;">개발 기간</span>
+                <span class="body" style="font-size: 13px;">2026. 06. 17 — 2026. 07. 01 <span style="color: var(--soft); font-size: 12px;">(약 2주)</span></span>
+              </div>
+            </article>
+            <article class="card" style="padding: 18px;">
+              <span class="label" style="margin-bottom: 6px;">기술 스택</span>
+              <div class="chips" style="margin-top: 8px;">
+                <span class="chip">Next.js 16</span>
+                <span class="chip">React 19</span>
+                <span class="chip">FastAPI</span>
+                <span class="chip">LangGraph</span>
+                <span class="chip">PostgreSQL</span>
+                <span class="chip">pgvector</span>
+                <span class="chip">OpenAI Embeddings</span>
+                <span class="chip">Docker</span>
+                <span class="chip">GitHub Actions</span>
+              </div>
+              <p class="body" style="margin-top:10px; padding-left: 4px;">프론트엔드는 Feature-Sliced Design과 Bulletproof React 철학을 적용했고,<br>백엔드는 도메인별 router-service-repository-model 구조를 사용했습니다.</p>
+            </article>
+          </div>
+          <article class="card compact" style="margin-top: 0; padding: 16px 18px;">
+            <span class="label" style="margin-bottom: 6px;">개발 프로세스</span>
+            <div class="diagram">
+              <div class="node">Spec-First<br>명세·아키텍처 작성</div>
+              <div class="arrow">→</div>
+              <div class="node">Issue 생성<br>요구사항 정의</div>
+              <div class="arrow">→</div>
+              <div class="node">Feature Branch<br>명세 기반 구현</div>
+              <div class="arrow">→</div>
+              <div class="node">Pull Request<br>2인 Approve</div>
+              <div class="arrow">→</div>
+              <div class="node">Main 병합<br>자동 배포</div>
+            </div>
           </article>
+          <div style="display: grid; grid-template-columns: 1.8fr 1fr; gap: 22px;">
+            <article class="card compact" style="background: linear-gradient(135deg, rgba(37, 99, 235, .06), rgba(8, 145, 178, .04));">
+              <span class="label">협업 방식</span>
+              <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
+                <li><strong>형상 관리:</strong> GitHub Org 중앙 저장소에서 Feature Branch 전략과 Conventional Commits을 적용해 커밋 추적성을 높였습니다.</li>
+                <li><strong>코드 리뷰:</strong> PR Template과 전용 Agent Skill로 명세 불일치를 자동 검증하고, 모든 PR은 반드시 <strong style="color: var(--blue);">팀원 2명의 Approve</strong> 후 병합했습니다.</li>
+                <li><strong>산출물 문서화:</strong> <code>docs/</code> 폴더에 요구사항 명세서, API 계약, 설계 결정 문서를 관리하고 코드 변경 시 함께 현행화했습니다.</li>
+                <li><strong>이슈·일정 관리:</strong> GitHub Issues로 기술 태스크를 트래킹하고, Notion 칸반보드를 병행해 전체 마일스톤과 우선순위를 시각적으로 관리했습니다.</li>
+                <li><strong>의사소통:</strong> 매일 오전 스크럼으로 진행 상황을 공유하고, 긴급 이슈는 실시간 논의 후 GitHub와 Notion에 기록해 비동기 협업을 극대화했습니다.</li>
+              </ul>
+            </article>
+            <article class="card compact">
+              <span class="label">협업 규칙</span>
+              <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
+                <li><strong>코드 작성 규칙:</strong> pep8 준수</li>
+                <li><strong>branch 규칙:</strong> {분류} / {기능명}</li>
+                <li><strong>commit 규칙:</strong> {commit 유형} / {제목}</li>
+              </ul>
+            </article>
+          </div>
         </div>
       </div>
     </section>
