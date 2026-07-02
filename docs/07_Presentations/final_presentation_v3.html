@@ -1248,7 +1248,7 @@
                 <div class="arrow">→</div>
                 <div class="node">Evaluator<br>근거 압축<br>재탐색 판단</div>
               </div>
-              <ul style="margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.6; font-weight: 500;">
+              <ul style="margin: 32px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.6; font-weight: 500;">
                 <li><b>역할 분리:</b> LLM은 계획과 최종 답변에 집중하고, 파일 접근·보안 검증은 결정론적 코드로 분리</li>
                 <li><b>Dispatcher:</b> 단일 경로 탐색에 그치지 않고, 승인된 경로들을 Search, Dir, Grep, Read - 4개의 워커로 동시 병렬 실행(Fan-out)하여 탐색 속도 극대화</li>
                 <li><b>Hybrid Search:</b> pgvector 의미 검색 + BM25/RRF 키워드 검색</li>
