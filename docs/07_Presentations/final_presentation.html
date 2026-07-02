@@ -1716,10 +1716,11 @@ CodeMapState
       navEl.classList.remove("nav-hidden");
       clearTimeout(navTimeout);
       
-      if (window.innerWidth <= 768) {
+      // Auto-hide on screens up to laptop size (1440px)
+      if (window.innerWidth <= 1440) {
         navTimeout = setTimeout(() => {
           navEl.classList.add("nav-hidden");
-        }, 5000);
+        }, 3000);
       }
     }
     
