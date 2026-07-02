@@ -419,7 +419,7 @@
 
     .node {
       flex: 1;
-      min-height: 56px;
+      padding: 16px 8px;
       display: grid;
       place-items: center;
       text-align: center;
@@ -1214,10 +1214,13 @@
                 <div class="arrow">→</div>
                 <div class="node">Evaluator<br>근거 압축<br>재탐색 판단</div>
               </div>
-              <ul>
+              <ul style="margin-top: 24px;">
                 <li>LLM은 계획과 최종 답변에 집중하고, 파일 접근·보안 검증은 결정론적 코드로 분리했습니다.</li>
+                <li>Dispatcher는 단일 경로 탐색에 그치지 않고, 승인된 경로들을 4개의 워커(Search, Dir, Grep, Read)로 동시 병렬 실행(Fan-out)하여 탐색 속도를 극대화합니다.</li>
                 <li>Hybrid Search는 pgvector 의미 검색과 BM25/RRF 키워드 검색을 결합합니다.</li>
+                <li>일부 파일 접근이나 워커 실행이 실패하더라도, 전체 파이프라인을 멈추지 않고 수집된 부분 근거(Partial Evidence)만으로 유연하게 후속 분석을 이어갑니다.</li>
                 <li>Evaluator는 근거 충분성 판단 후 설정된 반복 한도 안에서 re-plan을 요청합니다.</li>
+                <li>최종 분석 결과는 보고서 형식(Markdown, PDF 파일)으로 다운로드할 수 있습니다.</li>
               </ul>
             </article>
             <article class="card violet">
