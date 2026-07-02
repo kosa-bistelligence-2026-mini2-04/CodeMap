@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeMap 최종 산출물 발표</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --paper: #f7f8fb;
+      --ink: #111827;
+      --muted: #5d667a;
+      --soft: #8c95a8;
+      --line: #dbe2ee;
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --green: #059669;
+      --orange: #ea580c;
+      --red: #dc2626;
+      --violet: #6d28d9;
+      --surface: #ffffff;
+      --surface-2: #eef4ff;
+      --shadow: 0 22px 70px rgba(24, 36, 68, .16);
+      --panel-shadow: 0 12px 32px rgba(31, 42, 68, .07);
+      --panel-shadow-hover: 0 18px 42px rgba(31, 42, 68, .12);
+      --content-pad-x: 64px;
+      --content-pad-y: 48px;
+      --content-pad-b: 58px;
+      --panel-pad: 22px;
+      --panel-pad-compact: 18px;
+      --section-gap: 24px;
+      --font: "Inter", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: #dfe6f2;
+      color: var(--ink);
+      font-family: var(--font);
+      overflow: hidden;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+
+    #deck {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateX(52px);
+      transition: opacity .42s ease, transform .42s ease;
+      pointer-events: none;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .slide-inner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 1440px;
+      height: 810px;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(37, 99, 235, .08), transparent 28%),
+        linear-gradient(315deg, rgba(8, 145, 178, .09), transparent 34%),
+        var(--paper);
+      box-shadow: var(--shadow);
+      transform-origin: center center;
+    }
+
+    .slide-inner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(rgba(17, 24, 39, .045) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(17, 24, 39, .045) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(circle at 72% 18%, rgba(0,0,0,.9), transparent 64%);
+      pointer-events: none;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      padding: var(--content-pad-y) var(--content-pad-x) var(--content-pad-b);
+      display: flex;
+      flex-direction: column;
+      gap: var(--section-gap);
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(37, 99, 235, .18) transparent;
+    }
+
+    .content::-webkit-scrollbar {
+      width: 5px;
+    }
+    .content::-webkit-scrollbar-thumb {
+      background: rgba(37, 99, 235, .22);
+      border-radius: 99px;
+    }
+    .content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 8px 12px;
+      border: 1px solid rgba(37, 99, 235, .24);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .72);
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p, figure { margin: 0; }
+    h1 {
+      max-width: 920px;
+      font-size: 76px;
+      line-height: .96;
+      letter-spacing: -2px;
+      font-weight: 900;
+    }
+
+    h2 {
+      max-width: 1060px;
+      font-size: 48px;
+      line-height: 1.08;
+      letter-spacing: -1.2px;
+      font-weight: 900;
+    }
+
+    h3 {
+      font-size: 21px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .card h3 + .body,
+    .card h3 + ul {
+      margin-top: 6px;
+    }
+
+    .lead {
+      max-width: 860px;
+      color: var(--muted);
+      font-size: 21px;
+      line-height: 1.55;
+      font-weight: 500;
+    }
+
+    .lead .line {
+      display: block;
+    }
+
+    .page-no {
+      position: absolute;
+      top: 45px;
+      right: 64px;
+      color: var(--soft);
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      min-height: 0;
+    }
+
+    .team-grid {
+      flex-shrink: 0;
+      min-height: auto;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .82);
+      padding: 22px;
+      box-shadow: 0 12px 32px rgba(31, 42, 68, .07);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 48px rgba(31, 42, 68, .12);
+    }
+
+    .card.compact { padding: var(--panel-pad-compact); }
+    .card.blue { background: linear-gradient(135deg, rgba(37, 99, 235, .10), rgba(255, 255, 255, .92)); }
+    .card.green { background: linear-gradient(135deg, rgba(5, 150, 105, .10), rgba(255, 255, 255, .92)); }
+    .card.orange { background: linear-gradient(135deg, rgba(234, 88, 12, .10), rgba(255, 255, 255, .92)); }
+    .card.violet { background: linear-gradient(135deg, rgba(109, 40, 217, .10), rgba(255, 255, 255, .92)); }
+
+    .label {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-bottom: 10px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .body {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.55;
+      font-weight: 500;
+    }
+
+    ul {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.55;
+      font-weight: 500;
+    }
+
+    li + li { margin-top: 7px; }
+    strong { color: var(--ink); }
+
+    .role-list {
+      font-size: 15px;
+      line-height: 1.44;
+    }
+
+    .role-list li + li {
+      margin-top: 9px;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: .86em;
+      color: #1d4ed8;
+      background: #e8f0ff;
+      border: 1px solid rgba(37, 99, 235, .18);
+      border-radius: 6px;
+      padding: 1px 6px;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.55;
+      color: #23324d;
+      white-space: pre-wrap;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 16px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(37, 99, 235, .18);
+      background: #edf4ff;
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .demo-badge {
+      position: absolute;
+      top: 118px;
+      right: 64px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.86);
+      box-shadow: 0 4px 12px rgba(31,42,68,.06);
+      z-index: 2;
+    }
+
+    .demo-badge img {
+      border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+
+    .demo-badge-label {
+      margin-bottom: 3px;
+      color: var(--blue);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .demo-badge-link {
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      border-bottom: 1.5px solid rgba(37,99,235,.3);
+    }
+
+    .github-link {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .github-link svg {
+      vertical-align: -2px;
+      margin-right: 3px;
+      color: #111827;
+    }
+
+    .github-link::after {
+      content: "↗";
+      margin-left: 4px;
+      color: var(--soft);
+      font-size: .84em;
+      font-weight: 900;
+    }
+
+    .collab-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .collab-tags {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .collab-tag {
+      background: rgba(5, 150, 105, .08);
+      border-color: rgba(5, 150, 105, .18);
+      color: #059669;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .step {
+      position: relative;
+      min-height: 126px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .85);
+      padding: var(--panel-pad-compact);
+      box-shadow: 0 8px 24px rgba(31, 42, 68, .05);
+      transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+    }
+
+    .step:hover {
+      transform: translateY(-3px);
+      border-color: rgba(37, 99, 235, .24);
+      box-shadow: var(--panel-shadow);
+    }
+
+    .step-num {
+      font-family: var(--mono);
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 900;
+      margin-bottom: 12px;
+    }
+
+    .diagram {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .node {
+      flex: 1;
+      padding: 16px 8px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      border: 1px solid rgba(37, 99, 235, .24);
+      border-radius: 14px;
+      background: rgba(255,255,255,.82);
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.32;
+      box-shadow: 0 8px 22px rgba(31, 42, 68, .05);
+      transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+    }
+
+    .node:hover {
+      transform: translateY(-3px);
+      border-color: rgba(37, 99, 235, .36);
+      box-shadow: var(--panel-shadow);
+    }
+
+    .arrow {
+      color: var(--soft);
+      font-family: var(--mono);
+      font-weight: 900;
+    }
+
+    .erd {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .erd.dense {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .table-card {
+      min-height: 128px;
+      border: 1px solid rgba(17,24,39,.12);
+      border-radius: 14px;
+      background: #fff;
+      padding: var(--panel-pad-compact);
+      box-shadow: 0 8px 24px rgba(31, 42, 68, .05);
+      transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+    }
+
+    .erd.dense .table-card {
+      min-height: 106px;
+      padding: 14px;
+    }
+
+    .table-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(37, 99, 235, .24);
+      box-shadow: var(--panel-shadow);
+    }
+
+    .table-card h3 {
+      color: var(--blue);
+      font-family: var(--mono);
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .table-card p {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .erd.dense .table-card h3 {
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .erd.dense .table-card p {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.38;
+    }
+
+    .screen {
+      position: relative;
+      min-height: auto;
+      border: 1px solid #cfd8e8;
+      border-radius: 22px;
+      background: #0b1020;
+      color: #dbeafe;
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 20px 52px rgba(15,23,42,.18);
+      transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+    }
+
+    .screen:hover {
+      transform: translateY(-4px);
+      border-color: rgba(37, 99, 235, .28);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 28px 66px rgba(15,23,42,.24);
+    }
+
+    .screen-top {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 14px;
+      background: rgba(255,255,255,.06);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
+    .dot:nth-child(2) { background: #f59e0b; }
+    .dot:nth-child(3) { background: #22c55e; }
+
+    .screen-body { padding: 16px 20px; }
+    .screen-body.feature-launch {
+      display: flex;
+      min-height: 372px;
+      flex-direction: column;
+    }
+
+    .launch-copy {
+      flex: 1;
+    }
+    .terminal-line {
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.75;
+      color: #c7d2fe;
+    }
+
+    .carousel-shell {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .carousel-track {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 100%;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(199,210,254,.38) transparent;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .carousel-track::-webkit-scrollbar { height: 7px; }
+    .carousel-track::-webkit-scrollbar-thumb {
+      background: rgba(199,210,254,.38);
+      border-radius: 999px;
+    }
+
+    .carousel-arrow {
+      position: absolute;
+      top: 50%;
+      z-index: 4;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(37,99,235,.24);
+      border-radius: 999px;
+      background: rgba(255,255,255,.92);
+      color: var(--blue);
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+      box-shadow: 0 12px 28px rgba(15,23,42,.16);
+      cursor: pointer;
+      transform: translateY(-50%);
+    }
+
+    .carousel-arrow.prev { left: 12px; }
+    .carousel-arrow.next { right: 12px; }
+
+    .code-carousel {
+      min-height: 386px;
+    }
+
+    .code-carousel .carousel-track {
+      border-radius: 22px;
+    }
+
+    .code-carousel-slide {
+      position: relative;
+      min-height: 350px;
+      overflow: hidden;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mock-screen {
+      min-height: 386px;
+      border: 1px solid #cfd8e8;
+      border-radius: 22px;
+      background: #0b1020;
+      color: #dbeafe;
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 20px 52px rgba(15,23,42,.18);
+    }
+
+    .mock-screen .screen-body {
+      padding: 24px 28px;
+    }
+
+    .mock-screen.launch-mock .screen-body {
+      min-height: 348px;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 20px;
+    }
+
+    .screen-shot {
+      background: #f8fafc;
+      border: 1px solid #cfd8e8;
+      border-radius: 22px;
+      box-shadow: 0 20px 52px rgba(15,23,42,.16);
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen-shot img {
+      display: block;
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      object-fit: cover;
+      object-position: top center;
+      border-radius: 22px;
+    }
+
+    .screen-slide-caption {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      max-width: calc(100% - 36px);
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(17,24,39,.86);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transform: translateX(-50%);
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    .screen-scroll-hint {
+      position: absolute;
+      right: 18px;
+      bottom: 16px;
+      color: #c7d2fe;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .metric-row.bottom-pinned {
+      margin-top: auto;
+      margin-bottom: 18px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+
+    .metric {
+      border-radius: 14px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 15px;
+    }
+
+    .metric b {
+      display: block;
+      color: #fff;
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    .metric span { color: #a5b4fc; font-size: 12px; font-weight: 700; }
+
+    .split-heavy {
+      display: grid;
+      grid-template-columns: 1.08fr .92fr;
+      gap: 22px;
+      min-height: 0;
+    }
+
+    .quote {
+      border-left: 5px solid var(--blue);
+      padding: 8px 0 8px 18px;
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1.55;
+      font-weight: 600;
+    }
+
+    .kpt {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    .capture-gallery {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.86);
+      padding: 14px;
+      box-shadow: var(--panel-shadow);
+    }
+
+    .gallery-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .gallery-title {
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .gallery-hint {
+      color: var(--soft);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .capture-track {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 100%;
+      gap: 14px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(37,99,235,.28) transparent;
+      padding-bottom: 4px;
+    }
+
+    .capture-track::-webkit-scrollbar { height: 7px; }
+    .capture-track::-webkit-scrollbar-thumb {
+      background: rgba(37,99,235,.28);
+      border-radius: 999px;
+    }
+
+    .capture-card {
+      position: relative;
+      overflow: hidden;
+      height: 178px;
+      border: 1px solid rgba(17,24,39,.12);
+      border-radius: 14px;
+      background: #fff;
+      scroll-snap-align: start;
+    }
+
+    .capture-card.tall { height: 190px; }
+
+    .capture-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top left;
+      display: block;
+    }
+
+    .capture-caption {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      display: inline-flex;
+      align-items: center;
+      max-width: calc(100% - 20px);
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(17,24,39,.82);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      backdrop-filter: blur(10px);
+    }
+
+    #nav {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: clamp(8px, 1vw, 12px);
+      padding: clamp(6px, 0.8vw, 9px) clamp(10px, 1.2vw, 14px);
+      border: 1px solid rgba(37, 99, 235, .22);
+      border-radius: 999px;
+      background: rgba(255,255,255,.88);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 12px 34px rgba(15, 23, 42, .14);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    #nav.nav-hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 10px);
+    }
+
+    #nav button {
+      width: clamp(28px, 3.5vw, 36px);
+      height: clamp(28px, 3.5vw, 36px);
+      border: 0;
+      border-radius: 50%;
+      background: #e8f0ff;
+      color: var(--blue);
+      font-size: clamp(16px, 2vw, 20px);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    #counter {
+      min-width: clamp(48px, 5.5vw, 58px);
+      text-align: center;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: clamp(11px, 1.2vw, 13px);
+      font-weight: 800;
+    }
+
+    .progress {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      z-index: 11;
+      width: 100%;
+      height: 4px;
+      background: rgba(37,99,235,.14);
+    }
+
+    .progress span {
+      display: block;
+      width: 10%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+      transition: width .28s ease;
+    }
+
+    @media (max-width: 1024px) {
+      :root {
+        --content-pad-x: 50px;
+        --content-pad-y: 42px;
+        --content-pad-b: 52px;
+        --panel-pad: 20px;
+        --panel-pad-compact: 16px;
+        --section-gap: 20px;
+      }
+
+      h1 { font-size: 68px; }
+      h2 { font-size: 43px; }
+      .lead { font-size: 19px; }
+      .body, ul { font-size: 15px; line-height: 1.5; }
+      .page-no { right: 50px; }
+      .grid-3, .erd { gap: 12px; }
+      .grid-2, .split-heavy { gap: 18px; }
+      .timeline { gap: 10px; }
+    }
+
+    @media (max-width: 640px) {
+      :root {
+        --content-pad-x: 36px;
+        --content-pad-y: 36px;
+        --content-pad-b: 48px;
+        --panel-pad: 16px;
+        --panel-pad-compact: 14px;
+        --section-gap: 16px;
+      }
+
+      h1 { font-size: 60px; letter-spacing: -1.5px; }
+      h2 { font-size: 38px; letter-spacing: -.8px; }
+      h3 { font-size: 19px; }
+      .lead { font-size: 18px; line-height: 1.48; }
+      .body, ul { font-size: 14px; line-height: 1.45; }
+      li + li { margin-top: 5px; }
+      .kicker { font-size: 11px; padding: 7px 11px; }
+      .page-no { top: 36px; right: 36px; font-size: 12px; }
+      .chip { padding: 6px 10px; font-size: 12px; }
+      .grid-3, .grid-2, .split-heavy, .erd, .timeline, .kpt {
+        gap: 10px;
+      }
+      .screen { min-height: 292px; }
+      .screen-body { padding: 16px; }
+      .terminal-line { font-size: 12px; line-height: 1.62; }
+      .metric-row { gap: 10px; }
+      .metric { padding: 12px; }
+      .metric b { font-size: 21px; }
+      .node { min-height: 66px; font-size: 12px; }
+      .quote { font-size: 17px; line-height: 1.48; padding-left: 14px; }
+    }
+
+    @media (max-width: 480px) {
+      :root {
+        --content-pad-x: 24px;
+        --content-pad-y: 28px;
+        --content-pad-b: 40px;
+        --panel-pad: 14px;
+        --panel-pad-compact: 12px;
+        --section-gap: 14px;
+      }
+
+      h1 { font-size: 48px; letter-spacing: -1.2px; }
+      h2 { font-size: 32px; letter-spacing: -.6px; }
+      h3 { font-size: 17px; }
+      .lead { font-size: 16px; line-height: 1.42; }
+      .body, ul { font-size: 13px; line-height: 1.4; }
+      .kicker { font-size: 10px; padding: 6px 10px; }
+      .page-no { top: 28px; right: 24px; font-size: 11px; }
+      .chip { padding: 5px 8px; font-size: 11px; }
+
+      .grid-3 { grid-template-columns: 1fr; gap: 10px; }
+      .grid-2 { grid-template-columns: 1fr; gap: 10px; }
+      .split-heavy { grid-template-columns: 1fr; gap: 10px; }
+      .erd { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .timeline { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .kpt { grid-template-columns: 1fr; gap: 10px; }
+      .metric-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .diagram { flex-wrap: wrap; gap: 8px; }
+      .node { min-height: 56px; font-size: 11px; }
+      .arrow { font-size: 14px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+
+      .card:hover,
+      .step:hover,
+      .table-card:hover,
+      .node:hover,
+      .screen:hover {
+        transform: none;
+      }
+    }
+
+    @media print {
+      html, body { overflow: visible; background: white; }
+      #nav, .progress { display: none; }
+      .slide {
+        position: relative;
+        opacity: 1;
+        transform: none;
+        page-break-after: always;
+      }
+      .slide-inner { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main id="deck">
+    <section class="slide active">
+      <div class="slide-inner">
+        <span class="page-no">Page 01 / 10</span>
+        <div class="demo-badge">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=56x56&data=https%3A%2F%2Fcodemap-web.vercel.app%2F&bgcolor=f7f8fb" alt="QR Code" width="56" height="56">
+          <div>
+            <div class="demo-badge-label">Live Demo</div>
+            <a class="demo-badge-link" href="https://codemap-web.vercel.app/" target="_blank" rel="noopener">codemap-web.vercel.app</a>
+          </div>
+        </div>
+        <div class="content">
+          <span class="kicker">Project Overview</span>
+          <h1>CodeMap<br><span style="display: inline-block; margin-top: 12px;">AI 코드베이스 온보딩 도우미</span></h1>
+          <p class="lead" style="margin-bottom: 40px;">
+            <span class="line">GitHub 저장소 URL 하나로 저장소 구조, 핵심 파일, 실행 흐름, 코드 근거를 분석하고</span>
+            <span class="line">신규 개발자가 바로 이해할 수 있는 대화형 온보딩 경험을 제공하는 서비스입니다.</span>
+          </p>
+          <div class="grid-3">
+            <article class="card blue">
+              <span class="label">기획 배경</span>
+              <h3>정적 분석과 일반 챗봇의 사이</h3>
+              <p class="body">README만으로는 실제 진입점, 의존성, 실행 방법을 파악하기 어렵고, 단순 챗봇은 근거 파일과 라인 추적 없이 부분 답변에 머무릅니다. CodeMap은 이 간극을 채우는 <strong>능동적 분석 도구</strong>를 지향합니다.</p>
+            </article>
+            <article class="card green">
+              <span class="label">프로젝트 목적</span>
+              <h3>능동적 지식 분석가</h3>
+              <p class="body">Planner → Dispatcher → Worker → Evaluator가 협력하여 코드를 탐색하고, 검색 실패 시 재탐색 근거를 남기는 <strong>Multi Agentic RAG 4단계 파이프라인</strong>을 구현했습니다.</p>
+            </article>
+            <article class="card orange">
+              <span class="label">기대 효과</span>
+              <h3>온보딩 시간과 피로도 절감</h3>
+              <p class="body">구조 요약, 파일 읽기 순서, 라인 단위 근거 칩, 분석 대시보드를 통해 낯선 코드베이스 파악에 드는 <strong>시간과 인지 부담</strong>을 줄입니다.</p>
+            </article>
+          </div>
+          <div class="grid-2" style="gap: 16px;">
+            <div>
+              <div class="chips" style="margin-top: 0;">
+                <span class="chip">Repository Analysis</span>
+                <span class="chip">Multi Agentic RAG</span>
+                <span class="chip">Pipeline</span>
+                <span class="chip">LangGraph Nodes</span>
+                <span class="chip">Evidence-based Chat</span>
+                <span class="chip">Onboarding Docs</span>
+                <span class="chip">Hybrid Search</span>
+                <span class="chip">Session Memory</span>
+              </div>
+
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <div style="flex: 1; text-align: center; padding: 12px 8px; border: 1px solid var(--line); border-radius: 14px; background: rgba(37, 99, 235, .06);">
+                <div style="font-family: var(--mono); font-size: 24px; font-weight: 900; color: var(--blue);">200+</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em;">Pull Requests</div>
+              </div>
+              <div style="flex: 1; text-align: center; padding: 12px 8px; border: 1px solid var(--line); border-radius: 14px; background: rgba(5, 150, 105, .06);">
+                <div style="font-family: var(--mono); font-size: 24px; font-weight: 900; color: var(--green);">100+</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em;">Issues Tracked</div>
+              </div>
+              <div style="flex: 1; text-align: center; padding: 12px 8px; border: 1px solid var(--line); border-radius: 14px; background: rgba(234, 88, 12, .06);">
+                <div style="font-family: var(--mono); font-size: 24px; font-weight: 900; color: var(--orange);">3</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em;">Team Members</div>
+              </div>
+              <div style="flex: 1; text-align: center; padding: 12px 8px; border: 1px solid var(--line); border-radius: 14px; background: rgba(109, 40, 217, .06);">
+                <div style="font-family: var(--mono); font-size: 24px; font-weight: 900; color: var(--violet);">10+</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em;">Core Features</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 02 / 10</span>
+        <div class="content">
+          <span class="kicker">Team & Environment</span>
+          <h2>개발 환경 및 팀 구성</h2>
+          <div class="grid-2 team-grid">
+            <article class="card" style="padding: 18px; display: flex; flex-direction: column; justify-content: center;">
+              <div style="display: flex; align-items: center; gap: 14px; padding-bottom: 18px; border-bottom: 1px solid var(--line);">
+                <span style="font-size: 15px; font-weight: 800; color: var(--ink); white-space: nowrap; min-width: 76px;">팀 구성</span>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                  <a class="github-link" href="https://github.com/oosuhada" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@oosuhada</a>
+                  <a class="github-link" href="https://github.com/smmini" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@smmini</a>
+                  <a class="github-link" href="https://github.com/woovii000" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 3px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>@woovii000</a>
+                </div>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--line);">
+                <span style="font-size: 15px; font-weight: 800; color: var(--ink); white-space: nowrap; min-width: 76px;">교육 과정</span>
+                <span class="body" style="font-size: 13px;">한국인공지능소프트웨어협회 비스텔리전스 채용연계형 AI 응용개발자 과정 미니프로젝트</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 14px; padding-top: 18px;">
+                <span style="font-size: 15px; font-weight: 800; color: var(--ink); white-space: nowrap; min-width: 76px;">개발 기간</span>
+                <span class="body" style="font-size: 13px;">2026. 06. 17 — 2026. 07. 01 <span style="color: var(--soft); font-size: 12px;">(약 2주)</span></span>
+              </div>
+            </article>
+            <article class="card" style="padding: 18px;">
+              <span class="label" style="margin-bottom: 6px;">기술 스택</span>
+              <div class="chips" style="margin-top: 8px;">
+                <span class="chip">Next.js 16</span>
+                <span class="chip">React 19</span>
+                <span class="chip">FastAPI</span>
+                <span class="chip">LangGraph</span>
+                <span class="chip">PostgreSQL</span>
+                <span class="chip">pgvector</span>
+                <span class="chip">OpenAI Embeddings</span>
+                <span class="chip">Docker</span>
+                <span class="chip">GitHub Actions</span>
+              </div>
+              <p class="body" style="margin-top:10px; padding-left: 4px;">프론트엔드는 Feature-Sliced Design과 Bulletproof React 철학을 적용했고,<br>백엔드는 도메인별 router-service-repository-model 구조를 사용했습니다.</p>
+            </article>
+          </div>
+          <article class="card compact" style="margin-top: 0; padding: 16px 18px;">
+            <span class="label" style="margin-bottom: 6px;">개발 프로세스</span>
+            <div class="diagram">
+              <div class="node">Spec-First<br>명세·아키텍처 작성</div>
+              <div class="arrow">→</div>
+              <div class="node">Issue 생성<br>요구사항 정의</div>
+              <div class="arrow">→</div>
+              <div class="node">Feature Branch<br>명세 기반 구현</div>
+              <div class="arrow">→</div>
+              <div class="node">Pull Request<br>2인 Approve</div>
+              <div class="arrow">→</div>
+              <div class="node">Main 병합<br>자동 배포</div>
+            </div>
+          </article>
+          <div style="display: grid; grid-template-columns: 1fr 1.8fr; gap: 22px;">
+            <article class="card compact">
+              <span class="label">협업 규칙</span>
+              <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
+                <li><strong>코드 컨벤션:</strong> Python PEP8(79자 제한) 및 Naming Rule(<code>PascalCase</code>, <code>snake_case</code>)을 엄격히 준수했습니다.</li>
+                <li><strong>Branch 전략:</strong> <code>{분류}/{기능명}</code> (예: <code>feat/user-auth</code>) 형식으로 목적을 명확히 분리했습니다.</li>
+                <li><strong>Commit 컨벤션:</strong> <code>{TYPE}: {제목}</code> (예: <code>FEAT: 로그인 추가</code>) 형식으로 단일 의도의 변경만 기록했습니다.</li>
+              </ul>
+            </article>
+            <article class="card compact" style="background: linear-gradient(135deg, rgba(37, 99, 235, .06), rgba(8, 145, 178, .04));">
+              <span class="label">협업 방식</span>
+              <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
+                <li><strong>형상 관리:</strong> GitHub Org 중앙 저장소에서 Feature Branch 전략과 Conventional Commits을 적용해 커밋 추적성을 높였습니다.</li>
+                <li><strong>코드 리뷰:</strong> PR Template과 전용 Agent Skill로 명세 불일치를 자동 검증하고, 모든 PR은 반드시 <strong style="color: var(--blue);">팀원 2명의 Approve</strong> 후 병합했습니다.</li>
+                <li><strong>산출물 문서화:</strong> <code>docs/</code> 폴더에 요구사항 명세서, API 계약, 설계 결정 문서를 관리하고 코드 변경 시 함께 현행화했습니다.</li>
+                <li><strong>이슈·일정 관리:</strong> GitHub Issues와 Notion을 병행하여 태스크 생성, 담당자, 우선순위를 관리했습니다.</li>
+                <li><strong>의사소통:</strong> 매일 오전 진행 상황을 공유하고, 이슈 발생 시 실시간 논의 후 GitHub와 Notion에 기록했습니다.</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 03 / 10</span>
+        <div class="content">
+          <span class="kicker">Requirements & Flow</span>
+          <h2>요구사항 정의 및 사용자 프로세스</h2>
+          <div class="grid-2">
+            <article class="card">
+              <span class="label">주요 사용자 스토리</span>
+              <ul>
+                <li>사용자는 GitHub URL을 입력해 저장소 분석 작업을 생성한다.</li>
+                <li>분석 완료 후 구조 요약, 파일별 역할, 주요 심볼, 건강도 지표를 확인한다.</li>
+                <li>채팅에서 질문하면 Agent가 코드 근거를 수집하고 파일/라인 참조를 함께 답변한다.</li>
+                <li>근거 칩을 클릭하면 해당 파일과 라인 범위가 코드 프리뷰에서 바로 열린다.</li>
+                <li>동일 저장소 세션은 이전 대화 맥락과 메시지를 복원한다.</li>
+              </ul>
+            </article>
+            <article class="card">
+              <span class="label">Use Cases</span>
+              <div class="diagram" style="align-items:stretch">
+                <div class="node">신규 개발자<br>오픈소스 기여자<br>팀 협업자</div>
+                <div class="arrow">→</div>
+                <div class="node">Repo 등록<br>질문 입력<br>근거 검증<br>문서 다운로드</div>
+                <div class="arrow">→</div>
+                <div class="node">CodeMap<br>분석·검색·문서화<br>대화형 안내</div>
+              </div>
+              <p class="body" style="margin-top:18px">핵심 요구사항은 “빠른 분석 화면 복원”, “근거 기반 답변”, “코드 라인 이동”, “문서 산출물 생성”으로 압축됩니다.</p>
+            </article>
+          </div>
+          <article class="card compact">
+            <span class="label">전체 화면 흐름도</span>
+            <div class="diagram">
+              <div class="node">Landing<br>ASCII Hero<br>Repo Launcher</div>
+              <div class="arrow">→</div>
+              <div class="node">Analyze<br>Progress<br>Workspace Report</div>
+              <div class="arrow">→</div>
+              <div class="node">Chat<br>Agent Timeline<br>References</div>
+              <div class="arrow">→</div>
+              <div class="node">Code Preview<br>Line Highlight<br>Docs Export</div>
+              <div class="arrow">→</div>
+              <div class="node">Dashboard<br>Quality Metrics<br>History</div>
+            </div>
+          </article>
+          <div class="grid-3">
+            <article class="card compact blue">
+              <h3>53+ 기능 명세</h3>
+              <p class="body">Phase 1·2를 아우르는 기능 사양서와 15개 이상의 상세 스펙 문서로 요구사항을 체계화했습니다.</p>
+            </article>
+            <article class="card compact green">
+              <h3>22개 경쟁 분석</h3>
+              <p class="body">CodeWiki, RepoLens, CodeRAG 등 유사 서비스를 비교 분석하여 CodeMap만의 차별점을 도출했습니다.</p>
+            </article>
+            <article class="card compact orange">
+              <h3>8개 설계 결정</h3>
+              <p class="body">Multi-Agent 아키텍처, 임베딩 모델 선택, 에러 처리 등 핵심 설계 근거를 문서로 남겼습니다.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 04 / 10</span>
+        <div class="content">
+          <span class="kicker">System Architecture</span>
+          <h2>Agent Core Pipeline과 Session Memory</h2>
+          <div class="split-heavy">
+            <article class="card">
+              <span class="label">Agent Core Pipeline</span>
+              <div class="diagram">
+                <div class="node">Planner<br>질문 재작성<br>도구 계획</div>
+                <div class="arrow">→</div>
+                <div class="node">Dispatcher<br>경로 검증<br>Fan-out</div>
+                <div class="arrow">→</div>
+                <div class="node">Workers<br>Search<br>Dir/Grep/Read</div>
+                <div class="arrow">→</div>
+                <div class="node">Evaluator<br>근거 압축<br>재탐색 판단</div>
+              </div>
+              <ul style="margin-top: 24px;">
+                <li>LLM은 계획과 최종 답변에 집중하고, 파일 접근·보안 검증은 결정론적 코드로 분리했습니다.</li>
+                <li>Dispatcher는 단일 경로 탐색에 그치지 않고, 승인된 경로들을 4개의 워커(Search, Dir, Grep, Read)로 동시 병렬 실행(Fan-out)하여 탐색 속도를 극대화합니다.</li>
+                <li>Hybrid Search는 pgvector 의미 검색과 BM25/RRF 키워드 검색을 결합합니다.</li>
+                <li>일부 파일 접근이나 워커 실행이 실패하더라도, 전체 파이프라인을 멈추지 않고 수집된 부분 근거(Partial Evidence)만으로 유연하게 후속 분석을 이어갑니다.</li>
+                <li>Evaluator는 근거 충분성 판단 후 설정된 반복 한도 안에서 re-plan을 요청합니다.</li>
+                <li>최종 분석 결과는 보고서 형식(Markdown, PDF 파일)으로 다운로드할 수 있습니다.</li>
+              </ul>
+            </article>
+            <article class="card violet">
+              <span class="label">Session Memory</span>
+              <div class="mono">chat_conversations
+  └─ chat_messages[]: role, content, mode, references
+
+LangGraph checkpoints
+  └─ thread_id = sessionId
+
+CodeMapState
+  ├─ memory_context
+  ├─ worker_results
+  ├─ compact_context
+  └─ evaluator_decision</div>
+              <p class="body" style="margin-top:18px">기존 1회성 상태를 넘어서 DB 대화 이력과 LangGraph checkpoint를 함께 사용합니다. 프로젝트별 `sessionId`를 기준으로 이전 질문과 답변 근거가 Planner 입력에 복원됩니다.</p>
+            </article>
+          </div>
+          <article class="card compact">
+            <span class="label">SSE 이벤트 타임라인</span>
+            <div class="chips">
+              <span class="chip">graph_started</span>
+              <span class="chip">planner_plan</span>
+              <span class="chip">route_validated</span>
+              <span class="chip">worker_started</span>
+              <span class="chip">worker_result</span>
+              <span class="chip">evidence_compacted</span>
+              <span class="chip">evaluator_decision</span>
+              <span class="chip">answer_delta</span>
+              <span class="chip">references</span>
+              <span class="chip">completed</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 05 / 10</span>
+        <div class="content">
+          <span class="kicker">Database Modeling</span>
+          <h2>DB 모델링: 분석 작업, 코드 지식, 대화 기억</h2>
+          <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 4px;">
+            <article class="card compact blue" style="display: flex; align-items: center; gap: 18px; padding: 14px 18px; text-align: left;">
+              <h3 style="margin: 0; white-space: nowrap; width: 80px; flex-shrink: 0;">검색 성능</h3>
+              <p class="body" style="margin: 0; flex: 1;"><code>code_nodes.embedding</code>에 HNSW cosine index를 적용해 1536차원 임베딩 검색을 빠르게 수행합니다.</p>
+            </article>
+            <article class="card compact green" style="display: flex; align-items: center; gap: 18px; padding: 14px 18px; text-align: left;">
+              <h3 style="margin: 0; white-space: nowrap; width: 80px; flex-shrink: 0;">중복 방지</h3>
+              <p class="body" style="margin: 0; flex: 1;"><code>job_id + path + chunk_index</code> 유니크 제약과 in-progress 부분 유니크 인덱스로 중복 분석을 제어합니다.</p>
+            </article>
+            <article class="card compact orange" style="display: flex; align-items: center; gap: 18px; padding: 14px 18px; text-align: left;">
+              <h3 style="margin: 0; white-space: nowrap; width: 80px; flex-shrink: 0;">복원성</h3>
+              <p class="body" style="margin: 0; flex: 1;">채팅 메시지, references, checkpoints를 분리 저장해 UI 복원과 Agent 실행 복원을 동시에 지원합니다.</p>
+            </article>
+          </div>
+          <div class="erd dense">
+            <div class="table-card"><h3>users</h3><p>email, hashed_password, refresh_tokens FK로 회원 인증 기준을 보존</p></div>
+            <div class="table-card"><h3>refresh_tokens</h3><p>user_id, token, expires_at 인덱스로 JWT 재발급과 로그아웃 처리</p></div>
+            <div class="table-card"><h3>analysis_jobs</h3><p>repo_url, branch, status, stage, progress, report_json, user/team 범위</p></div>
+            <div class="table-card"><h3>source_files</h3><p>repo_id, file_path, raw_code, file_summary로 원본 파일 스냅샷 저장</p></div>
+            <div class="table-card"><h3>code_chunks</h3><p>file_id, start_line, end_line, symbol, language, embedding_vector 검색 단위</p></div>
+            <div class="table-card"><h3>file_dependencies</h3><p>source_file_id와 target_file_path로 파일 import fan-in/out 구성</p></div>
+            <div class="table-card"><h3>code_nodes</h3><p>job_id, path, type, depth, chunk_index, content, summary, embedding, metadata</p></div>
+            <div class="table-card"><h3>code_dependencies</h3><p>source_id, target_id, relation 복합 PK로 코드 노드 간 의존 관계 저장</p></div>
+            <div class="table-card"><h3>docs</h3><p>repo_id, job_id, doc_type, content, version, is_active, report_json</p></div>
+            <div class="table-card"><h3>chat_conversations</h3><p>repo_id별 title, created_at, updated_at으로 대화 스레드 복원</p></div>
+            <div class="table-card"><h3>chat_messages</h3><p>conversation_id, role, content, mode, references JSONB로 근거 칩 보존</p></div>
+            <div class="table-card"><h3>teams / checkpoints</h3><p>teams, members, invites로 공유 범위 관리. checkpoints/blobs/writes는 Agent 상태 저장</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 06 / 10</span>
+        <div class="content">
+          <span class="kicker">Feature 1</span>
+          <h2>랜딩 페이지 렌더링 & 마이크로 인터랙션</h2>
+          <div class="split-heavy">
+            <div class="carousel-shell code-carousel">
+              <button class="carousel-arrow prev" type="button" aria-label="이전 화면">‹</button>
+              <div class="carousel-track" aria-label="랜딩 흐름과 실제 화면 캡처">
+                <div class="code-carousel-slide">
+                  <div class="mock-screen launch-mock">
+                    <div class="screen-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                    <div class="screen-body">
+                      <div class="launch-copy">
+                        <div class="terminal-line">$ CodeMap.launch("https://github.com/vercel/next.js")</div>
+                        <div class="terminal-line">render: ASCII Scene + Repository Launcher</div>
+                        <div class="terminal-line">demo: FastAPI dependency flow → evidence tags</div>
+                        <div class="terminal-line">motion: scenario timer → typing → analyzing → answer</div>
+                        <div class="terminal-line">input: GitHub URL validation → example repo presets</div>
+                        <div class="terminal-line">route: /analyze?repo=... → analysis job bootstrap</div>
+                        <div class="terminal-line">state: recent repositories → session memory restore</div>
+                      </div>
+                      <div class="metric-row bottom-pinned">
+                        <div class="metric"><b>10+</b><span>언어·프레임워크</span></div>
+                        <div class="metric"><b>4</b><span>Agent Workers</span></div>
+                        <div class="metric"><b>3</b><span>Demo Scenarios</span></div>
+                        <div class="metric"><b>1</b><span>URL 분석 시작</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <figure class="code-carousel-slide screen-shot">
+                  <img src="assets/live-landing-ko-light.png" alt="CodeMap live landing page in Korean light mode">
+                  <figcaption class="screen-slide-caption">랜딩 Hero · Repository Launcher</figcaption>
+                </figure>
+                <figure class="code-carousel-slide screen-shot">
+                  <img src="assets/live-projects-ko-light.png" alt="CodeMap project analysis page in Korean light mode">
+                  <figcaption class="screen-slide-caption">새 저장소 분석 · 분석 기록 · 워크스페이스 CTA</figcaption>
+                </figure>
+              </div>
+              <button class="carousel-arrow next" type="button" aria-label="다음 화면">›</button>
+            </div>
+            <article class="card">
+              <span class="label">구현 상세</span>
+              <ul>
+                <li><code>AsciiScene</code> Hero로 “코드 지도를 그린다”는 제품 첫인상을 전달합니다.</li>
+                <li><code>RepositoryLauncher</code>는 URL 입력 즉시 분석 페이지로 이동합니다.</li>
+                <li><code>InteractiveDemo</code>는 framer-motion과 타이머 제어로 AI 분석 흐름을 자동 시연합니다.</li>
+                <li>FastAPI, NumPy, Requests 시나리오로 구조 분석, 보안 탐색, 근거 태그를 보여줍니다.</li>
+              </ul>
+              <p class="quote" style="margin-top:14px; font-size: 17px;">단순 홍보 화면이 아니라 “입력 → 분석 → 근거 확인”으로 이어지는 실제 제품 첫 화면입니다.</p>
+            </article>
+          </div>
+          <div class="grid-3">
+            <article class="card compact blue">
+              <h3>Hero 구성요소</h3>
+              <p class="body">AsciiScene 배경 + Badge + 타이틀 + RepositoryLauncher + 예시 저장소(fastapi, numpy, next.js) + 통계 행</p>
+            </article>
+            <article class="card compact green">
+              <h3>데모 시나리오</h3>
+              <p class="body">FastAPI 의존성 흐름, NumPy 구조 분석, Requests 보안 탐색 — 각 시나리오를 자동 순환 시연</p>
+            </article>
+            <article class="card compact orange">
+              <h3>랜딩 섹션 구성</h3>
+              <p class="body">Hero → Trending → How It Works → Demo → Bento Features → Security → Use Cases → FAQ → CTA</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 07 / 10</span>
+        <div class="content">
+          <span class="kicker">Feature 2</span>
+          <h2>지능형 채팅 UX 및 독립 세션 복원</h2>
+          <div class="grid-2">
+            <article class="card">
+              <span class="label">채팅 UX</span>
+              <ul>
+                <li>Agent 단계는 `AgentExplorationTimeline`으로 표시해 사용자가 “무엇을 탐색 중인지” 볼 수 있습니다.</li>
+                <li>AI 답변은 Markdown, Mermaid, 코드 블록을 렌더링하며 스트리밍 중 커서 상태를 표시합니다.</li>
+                <li>`references` 이벤트는 파일명, 라인 범위, 전체 경로, snippet을 가진 근거 칩으로 변환됩니다.</li>
+                <li>Chrome 번역으로 메시지 DOM이 변형되는 문제를 막기 위해 `notranslate`와 `translate="no"`를 적용했습니다.</li>
+              </ul>
+            </article>
+            <article class="card green">
+              <span class="label">독립 세션 복원</span>
+              <ul>
+                <li>`repoId + threadId` 변경을 감지하면 렌더 단계에서 이전 메시지를 즉시 초기화해 세션 누수를 차단했습니다.</li>
+                <li>서버에 저장된 thread가 있으면 `fetchThread`로 우선 복원하고, 없을 때 프로젝트별 localStorage를 fallback으로 사용합니다.</li>
+                <li>백엔드는 `chat_conversations`, `chat_messages`, `sessionId`, LangGraph `thread_id`로 대화 맥락을 이어갑니다.</li>
+                <li>최근 PR #317, #310에서 프로젝트 전환 시 이전 대화가 남는 문제를 해결했습니다.</li>
+              </ul>
+            </article>
+          </div>
+          <article class="card compact">
+            <span class="label">데이터 흐름</span>
+            <div class="diagram">
+              <div class="node">User Question</div>
+              <div class="arrow">→</div>
+              <div class="node">Run Create<br>sessionId</div>
+              <div class="arrow">→</div>
+              <div class="node">SSE Stream<br>Timeline</div>
+              <div class="arrow">→</div>
+              <div class="node">References<br>Target Chip</div>
+              <div class="arrow">→</div>
+              <div class="node">DB + localStorage<br>Restore</div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 08 / 10</span>
+        <div class="content">
+          <span class="kicker">Feature 3</span>
+          <h2>코드 탐색 에디터: 근거 클릭에서 라인 하이라이트까지</h2>
+          <div class="split-heavy">
+            <div class="carousel-shell code-carousel">
+              <button class="carousel-arrow prev" type="button" aria-label="이전 화면">‹</button>
+              <div class="carousel-track" aria-label="코드 프리뷰와 실제 화면 캡처">
+                <div class="code-carousel-slide">
+                  <div class="mock-screen">
+                    <div class="screen-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                    <div class="screen-body">
+                      <div class="terminal-line">src/features/chat/components/ChatMessage.tsx  L37-L49</div>
+                      <div class="terminal-line">37 const getReferenceLineStart = ...</div>
+                      <div class="terminal-line">38 const getReferenceLineEnd = ...</div>
+                      <div class="terminal-line" style="background:rgba(250,204,21,.15); color:#fef3c7; padding:2px 8px; border-radius:6px;">39 const getReferenceLineLabel = ...</div>
+                      <div class="terminal-line">40 if (lineStart === null) return "라인 미확인";</div>
+                      <div class="terminal-line">41 return `L${lineStart}`;</div>
+                    </div>
+                  </div>
+                </div>
+                <figure class="code-carousel-slide screen-shot">
+                  <img src="assets/live-workspace-ko-light.png" alt="CodeMap workspace analysis dashboard in Korean light mode">
+                  <figcaption class="screen-slide-caption">분석 대시보드 · 파일 트리 · 진입점 카드</figcaption>
+                </figure>
+                <figure class="code-carousel-slide screen-shot">
+                  <img src="assets/live-code-panel-ko-light.png" alt="CodeMap file context panel in Korean light mode">
+                  <figcaption class="screen-slide-caption">파일 클릭 · 우측 컨텍스트 패널 · 채팅 연결</figcaption>
+                </figure>
+              </div>
+              <button class="carousel-arrow next" type="button" aria-label="다음 화면">›</button>
+            </div>
+            <article class="card">
+              <span class="label">구현 상세</span>
+              <ul>
+                <li>분석 페이지는 `CodePreviewPanel`을 통해 파일 원문, 언어, 라인 수, truncation 상태를 표시합니다.</li>
+                <li>근거 칩 클릭 시 `onReferenceClick(file, lineStart, lineEnd)`가 전달되고 코드 프리뷰가 해당 라인을 중심으로 스크롤합니다.</li>
+                <li>`prefers-reduced-motion`을 확인해 접근성 설정에 따라 smooth scroll 또는 즉시 이동을 선택합니다.</li>
+                <li>프로젝트 요구안의 Monaco Editor 방향과 함께, 현재 구현은 가볍고 안정적인 라인 테이블 기반 프리뷰로 동작합니다.</li>
+                <li>`@monaco-editor/react`, `monaco-editor`, `lucide-react` 의존성이 준비되어 있어 이후 IDE형 편집기 확장이 가능합니다.</li>
+              </ul>
+            </article>
+          </div>
+          <div class="grid-3">
+            <article class="card compact blue"><h3>파일 접근 경계</h3><p class="body">사용자-facing 파일 프리뷰는 repo 도메인의 job-scoped API를 통해서만 접근합니다.</p></article>
+            <article class="card compact green"><h3>라인 계약</h3><p class="body">`line`, `lineStart`, `lineEnd`, `lineLabel`을 모두 흡수해 기존/신규 API 계약을 함께 지원합니다.</p></article>
+            <article class="card compact orange"><h3>대용량 방어</h3><p class="body">큰 파일은 일정 길이에서 잘라 표시하고, 복사·닫기·오류 상태를 UI에서 분리합니다.</p></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 09 / 10</span>
+        <div class="content">
+          <span class="kicker">Feature 4</span>
+          <h2>Agent 방어 로직 및 파이프라인 확장</h2>
+          <div class="grid-2">
+            <article class="card">
+              <span class="label">환각·무한 루프 방어</span>
+              <ul>
+                <li>Evaluator는 근거가 부족할 때만 `replan_started`를 발생시키며 `AGENT_MAX_REPLANS`는 0~3 범위로 제한됩니다.</li>
+                <li>`attempted_signatures`를 state에 누적해 0건 반환 탐색을 반복하지 않도록 차단했습니다.</li>
+                <li>Dispatcher는 allowlist와 path traversal 검증을 거친 plan만 worker로 전달합니다.</li>
+                <li>Grep Worker에는 safe regex timeout guard를 적용해 ReDoS성 패턴으로 인한 지연을 방지했습니다.</li>
+              </ul>
+            </article>
+            <article class="card violet">
+              <span class="label">파이프라인 확장</span>
+              <ul>
+                <li>Clone → Parse → Embed → Report → Docs 단계로 저장소 분석 파이프라인을 구성했습니다.</li>
+                <li>AST 품질 도구, 환경 검증 도구, Hybrid Search, 문서 생성 API가 독립 도메인으로 확장되었습니다.</li>
+                <li>온보딩 가이드 생성, 파일 단위 요약, 추천 읽기 순서, PDF 다운로드 UI까지 산출물 흐름이 연결됩니다.</li>
+                <li>최근 발표 안정화에서는 분석 페이지 localStorage SWR 캐시를 적용해 DB/API 반복 요청 의존도를 낮췄습니다.</li>
+              </ul>
+            </article>
+          </div>
+          <div class="screen" style="margin-top: 0;">
+            <div class="screen-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <div class="screen-body">
+              <div class="terminal-line">dashboard.metrics = { complexity, modularity, security, docs, ragIndex }</div>
+              <div class="metric-row">
+                <div class="metric"><b>HNSW</b><span>Vector Search</span></div>
+                <div class="metric"><b>RRF</b><span>Hybrid Ranking</span></div>
+                <div class="metric"><b>SSE</b><span>Agent Timeline</span></div>
+                <div class="metric"><b>LRU</b><span>Snapshot Cleanup</span></div>
+              </div>
+              <div class="terminal-line" style="margin-top:18px">latest PRs: #322 localStorage cache, #320 LangGraph state serialization, #318 docs export polish</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div class="slide-inner">
+        <span class="page-no">Page 10 / 10</span>
+        <div class="content">
+          <span class="kicker">Retrospective</span>
+          <h2>KPT 회고 및 결론</h2>
+          <div class="kpt">
+            <article class="card green">
+              <span class="label">Keep</span>
+              <ul>
+                <li>프론트/백엔드 모두 도메인 중심 구조를 유지해 역할 충돌을 줄였습니다.</li>
+                <li>PR 리뷰와 명세 문서를 기준으로 구현을 검증해 계약 불일치를 빠르게 찾았습니다.</li>
+                <li>근거 칩, Agent 타임라인, 코드 프리뷰처럼 사용자가 검증 가능한 UX를 지향했습니다.</li>
+              </ul>
+            </article>
+            <article class="card orange">
+              <span class="label">Problem</span>
+              <ul>
+                <li>Agent가 근거 부족 상황에서 같은 탐색을 반복하거나 None/set 병합 오류로 실패하는 이슈가 있었습니다.</li>
+                <li>프로젝트 전환 시 이전 분석 화면과 채팅 세션이 남는 라우터·상태 동기화 문제가 있었습니다.</li>
+                <li>배포 컨테이너의 `git` 누락처럼 로컬과 운영 환경 차이에서 Clone 실패가 발생했습니다.</li>
+              </ul>
+            </article>
+            <article class="card blue">
+              <span class="label">Try</span>
+              <ul>
+                <li>Evaluator 재탐색 한도, attempted signatures, safe regex 등 방어 로직을 더 체계화합니다.</li>
+                <li>RDB 대화 이력과 LangGraph checkpoint의 중복 적재를 일원화해 장기 기억 구조를 단순화합니다.</li>
+                <li>향후 PR 자동 리뷰, 변경 영향도 분석, 팀 workspace 권한 모델을 고도화합니다.</li>
+              </ul>
+            </article>
+          </div>
+          <article class="card compact" style="border-width: 2px; border-color: rgba(37, 99, 235, 0.2); background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(237,244,255,0.9));">
+            <span class="label">최종 결론</span>
+            <p class="body" style="font-size: 15px; line-height: 1.65; margin-top: 6px;">CodeMap은 단순 코드 검색기가 아니라, 저장소를 분석하고 근거를 제시하며 온보딩 산출물까지 만드는 <strong>“검증 가능한 AI 코드베이스 안내자”</strong>를 목표로 구현되었습니다. 낯선 코드베이스에서 발생하는 <strong>“이해의 비대칭”</strong>을 해소하고, 시니어의 반복 설명을 줄이며, 신입의 막막함을 없애는 협업 온보딩 플랫폼을 지향합니다.</p>
+          </article>
+          <article class="card compact" style="margin-top: -10px;">
+            <span class="label">향후 과제 및 발전 방향 (Future Works)</span>
+            <ul style="font-size: 14.5px; margin-top: 6px;">
+              <li><strong>GitHub PR 봇 연동:</strong> PR 생성 시 Agent가 변경 영향을 파악하고 자동 리뷰 코멘트 작성.</li>
+              <li><strong>다중 저장소 교차 분석:</strong> MSA 환경에서 백엔드와 프론트엔드 저장소 문맥을 연결해 End-to-End 아키텍처 분석.</li>
+              <li><strong>엔터프라이즈 RBAC:</strong> 팀 내 역할(Role)에 따라 민감한 코드와 환경 변수 접근을 제한하는 세밀한 보안 모델 도입.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav id="nav" aria-label="슬라이드 이동">
+    <button type="button" id="prev" aria-label="이전 슬라이드">‹</button>
+    <span id="counter">1 / 10</span>
+    <button type="button" id="next" aria-label="다음 슬라이드">›</button>
+  </nav>
+  <div class="progress"><span id="progress"></span></div>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    const counter = document.getElementById("counter");
+    const progress = document.getElementById("progress");
+    let current = 0;
+
+    function render() {
+      slides.forEach((slide, index) => {
+        slide.classList.toggle("active", index === current);
+      });
+      counter.textContent = `${current + 1} / ${slides.length}`;
+      progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+    }
+
+    function go(delta) {
+      current = Math.max(0, Math.min(slides.length - 1, current + delta));
+      render();
+    }
+
+    document.getElementById("prev").addEventListener("click", () => go(-1));
+    document.getElementById("next").addEventListener("click", () => go(1));
+    document.querySelectorAll(".carousel-arrow").forEach((button) => {
+      button.addEventListener("click", () => {
+        const shell = button.closest(".carousel-shell");
+        const track = shell?.querySelector(".carousel-track, .capture-track");
+        if (!track) return;
+        const direction = button.classList.contains("prev") ? -1 : 1;
+        const firstSlide = track.firstElementChild;
+        const gap = Number.parseFloat(getComputedStyle(track).columnGap || "0") || 0;
+        const step = firstSlide ? firstSlide.getBoundingClientRect().width + gap : track.clientWidth;
+        track.scrollTo({ left: track.scrollLeft + direction * step, behavior: "smooth" });
+      });
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === " ") go(1);
+      if (event.key === "ArrowLeft") go(-1);
+      if (event.key === "Home") { current = 0; render(); }
+      if (event.key === "End") { current = slides.length - 1; render(); }
+    });
+
+    /* Mouse & Touch drag/swipe support for Slides & Carousels */
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    let isDragging = false;
+    let dragTarget = null;
+    let dragStartScroll = 0;
+
+    function handlePointerDown(e) {
+      if (e.button === 2) return; // Ignore right click
+      isDragging = true;
+      pointerStartX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      pointerStartY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+      
+      const track = e.target.closest('.carousel-track, .capture-track');
+      if (track) {
+        dragTarget = track;
+        dragStartScroll = track.scrollLeft;
+        track.style.scrollSnapType = 'none';
+        track.style.scrollBehavior = 'auto';
+      } else {
+        dragTarget = null;
+      }
+    }
+
+    function handlePointerMove(e) {
+      if (!isDragging) return;
+      if (dragTarget) {
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        dragTarget.scrollLeft = dragStartScroll - (clientX - pointerStartX);
+      }
+    }
+
+    function handlePointerUp(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      const clientX = e.type.includes('touch') ? e.changedTouches[0].clientX : e.clientX;
+      const clientY = e.type.includes('touch') ? e.changedTouches[0].clientY : e.clientY;
+      const dx = clientX - pointerStartX;
+      const dy = clientY - pointerStartY;
+      
+      if (dragTarget) {
+        dragTarget.style.scrollSnapType = '';
+        dragTarget.style.scrollBehavior = 'smooth';
+        // Auto-snap to nearest slide based on momentum/direction
+        const firstSlide = dragTarget.firstElementChild;
+        if (firstSlide && Math.abs(dx) > 30) {
+          const gap = Number.parseFloat(getComputedStyle(dragTarget).columnGap || "0") || 0;
+          const step = firstSlide.getBoundingClientRect().width + gap;
+          const targetScroll = dragStartScroll + (dx < 0 ? step : -step);
+          dragTarget.scrollTo({ left: targetScroll, behavior: 'smooth' });
+        }
+        dragTarget = null;
+      } else {
+        // Global slide swipe
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+          go(dx < 0 ? 1 : -1);
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('mousemove', handlePointerMove);
+    document.addEventListener('mouseup', handlePointerUp);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
+    document.addEventListener('touchmove', handlePointerMove, { passive: true });
+    document.addEventListener('touchend', handlePointerUp);
+
+    function scaleSlides() {
+      const baseW = 1440;
+      const baseH = 810;
+      const scale = Math.min(window.innerWidth / baseW, window.innerHeight / baseH);
+      document.querySelectorAll(".slide-inner").forEach((el) => {
+        el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        /* Soften border-radius at very small scales */
+        if (scale < 0.6) {
+          el.style.borderRadius = "8px";
+        } else {
+          el.style.borderRadius = "";
+        }
+      });
+    }
+
+    window.addEventListener("resize", scaleSlides);
+    scaleSlides();
+    render();
+
+    /* Auto-hide navigation on mobile after inactivity */
+    let navTimeout;
+    const navEl = document.getElementById("nav");
+    
+    function resetNavTimer() {
+      navEl.classList.remove("nav-hidden");
+      clearTimeout(navTimeout);
+      
+      if (window.innerWidth <= 1440) {
+        const timeoutMs = window.innerWidth <= 768 ? 1000 : 3000;
+        navTimeout = setTimeout(() => {
+          navEl.classList.add("nav-hidden");
+        }, timeoutMs);
+      }
+    }
+    
+    ['touchstart', 'touchmove', 'mousedown', 'mousemove', 'keydown'].forEach(evt => {
+      document.addEventListener(evt, resetNavTimer, { passive: true });
+    });
+    window.addEventListener("resize", resetNavTimer);
+    resetNavTimer();
+  </script>
+</body>
+</html>
