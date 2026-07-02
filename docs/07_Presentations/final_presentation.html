@@ -1121,7 +1121,13 @@
           </article>
           <article class="card compact" style="background: linear-gradient(135deg, rgba(37, 99, 235, .06), rgba(8, 145, 178, .04));">
             <span class="label">협업 방식</span>
-            <p class="body" style="margin: 0;">GitHub Organization으로 저장소를 관리하고, PR Template과 PR 리뷰 전용 Agent Skill을 활용해 명세 대조 리뷰를 수행합니다. 모든 PR은 <strong>팀원 2명의 Approve</strong>를 받아야 main에 병합됩니다.</p>
+            <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
+              <li><strong>형상 관리</strong> — GitHub Organization + Feature Branch 전략, Conventional Commits 컨벤션을 적용했습니다.</li>
+              <li><strong>코드 리뷰</strong> — PR Template과 PR 리뷰 전용 Agent Skill로 명세 대조 리뷰를 수행했습니다. 모든 PR은 <strong style="color: var(--blue);">팀원 2명의 Approve</strong> 후 병합했습니다.</li>
+              <li><strong>산출물 문서화</strong> — <code>docs/</code> 폴더에 요구사항 명세서, API 계약, 설계 결정 문서를 관리하고 코드 변경 시 함께 현행화했습니다.</li>
+              <li><strong>이슈·일정 관리</strong> — GitHub Issues와 Notion을 병행하여 태스크 생성, 담당자 할당, 우선순위를 관리했습니다.</li>
+              <li><strong>의사소통</strong> — 매일 진행 상황을 공유하고, 이슈 발생 시 Slack 채널에서 즉시 논의 후 GitHub에 기록했습니다.</li>
+            </ul>
           </article>
         </div>
       </div>
