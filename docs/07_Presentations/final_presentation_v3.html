@@ -1315,9 +1315,9 @@
               <button class="carousel-arrow prev" type="button" aria-label="이전 화면">‹</button>
               <div class="carousel-track" aria-label="랜딩 흐름과 실제 화면 캡처">
                 <div class="code-carousel-slide">
-                  <div class="mock-screen launch-mock">
+                  <div class="mock-screen launch-mock" style="min-height: 420px; display: flex; flex-direction: column;">
                     <div class="screen-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-                    <div class="screen-body">
+                    <div class="screen-body" style="flex: 1;">
                       <div class="launch-copy">
                         <div class="terminal-line">$ CodeMap.launch("https://github.com/vercel/next.js")</div>
                         <div class="terminal-line">render: ASCII Scene + Repository Launcher</div>
@@ -1394,11 +1394,11 @@
             }
           </style>
           <div class="split-heavy">
-            <div style="display: flex; flex-direction: column;">
+            <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
               <div style="display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 24px; box-shadow: 0 12px 32px rgba(31,42,68,0.12); overflow: hidden;">
                 <video src="assets/live-ai-chat-ko-light.mov" autoplay loop muted playsinline class="zoom-in-loop" style="width: 100%; height: auto; display: block;"></video>
               </div>
-              <article class="card compact" style="margin-top: 16px; transform: scale(0.85); transform-origin: left top; width: 117.64%;">
+              <article class="card compact" style="margin-top: 16px; transform: scale(0.85); transform-origin: left bottom; width: 117.64%;">
                 <span class="label">AI 채팅 데이터 흐름</span>
                 <div class="diagram">
                   <div class="node">User Question</div>
@@ -1413,8 +1413,8 @@
                 </div>
               </article>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-              <article class="card" style="padding-bottom: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
+              <article class="card" style="flex: 1;">
                 <span class="label">채팅 UX</span>
                 <ul style="margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.6; font-weight: 500;">
                   <li>Agent 단계는 <code>AgentExplorationTimeline</code>으로 표시해 사용자가 “무엇을 탐색 중인지” 확인 가능</li>
@@ -1424,7 +1424,7 @@
                   <li>Chrome 번역으로 메시지 DOM이 변형되는 문제를 막기 위해 <code>notranslate</code>와 <code>translate="no"</code>를 적용</li>
                 </ul>
               </article>
-              <article class="card green" style="padding-bottom: 8px;">
+              <article class="card green" style="flex: 1;">
                 <span class="label">독립 세션 복원</span>
                 <ul style="margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.6; font-weight: 500;">
                   <li><code>repoId + threadId</code> 변경 감지 시, 렌더 단계에서 이전 메시지 즉시 초기화해 세션 누수를 차단</li>
