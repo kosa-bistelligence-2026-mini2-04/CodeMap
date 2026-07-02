@@ -1018,35 +1018,35 @@
           <h1>CodeMap<br><span style="display: inline-block; margin-top: 12px;">AI 코드베이스 온보딩 도우미</span></h1>
           <p class="lead" style="margin-bottom: 40px;">
             <span class="line">GitHub 저장소 URL 하나로 저장소 구조, 핵심 파일, 실행 흐름, 코드 근거를 분석하고</span>
-            <span class="line">신규 개발자가 바로 이해할 수 있는 대화형 온보딩 경험을 제공하는 서비스입니다.</span>
+            <span class="line">신규 개발자가 <b>바로 이해 가능한</b> 대화형 온보딩 경험을 제공하는 서비스</span>
           </p>
           <div class="grid-3">
             <article class="card blue">
               <span class="label">기획 배경</span>
               <h3>정적 분석과 일반 챗봇의 사이</h3>
               <ul class="body" style="margin: 6px 0 0; padding-left: 18px; line-height: 1.6;">
-                <li>README만으로 진입점, 의존성, 실행 방법 파악 불가</li>
-                <li>단순 챗봇은 근거 파일, 라인 추적 없이 부분 답변만 출력</li>
-                <li>CodeMap은 이 간극을 채우는 능동적 분석 도구를 지향</li>
+                <li>README만으로 진입점, 의존성, 실행 방법 <b>파악 불가</b></li>
+                <li>단순 챗봇은 근거 파일, 라인 추적 없이 <b>부분 답변</b>만 출력</li>
+                <li>CodeMap은 이 간극을 채우는 <b>능동적 분석 도구</b>를 지향</li>
               </ul>
             </article>
             <article class="card green">
               <span class="label">프로젝트 목적</span>
               <h3>능동적 지식 분석가</h3>
-              <ul class="body" style="margin: 6px 0 0; padding-left: 18px; line-height: 1.6;">
-                <li>Planner → Dispatcher → Worker → Evaluator</li>
-                <li>협력 통해 코드 탐색, 검색 실패 시 재탐색 근거 남기는</li>
-                <li>Multi Agentic RAG 4단계 파이프라인을 구현</li>
-              </ul>
+              <p class="body" style="margin: 6px 0 0; line-height: 1.6;">
+                Planner → Dispatcher → Worker → Evaluator가<br>
+                협력하여 코드를 탐색하고, 검색 실패 시 재탐색 근거를 남기는<br>
+                <b>Multi Agentic RAG 4단계 파이프라인</b> 구현
+              </p>
             </article>
             <article class="card orange">
               <span class="label">기대 효과</span>
               <h3>온보딩 시간과 피로도 절감</h3>
-              <ul class="body" style="margin: 6px 0 0; padding-left: 18px; line-height: 1.6;">
-                <li>구조 요약, 파일 읽기 순서, 라인 단위 근거 칩,</li>
-                <li>분석 대시보드 통해 코드베이스 파악에 필요한</li>
-                <li>시간과 인지 부담 감소</li>
-              </ul>
+              <p class="body" style="margin: 6px 0 0; line-height: 1.6;">
+                구조 요약, 파일 읽기 순서, 라인 단위 근거 칩,<br>
+                분석 대시보드를 통해 코드베이스 파악에 필요한<br>
+                <b>시간과 인지 부담 감소</b>
+              </p>
             </article>
           </div>
           <div class="grid-2" style="gap: 16px;">
@@ -1153,11 +1153,11 @@
             <article class="card compact" style="background: linear-gradient(135deg, rgba(37, 99, 235, .06), rgba(8, 145, 178, .04));">
               <span class="label">협업 방식</span>
               <ul style="margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 14px; line-height: 1.5; font-weight: 500;">
-                <li><strong>형상 관리:</strong> GitHub Organization + Feature Branch 전략, Conventional Commits 컨벤션 적용</li>
+                <li><strong>형상 관리:</strong> GitHub Organization + Feature Branch 전략과 Conventional Commits 컨벤션 적용</li>
                 <li><strong>코드 리뷰:</strong> PR Template, PR 리뷰 전용 Agent Skill 통해 명세 대조 리뷰 수행.<br>모든 PR은 <strong style="color: var(--blue);">팀원 2명의 Approve</strong> 후 병합</li>
-                <li><strong>산출물 문서화:</strong> <code>docs/</code> 폴더에 요구사항 명세서, API 계약, 설계 결정 문서 관리 및 코드 변경 시 함께 현행화</li>
-                <li><strong>이슈·일정 관리:</strong> GitHub Issues, Notion 병행해 태스크 생성, 담당자 할당, 우선순위 관리</li>
-                <li><strong>의사소통:</strong> 매일 진행 상황 공유 및 이슈 발생 시, Slack 통해 논의 후 GitHub 기록</li>
+                <li><strong>산출물 문서화:</strong> <code>docs/</code> 폴더에 요구사항 명세서, API 계약, 설계 결정 문서를 관리하고 코드 변경 시 함께 현행화</li>
+                <li><strong>이슈·일정 관리:</strong> GitHub Issues와 Notion을 병행하여 태스크 생성, 담당자, 우선순위 관리</li>
+                <li><strong>의사소통:</strong> 매일 오전 진행 상황을 공유하고, 이슈 발생 시 실시간 논의 후 GitHub와 Notion에 기록</li>
               </ul>
             </article>
           </div>
@@ -1175,11 +1175,11 @@
             <article class="card">
               <span class="label">주요 사용자 스토리</span>
               <ul>
-                <li>사용자는 GitHub URL 입력 -> 저장소 분석 작업 생성</li>
+                <li>사용자는 GitHub URL을 입력해 저장소 분석 작업을 생성함</li>
                 <li>분석 완료 후 구조 요약, 파일별 역할, 주요 심볼, 건강도 지표 확인</li>
-                <li>채팅 통해 질문 시, Agent가 코드 근거 수집 및 파일/라인 참조를 답변</li>
-                <li>근거 칩을 클릭 시, 해당 파일 및 라인 범위를 코드 프리뷰로 출력</li>
-                <li>동일 저장소 세션은 이전 대화 맥락, 메시지를 복원</li>
+                <li>채팅에서 질문 시 Agent가 코드 근거를 수집하고 파일/라인 참조를 함께 답변함</li>
+                <li>근거 칩을 클릭 시, 해당 파일과 라인 범위가 코드 프리뷰로 출력됨</li>
+                <li>동일 저장소 세션은 이전 대화 맥락과 메시지를 복원함</li>
               </ul>
             </article>
             <article class="card">
@@ -1191,7 +1191,7 @@
                 <div class="arrow">→</div>
                 <div class="node">CodeMap<br>분석·검색·문서화<br>대화형 안내</div>
               </div>
-              <p class="body" style="margin-top:18px">핵심 요구사항은 “빠른 분석 화면 복원”, “근거 기반 답변”, “코드 라인 이동”, “문서 산출물 생성”으로 압축됩니다.</p>
+              <p class="body" style="margin-top:18px">핵심 요구사항은 빠른 분석 화면 복원 · 근거 기반 답변 · 코드 라인 이동 · 문서 산출물 생성 4가지 항목으로 압축됨.</p>
             </article>
           </div>
           <article class="card compact">
@@ -1211,11 +1211,11 @@
           <div class="grid-3">
             <article class="card compact blue">
               <h3>53+ 기능 명세</h3>
-              <p class="body">Phase 1 · 2 아우르는 기능 사양서와 15개 이상의 <br/> 상세 스펙 문서를 통한 요구사항 체계화</p>
+              <p class="body">Phase 1·2를 아우르는 기능 사양서와 15개 이상의 상세 스펙 문서로 요구사항을 체계화</p>
             </article>
             <article class="card compact green">
               <h3>22개 경쟁 분석</h3>
-              <p class="body">CodeWiki, RepoLens, CodeRAG 등 유사 서비스를 <br/> 비교 분석해 CodeMap만의 차별점 도출</p>
+              <p class="body">CodeWiki, RepoLens, CodeRAG 등 유사 서비스를 비교 분석하여 CodeMap만의 차별점 도출</p>
             </article>
             <article class="card compact orange">
               <h3>8개 설계 결정</h3>
@@ -1233,56 +1233,27 @@
           <span class="kicker">System Architecture</span>
           <h2>Agent Core Pipeline과 Session Memory</h2>
           <div class="split-heavy">
-            <article class="card">
+            <article class="card" style="display:flex; flex-direction:column;">
               <span class="label">Agent Core Pipeline</span>
-              <div class="diagram">
-                <div class="node">Planner<br>질문 재작성<br>도구 계획</div>
-                <div class="arrow">→</div>
-                <div class="node">Dispatcher<br>경로 검증<br>Fan-out</div>
-                <div class="arrow">→</div>
-                <div class="node">Workers<br>Search<br>Dir/Grep/Read</div>
-                <div class="arrow">→</div>
-                <div class="node">Evaluator<br>근거 압축<br>재탐색 판단</div>
+              <div style="flex:1; display:grid; place-items:center; border-radius:12px; background:rgba(37,99,235,0.04); border:1px solid rgba(37,99,235,0.1);">
+                <span style="color:var(--muted); font-size:14px; font-weight:500;">(아키텍처 이미지 영역)</span>
               </div>
-              <ul style="margin-top: 24px;">
-                <li>LLM은 계획과 최종 답변에 집중, 파일 접근·보안 검증은 결정론적 코드로 분리</li>
-                <li>Dispatcher - 단일 경로 탐색에 그치지 않고, 승인된 경로들을 4개의 워커(Search, Dir, Grep, Read)로 동시 병렬 실행(Fan-out)하여 탐색 속도 극대화</li>
-                <li>Hybrid Search - pgvector 의미 검색 + BM25/RRF 키워드 검색</li>
-                <li>일부 파일 접근이나 워커 실행이 실패하더라도, 전체 파이프라인 중지없이 수집된 부분 근거(Partial Evidence)만을 통해 후속 분석을 이어 진행</li>
-                <li>Evaluator - 근거 충분성 판단 후 설정된 반복 한도 안에서 re-plan을 요청</li>
-                <li>최종 분석 결과는 보고서 형식(Markdown, PDF 파일)으로 다운로드 가능</li>
-              </ul>
             </article>
             <article class="card violet">
-              <span class="label">Session Memory</span>
-              <div class="mono">chat_conversations
-  └─ chat_messages[]: role, content, mode, references
-
-LangGraph checkpoints
-  └─ thread_id = sessionId
-
-CodeMapState
-  ├─ memory_context
-  ├─ worker_results
-  ├─ compact_context
-  └─ evaluator_decision</div>
-              <p class="body" style="margin-top:18px">기존 1회성 상태를 넘어서 DB 대화 이력과 LangGraph checkpoint 함께 사용. 프로젝트별 `sessionId`를 기준으로 이전 질문과 답변 근거가 Planner 입력에 복원</p>
+              <span class="label">Agent Core Pipeline</span>
+              <ul style="margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.6; font-weight: 500;">
+                <li><b>역할 분리:</b> LLM은 계획과 최종 답변에 집중하고, 파일 접근·보안 검증은 결정론적 코드로 분리</li>
+                <li><b>Dispatcher:</b> 단일 경로 탐색에 그치지 않고, 승인된 경로들을 Search, Dir, Grep, Read - 4개의 워커로 동시 병렬 실행(Fan-out)하여 탐색 속도 극대화</li>
+                <li><b>Hybrid Search:</b> pgvector 의미 검색 + BM25/RRF 키워드 검색</li>
+                <li><b>Fault Tolerance:</b> 일부 파일 접근이나 워커 실행이 실패하더라도, 전체 파이프라인 중지 없이 수집된 부분 근거(Partial Evidence)만으로 후속 분석을 이어서 진행</li>
+                <li><b>Evaluator:</b> 근거 충분성 판단 후 설정된 반복 한도 안에서 re-plan을 요청</li>
+                <li><b>Report Export:</b> 최종 분석 결과를 보고서 형식(Markdown, PDF)으로 다운로드 가능</li>
+              </ul>
             </article>
           </div>
           <article class="card compact">
-            <span class="label">SSE 이벤트 타임라인</span>
-            <div class="chips">
-              <span class="chip">graph_started</span>
-              <span class="chip">planner_plan</span>
-              <span class="chip">route_validated</span>
-              <span class="chip">worker_started</span>
-              <span class="chip">worker_result</span>
-              <span class="chip">evidence_compacted</span>
-              <span class="chip">evaluator_decision</span>
-              <span class="chip">answer_delta</span>
-              <span class="chip">references</span>
-              <span class="chip">completed</span>
-            </div>
+            <span class="label">Session Memory</span>
+            <p class="body" style="margin: 0; line-height: 1.6;">기존 1회성 상태를 넘어서 DB 대화 이력과 LangGraph checkpoint를 함께 사용.<br/>프로젝트별 `sessionId`를 기준으로 이전 질문 · 답변 근거가 Planner 입력에 복원</p>
           </article>
         </div>
       </div>
@@ -1301,7 +1272,7 @@ CodeMapState
             </article>
             <article class="card compact green" style="display: flex; align-items: center; gap: 18px; padding: 14px 18px; text-align: left;">
               <h3 style="margin: 0; white-space: nowrap; width: 80px; flex-shrink: 0;">중복 방지</h3>
-              <p class="body" style="margin: 0; flex: 1;"><code>job_id + path + chunk_index</code> 유니크 제약과 in-progress 부분 유니크 인덱스로 중복 분석 제어</p>
+              <p class="body" style="margin: 0; flex: 1;"><code>job_id + path + chunk_index</code> 유니크 제약과 in-progress 부분 유니크 인덱스로 중복 분석을 제어</p>
             </article>
             <article class="card compact orange" style="display: flex; align-items: center; gap: 18px; padding: 14px 18px; text-align: left;">
               <h3 style="margin: 0; white-space: nowrap; width: 80px; flex-shrink: 0;">복원성</h3>
@@ -1418,8 +1389,8 @@ CodeMapState
               <span class="label">독립 세션 복원</span>
               <ul>
                 <li>`repoId + threadId` 변경 감지 시, 렌더 단계에서 이전 메시지 즉시 초기화해 세션 누수를 차단</li>
-                <li>서버에 저장된 thread가 있을 경우 `fetchThread`로 우선 복원, 없을 겨우 프로젝트별 localStorage를 fallback으로 사용</li>
-                <li>백엔드는 `chat_conversations`, `chat_messages`, `sessionId`, LangGraph `thread_id`로 대화 맥락을 이어감</li>
+                <li>서버에 저장된 thread가 있을 경우 `fetchThread`로 우선 복원, 없을 경우 프로젝트별 localStorage를 fallback으로 사용</li>
+                <li>백엔드는 `chat_conversations`, `chat_messages`, `sessionId`, LangGraph `thread_id`로 대화 맥락을 연결</li>
                 <li>최근 PR #317, #310에서 프로젝트 전환 시 이전 대화가 남는 문제를 해결</li>
               </ul>
             </article>
