@@ -1382,39 +1382,46 @@
         <div class="content">
           <span class="kicker">Feature 2</span>
           <h2>지능형 채팅 UX 및 독립 세션 복원</h2>
-          <div class="grid-2">
-            <article class="card">
-              <span class="label">채팅 UX</span>
-              <ul>
-                <li>Agent 단계는 `AgentExplorationTimeline`으로 표시해 사용자가 “무엇을 탐색 중인지” 확인 가능</li>
-                <li>AI 답변은 Markdown, Mermaid, 코드 블록을 렌더링하며 스트리밍 중 커서 상태를 표시</li>
-                <li>`references` 이벤트는 파일명, 라인 범위, 전체 경로, snippet을 가진 근거 칩으로 변환</li>
-                <li>Chrome 번역으로 메시지 DOM이 변형되는 문제를 막기 위해 `notranslate`와 `translate="no"`를 적용</li>
-              </ul>
-            </article>
-            <article class="card green">
-              <span class="label">독립 세션 복원</span>
-              <ul>
-                <li>`repoId + threadId` 변경 감지 시, 렌더 단계에서 이전 메시지 즉시 초기화해 세션 누수를 차단</li>
-                <li>서버에 저장된 thread가 있을 경우 `fetchThread`로 우선 복원, 없을 경우 프로젝트별 localStorage를 fallback으로 사용</li>
-                <li>백엔드는 `chat_conversations`, `chat_messages`, `sessionId`, LangGraph `thread_id`로 대화 맥락을 연결</li>
-              </ul>
-            </article>
-          </div>
-          <article class="card compact">
-            <span class="label">데이터 흐름</span>
-            <div class="diagram">
-              <div class="node">User Question</div>
-              <div class="arrow">→</div>
-              <div class="node">Run Create<br>sessionId</div>
-              <div class="arrow">→</div>
-              <div class="node">SSE Stream<br>Timeline</div>
-              <div class="arrow">→</div>
-              <div class="node">References<br>Target Chip</div>
-              <div class="arrow">→</div>
-              <div class="node">DB + localStorage<br>Restore</div>
+          <div class="split-heavy">
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 24px; box-shadow: 0 12px 32px rgba(31,42,68,0.12); overflow: hidden; height: 100%;">
+                <img src="assets/live-ai-chat-ko-light.png" alt="AI Chat Interface" style="width: 100%; height: auto;">
+              </div>
+              <article class="card" style="padding: 24px; background: rgba(248, 250, 252, 0.9);">
+                <div style="text-align: center; margin-bottom: 16px;">
+                  <span style="font-weight: 700; color: var(--text); font-size: 16px;">대화를 시작하세요</span><br>
+                  <span style="font-size: 13.5px; color: var(--muted); margin-top: 4px; display: block;">아래 추천 질문을 선택하거나 직접 질문을 입력하세요</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+                  <span style="background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">이 프로젝트의 전체 아키텍처를 설명해줘</span>
+                  <span style="background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">핵심 파일과 추천 읽기 순서를 알려줘</span>
+                  <span style="background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">이 프로젝트를 로컬에서 실행하는 방법은?</span>
+                  <span style="background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">진입점(entry point)은 어디야?</span>
+                  <span style="background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">위험하거나 복잡한 파일이 있어?</span>
+                  <span style="background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">사용된 기술 스택을 분석해줘</span>
+                </div>
+              </article>
             </div>
-          </article>
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <article class="card" style="flex: 1;">
+                <span class="label">채팅 UX</span>
+                <ul style="margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.6; font-weight: 500;">
+                  <li>Agent 단계는 <code>AgentExplorationTimeline</code>으로 표시해 사용자가 “무엇을 탐색 중인지” 확인 가능</li>
+                  <li>AI 답변은 Markdown, Mermaid, 코드 블록을 렌더링하며 스트리밍 중 커서 상태를 표시</li>
+                  <li><code>references</code> 이벤트는 파일명, 라인 범위, 전체 경로, snippet을 가진 근거 칩으로 변환</li>
+                  <li>Chrome 번역으로 메시지 DOM이 변형되는 문제를 막기 위해 <code>notranslate</code>와 <code>translate="no"</code>를 적용</li>
+                </ul>
+              </article>
+              <article class="card green" style="flex: 1;">
+                <span class="label">독립 세션 복원</span>
+                <ul style="margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.6; font-weight: 500;">
+                  <li><code>repoId + threadId</code> 변경 감지 시, 렌더 단계에서 이전 메시지 즉시 초기화해 세션 누수를 차단</li>
+                  <li>서버에 저장된 thread가 있을 경우 <code>fetchThread</code>로 우선 복원, 없을 경우 프로젝트별 localStorage를 fallback으로 사용</li>
+                  <li>백엔드는 <code>chat_conversations</code>, <code>chat_messages</code>, <code>sessionId</code>, LangGraph <code>thread_id</code>로 대화 맥락을 연결</li>
+                </ul>
+              </article>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1456,11 +1463,11 @@
             <article class="card">
               <span class="label">구현 상세</span>
               <ul>
-                <li>분석 페이지는 `CodePreviewPanel`을 통해 파일 원문, 언어, 라인 수, truncation 상태 표시</li>
-                <li>근거 칩 클릭 시 `onReferenceClick(file, lineStart, lineEnd)`가 전달 및 코드 프리뷰가 해당 라인을 중심으로 스크롤</li>
-                <li>`prefers-reduced-motion`을 확인해 접근성 설정에 따라 smooth scroll 또는 즉시 이동을 선택</li>
-                <li>프로젝트 요구안의 Monaco Editor 방향과 함께, 현재 구현은 가볍고 안정적인 라인 테이블 기반 프리뷰로 동작</li>
-                <li>`@monaco-editor/react`, `monaco-editor`, `lucide-react` 의존성이 준비돼 있어 이후 IDE형 편집기 확장이 가능</li>
+                <li><code>CodePreviewPanel</code>: 파일 원문, 언어, 라인 수, truncation 상태 표시</li>
+                <li>근거 칩 연동: <code>onReferenceClick</code> 전달 및 해당 라인 중심 자동 스크롤</li>
+                <li>접근성 설정: <code>prefers-reduced-motion</code> 확인 후 smooth scroll 또는 즉시 이동 분기</li>
+                <li>프리뷰 환경: 현재 가볍고 안정적인 라인 테이블 기반 적용 (Monaco Editor 전환 가능 구조)</li>
+                <li>확장성: <code>@monaco-editor/react</code> 등 IDE형 편집기 확장을 위한 의존성 사전 구성 완료</li>
               </ul>
             </article>
           </div>
@@ -1483,19 +1490,19 @@
             <article class="card">
               <span class="label">환각·무한 루프 방어</span>
               <ul>
-                <li>Evaluator - 근거 부족한 경우만 `replan_started`를 발생시키며 `AGENT_MAX_REPLANS`는 0~3 범위로 제한됩니다.</li>
-                <li>`attempted_signatures`를 state에 누적해 0건 반환 탐색 반복 차단</li>
-                <li>Dispatcher - allowlist와 path traversal 검증을 거친 plan만 worker로 전달</li>
-                <li>Grep Worker에는 safe regex timeout guard를 적용해 ReDoS성 패턴으로 인한 지연 방지</li>
+                <li>Evaluator 검증: 근거 부족 시에만 <code>replan_started</code> 발생 (최대 3회 제한)</li>
+                <li>루프 방어: <code>attempted_signatures</code> 누적을 통한 무의미한 탐색 반복 차단</li>
+                <li>Dispatcher 보안: allowlist 및 path traversal 검증 완료된 plan만 실행</li>
+                <li>Grep Worker 가드: safe regex timeout 적용으로 ReDoS 지연 방지</li>
               </ul>
             </article>
             <article class="card violet">
               <span class="label">파이프라인 확장</span>
               <ul>
-                <li>Clone → Parse → Embed → Report → Docs 단계로 저장소 분석 파이프라인 구성</li>
-                <li>AST 품질 도구, 환경 검증 도구, Hybrid Search, 문서 생성 API가 독립 도메인으로 확장</li>
-                <li>온보딩 가이드 생성, 파일 단위 요약, 추천 읽기 순서, PDF 다운로드 UI까지 산출물 흐름 연결</li>
-                <li>최근 배포 안정화에서는 분석 페이지 localStorage SWR 캐시 적용해 DB/API 반복 요청 의존도 감소시킴</li>
+                <li>파이프라인 단계: Clone → Parse → Embed → Report → Docs 순서로 구성</li>
+                <li>도메인 독립: AST 분석, 환경 검증, Hybrid Search, 문서 생성 API 독립 도메인화</li>
+                <li>산출물 흐름: 온보딩 가이드, 파일 요약, 추천 읽기 순서, PDF 다운로드 UI 지원</li>
+                <li>성능 최적화: localStorage SWR 캐시 적용으로 DB/API 반복 요청 최소화</li>
               </ul>
             </article>
           </div>
@@ -1526,17 +1533,17 @@
             <article class="card green">
               <span class="label">Keep</span>
               <ul>
-                <li>프론트/백엔드 모두 도메인 중심 구조를 유지 통해 역할 충돌 횟수 감소함</li>
-                <li>PR 리뷰와 명세 문서를 기준 구현 검증 통해 빠르게 계약 불일치를 탐지함</li>
-                <li>근거 칩, Agent 타임라인, 코드 프리뷰처럼 사용자가 검증 가능한 UX를 지향함</li>
+                <li>도메인 중심 구조 유지로 프론트/백엔드 역할 충돌 최소화</li>
+                <li>명세 기반 PR 리뷰를 통한 API 계약 불일치 신속 탐지</li>
+                <li>근거 칩, Agent 타임라인, 코드 프리뷰 등 사용자 검증 가능 UX 구현</li>
               </ul>
             </article>
             <article class="card orange">
               <span class="label">Problem</span>
               <ul>
-                <li>Agent가 근거 부족 상황에서 같은 탐색을 반복 및 None/set 병합 오류로 실패하는 문제 발생함</li>
-                <li>프로젝트 전환 시 이전 분석 화면과 채팅 세션이 남는 라우터·상태 동기화 문제 발견됨</li>
-                <li>배포 컨테이너의 `git` 누락처럼 로컬과 운영 환경 차이로 인한 Clone 실패 문제 직면함</li>
+                <li>탐색 루프 이슈: 근거 부족 시 동일 탐색 반복 및 상태 병합 오류 발생</li>
+                <li>상태 동기화 지연: 프로젝트 전환 시 이전 세션과 분석 화면이 남는 이슈</li>
+                <li>운영 환경 불일치: 컨테이너 <code>git</code> 누락 등 로컬-운영 환경 간 의존성 문제</li>
               </ul>
             </article>
             <article class="card blue">
