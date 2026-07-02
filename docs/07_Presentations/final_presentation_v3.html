@@ -1236,7 +1236,8 @@
             <div style="display: flex; align-items: center; justify-content: center;">
               <img src="assets/architecture.png" alt="Architecture" style="width: 100%; height: auto; border-radius: 24px; box-shadow: 0 12px 32px rgba(31,42,68,0.12);">
             </div>
-            <article class="card violet">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <article class="card violet" style="flex: 1;">
               <span class="label">Agent Core Pipeline</span>
               <div class="diagram">
                 <div class="node">Planner<br>질문 재작성<br>도구 계획</div>
@@ -1255,12 +1256,12 @@
                 <li><b>Evaluator:</b> 근거 충분성 판단 후 설정된 반복 한도 안에서 re-plan을 요청</li>
                 <li><b>Report Export:</b> 최종 분석 결과를 보고서 형식(Markdown, PDF)으로 다운로드 가능</li>
               </ul>
-            </article>
-          </div>
-          <article class="card compact">
-            <span class="label">Session Memory</span>
-            <p class="body" style="margin: 0; line-height: 1.6;">기존 1회성 상태를 넘어서 DB 대화 이력과 LangGraph checkpoint를 함께 사용. 프로젝트별 `sessionId`를 기준으로 이전 질문 · 답변 근거가 Planner 입력에 복원</p>
-          </article>
+              </article>
+              <article class="card compact">
+                <span class="label">Session Memory</span>
+                <p class="body" style="margin: 0; line-height: 1.6;">기존 1회성 상태를 넘어서 DB 대화 이력과 LangGraph checkpoint를 함께 사용. 프로젝트별 `sessionId`를 기준으로 이전 질문 · 답변 근거가 Planner 입력에 복원</p>
+              </article>
+            </div>
         </div>
       </div>
     </section>
